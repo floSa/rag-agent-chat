@@ -1,0 +1,15 @@
+Voici les sources disponibles pour répondre à la question de l'utilisateur.
+Chaque source est une section de document avec son contexte hiérarchique.
+
+{% for ctx in contexts %}
+---
+Source {{ loop.index }} — {{ ctx.element_id }}
+{% if ctx.breadcrumbs %}Chemin : {{ ctx.breadcrumbs | join(" > ", attribute="text") }}{% endif %}
+
+{{ ctx.markdown }}
+---
+{% endfor %}
+
+Question de l'utilisateur : {{ question }}
+
+Réponds en te basant uniquement sur les sources ci-dessus. N'oublie pas de citer avec [src:ELEMENT_ID].

@@ -1,0 +1,27 @@
+#!/bin/bash
+set -e
+
+MODEL="${OLLAMA_MODEL:-gemma3:4b}"
+
+echo "[ollama-init] Démarrage du serveur Ollama..."
+ollama serve &
+OLLAMA_PID=$!
+
+echo "[ollama-init] Attente de la disponibilité de l'API..."
+until curl -sf http://localhost:11434/api/version > /dev/null; do
+    sleep 2
+done
+echo "[ollama-init] API disponible."
+
+if ollama list | grep -q "^${MODEL}"; then
+    echo "[ollama-init] Modèle ${MODEL} déjà présent dans le volume."
+else
+    echo "[ollama-init] Téléchargement du modèle ${MODEL}..."
+    ollama pull "${MODEL}"
+    echo "[ollama-init] Modèle ${MODEL} téléchargé."
+fi
+
+echo "[ollama-init] Prêt. Modèles disponibles :"
+ollama list
+
+wait $OLLAMA_PID
