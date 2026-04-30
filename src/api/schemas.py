@@ -1,0 +1,111 @@
+from pydantic import BaseModel, Field
+
+
+# ─── Retrieval ────────────────────────────────────────────────────────────────
+
+class ChunkResult(BaseModel):
+    chunk_id: str
+    element_id: str
+    graph_node_id: str
+    document: str                     # texte du chunk
+    filename: str
+    page_no: int
+    label: str                        # paragraph, section_header, table, picture…
+    minio_url: str | None = None
+    page_position: int = 0
+    ref_position: int = 0
+    distance: float                   # distance cosine ChromaDB
+    rerank_score: float | None = None  # score cross-encoder (None avant reranking)
+
+
+class SearchRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    top_k: int = Field(default=20, ge=1, le=50)
+
+
+class SearchResponse(BaseModel):
+    question: str
+    chunks: list[ChunkResult]
+
+
+# ─── Reranking & sélection sources ────────────────────────────────────────────
+
+class SourceGroup(BaseModel):
+    filename: str
+    best_score: float                 # meilleur rerank_score du groupe
+    chunks: list[ChunkResult]
+
+
+class SourcesResponse(BaseModel):
+    question: str
+    groups: list[SourceGroup]         # groupés par document, triés par best_score
+
+
+class SourceSelectionRequest(BaseModel):
+    thread_id: str
+    question: str
+    selected_element_ids: list[str] = Field(..., min_length=1)
+
+
+# ─── Graph context ────────────────────────────────────────────────────────────
+
+class BreadcrumbEntry(BaseModel):
+    node_id: str
+    label: str
+    text: str
+
+
+class SectionElement(BaseModel):
+    node_id: str
+    label: str
+    text: str
+    minio_url: str | None = None
+    sequence: int
+
+
+class SectionContext(BaseModel):
+    element_id: str
+    section_id: str
+    breadcrumbs: list[BreadcrumbEntry]   # du Document jusqu'à la section
+    elements: list[SectionElement]       # enfants ordonnés par sequence
+    markdown: str                         # contexte assemblé prêt pour le LLM
+
+
+# ─── Chat / génération ────────────────────────────────────────────────────────
+
+class Message(BaseModel):
+    role: str    # "user" | "assistant"
+    content: str
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=2000)
+    selected_element_ids: list[str] = Field(default_factory=list)
+    chat_history: list[Message] = Field(default_factory=list)
+    stream: bool = True
+
+
+class Citation(BaseModel):
+    element_id: str
+    filename: str
+    page_no: int
+    text_excerpt: str
+
+
+class ImageRef(BaseModel):
+    element_id: str
+    minio_url: str
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[Citation]
+    images: list[ImageRef]
+    search_count: int
+
+
+# ─── Health ───────────────────────────────────────────────────────────────────
+
+class HealthResponse(BaseModel):
+    status: str
+    ollama_model: str

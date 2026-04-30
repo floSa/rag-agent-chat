@@ -1,0 +1,91 @@
+services:
+
+  # ──────────────────────────────────────────────────────────────────
+  # LLM local — Ollama (Gemma 3 4B)
+  # Entrypoint custom : vérifie si le modèle est déjà dans le volume,
+  # le télécharge si nécessaire, puis sert l'API.
+  # ──────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag-ollama
+    volumes:
+      - models_cache:/root/.ollama
+      - ./scripts/ollama_entrypoint.sh:/ollama_entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/ollama_entrypoint.sh"]
+    environment:
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags | grep -q 'models'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 600s   # 10 min pour le premier téléchargement
+    restart: unless-stopped
+    networks:
+      - rag_network
+      - internal
+
+  # ──────────────────────────────────────────────────────────────────
+  # Backend FastAPI
+  # ──────────────────────────────────────────────────────────────────
+  agent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: rag-agent-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./prompts:/app/prompts:ro
+    env_file:
+      - .env
+    depends_on:
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - rag_network
+      - internal
+
+  # ──────────────────────────────────────────────────────────────────
+  # Frontend Streamlit
+  # ──────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: rag-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://agent-api:8000
+    depends_on:
+      agent-api:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - internal
+
+# ──────────────────────────────────────────────────────────────────
+# Volumes
+# ──────────────────────────────────────────────────────────────────
+volumes:
+  models_cache:
+    name: rag_models_cache
+
+# ──────────────────────────────────────────────────────────────────
+# Réseaux
+# ──────────────────────────────────────────────────────────────────
+networks:
+  rag_network:
+    external: true   # Réseau créé par rag-ingestion-pipeline
+  internal:
+    driver: bridge

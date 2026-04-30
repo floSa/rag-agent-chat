@@ -1,0 +1,29 @@
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Le frontend n'a besoin que de streamlit + httpx pour appeler l'API
+RUN pip install --no-cache-dir --user \
+    streamlit==1.44.1 \
+    httpx==0.28.1 \
+    pydantic==2.11.4
+
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY --from=builder /root/.local /root/.local
+
+COPY src/frontend ./src/frontend
+
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONPATH=/app
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "src/frontend/app.py", "--server.port=8501", "--server.address=0.0.0.0"]

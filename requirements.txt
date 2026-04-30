@@ -1,0 +1,33 @@
+# --- API & Web ---
+fastapi==0.115.12
+uvicorn==0.34.2
+python-multipart==0.0.20
+sse-starlette==2.3.5
+streamlit==1.44.1
+
+# --- LangGraph (agentic loop) ---
+langgraph==0.4.3
+langchain-core==0.3.59
+
+# --- LLM Client (OpenAI-compatible, pour Ollama) ---
+openai==1.77.0
+
+# --- Retrieval & Reranking ---
+chromadb==1.5.8
+sentence-transformers==5.4.1
+
+# --- Graph DB ---
+nebula3-python==3.8.3
+
+# --- Object Storage ---
+minio==7.2.20
+
+# --- Templating ---
+jinja2==3.1.6
+
+# --- Config ---
+pydantic==2.11.4
+pydantic-settings==2.9.1
+
+# --- Utilities ---
+httpx==0.28.1

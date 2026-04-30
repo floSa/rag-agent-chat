@@ -1,0 +1,66 @@
+[project]
+name = "rag-agent-chat"
+version = "0.1.0"
+description = "Agent RAG conversationnel : retrieval, graph context, génération LLM locale"
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "N",    # pep8-naming
+    "ANN",  # flake8-annotations
+]
+ignore = [
+    "ANN401",  # dynamically typed expressions (typing.Any)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["tests/"]
+disallow_untyped_decorators = false
+
+[[tool.mypy.overrides]]
+module = [
+    "chromadb.*",
+    "nebula3.*",
+    "minio.*",
+    "sentence_transformers.*",
+    "fastapi.*",
+    "uvicorn",
+    "streamlit.*",
+    "langgraph.*",
+    "langchain_core.*",
+    "openai.*",
+    "jinja2.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: tests requiring heavy infrastructure (NebulaGraph, Ollama)",
+    "integration: tests requiring Docker services",
+]
+addopts = "-q --tb=short"
