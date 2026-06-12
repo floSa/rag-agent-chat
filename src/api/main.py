@@ -108,7 +108,7 @@ def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict:
 
 # ─── Chat (génération directe, sans LangGraph) ────────────────────────────────
 
-@app.post("/chat/simple")
+@app.post("/chat/simple", response_model=None)
 async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     """Génération directe (sans agentic loop) à partir des sources sélectionnées.
 
@@ -191,7 +191,7 @@ async def chat_start(req: SearchRequest) -> dict:
     }
 
 
-@app.post("/chat/resume")
+@app.post("/chat/resume", response_model=None)
 async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | ChatResponse:
     """Reprend le flux LangGraph après sélection des sources par l'utilisateur.
 
