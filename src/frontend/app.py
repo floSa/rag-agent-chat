@@ -1,4 +1,6 @@
+import json
 import os
+from collections.abc import Iterator
 
 import httpx
 import streamlit as st
@@ -41,6 +43,16 @@ def _api_post(path: str, payload: dict) -> dict:
     resp = httpx.post(f"{API_URL}{path}", json=payload, timeout=120.0)
     resp.raise_for_status()
     return resp.json()
+
+
+def _stream_post(path: str, payload: dict) -> Iterator[dict]:
+    """POST en SSE : yield chaque événement `data: {...}` décodé."""
+    timeout = httpx.Timeout(10.0, read=None)  # la génération peut être longue
+    with httpx.stream("POST", f"{API_URL}{path}", json=payload, timeout=timeout) as resp:
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if line.startswith("data:"):
+                yield json.loads(line[len("data:"):].strip())
 
 
 # ─── UI principale ────────────────────────────────────────────────────────────
@@ -179,35 +191,45 @@ elif st.session_state.phase == "answer":
     answer_placeholder = st.empty()
 
     if not st.session_state.answer:
-        with st.spinner("Reconstruction du contexte et génération…"):
-            try:
-                result = _api_post(
-                    "/chat/resume",
-                    {
-                        "thread_id": st.session_state.thread_id,
-                        "question": st.session_state.question,
-                        "selected_element_ids": list(st.session_state.selected_ids),
-                    },
-                )
-                st.session_state.answer = result.get("answer", "")
-                st.session_state.citations = result.get("citations", [])
-                st.session_state.images = result.get("images", [])
-                st.session_state.search_count = result.get("search_count", 1)
+        try:
+            answer_placeholder.markdown("⏳ _Reconstruction du contexte…_")
+            acc = ""
+            for event in _stream_post(
+                "/chat/resume",
+                {
+                    "thread_id": st.session_state.thread_id,
+                    "question": st.session_state.question,
+                    "selected_element_ids": list(st.session_state.selected_ids),
+                    "stream": True,
+                },
+            ):
+                if event.get("reset"):
+                    # Nouvelle génération (boucle agentique) : on repart de zéro
+                    acc = ""
+                    answer_placeholder.markdown("🔄 _Recherche supplémentaire…_")
+                elif "token" in event:
+                    acc += event["token"]
+                    answer_placeholder.markdown(acc + " ▌")
+                elif event.get("done"):
+                    st.session_state.answer = event.get("answer", acc)
+                    st.session_state.citations = event.get("citations", [])
+                    st.session_state.images = event.get("images", [])
+                    st.session_state.search_count = event.get("search_count", 1)
 
-                # Ajouter à l'historique
-                st.session_state.chat_history.append(
-                    {"role": "user", "content": st.session_state.question}
-                )
-                st.session_state.chat_history.append(
-                    {"role": "assistant", "content": st.session_state.answer}
-                )
+            # Ajouter à l'historique
+            st.session_state.chat_history.append(
+                {"role": "user", "content": st.session_state.question}
+            )
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": st.session_state.answer}
+            )
 
-            except httpx.HTTPError as exc:
-                st.error(f"Erreur lors de la génération : {exc}")
-                if st.button("← Retour à la sélection"):
-                    st.session_state.phase = "select"
-                    st.rerun()
-                st.stop()
+        except httpx.HTTPError as exc:
+            st.error(f"Erreur lors de la génération : {exc}")
+            if st.button("← Retour à la sélection"):
+                st.session_state.phase = "select"
+                st.rerun()
+            st.stop()
 
     answer_placeholder.markdown(st.session_state.answer)
 

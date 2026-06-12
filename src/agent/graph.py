@@ -2,10 +2,11 @@ import logging
 import re
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate
+from src.agent.llm import generate_stream
 from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
@@ -90,12 +91,33 @@ def node_reconstruct_context(state: AgentState) -> dict:
 
 
 async def node_generate(state: AgentState) -> dict:
-    """Appelle le LLM Ollama et génère la réponse."""
-    response = await generate(
+    """Appelle le LLM Ollama et génère la réponse.
+
+    Les tokens sont poussés au fil de l'eau dans le stream "custom" de
+    LangGraph : consommés par /chat/resume en SSE, ignorés (no-op) lors d'un
+    ainvoke classique.
+    """
+    try:
+        writer = get_stream_writer()
+    except Exception:
+        writer = None
+
+    if writer:
+        # Nouvelle génération : le frontend efface l'affichage en cours
+        # (utile quand la boucle agentique relance une génération)
+        writer({"reset": True})
+
+    parts: list[str] = []
+    async for token in generate_stream(
         question=state["question"],
         contexts=state["enriched_contexts"],
         chat_history=state.get("chat_history"),
-    )
+    ):
+        parts.append(token)
+        if writer:
+            writer({"token": token})
+
+    response = "".join(parts)
     logger.info("generate: réponse de %d caractères", len(response))
 
     # Détection d'une demande de recherche supplémentaire par le LLM

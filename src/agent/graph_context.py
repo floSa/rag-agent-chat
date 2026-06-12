@@ -1,8 +1,10 @@
 import logging
+import re
 from functools import lru_cache
+from typing import Any
 
-from nebula3.Config import Config
-from nebula3.gclient.net import ConnectionPool
+from nebula3.Config import SessionPoolConfig
+from nebula3.gclient.net.SessionPool import SessionPool
 
 from src.agent.settings import settings
 from src.api.schemas import BreadcrumbEntry, SectionContext, SectionElement
@@ -15,86 +17,112 @@ _SECTION_TAGS = {"SectionHeader"}
 _ROOT_TAGS = {"Document"}
 # Profondeur max de remontée pour éviter les boucles
 _MAX_DEPTH = 10
-# Tags d'éléments, par ordre de probabilité lors de la remontée
-_ELEMENT_TAGS = [
-    "SectionHeader", "Paragraph", "Table", "Picture", "Code",
-    "Formula", "Caption", "ListItem", "Footnote", "PageHeader",
-    "PageFooter",
-]
+
+# VIDs autorisés : hash sha256[:10] des éléments, ou doc_{stem} des documents.
+# Validé strictement car les VIDs sont interpolés dans les requêtes nGQL.
+_VALID_VID = re.compile(r"^[a-f0-9]{10}$|^doc_[\w\-. ()]{1,59}$")
 
 
 @lru_cache(maxsize=1)
-def _get_pool() -> ConnectionPool:
-    config = Config()
-    config.max_connection_pool_size = 5
-    pool = ConnectionPool()
-    pool.init([(settings.nebula_host, settings.nebula_port)], config)
-    logger.info("NebulaGraph pool initialisé : %s:%d", settings.nebula_host, settings.nebula_port)
+def _get_pool() -> SessionPool:
+    """Pool de sessions lié au space : gère USE, réutilisation et reconnexion.
+
+    En cas d'échec d'init (Nebula pas encore prêt), l'exception empêche la mise
+    en cache et l'init sera retentée au prochain appel.
+    """
+    pool = SessionPool(
+        settings.nebula_user,
+        settings.nebula_password,
+        settings.nebula_space,
+        [(settings.nebula_host, settings.nebula_port)],
+    )
+    if not pool.init(SessionPoolConfig()):
+        raise RuntimeError("Impossible d'initialiser le pool de sessions NebulaGraph")
+    logger.info(
+        "NebulaGraph session pool initialisé : %s:%d (space %s)",
+        settings.nebula_host,
+        settings.nebula_port,
+        settings.nebula_space,
+    )
     return pool
 
 
-def _execute(nql: str) -> list[dict]:  # type: ignore[return]
+def _to_primitive(val: Any) -> Any:
+    """Convertit un ValueWrapper nebula3 en valeur Python primitive."""
+    if val.is_string():
+        return val.as_string()
+    if val.is_int():
+        return val.as_int()
+    if val.is_null():
+        return None
+    return str(val)
+
+
+def _execute(nql: str) -> list[dict]:
     """Exécute une requête nGQL et retourne les lignes sous forme de dicts."""
-    pool = _get_pool()
-    session = pool.get_session(settings.nebula_user, settings.nebula_password)
-    try:
-        session.execute(f"USE {settings.nebula_space};")
-        result = session.execute(nql)
-        if not result.is_succeeded():
-            logger.error("nGQL échoué : %s — %s", nql, result.error_msg())
-            return []
-        rows = []
-        for i in range(result.row_size()):
-            row = {}
-            for j, col in enumerate(result.keys()):
-                val = result.row_values(i)[j]
-                # Extraire la valeur primitive
-                if val.is_string():
-                    row[col] = val.as_string()
-                elif val.is_int():
-                    row[col] = val.as_int()
-                elif val.is_null():
-                    row[col] = None
-                else:
-                    row[col] = str(val)
-            rows.append(row)
-        return rows
-    finally:
-        session.release()
+    result = _get_pool().execute(nql)
+    if not result.is_succeeded():
+        logger.error("nGQL échoué : %s — %s", nql, result.error_msg())
+        return []
+    rows = []
+    for i in range(result.row_size()):
+        row = {}
+        for j, col in enumerate(result.keys()):
+            row[col] = _to_primitive(result.row_values(i)[j])
+        rows.append(row)
+    return rows
 
 
 def _get_node_properties(node_id: str) -> dict:
-    """Récupère les propriétés d'un nœud, plus son tag Nebula sous la clé "tag".
+    """Récupère le tag Nebula et les propriétés d'un nœud en UNE requête.
 
     La propriété `label` contient le label Docling en minuscules
     ("section_header", "paragraph", …) ; c'est le tag Nebula ("SectionHeader",
     "Document", …) qui identifie le type de nœud lors de la remontée.
     """
-    for tag in _ELEMENT_TAGS:
-        rows = _execute(
-            f'FETCH PROP ON {tag} "{node_id}" '
-            f'YIELD properties(vertex).label AS label, '
-            f'properties(vertex).text AS text, '
-            f'properties(vertex).minio_url AS minio_url, '
-            f'properties(vertex).page_no AS page_no;'
-        )
-        if rows:
-            return {**rows[0], "tag": tag}
+    if not _VALID_VID.fullmatch(node_id):
+        logger.warning("VID Nebula rejeté : %s", node_id[:80])
+        return {}
+
+    result = _get_pool().execute(f'FETCH PROP ON * "{node_id}" YIELD vertex AS node;')
+    if not result.is_succeeded() or result.row_size() == 0:
+        return {}
+
+    val = result.row_values(0)[0]
+    if not val.is_vertex():
+        return {}
+    node = val.as_node()
+    tags = node.tags()
+
+    def props_of(tag: str) -> dict:
+        try:
+            return {k: _to_primitive(v) for k, v in node.properties(tag).items()}
+        except Exception:
+            return {}
 
     # Le tag Document n'a pas de propriétés label/text : cas particulier
-    rows = _execute(
-        f'FETCH PROP ON Document "{node_id}" '
-        f'YIELD properties(vertex).filename AS filename;'
-    )
-    if rows:
+    if "Document" in tags:
+        props = props_of("Document")
         return {
             "tag": "Document",
             "label": "document",
-            "text": rows[0].get("filename") or "",
+            "text": props.get("filename") or "",
             "minio_url": None,
             "page_no": 0,
         }
-    return {}
+
+    if not tags:
+        return {}
+
+    tag = "SectionHeader" if "SectionHeader" in tags else tags[0]
+    props = props_of(tag)
+    return {
+        "tag": tag,
+        "label": props.get("label") or "",
+        "text": props.get("text") or "",
+        "minio_url": props.get("minio_url") or None,
+        "page_no": props.get("page_no") or 0,
+    }
 
 
 def _find_parent(node_id: str) -> str | None:
@@ -202,6 +230,9 @@ def reconstruct_section(element_id: str) -> SectionContext:
     2. Récupère tous les enfants de la section (ordonnés)
     3. Assemble en markdown structuré avec breadcrumbs
     """
+    if not _VALID_VID.fullmatch(element_id):
+        raise ValueError(f"Identifiant d'élément invalide : {element_id[:80]}")
+
     section_id, breadcrumbs = _climb_to_section(element_id)
 
     # Propriétés de la section (ou de l'élément lui-même si aucune section parente)
