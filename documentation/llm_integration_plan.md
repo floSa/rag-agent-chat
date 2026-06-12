@@ -235,20 +235,23 @@ Le modele dispose d'un tool `search_vectors(query: str)` qui :
 
 | Champ          | Type          | Description                                |
 |----------------|---------------|--------------------------------------------|
-| id             | string        | `{element_id}_part{i}` (chunk ID)          |
+| id             | string        | `element_id` (hash sha256[:10], un vecteur par element) |
 | embedding      | float[384]    | Vecteur all-MiniLM-L6-v2                   |
-| document       | string        | Texte du chunk (max 500 chars)             |
+| document       | string        | Texte de l'element (tronque a 1000 chars)  |
 | metadata.element_id    | string | Hash ID de l'element source         |
 | metadata.graph_node_id | string | = element_id, cle pour NebulaGraph  |
-| metadata.page_position | int    | Position dans la page               |
-| metadata.ref_position  | int    | Position sous le parent             |
-| metadata.minio_url     | string | URL MinIO si image/table            |
+| metadata.filename      | string | Nom du document source (sans extension) |
+| metadata.label         | string | Label Docling (paragraph, table, ...) |
+| metadata.page_no       | int    | Numero de page                      |
+| metadata.minio_url     | string | URL MinIO si image/table ("" sinon) |
 
 **Modele d'embedding** : `all-MiniLM-L6-v2` (384 dimensions).
 L'agent doit utiliser le MEME modele pour encoder les questions.
 
-**Chunking** : 500 caracteres sans overlap. Un element long produit
-plusieurs chunks (`_part0`, `_part1`, ...).
+**Granularite** : un embedding par element structurel, pas de decoupage en
+sous-chunks ; texte tronque a 1000 caracteres. L'id est stable entre les
+batchs PDF qui se chevauchent (base sur la position dans la page, pas sur
+l'ordre global de lecture).
 
 ### 4.2 NebulaGraph — Space `rag_space`
 
