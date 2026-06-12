@@ -1,5 +1,5 @@
-from src.api.schemas import ChunkResult
 from src.agent.retriever import group_by_document
+from src.api.schemas import ChunkResult
 
 
 def test_group_by_document_groups_correctly(sample_chunks: list[ChunkResult]) -> None:

@@ -130,7 +130,6 @@ rag-agent-chat/
 │   │   ├── graph_context.py    # Reconstruction de section via NebulaGraph
 │   │   ├── minio_client.py     # URLs présignées des images
 │   │   ├── llm.py              # Client Ollama (génération streaming)
-│   │   ├── tools.py            # Tool search_vectors (boucle agentique)
 │   │   └── settings.py         # Configuration pydantic-settings
 │   ├── api/                    # Backend FastAPI (main.py, schemas.py)
 │   └── frontend/               # UI Streamlit (app.py)

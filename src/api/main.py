@@ -3,16 +3,19 @@ import logging
 import uuid
 from collections.abc import AsyncIterator
 
+import httpx
 from anyio import to_thread
 from fastapi import FastAPI, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from src.agent.graph import agent_graph
+from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, rerank, retrieve
+from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.api.schemas import (
     ChatRequest,
@@ -47,7 +50,24 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    return HealthResponse(status="ok", ollama_model=settings.ollama_model)
+    """Vérifie réellement les trois dépendances (Chroma, Nebula, Ollama).
+
+    Retourne toujours 200 (pour ne pas déclencher de restart en boucle) avec
+    le détail par service ; status passe à "degraded" si l'une est down.
+    """
+    services: dict[str, bool] = {
+        "chromadb": await to_thread.run_sync(chroma_ping),
+        "nebulagraph": await to_thread.run_sync(nebula_ping),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{settings.ollama_host}/api/tags")
+            services["ollama"] = resp.status_code == 200
+    except httpx.HTTPError:
+        services["ollama"] = False
+
+    status = "ok" if all(services.values()) else "degraded"
+    return HealthResponse(status=status, ollama_model=settings.ollama_model, services=services)
 
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
@@ -144,7 +164,8 @@ async def chat_start(req: SearchRequest) -> dict:
 
     initial_state = {
         "question": req.question,
-        "chat_history": [],
+        # Multi-turn : derniers échanges seulement, pour borner le contexte
+        "chat_history": req.chat_history[-6:],
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "selected_element_ids": [],

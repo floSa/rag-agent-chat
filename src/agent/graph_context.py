@@ -134,6 +134,14 @@ def _find_parent(node_id: str) -> str | None:
     return rows[0]["parent_id"] if rows else None
 
 
+def ping() -> bool:
+    """Vérifie que NebulaGraph répond (utilisé par /health)."""
+    try:
+        return bool(_execute("YIELD 1 AS ok;"))
+    except Exception:
+        return False
+
+
 def _get_children(section_id: str) -> list[dict]:
     """Retourne les enfants d'une section, ordonnés par sequence."""
     return _execute(
@@ -142,6 +150,7 @@ def _get_children(section_id: str) -> list[dict]:
         f'properties($$).label AS label, '
         f'properties($$).text AS text, '
         f'properties($$).minio_url AS minio_url, '
+        f'properties($$).page_no AS page_no, '
         f'properties(edge).sequence AS seq '
         f'| ORDER BY $-.seq ASC;'
     )
@@ -201,24 +210,28 @@ def _build_markdown(
     if section_text:
         parts.append(f"## {section_text}\n")
 
+    # Chaque élément textuel est suivi de son identifiant [src:ID] : c'est ce
+    # qui permet au LLM de citer précisément, et au post-processing de
+    # résoudre les citations vers fichier/page.
     for elem in elements:
         label = elem.label.lower()
+        src = f"[src:{elem.node_id}]"
         if label in ("paragraph", "text", "listitem"):
-            parts.append(elem.text)
+            parts.append(f"{elem.text} {src}")
         elif label == "table":
-            parts.append(f"[Tableau] {elem.text}")
+            parts.append(f"[Tableau] {elem.text} {src}")
             if elem.minio_url:
                 parts.append(f"[img:{elem.node_id}]")
         elif label == "picture":
             if elem.minio_url:
                 parts.append(f"[img:{elem.node_id}]")
         elif label == "caption":
-            parts.append(f"_{elem.text}_")
+            parts.append(f"_{elem.text}_ {src}")
         elif label in ("code", "formula"):
-            parts.append(f"```\n{elem.text}\n```")
+            parts.append(f"```\n{elem.text}\n```\n{src}")
         else:
             if elem.text:
-                parts.append(elem.text)
+                parts.append(f"{elem.text} {src}")
 
     return "\n\n".join(p for p in parts if p.strip())
 
@@ -251,6 +264,7 @@ def reconstruct_section(element_id: str) -> SectionContext:
                 text=row.get("text", "") or "",
                 minio_url=row.get("minio_url") or None,
                 sequence=int(row.get("seq", 0)),
+                page_no=int(row.get("page_no") or 0),
             )
         )
 

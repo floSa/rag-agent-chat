@@ -1,62 +1,89 @@
-# Architecture du RAG Ingestion Pipeline
+# Architecture de rag-agent-chat
 
 ## Vue d'ensemble
 
-Pipeline d'ingestion documentaire qui transforme des PDF et HTML en données structurées,
-stockées dans une base vectorielle (ChromaDB) et un graphe de connaissances (NebulaGraph).
-Pas de couche LLM/agent pour le moment — c'est une pipeline d'ingestion pure.
+Agent RAG conversationnel qui consomme **en lecture seule** les stores produits
+par `rag-ingestion-pipeline` (ChromaDB, NebulaGraph, MinIO) et génère les
+réponses avec un LLM local servi par Ollama. Le flux est orchestré par une
+machine à états LangGraph avec sélection des sources par l'utilisateur
+(human-in-the-loop).
 
 ## Services Docker
 
-| Service           | Image / Build          | Port interne | Port hôte        | Rôle                                   |
-|-------------------|------------------------|--------------|------------------|-----------------------------------------|
-| chromadb          | chromadb/chroma:0.6.3  | 8000         | — (expose only)  | Base vectorielle                        |
-| metad             | nebula-metad:v3.6.0    | 9559         | —                | NebulaGraph — métadonnées               |
-| storaged          | nebula-storaged:v3.6.0 | 9779         | —                | NebulaGraph — stockage distribué        |
-| graphd            | nebula-graphd:v3.6.0   | 9669         | — (expose only)  | NebulaGraph — moteur de requête         |
-| nebula-studio     | nebula-studio:v3.8.0   | 7001         | 7001             | UI de visualisation du graphe           |
-| minio             | minio (pinned)         | 9000, 9001   | — (expose only)  | Object storage S3-compatible            |
-| postgres-dagster  | postgres:15-alpine     | 5432         | — (expose only)  | Métadonnées Dagster                     |
-| dagster-webserver | Dockerfile.dagster     | 3000         | 3000             | UI Dagster                              |
-| dagster-daemon    | Dockerfile.dagster     | —            | —                | Exécution des sensors et runs           |
-| docling-service   | Dockerfile.docling     | 8000         | — (expose only)  | Extraction documentaire (GPU, FastAPI)  |
+| Service   | Image / Build       | Port interne | Port hôte | Rôle                                  |
+|-----------|---------------------|--------------|-----------|----------------------------------------|
+| ollama    | ollama/ollama       | 11434        | —         | LLM local (Gemma 4 E4B par défaut)     |
+| agent-api | Dockerfile.agent    | 8000         | 8000      | Backend FastAPI (flux LangGraph, SSE)  |
+| frontend  | Dockerfile.frontend | 8501         | 8501      | UI Streamlit                           |
 
-Tous les services communiquent sur le réseau bridge `rag_network`.
-Pour le debug local, `docker-compose.override.yml` expose les ports internes.
+Deux réseaux :
+- `rag_network` (externe, créé par rag-ingestion-pipeline) : accès aux stores
+  `chromadb:8000`, `graphd:9669`, `minio:9000`
+- `internal` (bridge) : communication frontend ↔ agent-api ↔ ollama
 
-## Workflow de bout en bout
+Volumes : `rag_models_cache` (modèles Ollama), `rag_hf_cache` (modèles
+HuggingFace : embedding + cross-encoder, téléchargés au premier démarrage).
 
-1. **Dépôt** d'un fichier (PDF/HTML) dans `Datas/pdfs/` ou `Datas/htms/`
-2. **Dagster Sensor** (`pdf_sensor` / `html_sensor`) détecte le nouveau fichier
-3. **Pre-process** (HTML uniquement) : nettoyage DOM via BeautifulSoup — suppression des
-   balises `nav`, `header`, `footer` et classes éditeurs (`.packt-header`, `.sbo-site-nav`)
-4. **Docling Service** reçoit le chemin en POST, extrait la structure via Docling v9.1,
-   crop les images/tableaux via PyMuPDF, les pousse sur MinIO, retourne un JSON structuré
-5. **build_knowledge_graph** : crée les nœuds et relations dans NebulaGraph via nGQL
-6. **vectorize_content** : découpe le texte en chunks (500 chars), génère les embeddings
-   avec `all-MiniLM-L6-v2` (384 dim), upsert dans ChromaDB avec métadonnées de liaison
-   vers le graphe (`graph_node_id`)
+## Flux de bout en bout
+
+1. **`POST /chat/start`** (question + historique) : embedding de la question
+   (`all-MiniLM-L6-v2`, le même modèle que l'ingestion), retrieval ChromaDB
+   (top-20), reranking cross-encoder (top-10). Le graphe LangGraph s'interrompt
+   (`interrupt_before`) et l'état est persisté par le checkpointer sous un
+   `thread_id`.
+2. **Sélection des sources** : le frontend affiche les chunks groupés par
+   document ; l'utilisateur coche/décoche.
+3. **`POST /chat/resume`** (thread_id + ids sélectionnés) : reprise du graphe.
+   Pour chaque élément, **reconstruction du contexte** via NebulaGraph —
+   remontée `PARENT_OF` jusqu'au `SectionHeader`, récupération de tous les
+   enfants ordonnés, assemblage en markdown avec breadcrumb et marqueurs
+   `[src:ID]` par élément.
+4. **Génération** : Ollama (API OpenAI-compatible), tokens streamés en SSE
+   jusqu'au frontend.
+5. **Post-processing** : extraction des citations `[src:ID]` (résolues vers
+   fichier/page) et des images `[img:ID]` (servies via le proxy `GET /media`).
+6. **Boucle agentique** : si le LLM émet `search_vectors("sous-question")`,
+   nouvelle passe retrieval → rerank → reconstruction (sans re-sélection
+   utilisateur, contextes accumulés), max `MAX_SEARCH_ITERATIONS` itérations.
+
+## Machine à états LangGraph
+
+```
+retrieve → rerank ─┬─(1ʳᵉ passe)──→ await_source_selection ─→ reconstruct_context
+                   └─(itération)──────────────────────────────↗
+reconstruct_context → generate → postprocess ─┬─(search_vectors & < max)─→ retrieve
+                                              └─(sinon)─→ END
+```
+
+Compilé avec `MemorySaver` (checkpointer) + `interrupt_before=["await_source_selection"]`.
+La reprise se fait par `aupdate_state(config, {...})` puis `ainvoke(None, config)`.
 
 ## Décisions d'architecture
 
-- **ChromaDB** plutôt que Weaviate : plus simple, pas besoin d'UI intégrée pour le vectoriel
-- **NebulaGraph** pour le graphe de connaissances : distribué (metad/storaged/graphd),
-  Studio UI pour la visualisation
-- **Volume partagé** `/Datas` monté dans Dagster et Docling : évite le transfert réseau
-  de gros fichiers PDF
-- **Docling sur GPU** : seul service avec accès CUDA, isole la charge lourde
-- **Embeddings locaux** : `all-MiniLM-L6-v2` via SentenceTransformers, pas d'appel API
-  externe (pas d'OpenAI)
-- **Sensors séparés** PDF/HTML : découplage des pipelines, chacun avec son job Dagster
-- **Flush buffer = 1** : envoi quasi temps réel des résultats, pas d'accumulation
+- **Reconstruction par le graphe** plutôt que chunks isolés : le LLM reçoit la
+  section complète avec hiérarchie, images et tableaux.
+- **Protocole textuel `search_vectors(...)`** plutôt que tool-calling natif :
+  robuste quel que soit le support tools du modèle servi par Ollama ; la
+  syntaxe est nettoyée de la réponse finale.
+- **Proxy `/media`** : les URLs MinIO internes (`minio:9000`) ne sont pas
+  résolvables par le navigateur ; l'API sert les objets (chemin validé contre
+  le path traversal).
+- **Endpoints synchrones en `def`** : l'inférence CPU (embedding,
+  cross-encoder) tourne dans le threadpool FastAPI, l'event loop reste libre.
+- **`SessionPool` NebulaGraph** lié au space : sessions réutilisées, pas de
+  `USE` par requête ; propriétés d'un nœud en une requête `FETCH PROP ON *`.
+- **VIDs validés** (`^[a-f0-9]{10}$` / `doc_*`) avant toute interpolation nGQL.
+- **Torch CPU-only** dans l'image agent : pas de libs CUDA embarquées.
+- **`OLLAMA_CONTEXT_LENGTH=8192`** : sans ça, Ollama tronque silencieusement
+  le prompt — fatal quand on injecte des sections entières.
 
-## Dossiers de données
+## Contrat d'interface avec l'ingestion
 
-| Dossier                    | Contenu                              |
-|----------------------------|--------------------------------------|
-| `Datas/pdfs/`              | Documents PDF sources                |
-| `Datas/htms/`              | Documents HTML sources               |
-| `Datas/database/chromadb/` | Persistence ChromaDB                 |
-| `Datas/database/nebula/`   | Persistence NebulaGraph              |
-| `Datas/database/minio/`    | Persistence MinIO                    |
-| `Datas/database/postgres/` | Persistence PostgreSQL (Dagster)     |
+Voir [llm_integration_plan.md](llm_integration_plan.md). Points clés :
+- ChromaDB `rag_documents` : métadonnées `element_id`, `graph_node_id`,
+  `filename`, `label`, `page_no`, `minio_url`
+- NebulaGraph `rag_space` : hiérarchie `Document → SectionHeader → Éléments`
+  via edges `PARENT_OF(sequence)` ; VIDs = sha256[:10] (éléments) ou
+  `doc_{stem}` (documents)
+- MinIO bucket `documents` : crops PNG sous `images/{stem}/{id}_{type}.png`
+- Embedding : `all-MiniLM-L6-v2` (384 dim) — obligatoirement le même des deux côtés
