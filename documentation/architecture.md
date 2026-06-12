@@ -38,8 +38,8 @@ HuggingFace : embedding + cross-encoder, téléchargés au premier démarrage).
    remontée `PARENT_OF` jusqu'au `SectionHeader`, récupération de tous les
    enfants ordonnés, assemblage en markdown avec breadcrumb et marqueurs
    `[src:ID]` par élément.
-4. **Génération** : Ollama (API OpenAI-compatible), tokens streamés en SSE
-   jusqu'au frontend.
+4. **Génération** : Ollama via son API native `/api/chat` (avec `think: false`
+   par défaut — voir décisions), tokens streamés en SSE jusqu'au frontend.
 5. **Post-processing** : extraction des citations `[src:ID]` (résolues vers
    fichier/page) et des images `[img:ID]` (servies via le proxy `GET /media`).
 6. **Boucle agentique** : si le LLM émet `search_vectors("sous-question")`,
@@ -62,6 +62,13 @@ La reprise se fait par `aupdate_state(config, {...})` puis `ainvoke(None, config
 
 - **Reconstruction par le graphe** plutôt que chunks isolés : le LLM reçoit la
   section complète avec hiérarchie, images et tableaux.
+- **API native Ollama + thinking désactivé par défaut** (`LLM_THINKING=false`) :
+  Gemma 4 est un modèle à raisonnement — sans ce flag, la réflexion peut
+  consommer tout le budget `num_predict` avant le premier token de réponse
+  (rédhibitoire en CPU). L'endpoint OpenAI-compatible ne permet pas de piloter
+  `think`, d'où l'API native. Activer le thinking sur GPU si souhaité.
+  Exige une image Ollama récente (les versions antérieures à Gemma 4 bouclent
+  à l'infini sans erreur sur cette architecture).
 - **Protocole textuel `search_vectors(...)`** plutôt que tool-calling natif :
   robuste quel que soit le support tools du modèle servi par Ollama ; la
   syntaxe est nettoyée de la réponse finale.
