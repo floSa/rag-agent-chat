@@ -54,6 +54,8 @@ docker compose up -d --build
 ```
 ⚠️ Au **premier démarrage**, Ollama télécharge le modèle (plusieurs Go) — le healthcheck laisse jusqu'à 10 minutes. Suivre la progression : `make logs`.
 
+⚠️ Gemma 4 exige une **image Ollama récente** : si votre image `ollama/ollama:latest` locale est ancienne, elle boucle à l'infini sans erreur sur cette architecture. Faire `docker compose pull ollama` en cas de doute.
+
 ### 3. Accéder aux interfaces
 | Service | URL | Note |
 | :--- | :--- | :--- |
@@ -91,6 +93,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | :--- | :--- | :--- |
 | `OLLAMA_MODEL` | `gemma4:e4b` | Modèle servi par Ollama (Gemma 4 E4B). |
 | `OLLAMA_CONTEXT_LENGTH` | `8192` | Fenêtre de contexte (sinon Ollama tronque silencieusement). |
+| `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — désactivé par défaut (rédhibitoire en CPU), à activer sur GPU. |
 | `EMBEDDING_MODEL_NAME` | `all-MiniLM-L6-v2` | **DOIT** correspondre au modèle d'ingestion. |
 | `RERANK_MODEL` | `cross-encoder/ms-marco-MiniLM-L6-v2` | Cross-encoder local. |
 | `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `20` / `10` | Sur-récupération puis filtrage. |
@@ -109,6 +112,7 @@ make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
 make ollama-shell      # lister les modèles Ollama chargés
+bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + document ingéré)
 ```
 
 ---

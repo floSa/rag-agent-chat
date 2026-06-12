@@ -1,5 +1,12 @@
 # Plan d'integration LLM / Agent RAG
 
+> **Note** : document de conception initial, conservé pour l'historique et pour
+> le contrat d'interface (§4, toujours valide). L'implémentation réelle diverge
+> sur la stack : LLM local Ollama (Gemma 4, thinking désactivé) au lieu de
+> Claude/GPT, protocole textuel `search_vectors(...)` au lieu de tools natifs,
+> pas de Langfuse/NeMo à ce stade. Voir [architecture.md](architecture.md)
+> pour l'état actuel.
+
 ## 1. Contexte et vision
 
 Le pipeline d'ingestion (`rag-ingestion-pipeline`) est complet :
