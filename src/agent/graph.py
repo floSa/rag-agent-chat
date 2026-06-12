@@ -146,24 +146,39 @@ def node_postprocess(state: AgentState) -> dict:
     response = state.get("response", "")
     chunks_map = {c.element_id: c for c in state.get("reranked_chunks", [])}
 
-    # Les [img:ID] référencent surtout des éléments des sections reconstruites,
-    # qui ne figurent pas dans les chunks reranqués : on indexe les deux.
-    media_map: dict[str, str] = {
-        elem.node_id: elem.minio_url
-        for ctx in state.get("enriched_contexts", [])
-        for elem in ctx.elements
-        if elem.minio_url
-    }
+    # Les [src:ID] et [img:ID] référencent surtout des éléments des sections
+    # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
+    # les deux. Le filename d'un élément vient du breadcrumb Document.
+    media_map: dict[str, str] = {}
+    elements_map: dict[str, Citation] = {}
+    for ctx in state.get("enriched_contexts", []):
+        filename = next((b.text for b in ctx.breadcrumbs if b.label == "document"), "")
+        for elem in ctx.elements:
+            if elem.minio_url:
+                media_map.setdefault(elem.node_id, elem.minio_url)
+            elements_map.setdefault(
+                elem.node_id,
+                Citation(
+                    element_id=elem.node_id,
+                    filename=filename,
+                    page_no=elem.page_no,
+                    text_excerpt=(elem.text or "")[:150],
+                ),
+            )
     for chunk in state.get("reranked_chunks", []):
         if chunk.minio_url:
             media_map.setdefault(chunk.element_id, chunk.minio_url)
 
-    # Citations [src:ELEMENT_ID]
+    # Citations [src:ELEMENT_ID] — résolues d'abord depuis les chunks (filename
+    # et page fiables), sinon depuis les éléments des sections reconstruites.
     citations: list[Citation] = []
+    cited: set[str] = set()
     for match in re.finditer(r"\[src:([a-f0-9]+)\]", response):
         eid = match.group(1)
+        if eid in cited:
+            continue
         chunk = chunks_map.get(eid)
-        if chunk and not any(c.element_id == eid for c in citations):
+        if chunk:
             citations.append(
                 Citation(
                     element_id=eid,
@@ -172,6 +187,10 @@ def node_postprocess(state: AgentState) -> dict:
                     text_excerpt=chunk.document[:150],
                 )
             )
+            cited.add(eid)
+        elif eid in elements_map:
+            citations.append(elements_map[eid])
+            cited.add(eid)
 
     # Images [img:ELEMENT_ID] — servies via le proxy /media de l'API
     # (les URLs internes minio:9000 sont inaccessibles depuis le navigateur)

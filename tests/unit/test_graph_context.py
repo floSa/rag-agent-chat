@@ -27,6 +27,8 @@ def test_build_markdown_with_breadcrumbs_and_elements() -> None:
     assert "[Contexte]" in markdown
     assert "test.pdf" in markdown
     assert "Le système utilise une architecture distribuée." in markdown
+    # Chaque élément textuel porte son identifiant citable
+    assert "[src:para1]" in markdown
     assert "[img:img1]" in markdown
 
 

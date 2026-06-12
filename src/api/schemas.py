@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field, StringConstraints
 ElementId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{10}$")]
 
 
+# ─── Conversation ─────────────────────────────────────────────────────────────
+
+class Message(BaseModel):
+    role: str    # "user" | "assistant"
+    content: str
+
+
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
 class ChunkResult(BaseModel):
@@ -27,6 +34,9 @@ class ChunkResult(BaseModel):
 class SearchRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     top_k: int = Field(default=20, ge=1, le=50)
+    # Historique de conversation (multi-turn) — utilisé par /chat/start,
+    # ignoré par /search et /sources.
+    chat_history: list[Message] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):
@@ -68,6 +78,7 @@ class SectionElement(BaseModel):
     text: str
     minio_url: str | None = None
     sequence: int
+    page_no: int = 0
 
 
 class SectionContext(BaseModel):
@@ -79,11 +90,6 @@ class SectionContext(BaseModel):
 
 
 # ─── Chat / génération ────────────────────────────────────────────────────────
-
-class Message(BaseModel):
-    role: str    # "user" | "assistant"
-    content: str
-
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
@@ -114,5 +120,6 @@ class ChatResponse(BaseModel):
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
-    status: str
+    status: str                       # "ok" | "degraded"
     ollama_model: str
+    services: dict[str, bool] = Field(default_factory=dict)

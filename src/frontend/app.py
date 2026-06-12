@@ -55,6 +55,20 @@ def _stream_post(path: str, payload: dict) -> Iterator[dict]:
                 yield json.loads(line[len("data:"):].strip())
 
 
+def _clear_selection_state() -> None:
+    """Purge les états des checkboxes de la question précédente."""
+    for key in list(st.session_state.keys()):
+        if key.startswith(("chunk_", "doc_")):
+            del st.session_state[key]
+
+
+def _toggle_doc(element_ids: list[str], doc_key: str) -> None:
+    """Callback 'Tout sélectionner' : (dé)coche tous les chunks du document."""
+    checked = st.session_state[doc_key]
+    for eid in element_ids:
+        st.session_state[f"chunk_{eid}"] = checked
+
+
 # ─── UI principale ────────────────────────────────────────────────────────────
 
 st.title("🔍 RAG Agent Chat")
@@ -67,10 +81,9 @@ with st.sidebar:
         role_icon = "👤" if msg["role"] == "user" else "🤖"
         st.markdown(f"**{role_icon}** {msg['content'][:80]}…")
 
-    if st.session_state.chat_history:
-        if st.button("Effacer l'historique"):
-            st.session_state.chat_history = []
-            st.rerun()
+    if st.session_state.chat_history and st.button("Effacer l'historique"):
+        st.session_state.chat_history = []
+        st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -90,9 +103,18 @@ if st.session_state.phase == "search":
         st.session_state.question = question.strip()
         with st.spinner("Recherche et classement des sources…"):
             try:
-                data = _api_post("/chat/start", {"question": question.strip(), "top_k": 20})
+                data = _api_post(
+                    "/chat/start",
+                    {
+                        "question": question.strip(),
+                        "top_k": 20,
+                        # Multi-turn : les questions suivantes bénéficient du contexte
+                        "chat_history": st.session_state.chat_history,
+                    },
+                )
                 st.session_state.thread_id = data["thread_id"]
                 st.session_state.groups = data["groups"]
+                _clear_selection_state()
                 st.session_state.selected_ids = {
                     chunk["element_id"]
                     for group in data["groups"]
@@ -117,29 +139,36 @@ elif st.session_state.phase == "select":
             st.session_state.phase = "search"
             st.rerun()
     else:
-        selected: set[str] = st.session_state.selected_ids.copy()
+        selected: set[str] = set()
 
         for group in st.session_state.groups:
             filename = group["filename"]
             best_score = group["best_score"]
             chunks = group["chunks"]
+            chunk_ids = [c["element_id"] for c in chunks]
+
+            # Initialiser l'état des checkboxes au premier rendu (tout coché)
+            for eid in chunk_ids:
+                st.session_state.setdefault(
+                    f"chunk_{eid}", eid in st.session_state.selected_ids
+                )
 
             score_color = "green" if best_score > 0.5 else "orange" if best_score > 0.2 else "red"  # noqa: PLR2004
             score_badge = f":{score_color}[score: {best_score:.3f}]"
 
             with st.expander(f"📄 **{filename}** — {score_badge}", expanded=best_score > 0.2):  # noqa: PLR2004
-                # Checkbox document entier
-                doc_checked = st.checkbox(
-                    f"Tout sélectionner ({filename})",
-                    value=all(c["element_id"] in selected for c in chunks),
-                    key=f"doc_{filename}",
+                # Checkbox document entier : reflète l'état réel des chunks,
+                # le callback propage le clic à tous les chunks du document.
+                doc_key = f"doc_{filename}"
+                st.session_state[doc_key] = all(
+                    st.session_state[f"chunk_{eid}"] for eid in chunk_ids
                 )
-                if doc_checked:
-                    for c in chunks:
-                        selected.add(c["element_id"])
-                else:
-                    # Ne désélectionner que si c'était coché avant
-                    pass
+                st.checkbox(
+                    f"Tout sélectionner ({filename})",
+                    key=doc_key,
+                    on_change=_toggle_doc,
+                    args=(chunk_ids, doc_key),
+                )
 
                 st.divider()
                 for chunk in chunks:
@@ -151,14 +180,11 @@ elif st.session_state.phase == "select":
 
                     checked = st.checkbox(
                         f"p.{page} [{label}] — score: {rerank_score:.3f}",
-                        value=eid in selected,
                         key=f"chunk_{eid}",
                         help=text_preview,
                     )
                     if checked:
                         selected.add(eid)
-                    else:
-                        selected.discard(eid)
 
         st.session_state.selected_ids = selected
         st.info(f"**{len(selected)}** chunk(s) sélectionné(s)")

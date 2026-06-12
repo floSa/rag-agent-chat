@@ -37,6 +37,15 @@ def _get_chroma_collection() -> chromadb.Collection:
     return collection
 
 
+def ping() -> bool:
+    """Vérifie que ChromaDB répond (utilisé par /health)."""
+    try:
+        _get_chroma_collection().count()
+        return True
+    except Exception:
+        return False
+
+
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
 def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
@@ -59,7 +68,7 @@ def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
     dists = results.get("distances") or [[]]
     ids = results.get("ids") or [[]]
 
-    for chunk_id, doc, meta, dist in zip(ids[0], docs[0], metas[0], dists[0]):
+    for chunk_id, doc, meta, dist in zip(ids[0], docs[0], metas[0], dists[0], strict=False):
         chunks.append(
             ChunkResult(
                 chunk_id=chunk_id,
@@ -92,7 +101,7 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
     scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[union-attr]
 
     ranked = sorted(
-        [(chunk, score) for chunk, score in zip(chunks, scores)],
+        [(chunk, score) for chunk, score in zip(chunks, scores, strict=False)],
         key=lambda x: x[1],
         reverse=True,
     )

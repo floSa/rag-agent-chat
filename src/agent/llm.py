@@ -15,7 +15,10 @@ def _load_system_prompt() -> str:
     path = Path(settings.prompts_dir) / "system.txt"
     if path.exists():
         return path.read_text(encoding="utf-8").strip()
-    logger.warning("system.txt introuvable dans %s, utilisation du prompt par défaut.", settings.prompts_dir)
+    logger.warning(
+        "system.txt introuvable dans %s, utilisation du prompt par défaut.",
+        settings.prompts_dir,
+    )
     return "Tu es un assistant utile. Réponds en te basant uniquement sur les sources fournies."
 
 

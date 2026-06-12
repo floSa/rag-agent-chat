@@ -43,6 +43,9 @@ services:
       - "8000:8000"
     volumes:
       - ./prompts:/app/prompts:ro
+      # Modèles HF (embedding + cross-encoder) téléchargés au premier démarrage,
+      # persistés pour survivre aux recreate du conteneur.
+      - hf_cache:/root/.cache/huggingface
     env_file:
       - .env
     depends_on:
@@ -84,6 +87,8 @@ services:
 volumes:
   models_cache:
     name: rag_models_cache
+  hf_cache:
+    name: rag_hf_cache
 
 # ──────────────────────────────────────────────────────────────────
 # Réseaux
