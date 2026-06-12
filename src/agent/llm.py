@@ -1,9 +1,10 @@
+import json
 import logging
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from openai import AsyncOpenAI
 
 from src.agent.settings import settings
 from src.api.schemas import Message, SectionContext
@@ -58,33 +59,51 @@ async def generate_stream(
     contexts: list[SectionContext],
     chat_history: list[Message] | None = None,
 ) -> AsyncIterator[str]:
-    """Génère la réponse en streaming (Server-Sent Events)."""
-    client = AsyncOpenAI(
-        base_url=f"{settings.ollama_host}/v1/",
-        api_key="ollama",  # Ollama n'utilise pas de clé API, valeur fictive requise
-    )
+    """Génère la réponse en streaming via l'API native Ollama.
 
+    On utilise /api/chat (et non l'endpoint OpenAI-compatible) pour piloter
+    `think` : Gemma 4 est un modèle à raisonnement et, sans ce flag, il peut
+    consommer tout le budget num_predict en réflexion avant le premier token
+    de réponse — prohibitif en CPU.
+    """
     messages = _build_messages(question, contexts, chat_history or [])
 
     logger.debug(
-        "LLM generate : model=%s, messages=%d, contexte=%d sections",
+        "LLM generate : model=%s, messages=%d, contexte=%d sections, think=%s",
         settings.ollama_model,
         len(messages),
         len(contexts),
+        settings.llm_thinking,
     )
 
-    stream = await client.chat.completions.create(
-        model=settings.ollama_model,
-        messages=messages,  # type: ignore[arg-type]
-        temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
-        stream=True,
-    )
+    payload = {
+        "model": settings.ollama_model,
+        "messages": messages,
+        "stream": True,
+        "think": settings.llm_thinking,
+        "options": {
+            "temperature": settings.llm_temperature,
+            "num_predict": settings.llm_max_tokens,
+        },
+    }
 
-    async for chunk in stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            yield delta
+    timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
+    async with (
+        httpx.AsyncClient(timeout=timeout) as client,
+        client.stream("POST", f"{settings.ollama_host}/api/chat", json=payload) as resp,
+    ):
+        resp.raise_for_status()
+        async for line in resp.aiter_lines():
+            if not line.strip():
+                continue
+            data = json.loads(line)
+            if data.get("error"):
+                raise RuntimeError(f"Ollama : {data['error']}")
+            delta = data.get("message", {}).get("content", "")
+            if delta:
+                yield delta
+            if data.get("done"):
+                break
 
 
 async def generate(
