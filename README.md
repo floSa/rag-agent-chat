@@ -89,7 +89,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 
 | Variable | Défaut | Note |
 | :--- | :--- | :--- |
-| `OLLAMA_MODEL` | `gemma3n:e4b` | Modèle servi par Ollama. |
+| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle servi par Ollama (Gemma 4 E4B). |
 | `OLLAMA_CONTEXT_LENGTH` | `8192` | Fenêtre de contexte (sinon Ollama tronque silencieusement). |
 | `EMBEDDING_MODEL_NAME` | `all-MiniLM-L6-v2` | **DOIT** correspondre au modèle d'ingestion. |
 | `RERANK_MODEL` | `cross-encoder/ms-marco-MiniLM-L6-v2` | Cross-encoder local. |
