@@ -8,7 +8,8 @@ ollama serve &
 OLLAMA_PID=$!
 
 echo "[ollama-init] Attente de la disponibilité de l'API..."
-until curl -sf http://localhost:11434/api/version > /dev/null; do
+# Le CLI ollama interroge l'API locale : pas besoin de curl (absent de l'image)
+until ollama list > /dev/null 2>&1; do
     sleep 2
 done
 echo "[ollama-init] API disponible."
