@@ -9,8 +9,6 @@ streamlit==1.44.1
 langgraph==0.4.3
 langchain-core==0.3.59
 
-# --- LLM Client (OpenAI-compatible, pour Ollama) ---
-openai==1.77.0
 
 # --- Retrieval & Reranking ---
 chromadb==1.5.8

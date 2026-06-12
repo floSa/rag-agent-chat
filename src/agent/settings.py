@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
+    # Gemma 4 = modèle à raisonnement ; thinking désactivé par défaut (en CPU,
+    # la réflexion peut consommer tout le budget avant le 1er token de réponse)
+    llm_thinking: bool = Field(default=False, alias="LLM_THINKING")
 
     # Retrieval
     embedding_model_name: str = Field(
