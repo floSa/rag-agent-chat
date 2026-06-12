@@ -1,7 +1,7 @@
 services:
 
   # ──────────────────────────────────────────────────────────────────
-  # LLM local — Ollama (Gemma 3 4B)
+  # LLM local — Ollama (Gemma 3n E4B)
   # Entrypoint custom : vérifie si le modèle est déjà dans le volume,
   # le télécharge si nécessaire, puis sert l'API.
   # ──────────────────────────────────────────────────────────────────
@@ -13,7 +13,11 @@ services:
       - ./scripts/ollama_entrypoint.sh:/ollama_entrypoint.sh:ro
     entrypoint: ["/bin/bash", "/ollama_entrypoint.sh"]
     environment:
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma3n:e4b}
+      # Fenêtre de contexte par défaut des modèles chargés. Sans ça, Ollama
+      # tronque silencieusement le prompt (~4k tokens) — fatal pour du RAG
+      # qui injecte des sections entières.
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
     expose:
       - "11434"
     healthcheck:

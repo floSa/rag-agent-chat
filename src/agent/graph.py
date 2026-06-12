@@ -1,11 +1,12 @@
 import logging
 import re
 
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import generate
-from src.agent.minio_client import get_presigned_url
+from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
 from src.agent.state import AgentState
@@ -52,16 +53,26 @@ def node_await_source_selection(state: AgentState) -> dict:
 
 
 def node_reconstruct_context(state: AgentState) -> dict:
-    """Reconstruit le contexte enrichi pour chaque élément sélectionné."""
-    element_ids = state.get("selected_element_ids") or []
+    """Reconstruit le contexte enrichi pour chaque élément sélectionné.
 
-    if not element_ids:
-        # Fallback : utiliser les top-3 chunks reranqués
+    Première passe : éléments choisis par l'utilisateur. Itérations suivantes
+    (recherche déclenchée par le LLM) : top-3 des nouveaux chunks reranqués,
+    ajoutés aux contextes déjà reconstruits — sans repasser par la sélection.
+    """
+    is_iteration = state.get("search_count", 0) > 1
+
+    if is_iteration:
         element_ids = [c.element_id for c in state["reranked_chunks"][:3]]
-        logger.warning("Aucune source sélectionnée, fallback sur top-3.")
+        contexts: list[SectionContext] = list(state.get("enriched_contexts") or [])
+    else:
+        element_ids = state.get("selected_element_ids") or []
+        if not element_ids:
+            # Fallback : utiliser les top-3 chunks reranqués
+            element_ids = [c.element_id for c in state["reranked_chunks"][:3]]
+            logger.warning("Aucune source sélectionnée, fallback sur top-3.")
+        contexts = []
 
-    contexts: list[SectionContext] = []
-    seen_sections: set[str] = set()
+    seen_sections: set[str] = {c.section_id for c in contexts}
 
     for eid in element_ids:
         try:
@@ -72,7 +83,9 @@ def node_reconstruct_context(state: AgentState) -> dict:
         except Exception:
             logger.exception("Erreur reconstruction section pour %s", eid)
 
-    logger.info("reconstruct_context: %d sections uniques", len(contexts))
+    logger.info(
+        "reconstruct_context: %d sections uniques (itération=%s)", len(contexts), is_iteration
+    )
     return {"enriched_contexts": contexts}
 
 
@@ -96,6 +109,9 @@ async def node_generate(state: AgentState) -> dict:
         next_query = search_match.group(1)
         logger.info("LLM demande une recherche supplémentaire : '%s'", next_query)
 
+    # La syntaxe d'appel d'outil ne doit jamais apparaître dans la réponse finale
+    response = re.sub(r"search_vectors\([\"'].+?[\"']\)", "", response).strip()
+
     return {
         "response": response,
         "needs_more_info": needs_more,
@@ -107,6 +123,18 @@ def node_postprocess(state: AgentState) -> dict:
     """Extrait les citations [src:ID] et les références images [img:ID]."""
     response = state.get("response", "")
     chunks_map = {c.element_id: c for c in state.get("reranked_chunks", [])}
+
+    # Les [img:ID] référencent surtout des éléments des sections reconstruites,
+    # qui ne figurent pas dans les chunks reranqués : on indexe les deux.
+    media_map: dict[str, str] = {
+        elem.node_id: elem.minio_url
+        for ctx in state.get("enriched_contexts", [])
+        for elem in ctx.elements
+        if elem.minio_url
+    }
+    for chunk in state.get("reranked_chunks", []):
+        if chunk.minio_url:
+            media_map.setdefault(chunk.element_id, chunk.minio_url)
 
     # Citations [src:ELEMENT_ID]
     citations: list[Citation] = []
@@ -123,16 +151,17 @@ def node_postprocess(state: AgentState) -> dict:
                 )
             )
 
-    # Images [img:ELEMENT_ID]
+    # Images [img:ELEMENT_ID] — servies via le proxy /media de l'API
+    # (les URLs internes minio:9000 sont inaccessibles depuis le navigateur)
     images: list[ImageRef] = []
     for match in re.finditer(r"\[img:([a-f0-9]+)\]", response):
         eid = match.group(1)
-        chunk = chunks_map.get(eid)
-        if chunk and chunk.minio_url and not any(i.element_id == eid for i in images):
+        minio_url = media_map.get(eid)
+        if minio_url and not any(i.element_id == eid for i in images):
             images.append(
                 ImageRef(
                     element_id=eid,
-                    minio_url=get_presigned_url(chunk.minio_url),
+                    minio_url=to_media_path(minio_url),
                 )
             )
 
@@ -149,6 +178,12 @@ def should_search_more(state: AgentState) -> bool:
     )
 
 
+def is_first_pass(state: AgentState) -> bool:
+    """Seule la première recherche passe par la sélection utilisateur ;
+    les itérations déclenchées par le LLM vont directement à la reconstruction."""
+    return state.get("search_count", 0) <= 1
+
+
 # ─── Construction du graphe ───────────────────────────────────────────────────
 
 def build_graph() -> StateGraph:
@@ -162,7 +197,11 @@ def build_graph() -> StateGraph:
     graph.add_node("postprocess", node_postprocess)
 
     graph.add_edge("retrieve", "rerank")
-    graph.add_edge("rerank", "await_source_selection")
+    graph.add_conditional_edges(
+        "rerank",
+        is_first_pass,
+        {True: "await_source_selection", False: "reconstruct_context"},
+    )
     graph.add_edge("await_source_selection", "reconstruct_context")
     graph.add_edge("reconstruct_context", "generate")
     graph.add_edge("generate", "postprocess")
@@ -177,5 +216,10 @@ def build_graph() -> StateGraph:
     return graph
 
 
-# Graphe compilé avec interrupt avant la sélection des sources
-agent_graph = build_graph().compile(interrupt_before=["await_source_selection"])
+# Graphe compilé avec interrupt avant la sélection des sources.
+# Le checkpointer est requis par LangGraph pour suspendre/reprendre le flux
+# (l'état est persisté par thread_id, cf. /chat/start et /chat/resume).
+agent_graph = build_graph().compile(
+    checkpointer=MemorySaver(),
+    interrupt_before=["await_source_selection"],
+)

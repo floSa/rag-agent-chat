@@ -3,13 +3,14 @@ import logging
 import uuid
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
 from src.agent.graph import agent_graph
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import generate_stream
+from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
 from src.api.schemas import (
@@ -40,11 +41,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Stockage en mémoire des états LangGraph en cours (thread_id → state)
-# En production, utiliser une base de données ou Redis
-_graph_states: dict[str, dict] = {}
-
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -156,9 +152,9 @@ async def chat_start(req: SearchRequest) -> dict:
         "_metadata": {},
     }
 
-    # Exécuter jusqu'à l'interruption (avant await_source_selection)
+    # Exécuter jusqu'à l'interruption (avant await_source_selection) ;
+    # l'état est persisté par le checkpointer LangGraph sous ce thread_id.
     result = await agent_graph.ainvoke(initial_state, config)
-    _graph_states[thread_id] = result
 
     groups = group_by_document(result.get("reranked_chunks", []))
     return {
@@ -174,19 +170,21 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
 
     Reconstruit le contexte, génère la réponse, post-traite les citations.
     """
-    thread_id = req.thread_id
-    if thread_id not in _graph_states:
+    config = {"configurable": {"thread_id": req.thread_id}}
+
+    snapshot = await agent_graph.aget_state(config)
+    if not snapshot.values or not snapshot.next:
         raise HTTPException(
             status_code=404,
-            detail="Session introuvable. Relancez /chat/start.",
+            detail="Session introuvable ou déjà terminée. Relancez /chat/start.",
         )
 
-    config = {"configurable": {"thread_id": thread_id}}
-    state = _graph_states[thread_id]
-    state["selected_element_ids"] = req.selected_element_ids
-
-    result = await agent_graph.ainvoke(state, config)
-    _graph_states.pop(thread_id, None)
+    # Injecter la sélection dans l'état persisté, puis reprendre là où le
+    # graphe s'était interrompu (ainvoke(None) = resume, pas un nouveau run).
+    await agent_graph.aupdate_state(
+        config, {"selected_element_ids": req.selected_element_ids}
+    )
+    result = await agent_graph.ainvoke(None, config)
 
     return ChatResponse(
         answer=result.get("response", ""),
@@ -194,3 +192,18 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         images=result.get("images", []),
         search_count=result.get("search_count", 1),
     )
+
+
+# ─── Médias (proxy MinIO) ─────────────────────────────────────────────────────
+
+@app.get("/media/{object_name:path}")
+def media(object_name: str) -> Response:
+    """Sert un objet MinIO (image croppée) au navigateur.
+
+    L'endpoint interne minio:9000 n'est pas résolvable hors du réseau Docker :
+    l'API joue le rôle de proxy pour les images référencées dans les réponses.
+    """
+    data = get_object_bytes(object_name)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Objet introuvable.")
+    return Response(content=data, media_type="image/png")
