@@ -1,4 +1,10 @@
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
+
+# Identifiant d'élément : hash sha256 tronqué à 10 caractères produit par
+# l'ingestion. Validé strictement car interpolé dans les requêtes nGQL.
+ElementId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{10}$")]
 
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
@@ -44,7 +50,8 @@ class SourcesResponse(BaseModel):
 class SourceSelectionRequest(BaseModel):
     thread_id: str
     question: str
-    selected_element_ids: list[str] = Field(..., min_length=1)
+    selected_element_ids: list[ElementId] = Field(..., min_length=1)
+    stream: bool = True
 
 
 # ─── Graph context ────────────────────────────────────────────────────────────
@@ -80,7 +87,7 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
-    selected_element_ids: list[str] = Field(default_factory=list)
+    selected_element_ids: list[ElementId] = Field(default_factory=list)
     chat_history: list[Message] = Field(default_factory=list)
     stream: bool = True
 

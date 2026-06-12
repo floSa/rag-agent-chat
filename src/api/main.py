@@ -3,7 +3,8 @@ import logging
 import uuid
 from collections.abc import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, Response
+from anyio import to_thread
+from fastapi import FastAPI, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
@@ -51,8 +52,12 @@ async def health() -> HealthResponse:
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
+# Endpoints `def` (et non `async def`) : l'inférence des modèles (embedding,
+# cross-encoder) et les requêtes Nebula sont synchrones et CPU-bound — FastAPI
+# les exécute dans son threadpool, sans bloquer l'event loop.
+
 @app.post("/search", response_model=SearchResponse)
-async def search(req: SearchRequest) -> SearchResponse:
+def search(req: SearchRequest) -> SearchResponse:
     """Retrieval brut ChromaDB sans reranking."""
     chunks = retrieve(req.question, top_k=req.top_k)
     return SearchResponse(question=req.question, chunks=chunks)
@@ -61,7 +66,7 @@ async def search(req: SearchRequest) -> SearchResponse:
 # ─── Reranking + groupement ───────────────────────────────────────────────────
 
 @app.post("/sources", response_model=SourcesResponse)
-async def sources(req: SearchRequest) -> SourcesResponse:
+def sources(req: SearchRequest) -> SourcesResponse:
     """Retrieval + reranking + groupement par document."""
     chunks = retrieve(req.question)
     ranked = rerank(req.question, chunks)
@@ -72,7 +77,7 @@ async def sources(req: SearchRequest) -> SourcesResponse:
 # ─── Graph context ────────────────────────────────────────────────────────────
 
 @app.get("/context/{element_id}")
-async def context(element_id: str) -> dict:
+def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict:
     """Reconstruit le contexte enrichi pour un element_id donné."""
     try:
         ctx = reconstruct_section(element_id)
@@ -99,7 +104,8 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     contexts = []
     for eid in req.selected_element_ids:
         try:
-            ctx = reconstruct_section(eid)
+            # Reconstruction synchrone (requêtes Nebula) → threadpool
+            ctx = await to_thread.run_sync(reconstruct_section, eid)
             contexts.append(ctx)
         except Exception:
             logger.exception("Erreur reconstruction pour %s", eid)
@@ -180,12 +186,36 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         )
 
     # Injecter la sélection dans l'état persisté, puis reprendre là où le
-    # graphe s'était interrompu (ainvoke(None) = resume, pas un nouveau run).
+    # graphe s'était interrompu (input None = resume, pas un nouveau run).
     await agent_graph.aupdate_state(
         config, {"selected_element_ids": req.selected_element_ids}
     )
-    result = await agent_graph.ainvoke(None, config)
 
+    if req.stream:
+        async def stream_generator() -> AsyncIterator[dict]:
+            final_state: dict = {}
+            # "custom" : tokens émis par node_generate ; "values" : état complet
+            # après chaque nœud (le dernier reçu = état final).
+            async for mode, chunk in agent_graph.astream(
+                None, config, stream_mode=["custom", "values"]
+            ):
+                if mode == "custom":
+                    yield {"data": json.dumps(chunk)}
+                elif mode == "values":
+                    final_state = chunk
+            yield {
+                "data": json.dumps({
+                    "done": True,
+                    "answer": final_state.get("response", ""),
+                    "citations": [c.model_dump() for c in final_state.get("citations", [])],
+                    "images": [i.model_dump() for i in final_state.get("images", [])],
+                    "search_count": final_state.get("search_count", 1),
+                })
+            }
+
+        return EventSourceResponse(stream_generator())
+
+    result = await agent_graph.ainvoke(None, config)
     return ChatResponse(
         answer=result.get("response", ""),
         citations=result.get("citations", []),

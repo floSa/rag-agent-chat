@@ -79,6 +79,7 @@ docker compose up -d --build
 | `POST` | `/chat/start` | Démarre le flux LangGraph, suspend en attente de sélection. |
 | `POST` | `/chat/resume` | Reprend après sélection des sources (réponse en SSE). |
 | `POST` | `/chat/simple` | Génération directe sans boucle agentique. |
+| `GET` | `/media/{object_name}` | Proxy des images MinIO (le réseau Docker interne n'est pas visible du navigateur). |
 
 ---
 
