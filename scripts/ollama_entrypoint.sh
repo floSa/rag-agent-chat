@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-MODEL="${OLLAMA_MODEL:-gemma3:4b}"
+MODEL="${OLLAMA_MODEL:-gemma3n:e4b}"
 
 echo "[ollama-init] Démarrage du serveur Ollama..."
 ollama serve &

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # Ollama / LLM
     ollama_host: str = Field(default="http://ollama:11434", alias="OLLAMA_HOST")
-    ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
+    ollama_model: str = Field(default="gemma3n:e4b", alias="OLLAMA_MODEL")
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
 

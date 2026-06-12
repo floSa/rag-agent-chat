@@ -217,7 +217,19 @@ elif st.session_state.phase == "answer":
         cols = st.columns(min(len(st.session_state.images), 3))
         for i, img in enumerate(st.session_state.images):
             with cols[i % 3]:
-                st.image(img["minio_url"], caption=f"[img:{img['element_id']}]")
+                url = img["minio_url"]
+                caption = f"[img:{img['element_id']}]"
+                try:
+                    if url.startswith("/"):
+                        # Chemin proxy /media : on télécharge via l'API
+                        # (le navigateur ne voit pas le réseau Docker interne)
+                        resp = httpx.get(f"{API_URL}{url}", timeout=30.0)
+                        resp.raise_for_status()
+                        st.image(resp.content, caption=caption)
+                    else:
+                        st.image(url, caption=caption)
+                except httpx.HTTPError:
+                    st.caption(f"⚠️ Image indisponible : {caption}")
 
     # ── Citations ─────────────────────────────────────────────────────────────
     if st.session_state.citations:

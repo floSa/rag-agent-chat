@@ -15,6 +15,12 @@ _SECTION_TAGS = {"SectionHeader"}
 _ROOT_TAGS = {"Document"}
 # Profondeur max de remontée pour éviter les boucles
 _MAX_DEPTH = 10
+# Tags d'éléments, par ordre de probabilité lors de la remontée
+_ELEMENT_TAGS = [
+    "SectionHeader", "Paragraph", "Table", "Picture", "Code",
+    "Formula", "Caption", "ListItem", "Footnote", "PageHeader",
+    "PageFooter",
+]
 
 
 @lru_cache(maxsize=1)
@@ -58,14 +64,13 @@ def _execute(nql: str) -> list[dict]:  # type: ignore[return]
 
 
 def _get_node_properties(node_id: str) -> dict:
-    """Récupère les propriétés d'un nœud (label, text, minio_url, page_no)."""
-    # On essaie plusieurs tags possibles
-    tags = [
-        "SectionHeader", "Paragraph", "Table", "Picture", "Code",
-        "Formula", "Caption", "ListItem", "Footnote", "PageHeader",
-        "PageFooter", "Document",
-    ]
-    for tag in tags:
+    """Récupère les propriétés d'un nœud, plus son tag Nebula sous la clé "tag".
+
+    La propriété `label` contient le label Docling en minuscules
+    ("section_header", "paragraph", …) ; c'est le tag Nebula ("SectionHeader",
+    "Document", …) qui identifie le type de nœud lors de la remontée.
+    """
+    for tag in _ELEMENT_TAGS:
         rows = _execute(
             f'FETCH PROP ON {tag} "{node_id}" '
             f'YIELD properties(vertex).label AS label, '
@@ -74,7 +79,21 @@ def _get_node_properties(node_id: str) -> dict:
             f'properties(vertex).page_no AS page_no;'
         )
         if rows:
-            return rows[0]
+            return {**rows[0], "tag": tag}
+
+    # Le tag Document n'a pas de propriétés label/text : cas particulier
+    rows = _execute(
+        f'FETCH PROP ON Document "{node_id}" '
+        f'YIELD properties(vertex).filename AS filename;'
+    )
+    if rows:
+        return {
+            "tag": "Document",
+            "label": "document",
+            "text": rows[0].get("filename") or "",
+            "minio_url": None,
+            "page_no": 0,
+        }
     return {}
 
 
@@ -115,18 +134,19 @@ def _climb_to_section(element_id: str) -> tuple[str, list[BreadcrumbEntry]]:
             break
 
         props = _get_node_properties(parent_id)
-        label = props.get("label", "")
+        tag = props.get("tag", "")
+        label = props.get("label", "") or tag
         text = props.get("text", "") or ""
 
         breadcrumbs_reversed.append(
             BreadcrumbEntry(node_id=parent_id, label=label, text=text[:120])
         )
 
-        if label in _SECTION_TAGS | _ROOT_TAGS:
+        if tag in _SECTION_TAGS:
             section_id = parent_id
-            # Si on a trouvé un SectionHeader, on s'arrête selon CONTEXT_DEPTH
-            if label in _SECTION_TAGS:
-                break
+            break
+        if tag in _ROOT_TAGS:
+            break
 
         current_id = parent_id
 
@@ -141,6 +161,9 @@ def _build_markdown(
     section_text: str,
 ) -> str:
     """Assemble le contexte enrichi en markdown structuré."""
+    if not breadcrumbs and not elements:
+        return ""
+
     parts: list[str] = []
 
     if breadcrumbs:
@@ -181,9 +204,10 @@ def reconstruct_section(element_id: str) -> SectionContext:
     """
     section_id, breadcrumbs = _climb_to_section(element_id)
 
-    # Propriétés de la section
+    # Propriétés de la section (ou de l'élément lui-même si aucune section parente)
     section_props = _get_node_properties(section_id)
     section_text = section_props.get("text", "") or ""
+    is_header = section_props.get("tag") in _SECTION_TAGS
 
     # Enfants de la section
     children_rows = _get_children(section_id)
@@ -199,7 +223,10 @@ def reconstruct_section(element_id: str) -> SectionContext:
             )
         )
 
-    markdown = _build_markdown(breadcrumbs, elements, section_text)
+    markdown = _build_markdown(breadcrumbs, elements, section_text if is_header else "")
+    if not is_header and section_text:
+        # Élément orphelin de section : son propre texte est le contexte
+        markdown = "\n\n".join(p for p in (markdown, section_text) if p)
 
     logger.debug(
         "Reconstruction : element=%s → section=%s (%d enfants)",
