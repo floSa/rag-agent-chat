@@ -42,7 +42,7 @@ services:
       dockerfile: Dockerfile.agent
     container_name: rag-agent-api
     ports:
-      - "8000:8000"
+      - "8011:8000"
     volumes:
       - ./prompts:/app/prompts:ro
       # Modèles HF (embedding + cross-encoder) téléchargés au premier démarrage,
@@ -73,7 +73,7 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: rag-frontend
     ports:
-      - "8501:8501"
+      - "8506:8501"
     environment:
       API_URL: http://agent-api:8000
     depends_on:

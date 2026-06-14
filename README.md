@@ -59,8 +59,8 @@ docker compose up -d --build
 ### 3. Accéder aux interfaces
 | Service | URL | Note |
 | :--- | :--- | :--- |
-| **Frontend (Streamlit)** | [http://localhost:8501](http://localhost:8501) | Interface de chat avec sélection des sources. |
-| **API (FastAPI)** | [http://localhost:8000/docs](http://localhost:8000/docs) | Swagger UI — tous les endpoints. |
+| **Frontend (Streamlit)** | [http://localhost:8506](http://localhost:8506) | Interface de chat avec sélection des sources. |
+| **API (FastAPI)** | [http://localhost:8011/docs](http://localhost:8011/docs) | Swagger UI — tous les endpoints. |
 | **Ollama** | `http://ollama:11434` | Interne au réseau Docker (pas exposé côté host). |
 
 ### 4. Poser une question

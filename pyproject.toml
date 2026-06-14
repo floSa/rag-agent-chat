@@ -3,6 +3,25 @@ name = "rag-agent-chat"
 version = "0.1.0"
 description = "Agent RAG conversationnel : retrieval, graph context, génération LLM locale"
 requires-python = ">=3.12"
+# Dépendances runtime — source de vérité pour uv (`uv sync`). requirements.txt
+# est conservé pour le build des images Docker (Dockerfile.agent / .frontend).
+dependencies = [
+    "fastapi==0.115.12",
+    "uvicorn==0.34.2",
+    "python-multipart==0.0.20",
+    "sse-starlette==2.3.5",
+    "streamlit==1.44.1",
+    "langgraph==0.4.3",
+    "langchain-core==0.3.59",
+    "chromadb==1.5.8",
+    "sentence-transformers==5.4.1",
+    "nebula3-python==3.8.3",
+    "minio==7.2.20",
+    "jinja2==3.1.6",
+    "pydantic==2.11.4",
+    "pydantic-settings==2.9.1",
+    "httpx==0.28.1",
+]
 
 [tool.ruff]
 target-version = "py312"
