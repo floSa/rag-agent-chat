@@ -130,7 +130,7 @@ pipeline_options = PdfPipelineOptions(
 docker compose logs docling-service --tail 100 -f
 
 # Extraction manuelle (sans Dagster)
-curl -X POST "http://localhost:8000/extract" \
+curl -X POST "http://localhost:8011/extract" \
   -H "Content-Type: application/json" \
   -d '{"filepath": "/opt/dagster/app/Datas/pdfs/mon_livre.pdf"}'
 ```
