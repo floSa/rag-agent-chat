@@ -154,3 +154,21 @@ rag-agent-chat/
 | **MinIO** | `minio:9000` (bucket `documents`) | Images et tableaux croppés, servis en URLs présignées. |
 
 L'agent est **en lecture seule** sur ces stores. Le contrat d'interface complet (schéma du graphe, métadonnées ChromaDB, format des VID) est documenté dans [documentation/llm_integration_plan.md](documentation/llm_integration_plan.md).
+
+---
+
+## Licences & composants
+
+| Composant | Rôle | Licence |
+|---|---|---|
+| Ollama | Serveur LLM local | MIT |
+| FastAPI / Uvicorn | API / serveur ASGI | MIT / BSD-3-Clause |
+| Streamlit | Frontend | Apache-2.0 |
+| LangGraph / langchain-core | Boucle agentique | MIT |
+| ChromaDB | Base vectorielle | Apache-2.0 |
+| sentence-transformers | Embeddings / reranking | Apache-2.0 |
+| Nebula Graph (nebula3-python) | Graphe de connaissances | Apache-2.0 |
+| MinIO | Stockage d'objets | AGPL-3.0 |
+| Jinja2 | Templating | BSD-3-Clause |
+| Pydantic | Config & typage | MIT |
+| **Ce projet** | Code applicatif | MIT — Copyright (c) 2026 floSa `<à confirmer : aucun fichier LICENSE présent>` |
