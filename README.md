@@ -1,12 +1,20 @@
-# RAG Agent Chat 💬
+# RAG Agent Chat
 
 Ce projet est l'agent conversationnel qui consomme les données produites par [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline). Il interroge **ChromaDB** (recherche vectorielle), reconstruit le contexte structurel des documents via **NebulaGraph**, récupère les médias depuis **MinIO**, et génère les réponses avec un LLM local servi par **Ollama** — le tout orchestré par une machine à états **LangGraph** avec sélection des sources par l'utilisateur (*human-in-the-loop*).
+
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![uv](https://img.shields.io/badge/uv-package_manager-DE5FE9?logo=uv&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-0.4-1C3C3C?logo=langchain&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.44-FF4B4B?logo=streamlit&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-LLM_local-000000?logo=ollama&logoColor=white)
 
 > Contrairement au RAG classique qui injecte des chunks isolés, l'agent utilise le **graphe de connaissances pour reconstruire la section complète** autour de chaque chunk trouvé : hiérarchie de titres (breadcrumb), paragraphes voisins, images et tableaux.
 
 ---
 
-## 🛠 Architecture & Technologies
+## Architecture & Technologies
 
 - **Agent (LangGraph)** : machine à états `retrieve → rerank → sélection user → reconstruction graphe → génération → post-processing`, avec boucle agentique (le LLM peut relancer une recherche via `search_vectors(query)`, max 3 itérations).
 - **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`) et des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`), avec réponses en streaming SSE.
@@ -21,8 +29,8 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 flowchart TD
     U["Utilisateur — question"] --> R["retrieve<br/>embedding + ChromaDB (top-20)"]
     R --> K["rerank<br/>cross-encoder (top-10)"]
-    K --> S["await_source_selection<br/>⏸ interrupt LangGraph"]
-    S -- "sélection des sources<br/>(UI Streamlit → /chat/resume)" --> G["reconstruct_context<br/>NebulaGraph : breadcrumb + section complète"]
+    K --> S["await_source_selection<br/>interrupt LangGraph"]
+    S -- "sélection des sources<br/>(UI Streamlit -> /chat/resume)" --> G["reconstruct_context<br/>NebulaGraph : breadcrumb + section complète"]
     G --> M["MinIO<br/>images & tableaux de la section"]
     M --> L["generate<br/>LLM Ollama (streaming)"]
     L --> P["postprocess<br/>citations [src:ID] + images [img:ID]"]
@@ -34,7 +42,7 @@ L'étape clé est la **Graph Context Reconstruction** : pour chaque chunk sélec
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 0. Prérequis
 
@@ -52,9 +60,9 @@ cp .env.example .env
 # Construire et lancer la stack (make up = docker compose up -d)
 docker compose up -d --build
 ```
-⚠️ Au **premier démarrage**, Ollama télécharge le modèle (plusieurs Go) — le healthcheck laisse jusqu'à 10 minutes. Suivre la progression : `make logs`.
+**Attention** — au **premier démarrage**, Ollama télécharge le modèle (plusieurs Go) — le healthcheck laisse jusqu'à 10 minutes. Suivre la progression : `make logs`.
 
-⚠️ Gemma 4 exige une **image Ollama récente** : si votre image `ollama/ollama:latest` locale est ancienne, elle boucle à l'infini sans erreur sur cette architecture. Faire `docker compose pull ollama` en cas de doute.
+**Attention** — Gemma 4 exige une **image Ollama récente** : si votre image `ollama/ollama:latest` locale est ancienne, elle boucle à l'infini sans erreur sur cette architecture. Faire `docker compose pull ollama` en cas de doute.
 
 ### 3. Accéder aux interfaces
 | Service | URL | Note |
@@ -70,7 +78,7 @@ docker compose up -d --build
 
 ---
 
-## 🔌 API — Endpoints principaux
+## API — Endpoints principaux
 
 | Méthode | Route | Rôle |
 | :--- | :--- | :--- |
@@ -85,7 +93,7 @@ docker compose up -d --build
 
 ---
 
-## ⚙️ Configuration (`.env`)
+## Configuration (`.env`)
 
 Les variables clés (voir `.env.example` pour la liste complète) :
 
@@ -103,7 +111,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 
 ---
 
-## 🧪 Développement
+## Développement
 
 ```bash
 make lint              # ruff check
@@ -117,7 +125,7 @@ bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + do
 
 ---
 
-## 📁 Structure du Projet
+## Structure du Projet
 
 ```text
 rag-agent-chat/
@@ -145,7 +153,7 @@ rag-agent-chat/
 
 ---
 
-## 🔗 Lien avec rag-ingestion-pipeline
+## Lien avec rag-ingestion-pipeline
 
 | Store | Accès | Usage par l'agent |
 | :--- | :--- | :--- |

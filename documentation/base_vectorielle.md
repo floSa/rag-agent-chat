@@ -1,16 +1,16 @@
 # Stockage et Recherche Vectorielle (ChromaDB)
 
-## 📌 Présentation du Service
+## Présentation du Service
 La base vectorielle **ChromaDB** est le composant indispensable à l'algorithme "Retrieval" de tout système RAG. Pendant que NebulaGraph gère la logique de la structure et les relations d'ordres, ChromaDB va chercher précisément le fond, l'idée et la signification textuelle à la demande d'un Agent IA.
 
 Grâce aux *embeddings* générés par le composant IA (`all-MiniLM-L6-v2`), ChromaDB place chaque paragraphe extrait dans un espace mathématique multi-dimensionnel permettant de trouver instantanément un texte ayant un sens et un contexte similaire à la requête utilisateur.
 
-## 🔗 Accès au service
+## Accès au service
 - **Type** : API Serveur Vectoriel HTTP
 - **URL / Point d'Entrée API** : `http://localhost:8080/api/v1` (Accès Docker interne : `chromadb:8000`)
 - Le client se connecte via la librairie Python officielle : `chromadb.HttpClient`.
 
-## 🗂️ Structure et définition des données
+## Structure et définition des données
 Gérée comme une "Collection" de documents et de vecteurs, son arborescence se complexifie intelligemment par la conservation de métadonnées.
 - **Identifiant Unique** : Exactement le même identifiant cryptographique (Hash ID) unique que celui inséré dans NebulaGraph. C’est la clé de pivot ou la "clé étrangère" parfaite entre la base sémantique graphe et la base vectorielle. 
 - **Embeddings** : Représentation mathématique d’un `Paragraph` de texte.
@@ -20,7 +20,7 @@ Gérée comme une "Collection" de documents et de vecteurs, son arborescence se 
   - `page_no` : Page source pour un système de référencement (citer la source au client RAG).
   - `filename` : Fichier de référence pour ne chercher que dans des ressources spécifiques.
 
-## 💻 Commandes Utiles
+## Commandes Utiles
 Lors de vos futurs développements du système RAG Agentique, vous nécessiterez régulièrement ces concepts :
 - **Intérroger la collection en Python :** 
   ```python
@@ -40,7 +40,7 @@ Lors de vos futurs développements du système RAG Agentique, vous nécessiterez
   docker compose logs chromadb --tail 50
   ```
 
-## 🛠️ Problèmes rencontrés et Solutions
+## Problèmes rencontrés et Solutions
 - **Intégrité de Base Perdue au Reboot** : 
   - *Problème* : L'inexistence de `restart: unless-stopped` en politique de redémarrage sur le conteneur ChromaDB faisait disparaître ou arrêter inopinément le service dès réveil d'une nuit de fermeture du terminal (WSL). Le service demandeur `docling-service` ne parvenait alors plus à trouver son système cible et jetait les paquets vectoriels dans le vide.
   - *Solution* : Ajouté ce jour des conditions optimales `restart: unless-stopped` sur la déclaration docker, forçant chroma à se relancer instantanément et récupérer automatiquement ses collections depuis son montage `/Datas/database/chromadb`.
