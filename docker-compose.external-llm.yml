@@ -1,0 +1,32 @@
+# Override : branche l'API agent sur le service Ollama CENTRAL (repo llm-service)
+# au lieu de lancer l'Ollama local (rag-ollama).
+#
+#   Autonome (Ollama local embarqué) :
+#     docker compose up -d --build
+#   Branché sur le service central (llm-service doit tourner) :
+#     docker compose -f docker-compose.yml -f docker-compose.external-llm.yml up -d --build
+#
+# Prérequis : `make up` dans llm-service (Ollama central + réseau « llm-net »).
+# NB : ce projet lit OLLAMA_HOST depuis .env ; le bloc `environment` ci-dessous
+# a la priorité sur env_file, donc l'URL centrale gagne.
+services:
+  # 1. Neutralise l'Ollama local.
+  ollama:
+    deploy:
+      replicas: 0
+
+  # 2. L'API agent pointe vers le central + rejoint llm-net.
+  agent-api:
+    environment:
+      OLLAMA_HOST: http://ollama-central:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+    # Retire la dépendance à l'ollama local (sinon compose le relance).
+    depends_on: !reset []
+    networks:
+      - rag_network
+      - internal
+      - llm-net
+
+networks:
+  llm-net:
+    external: true
