@@ -177,6 +177,49 @@ class ChatResponse(BaseModel):
     search_count: int
 
 
+class AnswerRequest(BaseModel):
+    """Question posée sans sélection humaine des sources."""
+
+    question: str = Field(..., min_length=1, max_length=2000)
+    top_k: int = Field(default=20, ge=1, le=50)
+    chat_history: list[Message] = Field(default_factory=list)
+    # Nombre de sources reconstruites. Laissé à None, RERANK_TOP_K s'applique.
+    max_sources: int | None = Field(default=None, ge=1, le=20)
+
+
+class RetrievedContext(BaseModel):
+    """Un passage effectivement soumis au LLM, tel qu'un évaluateur le lit."""
+
+    element_id: str
+    section_id: str
+    filename: str
+    collection: str = ""
+    source_path: str = ""
+    section_title: str = ""
+    language: str = ""
+    page_no: int = 0
+    relevance: float | None = None
+    text: str
+
+
+class AnswerResponse(BaseModel):
+    """Réponse complète et traçable : ce qui a été lu, ce qui a été cité, à quel coût.
+
+    Les contextes sont indispensables à l'évaluation : sans eux, impossible de
+    distinguer un échec de recherche d'un échec de génération.
+    """
+
+    question: str
+    answer: str
+    contexts: list[RetrievedContext]
+    citations: list[Citation]
+    images: list[ImageRef]
+    search_count: int
+    retrieval_ms: int
+    generation_ms: int
+    dropped_contexts: int = 0     # sources écartées faute de place dans la fenêtre
+
+
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):

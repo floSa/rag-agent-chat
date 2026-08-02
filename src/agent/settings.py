@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=20, alias="RETRIEVAL_TOP_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")
     max_search_iterations: int = Field(default=3, alias="MAX_SEARCH_ITERATIONS")
+    # Sources reconstruites d'office quand personne ne les choisit : endpoint
+    # /answer, et repli si la sélection humaine revient vide.
+    auto_select_top_k: int = Field(default=3, alias="AUTO_SELECT_TOP_K")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------

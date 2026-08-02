@@ -11,18 +11,21 @@ from fastapi import FastAPI, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-from src.agent.graph import agent_graph
+from src.agent.graph import agent_graph, answer_graph
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate_stream
+from src.agent.llm import context_budget_chars, fit_contexts, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.api.schemas import (
+    AnswerRequest,
+    AnswerResponse,
     ChatRequest,
     ChatResponse,
     HealthResponse,
+    RetrievedContext,
     SearchRequest,
     SearchResponse,
     SourceSelectionRequest,
@@ -152,6 +155,84 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     return ChatResponse(answer=response, citations=[], images=[], search_count=1)
 
 
+# ─── Réponse directe, sans sélection humaine ──────────────────────────────────
+
+@app.post("/answer", response_model=AnswerResponse)
+async def answer(req: AnswerRequest) -> AnswerResponse:
+    """Question → réponse, sans interruption ni sélection des sources.
+
+    Le flux interactif (/chat/start + sélection + /chat/resume) n'est pas
+    rejouable en batch : il attend un humain. Cet endpoint exécute le même
+    graphe avec les sources les mieux classées, et retourne en plus les
+    passages réellement soumis au LLM et le temps passé à chaque étage.
+
+    Sans les contextes, une campagne d'évaluation ne peut pas distinguer un
+    échec de recherche d'un échec de génération — c'est la mesure qui permet
+    d'attribuer la faute.
+    """
+    initial_state = {
+        "question": req.question,
+        "chat_history": req.chat_history[-6:],
+        "retrieved_chunks": [],
+        "reranked_chunks": [],
+        "selected_element_ids": [],
+        "max_sources": req.max_sources,
+        "enriched_contexts": [],
+        "response": "",
+        "citations": [],
+        "images": [],
+        "search_count": 0,
+        "needs_more_info": False,
+        "next_query": None,
+        "_metadata": {},
+    }
+
+    started = time.monotonic()
+    # Retrieval + reranking seuls, pour chronométrer les deux étages séparément.
+    chunks = await to_thread.run_sync(retrieve, req.question, req.top_k)
+    ranked = await to_thread.run_sync(rerank, req.question, chunks)
+    retrieval_ms = int((time.monotonic() - started) * 1000)
+
+    generation_started = time.monotonic()
+    result = await answer_graph.ainvoke(
+        {**initial_state, "retrieved_chunks": chunks, "reranked_chunks": ranked},
+        {"recursion_limit": 50},
+    )
+    generation_ms = int((time.monotonic() - generation_started) * 1000)
+
+    enriched = result.get("enriched_contexts", [])
+    _, dropped = fit_contexts(enriched, context_budget_chars())
+    by_element = {c.element_id: c for c in ranked}
+
+    contexts = [
+        RetrievedContext(
+            element_id=ctx.element_id,
+            section_id=ctx.section_id,
+            filename=ctx.filename,
+            collection=getattr(by_element.get(ctx.element_id), "collection", ""),
+            source_path=getattr(by_element.get(ctx.element_id), "source_path", ""),
+            section_title=ctx.section_title,
+            language=getattr(by_element.get(ctx.element_id), "language", ""),
+            page_no=getattr(by_element.get(ctx.element_id), "page_no", 0),
+            relevance=getattr(by_element.get(ctx.element_id), "relevance", None),
+            text=ctx.markdown,
+        )
+        for ctx in enriched
+    ]
+
+    return AnswerResponse(
+        question=req.question,
+        answer=result.get("response", ""),
+        contexts=contexts,
+        citations=result.get("citations", []),
+        images=result.get("images", []),
+        search_count=result.get("search_count", 1),
+        retrieval_ms=retrieval_ms,
+        generation_ms=generation_ms,
+        dropped_contexts=dropped,
+    )
+
+
 # ─── Chat avec agentic loop (LangGraph) ───────────────────────────────────────
 
 # Sessions LangGraph vivantes, de la plus ancienne à la plus récente. Le
@@ -206,6 +287,7 @@ async def chat_start(req: SearchRequest) -> dict:
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "selected_element_ids": [],
+        "max_sources": None,
         "enriched_contexts": [],
         "response": "",
         "citations": [],

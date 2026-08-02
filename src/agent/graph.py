@@ -65,16 +65,18 @@ def node_reconstruct_context(state: AgentState) -> dict:
     ajoutés aux contextes déjà reconstruits — sans repasser par la sélection.
     """
     is_iteration = state.get("search_count", 0) > 1
+    top_k = state.get("max_sources") or settings.auto_select_top_k
 
     if is_iteration:
-        element_ids = [c.element_id for c in state["reranked_chunks"][:3]]
+        element_ids = [c.element_id for c in state["reranked_chunks"][:top_k]]
         contexts: list[SectionContext] = list(state.get("enriched_contexts") or [])
     else:
         element_ids = state.get("selected_element_ids") or []
         if not element_ids:
-            # Fallback : utiliser les top-3 chunks reranqués
-            element_ids = [c.element_id for c in state["reranked_chunks"][:3]]
-            logger.warning("Aucune source sélectionnée, fallback sur top-3.")
+            # Personne n'a choisi : /answer fonctionne ainsi par construction,
+            # et le flux interactif y tombe si la sélection revient vide.
+            element_ids = [c.element_id for c in state["reranked_chunks"][:top_k]]
+            logger.info("Aucune source sélectionnée, reprise des %d mieux classées.", top_k)
         contexts = []
 
     seen_sections: set[str] = {c.section_id for c in contexts}
@@ -307,3 +309,8 @@ agent_graph = build_graph().compile(
     checkpointer=build_checkpointer(),
     interrupt_before=["await_source_selection"],
 )
+
+# Même graphe, sans interruption ni checkpointer : la sélection des sources est
+# automatique. C'est ce que consomme POST /answer, et donc ce sur quoi porte
+# toute campagne d'évaluation — le flux interactif n'est pas rejouable en batch.
+answer_graph = build_graph().compile()

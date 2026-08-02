@@ -24,6 +24,10 @@ class AgentState(TypedDict):
     # Vide = pas encore sélectionné ; rempli = validation faite
     selected_element_ids: list[str]
 
+    # Sans sélection humaine (endpoint /answer), nombre de sources reconstruites
+    # d'office. None = AUTO_SELECT_TOP_K.
+    max_sources: int | None
+
     # Contexte enrichi via NebulaGraph
     enriched_contexts: list[SectionContext]
 
