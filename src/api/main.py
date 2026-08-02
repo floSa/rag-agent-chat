@@ -27,7 +27,7 @@ from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import context_budget_chars, fit_contexts, generate_stream
 from src.agent.minio_client import get_object_bytes
-from src.agent.retriever import group_by_document, rerank, retrieve
+from src.agent.retriever import group_by_document, lexical_ready, rerank, retrieve
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.api.schemas import (
@@ -115,6 +115,10 @@ async def health() -> HealthResponse:
     services: dict[str, bool] = {
         "chromadb": await to_thread.run_sync(chroma_ping),
         "nebulagraph": await to_thread.run_sync(nebula_ping),
+        # L'index BM25 se construit au premier appel : tant qu'il est faux, la
+        # recherche fonctionne en dense seul et la première requête paiera
+        # sa construction.
+        "index_lexical": await to_thread.run_sync(lexical_ready),
     }
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -123,7 +127,11 @@ async def health() -> HealthResponse:
     except httpx.HTTPError:
         services["ollama"] = False
 
-    status = "ok" if all(services.values()) else "degraded"
+    # L'index lexical n'est pas une dépendance : son absence dégrade la
+    # recherche, elle ne l'empêche pas. Le healthcheck Docker ne doit pas
+    # redémarrer le service pour ça.
+    essentiels = {k: v for k, v in services.items() if k != "index_lexical"}
+    status = "ok" if all(essentiels.values()) else "degraded"
     return HealthResponse(status=status, ollama_model=settings.ollama_model, services=services)
 
 

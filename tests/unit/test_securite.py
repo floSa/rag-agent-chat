@@ -42,6 +42,7 @@ def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
     monkeypatch.setattr(main.settings, "api_key", "secret-de-test")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
 
     assert TestClient(main.app).get("/health").status_code == 200  # noqa: PLR2004
 
@@ -123,3 +124,56 @@ def test_relecture_de_l_autorisation_sur_objet_inconnu(monkeypatch) -> None:
     assert minio_client.is_allowed("images/doc/neuf.png") is True
     assert etat["appels"] == 2  # noqa: PLR2004
     minio_client._allowed_objects.cache_clear()
+
+
+# ─── Sonde ────────────────────────────────────────────────────────────────────
+
+def _ollama_repond(disponible: bool):
+    """Neutralise la sonde HTTP d'Ollama, injoignable depuis les tests."""
+
+    class Reponse:
+        status_code = 200 if disponible else 500
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        async def get(self, *_args, **_kwargs):
+            return Reponse()
+
+    return lambda **_kwargs: Client()
+
+
+def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
+    """Son absence dégrade la recherche, elle ne l'empêche pas.
+
+    Le healthcheck Docker s'appuie sur ce statut : le passer à « degraded »
+    ferait redémarrer le service en boucle pendant la construction de l'index.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: False)
+    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond(True))
+
+    corps = TestClient(main.app).get("/health").json()
+
+    assert corps["status"] == "ok"
+    assert corps["services"]["index_lexical"] is False
+
+
+def test_dependance_absente_degrade_le_statut(monkeypatch) -> None:
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: False)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond(True))
+
+    assert TestClient(main.app).get("/health").json()["status"] == "degraded"

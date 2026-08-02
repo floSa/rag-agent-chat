@@ -153,8 +153,9 @@ class Settings(BaseSettings):
     # ce qui convient à un déploiement local mais pas à une exposition.
     api_key: str = Field(default="", alias="API_KEY")
 
-    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
-    api_port: int = Field(default=8000, alias="API_PORT")
+    # Pas d'API_HOST / API_PORT : le Dockerfile fixe l'écoute et compose fait
+    # la correspondance de ports. Les exposer laissait croire qu'on pouvait les
+    # changer par le .env, ce qui n'avait aucun effet.
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
 
