@@ -146,10 +146,14 @@ async def node_generate(state: AgentState) -> dict:
 
     started = time.monotonic()
     parts: list[str] = []
+    # Rempli par le callback si le modèle émet un appel d'outil natif.
+    tool_queries: list[str] = []
+
     async for token in generate_stream(
         question=state["question"],
         contexts=state["enriched_contexts"],
         chat_history=state.get("chat_history"),
+        on_tool_call=tool_queries.append,
     ):
         parts.append(token)
         if writer:
@@ -158,16 +162,29 @@ async def node_generate(state: AgentState) -> dict:
     response = "".join(parts)
     logger.info("generate: réponse de %d caractères", len(response))
 
-    # Détection d'une demande de recherche supplémentaire par le LLM
-    # Le LLM peut signaler le besoin via search_vectors(query) dans sa réponse
-    needs_more = False
-    next_query: str | None = None
+    # Le modèle peut demander une recherche supplémentaire de deux façons.
+    # L'appel d'outil natif fait foi : il est structuré, donc sans ambiguïté.
+    next_query: str | None = tool_queries[0] if tool_queries else None
+    origine = "outil natif"
 
-    search_match = re.search(r"search_vectors\([\"'](.+?)[\"']\)", response)
-    if search_match and state.get("search_count", 0) < settings.max_search_iterations:
-        needs_more = True
-        next_query = search_match.group(1)
-        logger.info("LLM demande une recherche supplémentaire : '%s'", next_query)
+    if next_query is None:
+        # Repli pour les modèles sans tool-calling : repérer l'appel dans la
+        # prose. Fragile — le modèle doit produire la syntaxe exacte, et les
+        # tokens sont déjà partis à l'écran — mais c'est le seul signal
+        # disponible dans ce cas.
+        match = re.search(r"search_vectors\([\"'](.+?)[\"']\)", response)
+        if match:
+            next_query = match.group(1)
+            origine = "prose (repli)"
+
+    needs_more = bool(next_query) and (
+        state.get("search_count", 0) < settings.max_search_iterations
+    )
+    if needs_more:
+        logger.info("Recherche supplémentaire demandée [%s] : %r", origine, next_query)
+    elif next_query:
+        logger.info("Recherche supplémentaire ignorée : plafond d'itérations atteint.")
+        next_query = None
 
     # La syntaxe d'appel d'outil ne doit jamais apparaître dans la réponse finale
     response = re.sub(r"search_vectors\([\"'].+?[\"']\)", "", response).strip()

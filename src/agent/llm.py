@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import httpx
@@ -180,10 +180,56 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
     return rewritten
 
 
+# Outil exposé au modèle pour relancer une recherche. Déclaré nativement plutôt
+# que décrit en langage naturel : le modèle répond alors par un `tool_calls`
+# structuré, au lieu d'une chaîne qu'il faut deviner dans sa prose.
+SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_vectors",
+        "description": (
+            "Rechercher des passages supplémentaires dans les documents. "
+            "À utiliser uniquement si les sources fournies ne suffisent pas à "
+            "répondre, avec une sous-question précise."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "La sous-question à rechercher, autonome et précise.",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
+
+def extract_tool_query(message: dict) -> str | None:
+    """Extrait la sous-question d'un appel d'outil natif, None s'il n'y en a pas."""
+    for call in message.get("tool_calls") or []:
+        function = call.get("function") or {}
+        if function.get("name") != "search_vectors":
+            continue
+        arguments = function.get("arguments")
+        # Ollama rend un objet ; certains modèles rendent une chaîne JSON.
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                continue
+        query = (arguments or {}).get("query")
+        if isinstance(query, str) and query.strip():
+            return query.strip()
+    return None
+
+
 async def generate_stream(
     question: str,
     contexts: list[SectionContext],
     chat_history: list[Message] | None = None,
+    on_tool_call: Callable[[str], None] | None = None,
 ) -> AsyncIterator[str]:
     """Génère la réponse en streaming via l'API native Ollama.
 
@@ -202,7 +248,7 @@ async def generate_stream(
         settings.llm_thinking,
     )
 
-    payload = {
+    payload: dict = {
         "model": settings.ollama_model,
         "messages": messages,
         "stream": True,
@@ -216,6 +262,8 @@ async def generate_stream(
             "num_ctx": settings.llm_num_ctx,
         },
     }
+    if settings.native_tool_calling:
+        payload["tools"] = [SEARCH_TOOL]
 
     timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
     async with (
@@ -229,7 +277,14 @@ async def generate_stream(
             data = json.loads(line)
             if data.get("error"):
                 raise RuntimeError(f"Ollama : {data['error']}")
-            delta = data.get("message", {}).get("content", "")
+            message = data.get("message") or {}
+            # Un appel d'outil arrive dans le flux, à part du contenu : il ne
+            # doit jamais atteindre l'utilisateur.
+            if on_tool_call:
+                query = extract_tool_query(message)
+                if query:
+                    on_tool_call(query)
+            delta = message.get("content", "")
             if delta:
                 yield delta
             if data.get("done"):

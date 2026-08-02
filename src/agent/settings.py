@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     rrf_k: int = Field(default=60, alias="RRF_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")
     max_search_iterations: int = Field(default=3, alias="MAX_SEARCH_ITERATIONS")
+    # Déclare search_vectors comme outil natif Ollama. Le repli — repérer
+    # `search_vectors("…")` dans la prose du modèle — reste actif en second
+    # rideau, pour les modèles sans tool-calling.
+    native_tool_calling: bool = Field(default=True, alias="NATIVE_TOOL_CALLING")
     # Sources reconstruites d'office quand personne ne les choisit : endpoint
     # /answer, et repli si la sélection humaine revient vide.
     auto_select_top_k: int = Field(default=3, alias="AUTO_SELECT_TOP_K")
