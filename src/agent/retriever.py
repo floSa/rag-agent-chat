@@ -1,4 +1,5 @@
 import logging
+import math
 from functools import lru_cache
 
 import chromadb
@@ -76,6 +77,9 @@ def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
                 graph_node_id=meta.get("graph_node_id", ""),
                 document=doc,
                 filename=meta.get("filename", ""),
+                collection=meta.get("collection") or "",
+                source_path=meta.get("source_path") or "",
+                section_title=meta.get("section_title") or "",
                 page_no=int(meta.get("page_no", 0)),
                 label=meta.get("label", ""),
                 minio_url=meta.get("minio_url") or None,
@@ -91,8 +95,53 @@ def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
 
 # ─── Reranking ────────────────────────────────────────────────────────────────
 
+def _sigmoid(x: float) -> float:
+    """Ramène un logit de cross-encoder dans [0, 1].
+
+    Monotone : l'ordre du classement est inchangé. Seule l'échelle devient
+    interprétable — un seuil « 0.5 » veut enfin dire quelque chose.
+    """
+    if x >= 0:
+        return 1.0 / (1.0 + math.exp(-x))
+    # Forme stable pour les logits très négatifs (exp(-x) déborde sinon).
+    exp_x = math.exp(x)
+    return exp_x / (1.0 + exp_x)
+
+
+def dedupe_by_element(chunks: list[ChunkResult]) -> list[ChunkResult]:
+    """Ne garde qu'un chunk par element_id, le mieux classé.
+
+    Un bloc long est découpé par l'ingestion en fenêtres recouvrantes qui
+    partagent leur ``element_id`` (``abc#0``, ``abc#1``, …). Comme elles se
+    ressemblent, le reranker les remonte ensemble : elles consommaient
+    plusieurs places du top-K pour un seul passage, et produisaient deux cases
+    à cocher de même clé côté frontend.
+
+    L'ordre d'entrée est préservé — la fonction est donc sûre après un tri.
+    """
+    best: dict[str, ChunkResult] = {}
+    for chunk in chunks:
+        current = best.get(chunk.element_id)
+        if current is None:
+            best[chunk.element_id] = chunk
+            continue
+        # À défaut de score de rerank, la distance vectorielle départage
+        # (plus petite = plus proche).
+        if chunk.rerank_score is not None and current.rerank_score is not None:
+            if chunk.rerank_score > current.rerank_score:
+                best[chunk.element_id] = chunk
+        elif chunk.distance < current.distance:
+            best[chunk.element_id] = chunk
+    return list(best.values())
+
+
 def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
-    """Applique le cross-encoder et retourne les top RERANK_TOP_K chunks."""
+    """Applique le cross-encoder et retourne les top RERANK_TOP_K éléments.
+
+    La déduplication a lieu **avant** la troncature au top-K : sinon plusieurs
+    fenêtres d'un même passage occupent des places au détriment d'autres
+    documents.
+    """
     if not chunks:
         return []
 
@@ -100,40 +149,51 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
     pairs = [[question, c.document] for c in chunks]
     scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[union-attr]
 
-    ranked = sorted(
-        [(chunk, score) for chunk, score in zip(chunks, scores, strict=False)],
-        key=lambda x: x[1],
-        reverse=True,
-    )
-
-    top = ranked[: settings.rerank_top_k]
-    result = []
-    for chunk, score in top:
+    for chunk, score in zip(chunks, scores, strict=False):
         chunk.rerank_score = score
-        result.append(chunk)
+        chunk.relevance = _sigmoid(score)
 
-    logger.info("Reranking : %d chunks sélectionnés (top-%d)", len(result), settings.rerank_top_k)
+    ranked = sorted(chunks, key=lambda c: c.rerank_score or 0.0, reverse=True)
+    result = dedupe_by_element(ranked)[: settings.rerank_top_k]
+
+    logger.info(
+        "Reranking : %d chunks scorés → %d éléments distincts (top-%d)",
+        len(chunks),
+        len(result),
+        settings.rerank_top_k,
+    )
     return result
 
 
 # ─── Groupement par document ──────────────────────────────────────────────────
 
 def group_by_document(chunks: list[ChunkResult]) -> list[SourceGroup]:
-    """Regroupe les chunks par document source, triés par meilleur score."""
+    """Regroupe les chunks par document source, triés par meilleur score.
+
+    Le groupement se fait sur ``source_path`` et non sur ``filename`` : deux
+    ouvrages peuvent contenir un chapitre « Préface », et les fusionner rendait
+    toute citation ambiguë. Repli sur ``filename`` si la métadonnée est absente
+    (documents ingérés avant qu'elle n'existe).
+    """
     groups: dict[str, list[ChunkResult]] = {}
-    for chunk in chunks:
-        groups.setdefault(chunk.filename, []).append(chunk)
+    for chunk in dedupe_by_element(chunks):
+        groups.setdefault(chunk.document_key, []).append(chunk)
 
     result = []
-    for filename, doc_chunks in groups.items():
+    for doc_chunks in groups.values():
+        head = doc_chunks[0]
         best = max(
             (c.rerank_score for c in doc_chunks if c.rerank_score is not None),
             default=0.0,
         )
+        best_relevance = max((c.relevance or 0.0 for c in doc_chunks), default=0.0)
         result.append(
             SourceGroup(
-                filename=filename,
+                filename=head.filename,
+                collection=head.collection,
+                source_path=head.source_path,
                 best_score=best,
+                best_relevance=best_relevance,
                 chunks=sorted(doc_chunks, key=lambda c: c.rerank_score or 0.0, reverse=True),
             )
         )

@@ -21,14 +21,29 @@ class ChunkResult(BaseModel):
     element_id: str
     graph_node_id: str
     document: str                     # texte du chunk
-    filename: str
+    filename: str                     # nom du fichier seul (le chapitre)
+    # L'ingestion distingue le chapitre de l'ouvrage : deux livres peuvent
+    # contenir une « Préface ». C'est source_path qui identifie un document,
+    # jamais filename seul (cf. DocumentIdentity côté ingestion).
+    collection: str = ""              # ouvrage / dossier de premier niveau
+    source_path: str = ""             # chemin relatif complet — identité réelle
+    section_title: str = ""           # titre de la section porteuse
     page_no: int
     label: str                        # paragraph, section_header, table, picture…
     minio_url: str | None = None
     page_position: int = 0
     ref_position: int = 0
     distance: float                   # distance cosine ChromaDB
-    rerank_score: float | None = None  # score cross-encoder (None avant reranking)
+    rerank_score: float | None = None  # logit brut du cross-encoder (non borné)
+    # Sigmoïde du logit, dans [0, 1]. Le cross-encoder ms-marco sort des logits
+    # (typiquement -11..+11) : les afficher tels quels comme une similarité
+    # induit l'utilisateur en erreur au moment où il arbitre les sources.
+    relevance: float | None = None
+
+    @property
+    def document_key(self) -> str:
+        """Identité du document : le chemin, avec repli sur le nom de fichier."""
+        return self.source_path or self.filename
 
 
 class SearchRequest(BaseModel):
@@ -47,9 +62,17 @@ class SearchResponse(BaseModel):
 # ─── Reranking & sélection sources ────────────────────────────────────────────
 
 class SourceGroup(BaseModel):
-    filename: str
-    best_score: float                 # meilleur rerank_score du groupe
+    filename: str                     # nom du chapitre
+    collection: str = ""              # ouvrage dont il fait partie
+    source_path: str = ""             # identité du document (clé de groupement)
+    best_score: float                 # meilleur rerank_score (logit) du groupe
+    best_relevance: float = 0.0       # meilleure pertinence dans [0, 1]
     chunks: list[ChunkResult]
+
+    @property
+    def display_name(self) -> str:
+        """Libellé lisible : « Ouvrage > Chapitre », ou le chapitre seul."""
+        return f"{self.collection} > {self.filename}" if self.collection else self.filename
 
 
 class SourcesResponse(BaseModel):
@@ -87,6 +110,11 @@ class SectionContext(BaseModel):
     breadcrumbs: list[BreadcrumbEntry]   # du Document jusqu'à la section
     elements: list[SectionElement]       # enfants ordonnés par sequence
     markdown: str                         # contexte assemblé prêt pour le LLM
+    # Résolus pendant la remontée du graphe. Extraits ici plutôt que devinés
+    # depuis les breadcrumbs par les appelants : le post-processing des
+    # citations en dépend, et une heuristique sur `label` y était fausse.
+    filename: str = ""                    # nom du document porteur
+    section_title: str = ""               # titre de la section
 
 
 # ─── Chat / génération ────────────────────────────────────────────────────────
@@ -101,8 +129,20 @@ class ChatRequest(BaseModel):
 class Citation(BaseModel):
     element_id: str
     filename: str
+    collection: str = ""              # ouvrage, quand le document en fait partie
+    section_title: str = ""           # section d'où provient l'affirmation
     page_no: int
     text_excerpt: str
+
+    @property
+    def label(self) -> str:
+        """Référence lisible : « Ouvrage > Chapitre, p.42, § Titre »."""
+        parts = [f"{self.collection} > {self.filename}" if self.collection else self.filename]
+        if self.page_no:
+            parts.append(f"p.{self.page_no}")
+        if self.section_title:
+            parts.append(f"§ {self.section_title}")
+        return ", ".join(p for p in parts if p)
 
 
 class ImageRef(BaseModel):
