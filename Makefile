@@ -28,5 +28,9 @@ down:
 logs:
 	docker compose logs -f
 
-ollama-shell:
-	docker compose exec ollama ollama list
+# Les LLM viennent du projet llm-service : c'est lui qu'on interroge.
+models:
+	docker exec ollama-central ollama list
+
+health:
+	curl -s http://localhost:8011/health

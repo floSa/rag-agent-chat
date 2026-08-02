@@ -1,104 +1,53 @@
-# Ollama (LLM local)
+# Ollama — service central
 
-## Rôle
+Ce projet **n'embarque aucune instance Ollama**. Les modèles sont servis par le
+projet [`llm-service`](https://github.com/floSa/llm-service), qui expose le
+conteneur `ollama-central` sur le réseau Docker `llm-net`.
 
-Moteur d'inférence LLM local. Télécharge, met en cache et sert des modèles de langage via une API compatible OpenAI. Dans ce projet, il fournit la capacité de génération de texte citée sans dépendance à un service cloud.
+## Pourquoi
 
-## Container
+Une instance Ollama vivait dans le `docker-compose.yml` de ce projet, avec son
+propre volume de modèles. Elle faisait doublon avec le service central : un
+`docker compose up -d` la recréait et retéléchargeait plusieurs gigaoctets d'un
+modèle déjà servi à côté. Un seul serveur d'inférence pour tous les projets
+évite d'en héberger un par dépôt, et de multiplier les copies des poids.
 
-| Container   | Image              | Port interne | Port exposé | Rôle            |
-|-------------|--------------------|--------------|-------------|-----------------|
-| rag-ollama  | ollama/ollama:latest | 11434      | non exposé  | Inférence LLM   |
+## Configuration
 
-Le port 11434 est accessible uniquement depuis le réseau Docker interne (`internal`). Il n'est pas exposé sur l'hôte.
+| Variable | Valeur | Rôle |
+|---|---|---|
+| `OLLAMA_HOST` | `http://ollama-central:11434` | Endpoint du service central |
+| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération |
+| `LLM_NUM_CTX` | `32768` | Fenêtre de contexte demandée par requête |
+| `LLM_MAX_TOKENS` | `4096` | Plafond de génération (`num_predict`) |
+| `LLM_TEMPERATURE` | `0.1` | Température |
+| `LLM_THINKING` | `false` | Raisonnement de Gemma 4, coûteux en CPU |
 
-## Entrypoint personnalisé
+`LLM_NUM_CTX` est passé explicitement dans chaque requête. Sans lui, la fenêtre
+dépendrait de l'`OLLAMA_CONTEXT_LENGTH` du serveur, et le même prompt
+produirait deux comportements selon le serveur interrogé.
 
-Le script [`scripts/ollama_entrypoint.sh`](../../scripts/ollama_entrypoint.sh) remplace l'entrypoint par défaut de l'image pour :
+Le budget de sources vaut `LLM_NUM_CTX - LLM_MAX_TOKENS` : au-delà, les sources
+excédentaires sont écartées avec un log explicite, plutôt que tronquées en
+silence par Ollama — qui coupe par le **début** du prompt, donc par les sources
+les mieux classées.
 
-1. Démarrer le serveur Ollama en arrière-plan.
-2. Attendre que l'API soit disponible sur le port 11434 (via `/dev/tcp`).
-3. Vérifier si le modèle configuré est déjà présent dans le volume (`ollama list`).
-4. Le télécharger si absent (`ollama pull`).
-5. Garder le conteneur actif (`wait`).
+## Prérequis
 
 ```bash
-# Attente de disponibilité (curl absent de l'image officielle)
-until bash -c "echo > /dev/tcp/localhost/11434" 2>/dev/null; do
-    sleep 2
-done
+cd ~/mes_projets/llm-service && make up
 ```
 
-## Modèle par défaut
+Vérifier que le modèle attendu est servi :
 
-`gemma3:4b` — modèle Gemma 3 de Google, 4 milliards de paramètres, quantifié 4 bits (~3,3 Go).
-
-Le modèle est configurable via la variable `OLLAMA_MODEL`. Il est stocké dans le volume Docker `rag_models_cache` (`/root/.ollama`) pour survivre aux redémarrages.
-
-## Interface API
-
-Ollama expose une API compatible OpenAI sur `/v1/`. Le client Python utilise `openai.AsyncOpenAI` avec `base_url` pointant vers `http://ollama:11434/v1/` :
-
-```python
-client = AsyncOpenAI(
-    base_url=f"{settings.ollama_host}/v1/",
-    api_key="ollama",  # valeur fictive, Ollama n'authentifie pas
-)
+```bash
+make models
 ```
 
-Les appels utilisent `chat.completions.create` avec support du streaming (`stream=True`).
+## Dépannage
 
-## Variables d'environnement
-
-| Variable         | Description                         | Défaut                   |
-|------------------|-------------------------------------|--------------------------|
-| `OLLAMA_HOST`    | URL complète du service Ollama      | `http://ollama:11434`    |
-| `OLLAMA_MODEL`   | Modèle à utiliser                   | `gemma3:4b`              |
-| `LLM_TEMPERATURE`| Température d'échantillonnage       | `0.1`                    |
-| `LLM_MAX_TOKENS` | Nombre maximum de tokens générés    | `4096`                   |
-
-## Healthcheck
-
-```yaml
-test: ["CMD-SHELL", "ollama list | grep -q '.'"]
-interval: 30s
-timeout: 10s
-retries: 10
-start_period: 600s   # 10 min pour le premier téléchargement
-```
-
-Le `start_period` long est nécessaire car le premier démarrage télécharge le modèle (~3,3 Go). Les services dépendants (`agent-api`) ne démarrent qu'après ce healthcheck.
-
-## Persistence
-
-Le volume `rag_models_cache` (nommé `rag_models_cache`, driver local) conserve les modèles entre les redémarrages :
-
-```yaml
-volumes:
-  models_cache:
-    name: rag_models_cache
-```
-
-`docker compose down` ne supprime pas ce volume. `docker compose down -v` le supprimerait (re-téléchargement nécessaire).
-
-## Réseaux
-
-Ollama est connecté à deux réseaux :
-
-| Réseau       | Rôle                                                    |
-|--------------|---------------------------------------------------------|
-| `rag_network` | Réseau externe partagé avec `rag-ingestion-pipeline`  |
-| `internal`   | Réseau interne au projet (accès depuis `agent-api`)    |
-
-## Modèles alternatifs
-
-Tout modèle disponible sur [ollama.com/library](https://ollama.com/library) peut être utilisé. Exemples :
-
-| Modèle          | Taille  | Usage                          |
-|-----------------|---------|--------------------------------|
-| `gemma3:4b`     | ~3,3 Go | Défaut — bon équilibre         |
-| `llama3.2:3b`   | ~2,0 Go | Plus léger                     |
-| `mistral:7b`    | ~4,1 Go | Meilleure capacité de raisonnement |
-| `gemma3:12b`    | ~8,1 Go | Meilleure qualité (GPU requis) |
-
-Changer de modèle nécessite uniquement de modifier `OLLAMA_MODEL` dans `.env` et de redémarrer le service.
+| Symptôme | Cause probable |
+|---|---|
+| `/health` renvoie `ollama: false` | `llm-service` n'est pas démarré, ou le réseau `llm-net` n'existe pas |
+| `network llm-net not found` | Lancer `make up` dans `llm-service` d'abord |
+| Réponse vide ou tronquée | `LLM_NUM_CTX` supérieur à l'`OLLAMA_CONTEXT_LENGTH` du serveur central |

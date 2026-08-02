@@ -1,37 +1,12 @@
-services:
+# Les LLM sont servis par le projet `llm-service` (conteneur `ollama-central`,
+# réseau `llm-net`), jamais par une instance embarquée ici. Un Ollama local
+# vivait dans ce fichier : `docker compose up -d` le recréait et retéléchargeait
+# plusieurs Go de modèle en doublon de celui que le service central sert déjà.
+#
+# Prérequis : `make up` dans llm-service, et la stack rag-ingestion-pipeline
+# démarrée (elle crée le réseau `rag_network` et héberge les stores).
 
-  # ──────────────────────────────────────────────────────────────────
-  # LLM local — Ollama (Gemma 4 E4B)
-  # Entrypoint custom : vérifie si le modèle est déjà dans le volume,
-  # le télécharge si nécessaire, puis sert l'API.
-  # ──────────────────────────────────────────────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    container_name: rag-ollama
-    volumes:
-      - models_cache:/root/.ollama
-      - ./scripts/ollama_entrypoint.sh:/ollama_entrypoint.sh:ro
-    entrypoint: ["/bin/bash", "/ollama_entrypoint.sh"]
-    environment:
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
-      # Fenêtre de contexte par défaut des modèles chargés. Sans ça, Ollama
-      # tronque silencieusement le prompt (~4k tokens) — fatal pour du RAG
-      # qui injecte des sections entières.
-      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-8192}
-    expose:
-      - "11434"
-    healthcheck:
-      # Le CLI ollama sert de sonde (l'image n'embarque pas curl) ;
-      # healthy = le modèle attendu est bien chargé dans le volume.
-      test: ["CMD-SHELL", "ollama list | grep -q \"$${OLLAMA_MODEL}\""]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 600s   # 10 min pour le premier téléchargement
-    restart: unless-stopped
-    networks:
-      - rag_network
-      - internal
+services:
 
   # ──────────────────────────────────────────────────────────────────
   # Backend FastAPI
@@ -50,9 +25,6 @@ services:
       - hf_cache:/root/.cache/huggingface
     env_file:
       - .env
-    depends_on:
-      ollama:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 20s
@@ -63,6 +35,7 @@ services:
     networks:
       - rag_network
       - internal
+      - llm-net
 
   # ──────────────────────────────────────────────────────────────────
   # Frontend Streamlit
@@ -87,8 +60,6 @@ services:
 # Volumes
 # ──────────────────────────────────────────────────────────────────
 volumes:
-  models_cache:
-    name: rag_models_cache
   hf_cache:
     name: rag_hf_cache
 
@@ -98,5 +69,7 @@ volumes:
 networks:
   rag_network:
     external: true   # Réseau créé par rag-ingestion-pipeline
+  llm-net:
+    external: true   # Réseau créé par llm-service (Ollama central)
   internal:
     driver: bridge

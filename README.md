@@ -8,7 +8,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-0.4-1C3C3C?logo=langchain&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.44-FF4B4B?logo=streamlit&logoColor=white)
-![Ollama](https://img.shields.io/badge/Ollama-LLM_local-000000?logo=ollama&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-service_central-000000?logo=ollama&logoColor=white)
 
 > Contrairement au RAG classique qui injecte des chunks isolés, l'agent utilise le **graphe de connaissances pour reconstruire la section complète** autour de chaque chunk trouvé : hiérarchie de titres (breadcrumb), paragraphes voisins, images et tableaux.
 
@@ -20,7 +20,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 - **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`) et des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`), avec réponses en streaming SSE.
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
 - **Retrieval** : embeddings `all-MiniLM-L6-v2` (le **même modèle** que l'ingestion, obligatoire) + reranking par cross-encoder `ms-marco-MiniLM-L6-v2` (local, sans appel API).
-- **LLM local** : [Ollama](https://ollama.com/) (Gemma par défaut), téléchargé automatiquement au premier démarrage dans un volume persistant.
+- **LLM** : servi par le projet [`llm-service`](https://github.com/floSa/llm-service) (conteneur `ollama-central`, réseau `llm-net`). Ce projet n'embarque aucune instance Ollama : il consomme le service central.
 - **Stores en lecture** : ChromaDB, NebulaGraph et MinIO du projet d'ingestion, joints via le réseau Docker externe `rag_network`.
 
 ### Schéma du flux agent
@@ -46,7 +46,10 @@ L'étape clé est la **Graph Context Reconstruction** : pour chaque chunk sélec
 
 ### 0. Prérequis
 
-La stack [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline) doit être **démarrée** (elle crée le réseau `rag_network` et héberge ChromaDB, NebulaGraph et MinIO) et avoir ingéré au moins un document.
+Deux stacks doivent tourner :
+
+- [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline) — crée le réseau `rag_network`, héberge ChromaDB, NebulaGraph et MinIO, et doit avoir ingéré au moins un document ;
+- [llm-service](https://github.com/floSa/llm-service) — crée le réseau `llm-net` et sert les modèles via `ollama-central` (`make up` dans ce projet).
 
 ### 1. Configurer l'environnement
 ```bash
@@ -60,16 +63,14 @@ cp .env.example .env
 # Construire et lancer la stack (make up = docker compose up -d)
 docker compose up -d --build
 ```
-**Attention** — au **premier démarrage**, Ollama télécharge le modèle (plusieurs Go) — le healthcheck laisse jusqu'à 10 minutes. Suivre la progression : `make logs`.
 
-**Attention** — Gemma 4 exige une **image Ollama récente** : si votre image `ollama/ollama:latest` locale est ancienne, elle boucle à l'infini sans erreur sur cette architecture. Faire `docker compose pull ollama` en cas de doute.
 
 ### 3. Accéder aux interfaces
 | Service | URL | Note |
 | :--- | :--- | :--- |
 | **Frontend (Streamlit)** | [http://localhost:8506](http://localhost:8506) | Interface de chat avec sélection des sources. |
 | **API (FastAPI)** | [http://localhost:8011/docs](http://localhost:8011/docs) | Swagger UI — tous les endpoints. |
-| **Ollama** | `http://ollama:11434` | Interne au réseau Docker (pas exposé côté host). |
+| **Ollama** | `http://ollama-central:11434` | Servi par `llm-service`, sur le réseau `llm-net`. |
 
 ### 4. Poser une question
 1. Ouvrez le frontend Streamlit et saisissez votre question.
@@ -119,7 +120,8 @@ make format            # ruff format + fix
 make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
-make ollama-shell      # lister les modèles Ollama chargés
+make models            # lister les modèles servis par llm-service
+make health            # état de l'API et de ses dépendances
 bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + document ingéré)
 ```
 
@@ -133,7 +135,6 @@ rag-agent-chat/
 │   └── llm_integration_plan.md # Contrat d'interface avec rag-ingestion-pipeline
 ├── prompts/                    # Prompts versionnés (system.txt, templates Jinja2)
 ├── scripts/
-│   └── ollama_entrypoint.sh    # Téléchargement auto du modèle au démarrage
 ├── src/
 │   ├── agent/                  # Cœur de l'agent
 │   │   ├── graph.py            # Machine à états LangGraph
@@ -146,7 +147,7 @@ rag-agent-chat/
 │   ├── api/                    # Backend FastAPI (main.py, schemas.py)
 │   └── frontend/               # UI Streamlit (app.py)
 ├── tests/                      # Tests unitaires et d'intégration
-├── docker-compose.yml          # ollama + agent-api + frontend
+├── docker-compose.yml          # agent-api + frontend (LLM : llm-service)
 ├── Dockerfile.agent            # Environnement backend
 └── Dockerfile.frontend         # Environnement Streamlit
 ```
