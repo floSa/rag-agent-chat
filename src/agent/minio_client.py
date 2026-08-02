@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 _OBJECT_NAME_RE = re.compile(r"^[\w\-./]+$")
 
 
+def reset_connection() -> None:
+    """Oublie le client mis en cache, pour le recréer au prochain appel."""
+    _get_minio_client.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def _get_minio_client() -> Minio:
     client = Minio(
@@ -57,15 +62,23 @@ def get_object_bytes(object_name: str) -> bytes | None:
         logger.warning("Chemin d'objet MinIO rejeté : %s", object_name[:120])
         return None
 
-    client = _get_minio_client()
-    response = None
-    try:
-        response = client.get_object(settings.minio_bucket, object_name)
-        return response.read()
-    except Exception:
-        logger.exception("Objet MinIO introuvable : %s", object_name)
-        return None
-    finally:
-        if response is not None:
-            response.close()
-            response.release_conn()
+    for attempt in (1, 2):
+        response = None
+        try:
+            response = _get_minio_client().get_object(settings.minio_bucket, object_name)
+            return response.read()
+        except Exception:
+            # Le client est mis en cache : si MinIO a redémarré, il pointe vers
+            # une connexion morte. On le recrée et on retente une fois avant
+            # de conclure que l'objet est introuvable.
+            if attempt == 1:
+                logger.warning("MinIO injoignable, recréation du client et nouvel essai.")
+                reset_connection()
+                continue
+            logger.exception("Objet MinIO introuvable : %s", object_name)
+            return None
+        finally:
+            if response is not None:
+                response.close()
+                response.release_conn()
+    return None

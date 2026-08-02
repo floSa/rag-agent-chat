@@ -60,6 +60,11 @@ def _quote_vid(vid: str) -> str | None:
     return f'"{escaped}"'
 
 
+def reset_connection() -> None:
+    """Oublie le pool mis en cache, pour le rouvrir au prochain appel."""
+    _get_pool.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def _get_pool() -> SessionPool:
     """Pool de sessions lié au space : gère USE, réutilisation et reconnexion.
@@ -73,7 +78,11 @@ def _get_pool() -> SessionPool:
         settings.nebula_space,
         [(settings.nebula_host, settings.nebula_port)],
     )
-    if not pool.init(SessionPoolConfig()):
+    # Sans délai d'expiration, une requête lente du graphd fige la requête
+    # FastAPI qui l'attend, jusqu'au timeout du client HTTP en bout de chaîne.
+    config = SessionPoolConfig()
+    config.timeout = settings.nebula_timeout_ms
+    if not pool.init(config):
         raise RuntimeError("Impossible d'initialiser le pool de sessions NebulaGraph")
     logger.info(
         "NebulaGraph session pool initialisé : %s:%d (space %s)",
@@ -96,8 +105,18 @@ def _to_primitive(val: Any) -> Any:
 
 
 def _execute(nql: str) -> list[dict]:
-    """Exécute une requête nGQL et retourne les lignes sous forme de dicts."""
-    result = _get_pool().execute(nql)
+    """Exécute une requête nGQL et retourne les lignes sous forme de dicts.
+
+    Le pool est mis en cache : si NebulaGraph a redémarré, il pointe vers des
+    connexions mortes et toutes les requêtes échouent jusqu'au redémarrage de
+    l'agent. Un échec de transport le fait rouvrir, avec un nouvel essai.
+    """
+    try:
+        result = _get_pool().execute(nql)
+    except Exception:
+        logger.warning("NebulaGraph injoignable, réouverture du pool et nouvel essai.")
+        reset_connection()
+        result = _get_pool().execute(nql)
     if not result.is_succeeded():
         logger.error("nGQL échoué : %s — %s", nql, result.error_msg())
         return []

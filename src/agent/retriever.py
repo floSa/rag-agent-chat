@@ -38,12 +38,18 @@ def _get_chroma_collection() -> chromadb.Collection:
     return collection
 
 
+def reset_connection() -> None:
+    """Oublie la collection mise en cache, pour la rouvrir au prochain appel."""
+    _get_chroma_collection.cache_clear()
+
+
 def ping() -> bool:
     """Vérifie que ChromaDB répond (utilisé par /health)."""
     try:
         _get_chroma_collection().count()
         return True
     except Exception:
+        reset_connection()
         return False
 
 
@@ -57,11 +63,22 @@ def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
 
     query_embedding: list[float] = embedding_model.encode(question).tolist()  # type: ignore[union-attr]
 
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=k,
-        include=["documents", "metadatas", "distances"],
-    )
+    def _query(coll: chromadb.Collection) -> dict:
+        return coll.query(
+            query_embeddings=[query_embedding],
+            n_results=k,
+            include=["documents", "metadatas", "distances"],
+        )
+
+    try:
+        results = _query(collection)
+    except Exception:
+        # La collection est mise en cache : si ChromaDB a redémarré, l'objet
+        # pointe vers une connexion morte et toutes les recherches échouent
+        # jusqu'au redémarrage de l'agent. On la rouvre et on retente une fois.
+        logger.warning("ChromaDB injoignable, réouverture de la connexion et nouvel essai.")
+        reset_connection()
+        results = _query(_get_chroma_collection())
 
     chunks: list[ChunkResult] = []
     docs = results.get("documents") or [[]]

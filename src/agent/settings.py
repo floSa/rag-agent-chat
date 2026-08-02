@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     nebula_user: str = Field(default="root", alias="NEBULA_USER")
     nebula_password: str = Field(default="nebula", alias="NEBULA_PASSWORD")
     nebula_space: str = Field(default="rag_space", alias="NEBULA_SPACE")
+    # Délai d'expiration d'une requête nGQL. Sans lui, une requête lente du
+    # graphd fige la requête FastAPI qui l'attend.
+    nebula_timeout_ms: int = Field(default=15_000, alias="NEBULA_TIMEOUT_MS")
 
     # MinIO
     minio_endpoint: str = Field(default="minio:9000", alias="MINIO_ENDPOINT")
