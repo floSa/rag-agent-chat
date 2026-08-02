@@ -10,7 +10,6 @@ import pytest
 
 from src.agent import graph_context, minio_client, retriever
 
-
 # ─── ChromaDB ─────────────────────────────────────────────────────────────────
 
 def test_chroma_rouvre_la_collection_et_retente(monkeypatch) -> None:
@@ -29,9 +28,8 @@ def test_chroma_rouvre_la_collection_et_retente(monkeypatch) -> None:
 
     monkeypatch.setattr(retriever, "_get_chroma_collection", lambda: collection)
     monkeypatch.setattr(retriever, "reset_connection", lambda: cleared.append(True))
-    monkeypatch.setattr(
-        retriever, "_get_embedding_model", lambda: type("M", (), {"encode": lambda _s, _q: _Vec()})()
-    )
+    fake_model = type("M", (), {"encode": lambda _s, _q: _Vec()})()
+    monkeypatch.setattr(retriever, "_get_embedding_model", lambda: fake_model)
 
     assert retriever.retrieve("question") == []
     assert collection.calls == 2  # noqa: PLR2004
