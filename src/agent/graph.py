@@ -208,24 +208,39 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     }
 
 
-def node_postprocess(state: AgentState) -> dict[str, Any]:
-    """Extrait les citations [src:ID] et les références images [img:ID]."""
-    response = state.get("response", "")
-    chunks_map: dict[str, ChunkResult] = {
-        c.element_id: c for c in state.get("reranked_chunks", [])
-    }
+def resolve_citations(
+    response: str,
+    contexts: list[SectionContext],
+    chunks: list[ChunkResult],
+) -> tuple[list[Citation], list[ImageRef]]:
+    """Résout les marqueurs `[src:ID]` et `[img:ID]` d'une réponse.
+
+    Rien ici ne dépend du graphe LangGraph : la fonction est appelée par le
+    nœud de post-traitement comme par l'endpoint de génération directe, qui
+    rendait auparavant `citations: []` en dur.
+
+    Un identifiant que ni les contextes ni les chunks ne connaissent est
+    ignoré : le modèle l'a inventé, et le résoudre serait mentir.
+
+    Args:
+        response: Le texte généré, marqueurs compris.
+        contexts: Sections reconstruites soumises au LLM.
+        chunks: Chunks reranqués — seuls porteurs de l'ouvrage.
+
+    Returns:
+        (citations, images), chacune sans doublon et dans l'ordre du texte.
+    """
+    chunks_map: dict[str, ChunkResult] = {c.element_id: c for c in chunks}
 
     # Les [src:ID] et [img:ID] référencent surtout des éléments des sections
     # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
-    # les deux. Le nom du document est désormais porté par SectionContext ;
-    # l'ouvrage, lui, n'existe que dans les métadonnées vectorielles.
-    collections = {
-        c.filename: c.collection for c in state.get("reranked_chunks", []) if c.collection
-    }
+    # les deux. Le nom du document est porté par SectionContext ; l'ouvrage,
+    # lui, n'existe que dans les métadonnées vectorielles.
+    collections = {c.filename: c.collection for c in chunks if c.collection}
 
     media_map: dict[str, str] = {}
     elements_map: dict[str, Citation] = {}
-    for ctx in state.get("enriched_contexts", []):
+    for ctx in contexts:
         # Les éléments des sections voisines sont citables au même titre que
         # ceux de la section trouvée : ils sont dans le prompt.
         for elem in (*ctx.before, *ctx.elements, *ctx.after):
@@ -242,12 +257,12 @@ def node_postprocess(state: AgentState) -> dict[str, Any]:
                     text_excerpt=(elem.text or "")[:150],
                 ),
             )
-    for reranked in state.get("reranked_chunks", []):
+    for reranked in chunks:
         if reranked.minio_url:
             media_map.setdefault(reranked.element_id, reranked.minio_url)
 
-    # Citations [src:ELEMENT_ID] — résolues d'abord depuis les chunks (filename
-    # et page fiables), sinon depuis les éléments des sections reconstruites.
+    # Citations résolues d'abord depuis les chunks (document et page fiables),
+    # sinon depuis les éléments des sections reconstruites.
     citations: list[Citation] = []
     cited: set[str] = set()
     for match in re.finditer(r"\[src:([a-f0-9]+)\]", response):
@@ -271,20 +286,25 @@ def node_postprocess(state: AgentState) -> dict[str, Any]:
             citations.append(elements_map[eid])
             cited.add(eid)
 
-    # Images [img:ELEMENT_ID] — servies via le proxy /media de l'API
-    # (les URLs internes minio:9000 sont inaccessibles depuis le navigateur)
+    # Images servies via le proxy /media : les URLs internes minio:9000 ne sont
+    # pas résolvables depuis le navigateur.
     images: list[ImageRef] = []
     for match in re.finditer(r"\[img:([a-f0-9]+)\]", response):
         eid = match.group(1)
         minio_url = media_map.get(eid)
         if minio_url and not any(i.element_id == eid for i in images):
-            images.append(
-                ImageRef(
-                    element_id=eid,
-                    minio_url=to_media_path(minio_url),
-                )
-            )
+            images.append(ImageRef(element_id=eid, minio_url=to_media_path(minio_url)))
 
+    return citations, images
+
+
+def node_postprocess(state: AgentState) -> dict[str, Any]:
+    """Extrait les citations [src:ID] et les références images [img:ID]."""
+    citations, images = resolve_citations(
+        state.get("response", ""),
+        state.get("enriched_contexts", []),
+        state.get("reranked_chunks", []),
+    )
     logger.info("postprocess: %d citations, %d images", len(citations), len(images))
     return {"citations": citations, "images": images}
 

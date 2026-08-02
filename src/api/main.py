@@ -21,6 +21,7 @@ from src.agent.graph import (
     build_checkpointer,
     close_checkpointers,
     compile_interactive,
+    resolve_citations,
 )
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
@@ -194,16 +195,33 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
 
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
+            morceaux: list[str] = []
             async for token in generate_stream(req.question, contexts, req.chat_history):
+                morceaux.append(token)
                 yield {"data": json.dumps({"token": token})}
-            yield {"data": json.dumps({"done": True})}
+            reponse = "".join(morceaux)
+            citations, images = resolve_citations(reponse, contexts, [])
+            yield {
+                "data": json.dumps(
+                    {
+                        "done": True,
+                        "answer": reponse,
+                        "citations": [c.model_dump() for c in citations],
+                        "images": [i.model_dump() for i in images],
+                    }
+                )
+            }
 
         return EventSourceResponse(stream_generator())
 
     from src.agent.llm import generate
 
+    # Cet endpoint rendait `citations: []` en dur : il generait des reponses
+    # truffees de marqueurs [src:...] que personne ne resolvait, dans un projet
+    # dont c'est precisement l'objet.
     response = await generate(req.question, contexts, req.chat_history)
-    return ChatResponse(answer=response, citations=[], images=[], search_count=1)
+    citations, images = resolve_citations(response, contexts, [])
+    return ChatResponse(answer=response, citations=citations, images=images, search_count=1)
 
 
 # ─── Réponse directe, sans sélection humaine ──────────────────────────────────
