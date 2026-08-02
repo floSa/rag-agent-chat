@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 # Taille des lots de lecture pour la construction de l'index lexical.
 _LEXICAL_PAGE = 2000
+# Recouvrement maximal cherché entre deux fenêtres consécutives d'un même
+# élément. L'ingestion utilise 150 caractères ; la marge couvre un réglage
+# différent sans rendre la recherche coûteuse.
+_MAX_OVERLAP = 400
 
 
 # ─── Singletons chargés une seule fois au démarrage ──────────────────────────
@@ -108,6 +112,73 @@ def _lexical_search(question: str, k: int) -> list[ChunkResult]:
     return [
         chunk_from_record(chunk_id, *par_id[chunk_id]) for chunk_id, _ in hits if chunk_id in par_id
     ]
+
+
+def full_texts(element_ids: list[str]) -> dict[str, str]:
+    """Recompose le texte intégral des éléments demandés depuis ChromaDB.
+
+    Le graphe ne porte qu'un aperçu : l'ingestion y tronque le texte à 2000
+    caractères, le corpus complet vivant dans l'index vectoriel. Un tableau
+    exporté par Docling dépasse souvent cette limite et arrivait donc amputé au
+    LLM — alors que sa version entière était à un `get` de distance.
+
+    Un élément long est réparti sur plusieurs chunks recouvrants (`abc#0`,
+    `abc#1`, …) : ils sont remis dans l'ordre puis recollés en retirant le
+    recouvrement, sinon la jointure dupliquerait la charnière.
+
+    Args:
+        element_ids: Identifiants d'éléments (hash 10 hexadécimaux).
+
+    Returns:
+        Dict {element_id: texte complet}. Les éléments absents de l'index —
+        titres, fragments trop courts pour être vectorisés — sont omis.
+    """
+    if not element_ids:
+        return {}
+
+    try:
+        records = _get_chroma_collection().get(
+            where={"element_id": {"$in": list(set(element_ids))}},
+            include=["documents", "metadatas"],
+        )
+    except Exception:
+        logger.warning("Texte intégral indisponible, le texte du graphe est conservé.")
+        return {}
+
+    par_element: dict[str, list[tuple[int, str]]] = {}
+    for doc, meta in zip(
+        records.get("documents") or [], records.get("metadatas") or [], strict=False
+    ):
+        eid = meta.get("element_id")
+        if eid:
+            par_element.setdefault(eid, []).append((int(meta.get("chunk_index") or 0), doc or ""))
+
+    return {
+        eid: _join_overlapping([texte for _, texte in sorted(morceaux)])
+        for eid, morceaux in par_element.items()
+    }
+
+
+def _join_overlapping(morceaux: list[str]) -> str:
+    """Recolle des fenêtres recouvrantes en supprimant la partie commune.
+
+    L'ingestion découpe avec un recouvrement (150 caractères par défaut) : une
+    concaténation naïve répéterait la charnière. On cherche le plus long suffixe
+    du texte accumulé qui soit préfixe du morceau suivant.
+    """
+    if not morceaux:
+        return ""
+
+    resultat = morceaux[0]
+    for morceau in morceaux[1:]:
+        limite = min(len(resultat), len(morceau), _MAX_OVERLAP)
+        recouvrement = 0
+        for taille in range(limite, 0, -1):
+            if resultat.endswith(morceau[:taille]):
+                recouvrement = taille
+                break
+        resultat += morceau[recouvrement:] if recouvrement else f" {morceau}"
+    return resultat
 
 
 def ping() -> bool:

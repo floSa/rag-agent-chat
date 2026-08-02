@@ -6,6 +6,7 @@ from typing import Any, NamedTuple
 from nebula3.Config import SessionPoolConfig
 from nebula3.gclient.net.SessionPool import SessionPool
 
+from src.agent.retriever import full_texts
 from src.agent.settings import settings
 from src.api.schemas import BreadcrumbEntry, SectionContext, SectionElement
 
@@ -24,6 +25,9 @@ _MAX_DEPTH = 10
 # voisine. Les enfants d'un Document ne sont pas tous des en-têtes : quelques
 # candidats suffisent pour tomber sur le premier vrai SectionHeader.
 _SIBLING_CANDIDATES = 5
+# Marge sous la limite de troncature en deçà de laquelle on ne soupçonne pas de
+# coupure : un texte nettement plus court que la limite est forcément entier.
+_TRUNCATION_MARGIN = 50
 
 # Identifiant d'élément : hash sha256[:10] produit par l'ingestion. C'est le
 # SEUL format qu'un appelant extérieur peut fournir, et il est validé
@@ -497,6 +501,40 @@ def _to_elements(rows: list[dict]) -> list[SectionElement]:
     ]
 
 
+def _restore_full_text(elements: list[SectionElement]) -> int:
+    """Remplace le texte tronqué du graphe par le texte intégral de l'index.
+
+    Le graphe porte la structure, pas le corpus : l'ingestion y tronque le texte
+    à 2000 caractères. Un tableau exporté par Docling dépasse souvent cette
+    limite et arrivait amputé au LLM. On ne demande le texte complet que pour
+    les éléments qui frôlent la troncature — inutile d'interroger l'index pour
+    un paragraphe de 300 caractères.
+
+    Returns:
+        Nombre d'éléments dont le texte a été rallongé.
+    """
+    if not settings.full_text_from_vectors:
+        return 0
+
+    candidats = [
+        e.node_id
+        for e in elements
+        if len(e.text) >= settings.graph_text_truncation - _TRUNCATION_MARGIN
+    ]
+    if not candidats:
+        return 0
+
+    textes = full_texts(candidats)
+    rallonges = 0
+    for elem in elements:
+        complet = textes.get(elem.node_id)
+        # Strictement plus long : l'index ne doit jamais raccourcir un texte.
+        if complet and len(complet) > len(elem.text):
+            elem.text = complet
+            rallonges += 1
+    return rallonges
+
+
 def _attach_captions(elements: list[SectionElement]) -> None:
     """Reporte sur chaque visuel le texte de la légende qui le décrit."""
     caption_ids = [e.node_id for e in elements if e.label.lower() == "caption"]
@@ -566,6 +604,7 @@ def reconstruct_section(element_id: str) -> SectionContext:
         settings.context_window_after,
     )
     elements = _to_elements(window)
+    rallonges = _restore_full_text(elements)
     _attach_captions(elements)
 
     budget = settings.adjacent_section_elements
@@ -586,7 +625,8 @@ def reconstruct_section(element_id: str) -> SectionContext:
         markdown = "\n\n".join(p for p in (markdown, section_text) if p)
 
     logger.info(
-        "Reconstruction %s → section %s : %d/%d éléments%s, voisins %d/%d, doc='%s'",
+        "Reconstruction %s → section %s : %d/%d éléments%s, voisins %d/%d, "
+        "%d texte(s) complété(s), doc='%s'",
         element_id,
         section_id,
         len(elements),
@@ -594,6 +634,7 @@ def reconstruct_section(element_id: str) -> SectionContext:
         " (fenêtrés)" if truncated else "",
         len(before),
         len(after),
+        rallonges,
         ancestry.filename,
     )
 

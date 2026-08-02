@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     # Éléments repris de la section précédente (queue) et de la suivante
     # (tête). 0 désactive la traversée vers les sections voisines.
     adjacent_section_elements: int = Field(default=3, alias="ADJACENT_SECTION_ELEMENTS")
+    # Le graphe ne porte qu'un aperçu du texte (tronqué à l'ingestion) ; le
+    # corpus complet vit dans l'index vectoriel. Un tableau Docling dépasse
+    # souvent la limite et arrivait amputé au LLM.
+    full_text_from_vectors: bool = Field(default=True, alias="FULL_TEXT_FROM_VECTORS")
+    # Doit correspondre à GRAPH_TEXT_MAX_CHARS côté ingestion.
+    graph_text_truncation: int = Field(default=2000, alias="GRAPH_TEXT_TRUNCATION")
 
     # Prompts
     prompts_dir: str = Field(default="/app/prompts", alias="PROMPTS_DIR")
