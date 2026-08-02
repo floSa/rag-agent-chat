@@ -53,11 +53,23 @@ class Settings(BaseSettings):
         default="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", alias="RERANK_MODEL"
     )
     retrieval_top_k: int = Field(default=20, alias="RETRIEVAL_TOP_K")
+    # Recherche hybride : BM25 en plus du dense, fusionnés par Reciprocal Rank
+    # Fusion. Le dense rate ce qui ne se paraphrase pas — acronymes, noms
+    # propres, références, chiffres. BM25 les retrouve à la lettre.
+    hybrid_search: bool = Field(default=True, alias="HYBRID_SEARCH")
+    # Candidats demandés à chaque moteur avant fusion. Plus large que le top_k
+    # final : la fusion n'a d'intérêt que si les listes se recouvrent peu.
+    fetch_k: int = Field(default=50, alias="FETCH_K")
+    # Amortissement RRF. 60 = valeur de l'article d'origine.
+    rrf_k: int = Field(default=60, alias="RRF_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")
     max_search_iterations: int = Field(default=3, alias="MAX_SEARCH_ITERATIONS")
     # Sources reconstruites d'office quand personne ne les choisit : endpoint
     # /answer, et repli si la sélection humaine revient vide.
     auto_select_top_k: int = Field(default=3, alias="AUTO_SELECT_TOP_K")
+    # Reformule une question de suivi en question autonome avant l'encodage.
+    # « Et pour les femmes ? » embarqué tel quel ne retrouve rien.
+    query_rewrite: bool = Field(default=True, alias="QUERY_REWRITE")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------

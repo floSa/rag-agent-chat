@@ -44,7 +44,13 @@ def interroger(api: str, question: dict, timeout: float) -> dict[str, Any]:
     """Pose une question à l'agent et retourne sa réponse brute."""
     response = httpx.post(
         f"{api}/answer",
-        json={"question": question["question"], "max_sources": 5},
+        json={
+            "question": question["question"],
+            "max_sources": 5,
+            # Présent, il déclenche la réécriture : c'est ce qui distingue une
+            # question de suivi d'une question autonome.
+            "chat_history": question.get("chat_history") or [],
+        },
         timeout=timeout,
     )
     response.raise_for_status()

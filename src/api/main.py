@@ -175,8 +175,10 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "chat_history": req.chat_history[-6:],
         "retrieved_chunks": [],
         "reranked_chunks": [],
+        "search_query": None,
         "selected_element_ids": [],
         "max_sources": req.max_sources,
+        "top_k": req.top_k,
         "enriched_contexts": [],
         "response": "",
         "citations": [],
@@ -187,18 +189,12 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "_metadata": {},
     }
 
-    started = time.monotonic()
-    # Retrieval + reranking seuls, pour chronométrer les deux étages séparément.
-    chunks = await to_thread.run_sync(retrieve, req.question, req.top_k)
-    ranked = await to_thread.run_sync(rerank, req.question, chunks)
-    retrieval_ms = int((time.monotonic() - started) * 1000)
-
-    generation_started = time.monotonic()
-    result = await answer_graph.ainvoke(
-        {**initial_state, "retrieved_chunks": chunks, "reranked_chunks": ranked},
-        {"recursion_limit": 50},
-    )
-    generation_ms = int((time.monotonic() - generation_started) * 1000)
+    # Un seul passage dans le graphe : la version précédente exécutait
+    # retrieval et reranking ici PUIS relançait le graphe depuis son point
+    # d'entrée, qui les refaisait. Les nœuds se chronomètrent eux-mêmes.
+    result = await answer_graph.ainvoke(initial_state, {"recursion_limit": 50})
+    timings = result.get("_metadata") or {}
+    ranked = result.get("reranked_chunks", [])
 
     enriched = result.get("enriched_contexts", [])
     _, dropped = fit_contexts(enriched, context_budget_chars())
@@ -227,8 +223,8 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         citations=result.get("citations", []),
         images=result.get("images", []),
         search_count=result.get("search_count", 1),
-        retrieval_ms=retrieval_ms,
-        generation_ms=generation_ms,
+        retrieval_ms=timings.get("retrieval_ms", 0) + timings.get("rerank_ms", 0),
+        generation_ms=timings.get("generation_ms", 0),
         dropped_contexts=dropped,
     )
 
@@ -284,10 +280,12 @@ async def chat_start(req: SearchRequest) -> dict:
         "question": req.question,
         # Multi-turn : derniers échanges seulement, pour borner le contexte
         "chat_history": req.chat_history[-6:],
+        "search_query": None,
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "selected_element_ids": [],
         "max_sources": None,
+        "top_k": req.top_k,
         "enriched_contexts": [],
         "response": "",
         "citations": [],

@@ -13,11 +13,14 @@
     "gold_documents : repli quand on ne veut annoter qu'au niveau du document.",
     "  Moins précis, mais déjà utile — et beaucoup plus rapide à produire.",
     "",
-    "expected_answer : facultatif, pour une évaluation de la génération.",
+    "chat_history : facultatif. Présent, la question est une question de SUIVI —",
+    "  elle contient des pronoms ou des sous-entendus et ne veut rien dire seule.",
+    "  C'est ce qui met la réécriture de requête à l'épreuve.",
+    "",
     "unanswerable : true si le corpus ne contient PAS la réponse. Un RAG qui",
     "  n'admet jamais son ignorance est inutilisable : ces cas se mesurent.",
     "",
-    "Ce fichier est une AMORCE de 12 questions, pas un jeu complet. Viser 100 à",
+    "Ce fichier est une AMORCE de 15 questions, pas un jeu complet. Viser 100 à",
     "150 questions stratifiées par type et par langue."
   ],
   "questions": [
@@ -26,7 +29,9 @@
       "question": "What is the standard deviation and how is it computed?",
       "language": "en",
       "type": "factuelle",
-      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -36,7 +41,9 @@
       "language": "fr",
       "type": "factuelle-translinguistique",
       "_note": "Question française, réponse dans le corpus anglais : c'est le cas que le modèle monolingue ratait systématiquement.",
-      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -45,7 +52,9 @@
       "question": "What is continuous delivery for machine learning models?",
       "language": "en",
       "type": "factuelle",
-      "gold_documents": ["htms/Practical MLOps"],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -54,7 +63,9 @@
       "question": "Qu'est-ce que la livraison continue appliquée aux modèles de machine learning ?",
       "language": "fr",
       "type": "factuelle-translinguistique",
-      "gold_documents": ["htms/Practical MLOps"],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -63,7 +74,9 @@
       "question": "Comment fonctionne le mécanisme d'attention dans un transformeur ?",
       "language": "fr",
       "type": "factuelle",
-      "gold_documents": ["mds/Architectures de LLM"],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -72,7 +85,10 @@
       "question": "Quelles techniques permettent d'accélérer l'inférence d'un LLM ?",
       "language": "fr",
       "type": "multi-saut",
-      "gold_documents": ["mds/Infrastructure & Inférence", "mds/Architectures de LLM"],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence",
+        "mds/Architectures de LLM"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -81,7 +97,9 @@
       "question": "How do you package a machine learning model for deployment?",
       "language": "en",
       "type": "factuelle",
-      "gold_documents": ["htms/Practical MLOps"],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -90,7 +108,9 @@
       "question": "What is a confidence interval and when is a small sample formula used?",
       "language": "en",
       "type": "multi-saut",
-      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -99,7 +119,9 @@
       "question": "Comment déployer un modèle sur AWS ?",
       "language": "fr",
       "type": "factuelle-translinguistique",
-      "gold_documents": ["htms/Practical MLOps"],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
       "gold_element_ids": [],
       "unanswerable": false
     },
@@ -130,6 +152,69 @@
       "gold_documents": [
         "pdfs/statisticsfordatascience.pdf",
         "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-013",
+      "question": "Et comment la calcule-t-on en Python ?",
+      "language": "fr",
+      "type": "suivi",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What is the standard deviation?"
+        },
+        {
+          "role": "assistant",
+          "content": "It measures the dispersion of a dataset."
+        }
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-014",
+      "question": "And how do you deploy it on AWS?",
+      "language": "en",
+      "type": "suivi",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "What is continuous delivery for machine learning models?"
+        },
+        {
+          "role": "assistant",
+          "content": "It automates the deployment of trained models."
+        }
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-015",
+      "question": "Et pour l'inférence ?",
+      "language": "fr",
+      "type": "suivi",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Quelles sont les architectures de LLM récentes ?"
+        },
+        {
+          "role": "assistant",
+          "content": "Le Transformer et ses successeurs."
+        }
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
       ],
       "gold_element_ids": [],
       "unanswerable": false

@@ -1,0 +1,18 @@
+Réécris la question de l'utilisateur en une question autonome, compréhensible
+sans l'historique de la conversation.
+
+Règles :
+- Remplace les pronoms et les sous-entendus par ce qu'ils désignent réellement.
+- Garde la langue d'origine de la question.
+- Ne réponds pas à la question, ne l'explique pas, n'ajoute rien.
+- Si la question est déjà autonome, recopie-la telle quelle.
+- Retourne UNIQUEMENT la question réécrite, sur une seule ligne.
+
+Conversation :
+{% for msg in chat_history %}
+{{ "Utilisateur" if msg.role == "user" else "Assistant" }} : {{ msg.content[:400] }}
+{% endfor %}
+
+Question à réécrire : {{ question }}
+
+Question autonome :

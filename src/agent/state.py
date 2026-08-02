@@ -15,6 +15,9 @@ class AgentState(TypedDict):
     # Entrée
     question: str
     chat_history: list[Message]
+    # Question rendue autonome par node_rewrite, utilisée pour la recherche.
+    # La génération continue de voir `question`, telle que posée.
+    search_query: str | None
 
     # Retrieval
     retrieved_chunks: list[ChunkResult]
@@ -27,6 +30,8 @@ class AgentState(TypedDict):
     # Sans sélection humaine (endpoint /answer), nombre de sources reconstruites
     # d'office. None = AUTO_SELECT_TOP_K.
     max_sources: int | None
+    # Candidats demandés à ChromaDB. None = RETRIEVAL_TOP_K.
+    top_k: int | None
 
     # Contexte enrichi via NebulaGraph
     enriched_contexts: list[SectionContext]
@@ -41,5 +46,6 @@ class AgentState(TypedDict):
     needs_more_info: bool       # le LLM a-t-il demandé une recherche supplémentaire ?
     next_query: str | None      # sous-question pour la prochaine itération
 
-    # Métadonnées internes
+    # Chronométrage par étage, renseigné par les nœuds. Une latence globale ne
+    # dit pas quoi optimiser ; c'est ce que /answer expose à l'évaluation.
     _metadata: dict[str, Any]

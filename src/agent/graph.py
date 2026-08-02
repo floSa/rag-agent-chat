@@ -1,6 +1,7 @@
 import logging
 import re
 import sqlite3
+import time
 from pathlib import Path
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -10,7 +11,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate_stream
+from src.agent.llm import generate_stream, rewrite_question
 from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
@@ -22,23 +23,53 @@ logger = logging.getLogger(__name__)
 
 # ─── Nœuds du graphe ─────────────────────────────────────────────────────────
 
+async def node_rewrite(state: AgentState) -> dict:
+    """Rend la question autonome avant de l'encoder.
+
+    Sans historique, ou si la question a déjà été réécrite par l'appelant, le
+    nœud ne fait rien et n'appelle pas le LLM.
+    """
+    if state.get("search_query"):
+        return {}
+    rewritten = await rewrite_question(state["question"], state.get("chat_history"))
+    return {"search_query": rewritten}
+
+
+def _search_query(state: AgentState) -> str:
+    """Requête effectivement envoyée à la recherche.
+
+    Priorité à la sous-question demandée par le LLM (boucle agentique), puis à
+    la question réécrite, puis à la question d'origine.
+    """
+    return state.get("next_query") or state.get("search_query") or state["question"]
+
+
 def node_retrieve(state: AgentState) -> dict:
     """Encode la question et récupère les chunks ChromaDB."""
-    question = state.get("next_query") or state["question"]
-    chunks = retrieve(question)
-    logger.info("retrieve: %d chunks pour '%s'", len(chunks), question[:60])
+    question = _search_query(state)
+    started = time.monotonic()
+    chunks = retrieve(question, top_k=state.get("top_k"))
+    elapsed = int((time.monotonic() - started) * 1000)
+    logger.info("retrieve: %d chunks en %d ms pour '%s'", len(chunks), elapsed, question[:60])
+    metadata = dict(state.get("_metadata") or {})
+    metadata["retrieval_ms"] = metadata.get("retrieval_ms", 0) + elapsed
     return {
         "retrieved_chunks": chunks,
         "search_count": state.get("search_count", 0) + 1,
+        "_metadata": metadata,
     }
 
 
 def node_rerank(state: AgentState) -> dict:
     """Applique le cross-encoder et retourne les top-K chunks."""
-    question = state.get("next_query") or state["question"]
+    question = _search_query(state)
+    started = time.monotonic()
     ranked = rerank(question, state["retrieved_chunks"])
-    logger.info("rerank: %d chunks sélectionnés", len(ranked))
-    return {"reranked_chunks": ranked}
+    elapsed = int((time.monotonic() - started) * 1000)
+    logger.info("rerank: %d chunks sélectionnés en %d ms", len(ranked), elapsed)
+    metadata = dict(state.get("_metadata") or {})
+    metadata["rerank_ms"] = metadata.get("rerank_ms", 0) + elapsed
+    return {"reranked_chunks": ranked, "_metadata": metadata}
 
 
 def node_await_source_selection(state: AgentState) -> dict:
@@ -113,6 +144,7 @@ async def node_generate(state: AgentState) -> dict:
         # (utile quand la boucle agentique relance une génération)
         writer({"reset": True})
 
+    started = time.monotonic()
     parts: list[str] = []
     async for token in generate_stream(
         question=state["question"],
@@ -140,10 +172,16 @@ async def node_generate(state: AgentState) -> dict:
     # La syntaxe d'appel d'outil ne doit jamais apparaître dans la réponse finale
     response = re.sub(r"search_vectors\([\"'].+?[\"']\)", "", response).strip()
 
+    metadata = dict(state.get("_metadata") or {})
+    metadata["generation_ms"] = metadata.get("generation_ms", 0) + int(
+        (time.monotonic() - started) * 1000
+    )
+
     return {
         "response": response,
         "needs_more_info": needs_more,
         "next_query": next_query,
+        "_metadata": metadata,
     }
 
 
@@ -246,6 +284,7 @@ def is_first_pass(state: AgentState) -> bool:
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
+    graph.add_node("rewrite", node_rewrite)
     graph.add_node("retrieve", node_retrieve)
     graph.add_node("rerank", node_rerank)
     graph.add_node("await_source_selection", node_await_source_selection)
@@ -253,6 +292,7 @@ def build_graph() -> StateGraph:
     graph.add_node("generate", node_generate)
     graph.add_node("postprocess", node_postprocess)
 
+    graph.add_edge("rewrite", "retrieve")
     graph.add_edge("retrieve", "rerank")
     graph.add_conditional_edges(
         "rerank",
@@ -269,7 +309,7 @@ def build_graph() -> StateGraph:
         {True: "retrieve", False: END},
     )
 
-    graph.set_entry_point("retrieve")
+    graph.set_entry_point("rewrite")
     return graph
 
 

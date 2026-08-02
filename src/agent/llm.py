@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def _load_system_prompt() -> str:
-    path = Path(settings.prompts_dir) / "system.txt"
+    path = _prompts_dir() / "system.txt"
     if path.exists():
         return path.read_text(encoding="utf-8").strip()
     logger.warning(
@@ -23,9 +24,20 @@ def _load_system_prompt() -> str:
     return "Tu es un assistant utile. Réponds en te basant uniquement sur les sources fournies."
 
 
+# Dossier de prompts embarqué dans le dépôt. `settings.prompts_dir` vaut le
+# chemin monté dans l'image Docker ; hors conteneur (tests, exécution locale) il
+# n'existe pas, et sans repli tout rendu de gabarit échouait.
+_PROMPTS_FALLBACK = Path(__file__).resolve().parent.parent.parent / "prompts"
+
+
+def _prompts_dir() -> Path:
+    configured = Path(settings.prompts_dir)
+    return configured if configured.is_dir() else _PROMPTS_FALLBACK
+
+
 def _get_jinja_env() -> Environment:
     return Environment(
-        loader=FileSystemLoader(settings.prompts_dir),
+        loader=FileSystemLoader(str(_prompts_dir())),
         autoescape=select_autoescape(enabled_extensions=()),
     )
 
@@ -108,6 +120,64 @@ def _build_messages(
 
     msgs.append({"role": "user", "content": _build_context_message(question, kept)})
     return msgs
+
+
+# Une question de suivi est courte : au-delà, le modèle a paraphrasé ou répondu
+# au lieu de réécrire, et sa sortie ne doit pas être utilisée comme requête.
+_MAX_REWRITE_CHARS = 400
+
+
+async def rewrite_question(question: str, chat_history: list[Message] | None) -> str:
+    """Reformule une question de suivi en question autonome.
+
+    « Et pour les femmes ? » est embarqué tel quel par le modèle d'embedding :
+    le vecteur ne porte aucun des termes qui comptent, et la recherche ne
+    retrouve rien. La réécriture restitue le sujet avant l'encodage.
+
+    Sans historique, la question est déjà autonome et rendue telle quelle —
+    aucun appel au LLM n'est fait. En cas d'échec ou de sortie douteuse, on
+    retombe sur la question d'origine : mieux vaut une recherche non réécrite
+    qu'une recherche sur du bruit.
+    """
+    if not chat_history or not settings.query_rewrite:
+        return question
+
+    try:
+        template = _get_jinja_env().get_template("rewrite_query.j2")
+        prompt = template.render(question=question, chat_history=chat_history)
+    except Exception:
+        logger.warning("Gabarit de réécriture introuvable, question d'origine conservée.")
+        return question
+
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "think": False,
+        "options": {"temperature": 0.0, "num_predict": 120, "num_ctx": settings.llm_num_ctx},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
+            resp.raise_for_status()
+            rewritten = resp.json().get("message", {}).get("content", "").strip()
+    except Exception:
+        logger.warning("Réécriture de requête indisponible, question d'origine conservée.")
+        return question
+
+    # Le modèle peut préfixer (« Question autonome : »), commenter, ou répondre.
+    rewritten = rewritten.splitlines()[0].strip() if rewritten else ""
+    rewritten = re.sub(r"^[\s\-*>]*(question\s+autonome\s*:)?\s*", "", rewritten, flags=re.I)
+    rewritten = rewritten.strip('"\'')
+
+    if not rewritten or len(rewritten) > _MAX_REWRITE_CHARS:
+        logger.info("Réécriture écartée (vide ou trop longue), question d'origine conservée.")
+        return question
+
+    if rewritten != question:
+        logger.info("Question réécrite : %r → %r", question[:60], rewritten[:60])
+    return rewritten
 
 
 async def generate_stream(

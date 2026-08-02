@@ -20,7 +20,11 @@ def client(monkeypatch):
     chunk = _chunk()
 
     async def fake_ainvoke(_state, _config=None):
+        # Le graphe rend lui-même les chunks reranqués : /answer n'exécute plus
+        # le retrieval de son côté, il lit le résultat d'un unique passage.
         return {
+            "reranked_chunks": [chunk],
+            "_metadata": {"retrieval_ms": 120, "rerank_ms": 80, "generation_ms": 900},
             "response": "La dispersion se mesure par l'écart-type [src:abcdef0123].",
             "enriched_contexts": [
                 SectionContext(
@@ -47,8 +51,6 @@ def client(monkeypatch):
             "search_count": 1,
         }
 
-    monkeypatch.setattr(main, "retrieve", lambda _q, _k=20: [chunk])
-    monkeypatch.setattr(main, "rerank", lambda _q, chunks: chunks)
     monkeypatch.setattr(main.answer_graph, "ainvoke", fake_ainvoke)
     return TestClient(main.app)
 
@@ -95,11 +97,12 @@ def test_answer_expose_les_passages_soumis_au_llm(client) -> None:
 
 
 def test_answer_chronometre_les_deux_etages(client) -> None:
+    """Les nœuds se chronomètrent eux-mêmes ; retrieval agrège recherche et rerank."""
     body = client.post("/answer", json={"question": "Comment mesurer la dispersion ?"}).json()
 
-    assert body["retrieval_ms"] >= 0
-    assert body["generation_ms"] >= 0
-    assert "dropped_contexts" in body
+    assert body["retrieval_ms"] == 200  # noqa: PLR2004  120 + 80
+    assert body["generation_ms"] == 900  # noqa: PLR2004
+    assert body["dropped_contexts"] == 0
 
 
 def test_answer_refuse_une_question_vide(client) -> None:
