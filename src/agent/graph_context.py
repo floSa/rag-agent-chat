@@ -67,6 +67,7 @@ def _quote_vid(vid: str) -> str | None:
 def reset_connection() -> None:
     """Oublie le pool mis en cache, pour le rouvrir au prochain appel."""
     _get_pool.cache_clear()
+    _caption_edge.cache_clear()
 
 
 @lru_cache(maxsize=1)
@@ -249,6 +250,27 @@ def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
     return None
 
 
+# Noms successifs de l'arête qui relie une légende à son illustration. Le
+# pipeline d'ingestion l'a nommée DESCRIBES puis LINKED_TO : plutôt que de
+# suivre chaque renommage, on interroge le schéma et on prend celle qui existe.
+_CAPTION_EDGES = ("LINKED_TO", "DESCRIBES")
+
+
+@lru_cache(maxsize=1)
+def _caption_edge() -> str | None:
+    """Nom de l'arête légende → illustration présente dans le space."""
+    disponibles = {str(row.get("Name") or "") for row in _execute("SHOW EDGES;")}
+    for nom in _CAPTION_EDGES:
+        if nom in disponibles:
+            return nom
+    logger.info(
+        "Aucune arête de légende dans le graphe (attendu : %s). Les illustrations "
+        "seront proposées sans légende.",
+        " ou ".join(_CAPTION_EDGES),
+    )
+    return None
+
+
 def _caption_links(caption_ids: list[str]) -> dict[str, str]:
     """Relie chaque visuel à la légende qui le décrit, via l'arête DESCRIBES.
 
@@ -259,18 +281,23 @@ def _caption_links(caption_ids: list[str]) -> dict[str, str]:
 
     Args:
         caption_ids: VIDs des éléments de label ``caption`` de la section.
+            L'arête est cherchée dans le schéma : son nom a déjà changé une
+            fois côté ingestion, et l'ancien produisait une erreur nGQL à
+            chaque reconstruction — sans casser la réponse, mais en privant
+            silencieusement les illustrations de leur légende.
 
     Returns:
         Dict {VID du visuel: VID de sa légende}. Les textes sont repris par
         l'appelant, qui les a déjà dans la liste des enfants.
     """
     quoted = [q for q in (_quote_vid(cid) for cid in caption_ids) if q]
-    if not quoted:
+    arete = _caption_edge()
+    if not quoted or arete is None:
         return {}
 
     sources = ", ".join(quoted)
     rows = _execute(
-        f"GO FROM {sources} OVER DESCRIBES "
+        f"GO FROM {sources} OVER {arete} "
         f"YIELD src(edge) AS caption_id, dst(edge) AS visual_id;"
     )
     links: dict[str, str] = {}

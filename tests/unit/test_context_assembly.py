@@ -127,3 +127,40 @@ def test_markdown_etiquette_les_sections_voisines() -> None:
 
 def test_markdown_vide_sans_contenu() -> None:
     assert _build_markdown([], [], "") == ""
+
+
+# ─── Détection de l'arête de légende ──────────────────────────────────────────
+
+def test_arete_de_legende_detectee_dans_le_schema(monkeypatch) -> None:
+    """Son nom a déjà changé côté ingestion : on lit le schéma au lieu de le supposer."""
+    from src.agent import graph_context
+
+    monkeypatch.setattr(graph_context, "_execute", lambda _n: [{"Name": "LINKED_TO"}])
+    graph_context._caption_edge.cache_clear()
+
+    assert graph_context._caption_edge() == "LINKED_TO"
+    graph_context._caption_edge.cache_clear()
+
+
+def test_ancien_nom_encore_accepte(monkeypatch) -> None:
+    from src.agent import graph_context
+
+    monkeypatch.setattr(
+        graph_context, "_execute", lambda _n: [{"Name": "PARENT_OF"}, {"Name": "DESCRIBES"}]
+    )
+    graph_context._caption_edge.cache_clear()
+
+    assert graph_context._caption_edge() == "DESCRIBES"
+    graph_context._caption_edge.cache_clear()
+
+
+def test_aucune_arete_de_legende_ne_leve_pas(monkeypatch) -> None:
+    """Une illustration sans légende reste proposée ; elle n'a juste pas de texte."""
+    from src.agent import graph_context
+
+    monkeypatch.setattr(graph_context, "_execute", lambda _n: [{"Name": "PARENT_OF"}])
+    graph_context._caption_edge.cache_clear()
+
+    assert graph_context._caption_edge() is None
+    assert graph_context._caption_links(["abcdef0123"]) == {}
+    graph_context._caption_edge.cache_clear()
