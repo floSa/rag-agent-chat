@@ -55,6 +55,11 @@ known-first-party = ["src"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+# Sans ce drapeau, mypy voit chaque module deux fois — « agent.graph_context »
+# et « src.agent.graph_context » — et refuse d'aller plus loin. Le paquet est
+# importé sous `src.` partout ailleurs.
+explicit_package_bases = true
+mypy_path = "."
 plugins = ["pydantic.mypy"]
 exclude = ["tests/"]
 disallow_untyped_decorators = false
@@ -62,6 +67,7 @@ disallow_untyped_decorators = false
 [[tool.mypy.overrides]]
 module = [
     "chromadb.*",
+    "rank_bm25.*",
     "nebula3.*",
     "minio.*",
     "sentence_transformers.*",

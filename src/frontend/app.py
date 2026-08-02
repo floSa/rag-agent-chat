@@ -1,6 +1,7 @@
 import json
 import os
 from collections.abc import Iterator
+from typing import Any
 
 import httpx
 import streamlit as st
@@ -17,7 +18,7 @@ st.set_page_config(
 # ─── État de session ──────────────────────────────────────────────────────────
 
 def _init_session() -> None:
-    defaults = {
+    defaults: dict[str, Any] = {
         "phase": "search",          # search | select | answer
         "question": "",
         "thread_id": None,
@@ -39,13 +40,14 @@ _init_session()
 
 # ─── Helpers API ──────────────────────────────────────────────────────────────
 
-def _api_post(path: str, payload: dict) -> dict:
+def _api_post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     resp = httpx.post(f"{API_URL}{path}", json=payload, timeout=120.0)
     resp.raise_for_status()
-    return resp.json()
+    payload_recu: dict[str, Any] = resp.json()
+    return payload_recu
 
 
-def _stream_post(path: str, payload: dict) -> Iterator[dict]:
+def _stream_post(path: str, payload: dict[str, Any]) -> Iterator[dict[str, Any]]:
     """POST en SSE : yield chaque événement `data: {...}` décodé."""
     timeout = httpx.Timeout(10.0, read=None)  # la génération peut être longue
     with httpx.stream("POST", f"{API_URL}{path}", json=payload, timeout=timeout) as resp:
@@ -58,7 +60,9 @@ def _stream_post(path: str, payload: dict) -> Iterator[dict]:
 def _clear_selection_state() -> None:
     """Purge les états des checkboxes de la question précédente."""
     for key in list(st.session_state.keys()):
-        if key.startswith(("chunk_", "doc_")):
+        # Les clés de session_state sont typées `str | int` : seules les nôtres
+        # nous intéressent, et elles sont des chaînes.
+        if isinstance(key, str) and key.startswith(("chunk_", "doc_")):
             del st.session_state[key]
 
 

@@ -108,7 +108,7 @@ def _to_primitive(val: Any) -> Any:
     return str(val)
 
 
-def _execute(nql: str) -> list[dict]:
+def _execute(nql: str) -> list[dict[str, Any]]:
     """Exécute une requête nGQL et retourne les lignes sous forme de dicts.
 
     Le pool est mis en cache : si NebulaGraph a redémarré, il pointe vers des
@@ -133,7 +133,7 @@ def _execute(nql: str) -> list[dict]:
     return rows
 
 
-def _get_node_properties(node_id: str) -> dict:
+def _get_node_properties(node_id: str) -> dict[str, Any]:
     """Récupère le tag Nebula et les propriétés d'un nœud en UNE requête.
 
     La propriété `label` contient le label Docling en minuscules
@@ -155,7 +155,7 @@ def _get_node_properties(node_id: str) -> dict:
     node = val.as_node()
     tags = node.tags()
 
-    def props_of(tag: str) -> dict:
+    def props_of(tag: str) -> dict[str, Any]:
         try:
             return {k: _to_primitive(v) for k, v in node.properties(tag).items()}
         except Exception:
@@ -212,7 +212,7 @@ def _find_parent(node_id: str) -> tuple[str | None, int]:
     )
     if not rows:
         return None, 0
-    return rows[0]["parent_id"], int(rows[0].get("seq") or 0)
+    return str(rows[0]["parent_id"]), int(rows[0].get("seq") or 0)
 
 
 def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
@@ -244,8 +244,8 @@ def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
     )
     for row in rows:
         sibling_id = row.get("sibling_id")
-        if sibling_id and _get_node_properties(sibling_id).get("tag") in _SECTION_TAGS:
-            return sibling_id
+        if sibling_id and _get_node_properties(str(sibling_id)).get("tag") in _SECTION_TAGS:
+            return str(sibling_id)
     return None
 
 
@@ -289,7 +289,7 @@ def ping() -> bool:
         return False
 
 
-def _get_children(section_id: str) -> list[dict]:
+def _get_children(section_id: str) -> list[dict[str, Any]]:
     """Retourne les enfants d'une section, ordonnés par sequence."""
     quoted = _quote_vid(section_id)
     if quoted is None:
@@ -383,8 +383,8 @@ def _climb_to_section(element_id: str) -> _Ancestry:
 
 
 def _window_around(
-    rows: list[dict], anchor_id: str, before: int, after: int
-) -> tuple[list[dict], bool]:
+    rows: list[dict[str, Any]], anchor_id: str, before: int, after: int
+) -> tuple[list[dict[str, Any]], bool]:
     """Restreint les enfants d'une section à une fenêtre autour de l'ancre.
 
     Un document dépourvu de SectionHeader rattache tous ses éléments au nœud
@@ -486,7 +486,7 @@ def _build_markdown(
     return "\n\n".join(p for p in parts if p.strip())
 
 
-def _to_elements(rows: list[dict]) -> list[SectionElement]:
+def _to_elements(rows: list[dict[str, Any]]) -> list[SectionElement]:
     """Convertit des lignes nGQL d'enfants en éléments de section."""
     return [
         SectionElement(

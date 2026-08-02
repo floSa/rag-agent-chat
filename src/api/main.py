@@ -4,11 +4,14 @@ import time
 import uuid
 from collections import OrderedDict
 from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 from anyio import to_thread
 from fastapi import FastAPI, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from sse_starlette.sse import EventSourceResponse
 
 from src.agent.graph import agent_graph, answer_graph
@@ -102,7 +105,7 @@ def sources(req: SearchRequest) -> SourcesResponse:
 # ─── Graph context ────────────────────────────────────────────────────────────
 
 @app.get("/context/{element_id}")
-def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict:
+def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict[str, Any]:
     """Reconstruit le contexte enrichi pour un element_id donné."""
     try:
         ctx = reconstruct_section(element_id)
@@ -142,7 +145,7 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
         )
 
     if req.stream:
-        async def stream_generator() -> AsyncIterator[dict]:
+        async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             async for token in generate_stream(req.question, contexts, req.chat_history):
                 yield {"data": json.dumps({"token": token})}
             yield {"data": json.dumps({"done": True})}
@@ -170,7 +173,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     échec de recherche d'un échec de génération — c'est la mesure qui permet
     d'attribuer la faute.
     """
-    initial_state = {
+    initial_state: dict[str, Any] = {
         "question": req.question,
         "chat_history": req.chat_history[-6:],
         "retrieved_chunks": [],
@@ -192,7 +195,8 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     # Un seul passage dans le graphe : la version précédente exécutait
     # retrieval et reranking ici PUIS relançait le graphe depuis son point
     # d'entrée, qui les refaisait. Les nœuds se chronomètrent eux-mêmes.
-    result = await answer_graph.ainvoke(initial_state, {"recursion_limit": 50})
+    limite: RunnableConfig = {"recursion_limit": 50}
+    result = await answer_graph.ainvoke(initial_state, limite)
     timings = result.get("_metadata") or {}
     ranked = result.get("reranked_chunks", [])
 
@@ -258,7 +262,9 @@ def _register_thread(thread_id: str) -> None:
     for tid in expired:
         _live_threads.pop(tid, None)
         try:
-            agent_graph.checkpointer.delete_thread(tid)
+            checkpointer = agent_graph.checkpointer
+            if isinstance(checkpointer, BaseCheckpointSaver):
+                checkpointer.delete_thread(tid)
         except Exception:
             logger.debug("Purge du thread %s impossible", tid, exc_info=True)
 
@@ -267,7 +273,7 @@ def _register_thread(thread_id: str) -> None:
 
 
 @app.post("/chat/start")
-async def chat_start(req: SearchRequest) -> dict:
+async def chat_start(req: SearchRequest) -> dict[str, Any]:
     """Démarre le flux LangGraph : retrieval + reranking, puis suspend en attente
     de la sélection des sources.
 
@@ -275,9 +281,9 @@ async def chat_start(req: SearchRequest) -> dict:
     """
     thread_id = str(uuid.uuid4())
     _register_thread(thread_id)
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
-    initial_state = {
+    initial_state: dict[str, Any] = {
         "question": req.question,
         # Multi-turn : derniers échanges seulement, pour borner le contexte
         "chat_history": req.chat_history[-6:],
@@ -315,7 +321,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
 
     Reconstruit le contexte, génère la réponse, post-traite les citations.
     """
-    config = {"configurable": {"thread_id": req.thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": req.thread_id}}
 
     snapshot = await agent_graph.aget_state(config)
     if not snapshot.values or not snapshot.next:
@@ -331,8 +337,8 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
     )
 
     if req.stream:
-        async def stream_generator() -> AsyncIterator[dict]:
-            final_state: dict = {}
+        async def stream_generator() -> AsyncIterator[dict[str, Any]]:
+            final_state: dict[str, Any] = {}
             # "custom" : tokens émis par node_generate ; "values" : état complet
             # après chaque nœud (le dernier reçu = état final).
             async for mode, chunk in agent_graph.astream(
@@ -340,7 +346,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
             ):
                 if mode == "custom":
                     yield {"data": json.dumps(chunk)}
-                elif mode == "values":
+                elif mode == "values" and isinstance(chunk, dict):
                     final_state = chunk
             yield {
                 "data": json.dumps({

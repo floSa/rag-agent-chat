@@ -3,6 +3,7 @@ import re
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
@@ -16,14 +17,14 @@ from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
 from src.agent.state import AgentState
-from src.api.schemas import Citation, ImageRef, SectionContext
+from src.api.schemas import ChunkResult, Citation, ImageRef, SectionContext
 
 logger = logging.getLogger(__name__)
 
 
 # ─── Nœuds du graphe ─────────────────────────────────────────────────────────
 
-async def node_rewrite(state: AgentState) -> dict:
+async def node_rewrite(state: AgentState) -> dict[str, Any]:
     """Rend la question autonome avant de l'encoder.
 
     Sans historique, ou si la question a déjà été réécrite par l'appelant, le
@@ -44,7 +45,7 @@ def _search_query(state: AgentState) -> str:
     return state.get("next_query") or state.get("search_query") or state["question"]
 
 
-def node_retrieve(state: AgentState) -> dict:
+def node_retrieve(state: AgentState) -> dict[str, Any]:
     """Encode la question et récupère les chunks ChromaDB."""
     question = _search_query(state)
     started = time.monotonic()
@@ -60,7 +61,7 @@ def node_retrieve(state: AgentState) -> dict:
     }
 
 
-def node_rerank(state: AgentState) -> dict:
+def node_rerank(state: AgentState) -> dict[str, Any]:
     """Applique le cross-encoder et retourne les top-K chunks."""
     question = _search_query(state)
     started = time.monotonic()
@@ -72,7 +73,7 @@ def node_rerank(state: AgentState) -> dict:
     return {"reranked_chunks": ranked, "_metadata": metadata}
 
 
-def node_await_source_selection(state: AgentState) -> dict:
+def node_await_source_selection(state: AgentState) -> dict[str, Any]:
     """Nœud d'attente — interrompu ici pour human-in-the-loop.
 
     L'état est retourné inchangé : LangGraph met le graphe en pause
@@ -88,7 +89,7 @@ def node_await_source_selection(state: AgentState) -> dict:
     return {}
 
 
-def node_reconstruct_context(state: AgentState) -> dict:
+def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
     """Reconstruit le contexte enrichi pour chaque élément sélectionné.
 
     Première passe : éléments choisis par l'utilisateur. Itérations suivantes
@@ -127,7 +128,7 @@ def node_reconstruct_context(state: AgentState) -> dict:
     return {"enriched_contexts": contexts}
 
 
-async def node_generate(state: AgentState) -> dict:
+async def node_generate(state: AgentState) -> dict[str, Any]:
     """Appelle le LLM Ollama et génère la réponse.
 
     Les tokens sont poussés au fil de l'eau dans le stream "custom" de
@@ -202,10 +203,12 @@ async def node_generate(state: AgentState) -> dict:
     }
 
 
-def node_postprocess(state: AgentState) -> dict:
+def node_postprocess(state: AgentState) -> dict[str, Any]:
     """Extrait les citations [src:ID] et les références images [img:ID]."""
     response = state.get("response", "")
-    chunks_map = {c.element_id: c for c in state.get("reranked_chunks", [])}
+    chunks_map: dict[str, ChunkResult] = {
+        c.element_id: c for c in state.get("reranked_chunks", [])
+    }
 
     # Les [src:ID] et [img:ID] référencent surtout des éléments des sections
     # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
@@ -234,9 +237,9 @@ def node_postprocess(state: AgentState) -> dict:
                     text_excerpt=(elem.text or "")[:150],
                 ),
             )
-    for chunk in state.get("reranked_chunks", []):
-        if chunk.minio_url:
-            media_map.setdefault(chunk.element_id, chunk.minio_url)
+    for reranked in state.get("reranked_chunks", []):
+        if reranked.minio_url:
+            media_map.setdefault(reranked.element_id, reranked.minio_url)
 
     # Citations [src:ELEMENT_ID] — résolues d'abord depuis les chunks (filename
     # et page fiables), sinon depuis les éléments des sections reconstruites.
@@ -247,7 +250,7 @@ def node_postprocess(state: AgentState) -> dict:
         if eid in cited:
             continue
         chunk = chunks_map.get(eid)
-        if chunk:
+        if chunk is not None:
             citations.append(
                 Citation(
                     element_id=eid,
@@ -330,7 +333,7 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def build_checkpointer() -> BaseCheckpointSaver:
+def build_checkpointer() -> BaseCheckpointSaver[Any]:
     """Ouvre le checkpointer qui persiste les sessions entre /chat/start et /resume.
 
     Sur disque par défaut : en mémoire, une session en attente de sélection ne

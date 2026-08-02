@@ -3,6 +3,7 @@ import logging
 import re
 from collections.abc import AsyncIterator, Callable
 from pathlib import Path
+from typing import Any
 
 import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -99,8 +100,8 @@ def _build_messages(
     question: str,
     contexts: list[SectionContext],
     chat_history: list[Message],
-) -> list[dict]:
-    msgs: list[dict] = [{"role": "system", "content": _load_system_prompt()}]
+) -> list[dict[str, Any]]:
+    msgs: list[dict[str, Any]] = [{"role": "system", "content": _load_system_prompt()}]
 
     for msg in chat_history:
         msgs.append({"role": msg.role, "content": msg.content})
@@ -206,7 +207,7 @@ SEARCH_TOOL = {
 }
 
 
-def extract_tool_query(message: dict) -> str | None:
+def extract_tool_query(message: dict[str, Any]) -> str | None:
     """Extrait la sous-question d'un appel d'outil natif, None s'il n'y en a pas."""
     for call in message.get("tool_calls") or []:
         function = call.get("function") or {}
@@ -248,7 +249,7 @@ async def generate_stream(
         settings.llm_thinking,
     )
 
-    payload: dict = {
+    payload: dict[str, Any] = {
         "model": settings.ollama_model,
         "messages": messages,
         "stream": True,

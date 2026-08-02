@@ -1,0 +1,2836 @@
+{
+  "_lisez_moi": [
+    "Jeu SILVER : questions générées automatiquement à partir des passages",
+    "du corpus, par scripts/generate_golden.py. La vérité terrain est connue",
+    "par construction — la question a été écrite POUR le passage — donc sans",
+    "la circularité d'une annotation faite depuis les résultats du retrieval.",
+    "",
+    "reviewed: false = non relu par un humain. Une relecture promeut la",
+    "question en gold. Cette approche est reconnue fiable pour régler un",
+    "retriever, moins pour arbitrer entre deux générateurs.",
+    "",
+    "_origine porte la traçabilité : document, section, page et la phrase",
+    "exacte du passage qui contient la réponse."
+  ],
+  "_statistiques": {
+    "questions": 138,
+    "par_langue": {
+      "fr": 70,
+      "en": 68
+    },
+    "rejetees_par_les_garde_fous": 52,
+    "graine": 42
+  },
+  "questions": [
+    {
+      "id": "G-001",
+      "question": "Quelle est la différence fondamentale dans la gestion de l'information entre le traitement d'un mot et le fonctionnement du Transformer ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "c888b5f9d4"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.2 Mamba, ou le retour des RNN",
+        "page_no": 1,
+        "preuve": "Le Transformer, lui, ne décide rien : il garde tout et choisit *après coup*, au moment de la requête."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-002",
+      "question": "What makes the verifiability a true gain for agents?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "3d2a91d649"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "À retenir",
+        "page_no": 1,
+        "preuve": "La vérifiabilité est le vrai gain pour les agents : une boîte se compare mécaniquement à une vérité terrain."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-003",
+      "question": "When was ONNX presented as an open ecosystem for AI model interoperability by Facebook and Microsoft?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "d78aa483f3"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/10. Machine Learning Interoperability.html",
+        "section_title": "ONNX: Open Neural Network Exchange",
+        "page_no": 1,
+        "preuve": "The project started in 2017 when both Facebook and Microsoft presented ONNX as an open ecosystem for AI model interoperability"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-004",
+      "question": "Quel phénomène survient lorsque l'on empile des dizaines de couches d'information d'entrée ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "b079b68084"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "5. Attention Residual : la plomberie",
+        "page_no": 1,
+        "preuve": "en empilant des dizaines de couches, l'information d'entrée finit **distordue** au point de rendre l'entraînement impossible."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-005",
+      "question": "Qu'était-ce qui était nouveau et révolutionnaire concernant Linux, en comparaison avec la démonstration de *lean virtualization* ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "b27e79dcdd"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/3. MLOps for Containers and Edge Devices.html",
+        "section_title": "Containers",
+        "page_no": 1,
+        "preuve": "What was new and sort of revolutionary was the tooling."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-006",
+      "question": "What method should be used to visualize the counts of all weather types in the dataset?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "10c672ff1f"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/3. Python's Statistical Toolbox.html",
+        "section_title": "Exercise 3.01: Visualizing Weather Percentages",
+        "page_no": 1,
+        "preuve": "In the next code cell in the notebook, compute the counts (the numbers of occurrences) for all the weather types in our dataset and visualize that information using the plot.bar() method: This code will produce the following output: Figure 3.4: Counts of weather types"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-007",
+      "question": "Quelles options de préparation alimentaire les options Costco peuvent-elles comparer avec les options AWS ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "184f9ed4a3"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/7. MLOps for AWS.html",
+        "section_title": "Getting Started with AWS Services",
+        "page_no": 1,
+        "preuve": "Figure 7-2 illustrates how these Costco options compare to AWS options."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-008",
+      "question": "Quel pourcentage de déclin est observé sur HumanEval lorsque le modèle est poussé à 64 ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "1b2f3bf3f7"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "5. Les limites",
+        "page_no": 1,
+        "preuve": "HumanEval s'effondre autour de **20 %**"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-009",
+      "question": "Quel était le domaine de recherche auquel Dr. Doudna était strictement concentrée, selon le commentaire de Dr. Feng Zhang ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "826c2fc5a4"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/5. AutoML and KaizenML.html",
+        "section_title": "Note",
+        "page_no": 1,
+        "preuve": "while Dr. Doudna was focused strictly on the research."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-010",
+      "question": "What is the term used for the process by which a machine learning system explains how it arrives at its forecasts?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f9ff26360f"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/5. AutoML and KaizenML.html",
+        "section_title": "Azure's AutoML",
+        "page_no": 1,
+        "preuve": "A machine learning system explains how a model comes up with forecasts via \"explainability,\" which is a critical upcoming capability of AutoML systems."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-011",
+      "question": "Quelle est la situation concernant l'adoption du Transformer aujourd'hui, par comparaison avec l'adoption de ce modèle en 2017 ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "8203865e4e"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "5. Conclusion",
+        "page_no": 1,
+        "preuve": "En 2017, l'adoption du Transformer avait été unanime en quelques mois ; aujourd'hui, aucune proposition ne s'impose."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-012",
+      "question": "What happens to the corresponding KV-Cache when an agent observes one page of text per turn over fifty turns?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "6fea625825"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "4. L'autre moitié du papier : rendre la vision moins chère",
+        "page_no": 1,
+        "preuve": "Un agent qui en observe une par tour, sur cinquante tours, sature n'importe quel contexte — et le KV-Cache correspondant explose"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-013",
+      "question": "Quels types de défauts sont identifiés concernant le Transformer, et comment est classé le quatrième défaut ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "4b146a69db"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "0. Introduction — ce qu'est vraiment « une architecture »",
+        "page_no": 1,
+        "preuve": "Neuf ans plus tard, quatre défauts sont bien identifiés — et les trois premiers sont des améliorations techniques , tandis que le quatrième s'attaque à quelque chose de plus fondamental : les lois d'échelle elles-mêmes."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-014",
+      "question": "Quel est le gain de débit en production obtenu avec DualPath par rapport à la situation initiale ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "2485293010"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU",
+        "page_no": 1,
+        "preuve": "Résultat en production : utilisation 40 % → 80 % , débit ×1,9 ,"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-015",
+      "question": "Qu'est-ce que les dispositifs pour Percept permettent de faire concernant les opérations d'apprentissage automatique en périphérie ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "a106237a3a"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/3. MLOps for Containers and Edge Devices.html",
+        "section_title": "Azure Percept",
+        "page_no": 1,
+        "preuve": "they allow seamless machine learning operations at the edge."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-016",
+      "question": "What foundational reading is recommended before starting the project to build a cloud native analytics application?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "35e34626cb"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/E. Building a Technical Portfolio for MLOps.html",
+        "section_title": "Project: Build Cloud Native ML Application or API",
+        "page_no": 1,
+        "preuve": "Before you begin, read ["
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-017",
+      "question": "Quelle est la plage de temps estimée pour atteindre un million de dollars en utilisant la fonction de recherche binaire avec une valeur de 10000 ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "39bfb973b6"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/12. Intermediate Calculus with Python.html",
+        "section_title": "Exercise 12.05: Becoming a Millionaire",
+        "page_no": 1,
+        "preuve": "Just over 57.57 years to reach a million dollars."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-018",
+      "question": "Qu'est-ce qui permet aux 894 autres experts de se spécialiser réellement, rendant ainsi viable un taux d'activation bas ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "b2eb16f183"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "3. Stable Latent MoE : compresser ce qui voyage",
+        "page_no": 1,
+        "preuve": "C'est ce qui rend un taux d'activation aussi bas viable : les 16 experts routés n'ont pas à porter le sens commun."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-019",
+      "question": "Quel est l'interprétation d'un lift très faible en data science ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "51cf0df541"
+      ],
+      "gold_documents": [
+        "pdfs"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "pdfs/statisticsfordatascience.pdf",
+        "section_title": "Lift",
+        "page_no": 66,
+        "preuve": "If the lift is very low, then typically, a data scientist will expect that there is a very good probability that the pattern identified is occurring just by chance."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-020",
+      "question": "Quels sont les trois éléments qui constituent la synthèse la plus aboutie de 2026 selon Kimi K3 ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "a95ecc1cac"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité",
+        "page_no": 1,
+        "preuve": "Kimi K3 empile trois idées qui ne sont pas nouvelles mais qui, ensemble, forment la synthèse la plus aboutie de 2026 : un **MoE ultra-creux** avec routage compressé, une **attention linéaire à règle delta** (KDA) mêlée 3:1 à de l'attention globale, et des **connexions résiduelles par attention**"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-021",
+      "question": "What is suggested as an alternative source for data science and machine learning projects?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "3e3f7795f4"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/F. Data Science Case Study Intermittent Fasting.html",
+        "section_title": "Appendix F. Data Science Case Study: Intermittent Fasting",
+        "page_no": 1,
+        "preuve": "Why not use yourself as the test case, as this case study shows?"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-022",
+      "question": "What characteristic must data possess to be most likely classified as numerical data?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "de483689c2"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/3. Python's Statistical Toolbox.html",
+        "section_title": "Numerical Data",
+        "page_no": 1,
+        "preuve": "As long as the data can be represented as real-valued numbers, it is most likely numerical data."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-023",
+      "question": "Quel est le titre de la conférence dont sont extraites les diapositives ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "1433304bc3"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "Glossaire",
+        "page_no": 1,
+        "preuve": "« Le Transformer en passe d'être dépassé ? »"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-024",
+      "question": "Qu'est-ce qui est désigné par le langage naturel, et qu'est-ce qui ne l'est pas ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "d524122919"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "1. Le problème : voir n'est pas désigner",
+        "page_no": 1,
+        "preuve": "Le langage naturel désigne par **description**, pas par **adresse**."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-025",
+      "question": "What are the minimum technical specifications required for the video recording?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "a8dca53ddf"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/E. Building a Technical Portfolio for MLOps.html",
+        "section_title": "Appendix E. Building a Technical Portfolio for MLOps",
+        "page_no": 1,
+        "preuve": "The video should be at least 1080p with a 16:9 aspect ratio."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-026",
+      "question": "What is the expected height of the ball at 5 seconds when the increment is set to 0.001?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "034a61c640"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/12. Intermediate Calculus with Python.html",
+        "section_title": "Exercise 12.21: Calculating the Height of a Projectile above the Ground",
+        "page_no": 1,
+        "preuve": "If we make the increment very small, it should get much closer to 22.5 meters at 5 seconds."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-027",
+      "question": "What value does the find_ratio function print if the provided sequence is not geometric?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "ddda913aa9"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/5. More Mathematics with Python.html",
+        "section_title": "Exercise 5.02: Writing a Function to Find the Next Term of the Sequence",
+        "page_no": 1,
+        "preuve": "As shown in the preceding outputs, the find_ratio function prints out the ratio, if it exists, or prints -1 if the sequence is not geometric."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-028",
+      "question": "What method should be called on the DataFrame object to replace the character '?' indicating missing values with np.nan?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "c95a18ac8f"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/2. Python's Main Tools for Statistics.html",
+        "section_title": "Activity 2.01: Analyzing the Communities and Crime Dataset",
+        "page_no": 1,
+        "preuve": "Call the replace() method on the DataFrame object to replace that character with np.nan to faithfully represent missing values in Python."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-029",
+      "question": "Quel mécanisme permet au réseau de s'adapter à la difficulté du contenu en ajustant la longueur de la représentation interne ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "a048f33e68"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "4.3 Échappatoire n°2 — les calculs adaptatifs",
+        "page_no": 1,
+        "preuve": "la longueur de la représentation interne s'ajuste à la difficulté du contenu"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-030",
+      "question": "Dans quelles conditions le marché de l'échange du calcul contre de la latence est-il considéré comme très mauvais ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "3b254b8296"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "5. La seconde idée : ne vérifier que ce qui a des chances de passer",
+        "page_no": 1,
+        "preuve": "— ce qui est un excellent marché quand le GPU est libre, et un très mauvais quand il est saturé."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-031",
+      "question": "What does the analysis of Mamba activations reveal regarding its ability to select the correct letter when predicting?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "44fc5f44e1"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.4 Le paradoxe de Mamba",
+        "page_no": 1,
+        "preuve": "il connaît la bonne réponse — mais qu'au moment de prédire la lettre, il ne se rappelle plus quelle lettre lui était associée"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-032",
+      "question": "Quelles sont les différences techniques clés entre AWS Lambda et AWS Elastic Beanstalk, incluant les avantages et les inconvénients de chaque solution ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "5ac671ffeb"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/2. MLOps Foundations.html",
+        "section_title": "Critical Thinking Discussion Questions",
+        "page_no": 1,
+        "preuve": "- What are the key technical differences between AWS Lambda and AWS Elastic Beanstalk including the pros and cons of each solution?"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-033",
+      "question": "Quelle fonction doit-on utiliser pour concaténer un nouvel objet DataFrame à un ancien, tout en supprimant la colonne 'class' ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "e42d814b9b"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/2. Python's Main Tools for Statistics.html",
+        "section_title": "Exercise 2.03: The Student Dataset",
+        "page_no": 1,
+        "preuve": "In the same code cell, take this expression and include it in a pd.concat() function to concatenate this newly created DataFrame object to our old one, while simultaneously dropping the class column (as we now have an alternative for the information in this attribute):"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-034",
+      "question": "What is the speed generation improvement percentage range achieved by the speculative decoding framework deployed on DeepSeek servers?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "26cad5fb90"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "DSpark — le décodage spéculatif passé en production",
+        "page_no": 1,
+        "preuve": "+57 à 85 %"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-035",
+      "question": "What do the last two indicators represent in terms of population measurement?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "8cd5392a23"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/3. Python's Statistical Toolbox.html",
+        "section_title": "Activity 3.01: Revisiting the Communities and Crimes Dataset",
+        "page_no": 1,
+        "preuve": "The last two give us the number of violent and non-violent crimes per 100,000 people."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-036",
+      "question": "Comment déclarer une variable nommée 'a' représentant un tableau 2D de taille 3 x 3, où les sous-listes représentent les lignes, dans un notebook Jupyter ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "f092f5b436"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/1. Fundamentals of Python.html",
+        "section_title": "Exercise 1.03: Multi-Dimensional Lists",
+        "page_no": 1,
+        "preuve": "Create a new Jupyter notebook and declare a variable named a in a code cell, as follows: This variable represents a 3 x 3 2D table, with the individual sublists in the list representing the rows."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-037",
+      "question": "Quel mécanisme peut être utilisé pour créer un dictionnaire contenant à la fois le nom de colonne original et sa version transformée ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "3ebb866a12"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/7. Doing Basic Statistics with Python.html",
+        "section_title": "Preparing the Dataset",
+        "page_no": 1,
+        "preuve": "To make the change, let's create a dictionary (using the dictionary comprehension Python feature) that contains both the original column name and the transformed version:"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-038",
+      "question": "Quelles deux conditions doivent être remplies pour que la trajectoire d'entraînement soit invariante pour le µP ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7557ba12c8"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "3.2 Le correctif : µP",
+        "page_no": 1,
+        "preuve": "pour chaque matrice de poids, la norme à l'initialisation et la norme de chaque mise à jour doivent être indépendantes de la taille du réseau."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-039",
+      "question": "Where did the author obtain a PhD while studying computer science?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "0174986a70"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/12. Machine Learning Engineering and MLOps Case Studies.html",
+        "section_title": "Interview with MLOps Practitioners: Piero Molino",
+        "page_no": 1,
+        "preuve": "I studied computer science at the University of Bari in Italy, where I got a PhD working on open domain question answering (at the intersection of NLP, ML, and information retrieval)."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-040",
+      "question": "What is the status of the storage NIC for the decode machines, which constitute the majority of the cluster?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "1c3381117d"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "4. Le changement de régime : l'agentique",
+        "page_no": 1,
+        "preuve": "Pendant ce temps, les machines de decode — qui constituent la majorité du cluster — ont leur propre NIC de stockage complètement inactive"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-041",
+      "question": "What is the advantage of fiber connectivity regarding speed consistency?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7f9527d505"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/C. Remote Work.html",
+        "section_title": "Network",
+        "page_no": 1,
+        "preuve": "Fiber is ideal because you get the same speed both down and up."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-042",
+      "question": "What is the unit of gain when considering a video's performance, distinguishing it from the unit related to GPU capacity?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "9c86405118"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "5. Les limites",
+        "page_no": 1,
+        "preuve": "le gain est en **latence par requête** , pas nécessairement en **débit par GPU**."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-043",
+      "question": "What is the core question posed by the DeepSeek researchers from Beijing and Tsinghua?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "24b8107e4d"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "5. DualPath : ouvrir un second chemin",
+        "page_no": 1,
+        "preuve": "*pourquoi seule la machine de prefill aurait-elle le droit d'aller chercher les données ?*"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-044",
+      "question": "Quel est le mécanisme utilisé par DeepSeek-ViT pour traiter une résolution arbitraire ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "101b33d1c1"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "4. L'autre moitié du papier : rendre la vision moins chère",
+        "page_no": 1,
+        "preuve": "*DeepSeek-ViT à résolution arbitraire, puis plusieurs patchs regroupés en un seul token.*"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-045",
+      "question": "Quel est le sujet principal de l'article concernant les architectures de LLM en 2026 ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7123dde326"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "Le Transformer en passe d'être dépassé ?",
+        "page_no": 1,
+        "preuve": "Panorama de l'état de la recherche sur les **architectures** de LLM ( *Large Language Model* — modèle de langue entraîné à prédire le token suivant) en 2026."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-046",
+      "question": "What is the initial state of the Boolean variables maintained by the get_presence() method for numbers between 1 and 9?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f7252db119"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/13 Appendix.html",
+        "section_title": "Activity 1.01: Building a Sudoku Solver",
+        "page_no": 1,
+        "preuve": "These Boolean variables should all be initialized as False at the beginning"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-047",
+      "question": "Quels sont les deux types de processus, le prefill et le decode, qui présentent des préférences différentes concernant la taille des lots pour l'optimisation sur une flotte unique ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "9fcd9fcef0"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "3. Le premier correctif de l'industrie : la désagrégation P/D",
+        "page_no": 1,
+        "preuve": "le prefill préfère le parallélisme de tenseurs et des lots petits (il est déjà compute-bound), le decode veut des lots énormes pour amortir la lecture des poids."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-048",
+      "question": "À quelle couche le rappel ne s'effondre-t-il pas de manière lisse et uniforme, mais seulement à un endroit précis ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "87be4f6479"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.6 La réalité industrielle : les architectures hybrides",
+        "page_no": 1,
+        "preuve": "Le rappel , lui, ne s'effondre qu'à un endroit précis — la couche 17 — et dans cette couche, seule"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-049",
+      "question": "Quel type d'attention est supérieur au raisonnement, et quelle est la différence de performance observée sur le benchmark GPQA-Diamond entre ce type d'attention et l'attention pure ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "002f0cd484"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "À retenir",
+        "page_no": 1,
+        "preuve": "L'Attention Residual gagne surtout sur le raisonnement (+7,5 sur GPQA-Diamond contre +1,1 sur MMLU) : c'est de l'expressivité, pas de la connaissance."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-050",
+      "question": "Quels sont les deux types de variables aléatoires que l'on peut avoir en fonction des types de valeurs que ces variables peuvent prendre ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "0377a2debc"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/8. Foundational Probability Concepts and Their Applications.html",
+        "section_title": "Exercise 8.02: Calculating the Average Wins in Roulette",
+        "page_no": 1,
+        "preuve": "Depending on the types of values random variables can take, we can have two types: - Discrete random variables - Continuous random variables"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-051",
+      "question": "Quelle méthode doit être utilisée pour définir la graine (seed) après avoir importé le package random Python ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "1be82d5db0"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/9. Intermediate Statistics with Python.html",
+        "section_title": "Exercise 9.01: The Law of Large Numbers in Action",
+        "page_no": 1,
+        "preuve": "- We first need to import the random Python package and set the seed method:"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-052",
+      "question": "Quel est le rôle du paramètre alpha dans la fonction glmnet() ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "34d4afad09"
+      ],
+      "gold_documents": [
+        "pdfs"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "pdfs/statisticsfordatascience.pdf",
+        "section_title": "Parameter Setup",
+        "page_no": 173,
+        "preuve": "Finally, the alpha parameter is a switch between ridge regression (0) and lasso (1)."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-053",
+      "question": "What is the effect of the loop on reasoning primitives and knowledge scores?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "84392c77c4"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "À retenir",
+        "page_no": 1,
+        "preuve": "le bouclage améliore les primitives de raisonnement de +130 % et divise par deux les scores de connaissance."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-054",
+      "question": "Qu'est-ce qui rend difficile l'exploitation de l'expert parallelism sur une machine unique ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "98a92ebc4c"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "4.2 Échappatoire n°1 — Mixture of Experts : découpler taille et coût",
+        "page_no": 1,
+        "preuve": "— et pourquoi il est difficile à exploiter sur une machine unique (cf. [[Modèles locaux sous 24 Go de VRAM]])."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-055",
+      "question": "Quelle est la nature du goulot limitant la génération, et non le calcul ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "aa360582c0"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.1 Le problème : l'attention est un coût qui grandit avec la mémoire",
+        "page_no": 1,
+        "preuve": "elle est limitée par la bande passante mémoire"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-056",
+      "question": "Quel est le processus consistant à rendre une application prête pour le déploiement en production, incluant potentiellement la surveillance, les tests de charge et la configuration d'alertes ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "0daef6fb1b"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/A. Key Terms.html",
+        "section_title": "Appendix A. Key Terms",
+        "page_no": 1,
+        "preuve": "The process of making an application ready for production deployment. These actions could include monitoring, load testing, and setting up alerts."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-057",
+      "question": "Quelles sont les conditions spécifiques qui rendent la récupération de données quasi nulle pour un chatbot mono-tour à faible réutilisation ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "d7017a6fce"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "7. Les résultats",
+        "page_no": 1,
+        "preuve": "Sur du chatbot mono-tour à faible réutilisation, il n'y a presque rien à récupérer."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-058",
+      "question": "Quel type de connaissance les experts partagés absorbent-ils ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "38a114624b"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "3. Stable Latent MoE : compresser ce qui voyage",
+        "page_no": 1,
+        "preuve": "Les experts partagés (introduits par DeepSeek) absorbent la connaissance générique"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-059",
+      "question": "What are the top three foods identified as contributing to weight gain?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7f2204b5e2"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/F. Data Science Case Study Intermittent Fasting.html",
+        "section_title": "Notes on Intermittent Fasting, Blood Glucose, and Food",
+        "page_no": 1,
+        "preuve": "- Potato chips\n- Potatoes\n- Sugar-sweetened beverages"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-060",
+      "question": "What is the objective of data drift detection in Azure?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "cad7b11809"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/6. Monitoring and Logging.html",
+        "section_title": "Note",
+        "page_no": 1,
+        "preuve": "The objective is to be alerted when drift happens between training and serving datasets."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-061",
+      "question": "Quelles sont les trois réponses techniques mentionnées pour les défauts du Transformer ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "e832155e09"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "5. Conclusion",
+        "page_no": 1,
+        "preuve": "trois réponses techniques aux défauts du Transformer (attention linéaire hybride et attention différentielle , mHC / Attention Residuals , µP)"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-062",
+      "question": "Quelle méthode de notation est utilisée pour sélectionner un expert, en se basant sur sa position relative plutôt que sur un seuil fixe ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "3dc7ae61bc"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "Le mot « Stable » : équilibrer le routeur",
+        "page_no": 1,
+        "preuve": "Un expert est sélectionné parce qu'il est dans le meilleur quantile de ce lot, pas parce qu'il dépasse une valeur absolue."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-063",
+      "question": "Comment peut-on améliorer l'approximation de *pi* en modifiant le code de la boucle ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "3c011651bf"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/11. More Calculus with Python.html",
+        "section_title": "Convergence",
+        "page_no": 1,
+        "preuve": "How about skipping up to higher numbers of terms? Let's change code for the loop:"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-064",
+      "question": "What happens to the calculation in the experts when the dimension has decreased?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "c67daf21f2"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "3. Stable Latent MoE : compresser ce qui voyage",
+        "page_no": 1,
+        "preuve": "le calcul dans les experts baisse aussi"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-065",
+      "question": "Qu'est-ce qui est considéré comme une meilleure représentation du « sens en cours de construction » qu'un accès aléatoire à tout l'historique ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "884ea0f7d5"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.8 Qui est bon à quoi : la décomposition par type de token",
+        "page_no": 1,
+        "preuve": "un état compressé qui se met à jour à chaque mot est une meilleure représentation du « sens en cours de construction » qu'un accès aléatoire à tout l'historique."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-066",
+      "question": "Quelle est la différence entre le Transformer original et la méthode adoptée vers 2018-2019 concernant le moment de la normalisation ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7c00af4e69"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "2.4 La redondance des couches : le retour du post-norm",
+        "page_no": 1,
+        "preuve": "Le Transformer original était **post-norm** (normalisation *après* l'addition résiduelle). Vers 2018-2019, tout le monde est passé au **pré-norm** (normalisation *avant* la couche), bien plus stable à entraîner."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-067",
+      "question": "What is the sole justification for replacing a matrix with a scalar when transitioning from Mamba-1 to Mamba-2?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "dfe08ecefe"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.5 Mieux gérer la mémoire : gating et règle delta",
+        "page_no": 1,
+        "preuve": "La seule justification est la vitesse d'entraînement"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-068",
+      "question": "Qu'est-ce qu'une matrice doublement stochastique ne peut faire que de réaliser ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "427630e6f1"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "2.2 Solution 1 — élargir le tuyau : mHC",
+        "page_no": 1,
+        "preuve": "une matrice doublement stochastique n'effectue que des combinaisons convexes des flux."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-069",
+      "question": "Qu'est-ce que l'acronyme mHC désigne très probablement dans le contexte des noms incertains ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f28ccae229"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "Pour aller plus loin",
+        "page_no": 1,
+        "preuve": "« **DeepSeek MHC** » — qui désigne très probablement **mHC**, *manifold-constrained Hyper-Connections*"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-070",
+      "question": "What is the practical benefit of the layering workflow in containers regarding base layers?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "b92a6ec447"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/3. MLOps for Containers and Edge Devices.html",
+        "section_title": "Creating a Container",
+        "page_no": 1,
+        "preuve": "In practice, you will download the 10 megabyte layer once and reuse it many times."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-071",
+      "question": "Quel est le mécanisme appliqué par blocs, plutôt qu'à la séquence entière, qui utilise des masques et procède à un débruitage itératif ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "ddab4f4fdb"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "3.3 Le décodage par blocs",
+        "page_no": 1,
+        "preuve": "C'est le mécanisme des **diffusion language models** (LLaDA, Mercury, Gemini Diffusion), appliqué par blocs plutôt qu'à la séquence entière."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-072",
+      "question": "What is the Roman proverb that translates to \"by teaching, we learn\"?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "67de1e48f2"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/H. Technical Project Management.html",
+        "section_title": "Weekly Demo",
+        "page_no": 1,
+        "preuve": "The Roman proverb \"Docendo discimus\" states that \"by teaching, we learn.\""
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-073",
+      "question": "What condition must the rows in a group satisfy when an object is grouped into subgroups?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "03313750a0"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/2. Python's Main Tools for Statistics.html",
+        "section_title": "Advanced Pandas Functionalities",
+        "page_no": 1,
+        "preuve": "object into subgroups, where the rows in a group all share a value in a categorical attribute."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-074",
+      "question": "What specific file needs to be copied into the /webapp directory to satisfy the requirement of the *app.py* file?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f1a6bdb8b1"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/4. Continuous Delivery for Machine Learning Models.html",
+        "section_title": "Packaging for ML Models",
+        "page_no": 1,
+        "preuve": "COPY roberta-sequence-classification-9.onnx /webapp"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-075",
+      "question": "What specific actions will be performed on the *Communities and Crime* dataset?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "7cd31d8f76"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/2. Python's Main Tools for Statistics.html",
+        "section_title": "Activity 2.01: Analyzing the Communities and Crime Dataset",
+        "page_no": 1,
+        "preuve": "Specifically, we will process missing values in the dataset, iterate through the attributes, and visualize the distribution of their values."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-076",
+      "question": "What specific types of data issues, besides dropping the column with no items, removing unnamed columns, and getting rid of carriage returns, does the author intend to automate catching in a command line tool?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "74fda15cd2"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/11. Building MLOps Command Line Tools and Microservices.html",
+        "section_title": "Creating a Dataset Linter",
+        "page_no": 1,
+        "preuve": "I'll probably forget the deal with the extra columns in Azure or a column with useless values in it a year from now."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-077",
+      "question": "Quels éléments sont mentionnés en lien avec l'arithmétique des tokens visuels et la formulation de GRPO ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "aa4b0d1312"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "Glossaire",
+        "page_no": 1,
+        "preuve": "Arithmétique des tokens visuels, formulation de GRPO, filiation avec les travaux de pointing et analyse du risque de fausse précision ajoutées à la rédaction."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-078",
+      "question": "What is the recommended type of mesh router for a wireless setup that can cover areas exceeding 5,000 square feet with speeds over 1 Gbps?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "dc08b96462"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/C. Remote Work.html",
+        "section_title": "Physical home network",
+        "page_no": 1,
+        "preuve": "A recommended wireless setup would be to use a mesh WiFi 6 router."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-079",
+      "question": "What is the relationship between the hypotenuse, the slant height of the cone, and the radius of the original circle when calculating the cone's height?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "fbb8336cbf"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/13 Appendix.html",
+        "section_title": "Activity 10.01: Maximum Circle-to-Cone Volume",
+        "page_no": 1,
+        "preuve": "The height of the cone can be found using the Pythagorean theorem, since the hypotenuse, the slant height of the cone, is the radius of the original circle, which we set to 1 : Figure 10.35: Formula for calculating the hypotenuse"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-080",
+      "question": "What statement did many magical thinkers make at the start of the COVID-19 pandemic?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "329b0cdbf3"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/5. AutoML and KaizenML.html",
+        "section_title": "AutoML",
+        "page_no": 1,
+        "preuve": "Many magical thinkers said at the start of the COVID-19 pandemic, \"This is just like the flu,\" as a way to reassure themselves (and others) that the danger was not as bad as it appeared to be."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-081",
+      "question": "Quelle est la conséquence d'un clic sur le mauvais bouton lors de l'action d'un agent ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "b49ee307d1"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "3. Pourquoi les agents en ont besoin",
+        "page_no": 1,
+        "preuve": "Comprendre parfaitement ce qu'il faut faire et cliquer sur le mauvais bouton donne un échec complet."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-082",
+      "question": "What is the expected loss amount for every $1 bet on red, based on the calculation involving the probabilities (0.474, 0.474, 0.053) and outcomes (1, -1, -1)?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "5a75a985d7"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/9. Intermediate Statistics with Python.html",
+        "section_title": "A Practical Application of the Law of Large Numbers Seen in the Real World",
+        "page_no": 1,
+        "preuve": "The preceding calculation tells us that we can expect to lose about 5 cents for every $1 bet on red."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-083",
+      "question": "What resource determines the batch size and thus the aggregate throughput in an inference server?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "a31055e4b6"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "5. Les limites",
+        "page_no": 1,
+        "preuve": "Or dans un serveur d'inférence, la VRAM est la ressource qui détermine la taille du batch , donc le débit agrégé."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-084",
+      "question": "What are the two general ways to build traffic for a software platform?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "4cbbad3587"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/12. Machine Learning Engineering and MLOps Case Studies.html",
+        "section_title": "Unlikely Benefits of Ignorance in Building Machine Learning Models",
+        "page_no": 1,
+        "preuve": "Building traffic generally occurs in two ways for a software platform."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-085",
+      "question": "Quels éléments, en plus du prix affiché, ne constituent pas le coût total ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "369926c8a6"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "7. Le pattern, et ce qu'il faut en croire",
+        "page_no": 1,
+        "preuve": "le prix affiché n'est pas le coût total (latence, disponibilité, conformité, hébergement, données)"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-086",
+      "question": "What is crucial to match when using a Compute Cluster, regardless of the chosen backend?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "d535f13dee"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/8. MLOps for Azure.html",
+        "section_title": "Configuring a Cluster",
+        "page_no": 1,
+        "preuve": "Regardless of the chosen backend, it is *crucial* to match the workload to the size (and quantity) of machines doing the work."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-087",
+      "question": "What service is used to serve out HTTP requests via a REST API with a JSON payload?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "576fb96c99"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/9. MLOps for GCP.html",
+        "section_title": "Conclusion",
+        "page_no": 1,
+        "preuve": "Google App Engine serves out HTTP requests via REST API with a JSON payload"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-088",
+      "question": "Quels hyperparamètres le µP transfère-t-il de la petite à la grande échelle ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "34366be46c"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "À retenir",
+        "page_no": 1,
+        "preuve": "µP est gratuit et transfère les hyperparamètres de la petite à la grande échelle (LR ∝ 1/largeur, init ∝ 1/√fan_in)."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-089",
+      "question": "Quelle est l'amélioration des primitives de raisonnement algorithmique observée en passant de « 12 couches × 2 tours » à « 4 couches × 6 tours » à une profondeur effective constante ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "c7e363a924"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "4.3 Échappatoire n°2 — les calculs adaptatifs",
+        "page_no": 1,
+        "preuve": "passer de « 12 couches × 2 tours » à « 4 couches × 6 tours » améliore les primitives de raisonnement algorithmique de +131 % à +153 %."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-090",
+      "question": "What is the recommended cloud provider for students seeking a safe choice due to its wide technology selection and large market share?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "e20b5a24f0"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/7. MLOps for AWS.html",
+        "section_title": "Chapter 7. MLOps for AWS",
+        "page_no": 1,
+        "preuve": "I tell them the safe choice is Amazon."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-091",
+      "question": "What mathematical tool is required to determine break-even points when a model contains more than one variable?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "57cab75e6d"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/4. Functions and Algebra with Python.html",
+        "section_title": "Activity 4.01: Multi-Variable Break-Even Analysis",
+        "page_no": 1,
+        "preuve": "When there is more than one variable in a model, a system of equations needs to be used to find break-even points, which is what we will do in this activity."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-092",
+      "question": "Quelle capacité est donnée au modèle, en analogie avec le fait de compter des élèves sans les pointer du doigt ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "eeb6d28f9a"
+      ],
+      "gold_documents": [
+        "mds/Multimodal & Agents"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Multimodal & Agents/Thinking with Visual Primitives — raisonner avec des points et des boîtes.md",
+        "section_title": "1. Le problème : voir n'est pas désigner",
+        "page_no": 1,
+        "preuve": "C'est exactement cette capacité qu'on donne au modèle."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-093",
+      "question": "What is the concrete implementation, at the border scale, of almost everything described in the linked article?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "8461f64f75"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité",
+        "page_no": 1,
+        "preuve": "C'est la mise en œuvre concrète, à l'échelle frontière, de presque tout ce que décrit [[Le Transformer en passe d'être dépassé]] — à lire ensemble."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-094",
+      "question": "Qu'est-ce que TwoTower échange en faveur d'une vitesse accrue ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "53a0ae2ee2"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "3.3 Le décodage par blocs",
+        "page_no": 1,
+        "preuve": "TwoTower va plus vite dans le cas favorable, mais échange l'exactitude contre la vitesse"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-095",
+      "question": "What is the function of a load-testing framework that accepts Python-formatted load test scenarios?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "1698e03b7c"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/A. Key Terms.html",
+        "section_title": "Appendix A. Key Terms",
+        "page_no": 1,
+        "preuve": "Locust is a load-testing framework that accepts Python-formatted load test scenarios"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-096",
+      "question": "Quels concepts statistiques complexes, tels que la randomité, les variables aléatoires et l'utilisation des simulations, sont abordés dans le chapitre 8 ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "cff53e3623"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/0. Preface.html",
+        "section_title": "About the Chapters",
+        "page_no": 1,
+        "preuve": "Chapter 8 , Foundational Probability Concepts and Their Applications , dives deeper into complex statistical concepts, such as randomness, random variables, and using simulations as a technique to analyze randomness."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-097",
+      "question": "Quel concept est décrit comme permettant de donner à une couche profonde un accès direct aux couches intermédiaires, ce qui est plus utile pour enchaîner un raisonnement que pour rappeler un fait ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f44d08d80e"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Kimi K3 — l'architecture d'un modèle pensé pour l'efficacité.md",
+        "section_title": "5. Attention Residual : la plomberie",
+        "page_no": 1,
+        "preuve": "C'est de l'expressivité, pas de la mémoire."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-098",
+      "question": "Quelles valeurs de x et y définissent le point où la fonction atteint son minimum, si l'on considère l'intervalle *-1 < x < 5* et *-1 < y < 5* ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "0a840bdf39"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/11. More Calculus with Python.html",
+        "section_title": "Activity 11.01: Finding the Minimum of a Surface",
+        "page_no": 1,
+        "preuve": "Once you're confident in your function, use it to determine the minimum of with *-1 < x < 5* and *-1 < y < 5* ."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-099",
+      "question": "What specific sports does the author find that working out in a fasted state increases performance in?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "3e3f7795f4"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/F. Data Science Case Study Intermittent Fasting.html",
+        "section_title": "Appendix F. Data Science Case Study: Intermittent Fasting",
+        "page_no": 1,
+        "preuve": "Working out in a fasted state takes a bit of getting used to, but I found that it increases performance in many sports I do: bouldering, weight lifting, HIIT training, and Brazilian Jiu-Jitsu."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-100",
+      "question": "Qu'est-ce qui représente le vrai test lors de l'accélération d'une requête isolée ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "598c6beb78"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "6. Les résultats",
+        "page_no": 1,
+        "preuve": "sans réduire le nombre de requêtes servies par GPU est le vrai test"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-101",
+      "question": "What is the proposed mechanism for Mamba to process a sequence without referencing the past?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "7938c871e8"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "1.2 Mamba, ou le retour des RNN",
+        "page_no": 1,
+        "preuve": "Lire la séquence séquentiellement et écrire / relire dans une mémoire de taille fixe."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-102",
+      "question": "Quelle est la nouvelle frontière du progrès, selon l'analogie avec le cas de [[DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU]] ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "123f8ab7da"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "7. Ce que ça dit du moment",
+        "page_no": 1,
+        "preuve": "la frontière du progrès s'est déplacée de la taille du modèle vers l'efficacité de ce qu'on en fait"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-103",
+      "question": "What is mentioned as an example of a non-straightforward task when using cloud services?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "9d0f7cae8e"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/8. MLOps for Azure.html",
+        "section_title": "Chapter 8. MLOps for Azure",
+        "page_no": 1,
+        "preuve": "One of the examples I usually tend to bring up is that of using Kubernetes."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-104",
+      "question": "What factor has become the limiting factor for long reasoning, agents, and 100k token contexts, making architectures less good in raw quality economically superior?",
+      "language": "en",
+      "doc_language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "66769f2cc3"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Le Transformer en passe d'être dépassé.md",
+        "section_title": "0. Introduction — ce qu'est vraiment « une architecture »",
+        "page_no": 1,
+        "preuve": "Avec le raisonnement long, les agents et les contextes à 100 k tokens, elle est devenue le facteur limitant — au point que des architectures moins bonnes en qualité brute deviennent économiquement supérieures."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-105",
+      "question": "What was the temperature difference between the body and the environment after one hour?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "5635b8dfc3"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/12. Intermediate Calculus with Python.html",
+        "section_title": "Exercise 12.10: Calculating the Time of Death",
+        "page_no": 1,
+        "preuve": "The difference in temperatures is now 10°."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-106",
+      "question": "What is the nature of 'real' self-handicapping?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "fbe01c4fe3"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/5. AutoML and KaizenML.html",
+        "section_title": "AutoML",
+        "page_no": 1,
+        "preuve": "\"Real\" self-handicapping involves placing visible obstacles to success in one's own path."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-107",
+      "question": "What specific mathematical tasks, besides solving algebraic functions, will the book cover when working with Python?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "cbc3df9624"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/0. Preface.html",
+        "section_title": "About the Book",
+        "page_no": 1,
+        "preuve": "As you progress, you'll perform various mathematical tasks using the Python programming language, such as solving algebraic functions with Python starting with basic functions, and then working through transformations and solving equations."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-108",
+      "question": "Qu'est-ce qu'AutoML est devenu pour les projets d'apprentissage automatique basés sur le cloud ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "907ed9f171"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/2. MLOps Foundations.html",
+        "section_title": "Note",
+        "page_no": 1,
+        "preuve": "As a result, AutoML is an option for all cloud-based machine learning projects and is increasingly becoming another productivity enhancement for them."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-109",
+      "question": "What is the general topic that the author intends to discuss after clarifying the basics of logging?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "9ddc775666"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/6. Monitoring and Logging.html",
+        "section_title": "Introduction to Logging",
+        "page_no": 1,
+        "preuve": "Now that some basics on logging are clear, I'll discuss how to configure logging in an application, which tends to be complicated since there are so many different options and decisions to make."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-110",
+      "question": "What is the end-to-end ML platform for Kubernetes mentioned among the capabilities of Kubernetes ideal for MLOps?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "30075359ac"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/9. MLOps for GCP.html",
+        "section_title": "Kubernetes Hello World",
+        "page_no": 1,
+        "preuve": "Kubeflow (end-to-end ML platform for Kubernetes)"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-111",
+      "question": "Quel mécanisme, illustré par DeepSeek V3, représente l'approche inverse de la construction de modèles de langage ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "74ca1b5ed2"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "2. La philosophie : optimiser l'existant plutôt que grossir",
+        "page_no": 1,
+        "preuve": "DeepSeek pousse depuis plusieurs mois l'approche inverse : tirer davantage de la même base, par l'architecture, la compression et l'optimisation de l'inférence — le **multi-token prediction** (MTP) de DeepSeek V3 en est un exemple direct."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-112",
+      "question": "Qu'est-ce qui rend le coût élevé des pertes de pourcentage par position dans le gain, étant donné que le gain dépend de $\\alpha^k$ ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "87083e0d76"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "3. Le dilemme historique : rapide ou cohérent",
+        "page_no": 1,
+        "preuve": "Comme le gain dépend de $\\alpha^k$, quelques pour-cent perdus par position coûtent énormément"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-113",
+      "question": "Quel est l'objectif de l'algorithme de descente de gradient en termes de minimum ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "f719c947b5"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/2. MLOps Foundations.html",
+        "section_title": "Optimization",
+        "page_no": 1,
+        "preuve": "The goal of gradient descent is to convert to the global minimum, i.e., the optimal solution, versus getting stuck in a local minimum."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-114",
+      "question": "Quel est le type de données que le prefill transfère à la machine de decode, sachant que cette dernière possède déjà le gros du cache historique ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "202c557bf8"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DualPath — doubler le débit d'un cluster d'inférence sans acheter un GPU.md",
+        "section_title": "5. DualPath : ouvrir un second chemin",
+        "page_no": 1,
+        "preuve": "il n'envoie que le **petit cache incrémental des nouveaux tokens**"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-115",
+      "question": "Quels concepts mathématiques sont introduits dans le chapitre 6, intitulé \"Matrices and Markov Chains with Python\" ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "5bb0cae763"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/0. Preface.html",
+        "section_title": "About the Chapters",
+        "page_no": 1,
+        "preuve": "Chapter 6 , Matrices and Markov Chains with Python , introduces you to the concepts of matrices and Markov chains."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-116",
+      "question": "Quel ajustement doit être effectué sur la p-value pour déterminer la signification statistique lorsque l'on teste si la moyenne de la majorité des utilisateurs d'Internet est supérieure ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "2f74e8251e"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/13 Appendix.html",
+        "section_title": "Activity 9.01: Standardized Test Performance",
+        "page_no": 1,
+        "preuve": "This means that we will have to divide our p-value by 2 and only accept the results as significant if the test statistic is positive."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-117",
+      "question": "What is the time at which the ships will be closest, based on the minimum point on the plot?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "42efe10140"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/10. Foundational Calculus with Python.html",
+        "section_title": "Exercise 10.07: Calculating the Distance between Two Moving Ships",
+        "page_no": 1,
+        "preuve": "Two tenths of an hour is 12 minutes, meaning the ships will be closest at 1:12 pm."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-118",
+      "question": "Quel est le rôle de la greffe en termes de capacité ajoutée par rapport au pré-entraînement d'un modèle existant ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "0dff621eb5"
+      ],
+      "gold_documents": [
+        "mds/Architectures de LLM"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Architectures de LLM/Nemotron TwoTower — générer 16 tokens à la fois.md",
+        "section_title": "À retenir",
+        "page_no": 1,
+        "preuve": "ajouter une capacité à un modèle existant pour ~12 fois moins de tokens que son pré-entraînement."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-119",
+      "question": "What is the potential alternative for a student who might otherwise spend four years pursuing a degree with uncertain employment outcomes?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "855f20621b"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/G. Additional Educational Resources.html",
+        "section_title": "Current State of Higher Education That Will Be Disrupted",
+        "page_no": 1,
+        "preuve": "Why shouldn't a student spend four years learning a hobby like personal fitness, sports, music, or culinary arts instead if the outcome is the same?"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-120",
+      "question": "Comment peut-on modéliser des tableaux de plus d'une dimension en utilisant des listes Python ?",
+      "language": "fr",
+      "doc_language": "en",
+      "type": "factuelle-translinguistique",
+      "gold_element_ids": [
+        "da3e6bc0a9"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/1. Fundamentals of Python.html",
+        "section_title": "Lists",
+        "page_no": 1,
+        "preuve": "Given the fact that elements in a Python list can be any Python objects, we can model arrays that span more than one dimension using lists in a list."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-121",
+      "question": "What format is recommended for DataFrame column names to allow for faster typing?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "25fb5d53a7"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/7. Doing Basic Statistics with Python.html",
+        "section_title": "Preparing the Dataset",
+        "page_no": 1,
+        "preuve": "I recommend the following format:\n- Lowercase names\n- No blank spaces - instead of blank spaces, use underscores to separate words"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-122",
+      "question": "What process allows for the description of constraints to facilitate the transformation of models between different formats while maintaining support from major cloud providers?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "e03225fc26"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/10. Machine Learning Interoperability.html",
+        "section_title": "Why Interoperability Is Critical",
+        "page_no": 1,
+        "preuve": "Model interoperability solves these problems by openly describing the constraints, making it easier to *transform models* from one format to the other while enjoying support from all the prominent cloud providers."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-123",
+      "question": "What specific action can be flagged regarding a user's activity that might indicate a significant security hole?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "631aa755f0"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/B. Technology Certifications.html",
+        "section_title": "Data Engineering",
+        "page_no": 1,
+        "preuve": "For example, you may flag a user regularly looking at an AWS Bucket that has nothing to do with their job and then realize this poses a significant security hole you need to close."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-124",
+      "question": "What is the required structure for the DataFrame when printing the dimensions?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "774d020548"
+      ],
+      "gold_documents": [
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/The Statistics and Calculus with Python Workshop/13 Appendix.html",
+        "section_title": "Activity 7.01: Finding Out Highly Rated Strategy Games",
+        "page_no": 1,
+        "preuve": "You must have a DataFrame with 4311 rows and 15 columns."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-125",
+      "question": "What was the role of the individual who worked for Caltech's administration and served as the personal Mac expert for Dr. David Baltimore?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "6bed156c20"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/Preface.html",
+        "section_title": "Origin of Chapter Quotes",
+        "page_no": 1,
+        "preuve": "Later, I worked directly for Caltech's administration and was the personal Mac expert at Caltech for Dr. David Baltimore, who got the Nobel Prize in his 30s."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-126",
+      "question": "Quel élément de la cohérence d'un brouillon est considéré comme étant local ?",
+      "language": "fr",
+      "doc_language": "fr",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "d15585f0aa"
+      ],
+      "gold_documents": [
+        "mds/Infrastructure & Inférence"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "mds/Infrastructure & Inférence/DSpark — le décodage spéculatif passé en production.md",
+        "section_title": "4. L'idée DSpark : semi-autorégressif + tête de Markov",
+        "page_no": 1,
+        "preuve": "l'essentiel de la cohérence d'un brouillon est locale"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-127",
+      "question": "What is the main takeaway regarding project management systems?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "f38ce76a18"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/H. Technical Project Management.html",
+        "section_title": "Task Tracking",
+        "page_no": 1,
+        "preuve": "The main takeaway is to keep it simple!"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-128",
+      "question": "What cascading issues are caused by the high cost of living in hypergrowth regions?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "3bd56eaf23"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/G. Additional Educational Resources.html",
+        "section_title": "Regional job market that will be disrupted",
+        "page_no": 1,
+        "preuve": "The high cost of living in hypergrowth regions causes many cascading issues: homelessness, increased commute times, dramatically lowered quality of life, and more."
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-129",
+      "question": "What is the recommended action to set up the workspace for image classification using the provided repository?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "34f704b4e2"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/3. MLOps for Containers and Edge Devices.html",
+        "section_title": "Note",
+        "page_no": 1,
+        "preuve": "Create a directory to clone the contents of the repository to set up the workspace for image classification:"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "G-130",
+      "question": "How does deep learning benefit from the cloud?",
+      "language": "en",
+      "doc_language": "en",
+      "type": "factuelle",
+      "gold_element_ids": [
+        "8469f4ef28"
+      ],
+      "gold_documents": [
+        "htms/Practical MLOps"
+      ],
+      "unanswerable": false,
+      "_origine": {
+        "source_path": "htms/Practical MLOps/1. Introduction to MLOps.html",
+        "section_title": "Critical Thinking Discussion Questions",
+        "page_no": 1,
+        "preuve": "- How does deep learning benefit from the cloud? Is deep learning feasible without cloud computing?"
+      },
+      "reviewed": false
+    },
+    {
+      "id": "N-001",
+      "question": "Quel est le chiffre d'affaires de l'entreprise en 2024 ?",
+      "language": "fr",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-002",
+      "question": "Quelle est la procédure de remboursement des notes de frais ?",
+      "language": "fr",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-003",
+      "question": "Combien de salariés compte le service juridique ?",
+      "language": "fr",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-004",
+      "question": "Quelles sont les dates des congés annuels cette année ?",
+      "language": "fr",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-005",
+      "question": "Who won the 2026 football world cup?",
+      "language": "en",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-006",
+      "question": "What is the current stock price of the company?",
+      "language": "en",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-007",
+      "question": "What is the recipe for a traditional Basque cheesecake?",
+      "language": "en",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    },
+    {
+      "id": "N-008",
+      "question": "How many employees work in the Tokyo office?",
+      "language": "en",
+      "type": "sans-reponse",
+      "gold_element_ids": [],
+      "gold_documents": [],
+      "unanswerable": true,
+      "reviewed": true
+    }
+  ]
+}

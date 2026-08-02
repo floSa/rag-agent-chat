@@ -1,6 +1,7 @@
 import logging
 import math
 from functools import lru_cache
+from typing import Any
 
 import chromadb
 from sentence_transformers import CrossEncoder, SentenceTransformer
@@ -24,13 +25,15 @@ _MAX_OVERLAP = 400
 @lru_cache(maxsize=1)
 def _get_embedding_model() -> SentenceTransformer:
     logger.info("Chargement du modèle d'embedding : %s", settings.embedding_model_name)
-    return SentenceTransformer(settings.embedding_model_name)
+    model: SentenceTransformer = SentenceTransformer(settings.embedding_model_name)
+    return model
 
 
 @lru_cache(maxsize=1)
 def _get_rerank_model() -> CrossEncoder:
     logger.info("Chargement du modèle de reranking : %s", settings.rerank_model)
-    return CrossEncoder(settings.rerank_model)
+    model: CrossEncoder = CrossEncoder(settings.rerank_model)
+    return model
 
 
 @lru_cache(maxsize=1)
@@ -98,8 +101,8 @@ def _lexical_search(question: str, k: int) -> list[ChunkResult]:
 
     ids = [chunk_id for chunk_id, _ in hits]
     records = _get_chroma_collection().get(ids=ids, include=["documents", "metadatas"])
-    par_id = {
-        rid: (doc, meta)
+    par_id: dict[str, tuple[str, dict[str, Any]]] = {
+        str(rid): (str(doc), dict(meta))
         for rid, doc, meta in zip(
             records.get("ids") or [],
             records.get("documents") or [],
@@ -138,7 +141,7 @@ def full_texts(element_ids: list[str]) -> dict[str, str]:
 
     try:
         records = _get_chroma_collection().get(
-            where={"element_id": {"$in": list(set(element_ids))}},
+            where={"element_id": {"$in": list(set(element_ids))}},  # type: ignore[dict-item]
             include=["documents", "metadatas"],
         )
     except Exception:
@@ -149,9 +152,10 @@ def full_texts(element_ids: list[str]) -> dict[str, str]:
     for doc, meta in zip(
         records.get("documents") or [], records.get("metadatas") or [], strict=False
     ):
-        eid = meta.get("element_id")
+        eid = str(meta.get("element_id") or "")
         if eid:
-            par_element.setdefault(eid, []).append((int(meta.get("chunk_index") or 0), doc or ""))
+            index = int(str(meta.get("chunk_index") or 0))
+            par_element.setdefault(eid, []).append((index, doc or ""))
 
     return {
         eid: _join_overlapping([texte for _, texte in sorted(morceaux)])
@@ -227,14 +231,14 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
     embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
-    query_embedding: list[float] = embedding_model.encode(question).tolist()  # type: ignore[union-attr]
+    query_embedding: list[float] = embedding_model.encode(question).tolist()
 
-    def _query(coll: chromadb.Collection) -> dict:
-        return coll.query(
-            query_embeddings=[query_embedding],
+    def _query(coll: chromadb.Collection) -> dict[str, Any]:
+        return dict(coll.query(
+            query_embeddings=[query_embedding],  # type: ignore[arg-type]
             n_results=k,
             include=["documents", "metadatas", "distances"],
-        )
+        ))
 
     try:
         results = _query(collection)
@@ -332,7 +336,9 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
 
     rerank_model = _get_rerank_model()
     pairs = [[question, c.document] for c in chunks]
-    scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[union-attr]
+    # Les stubs du cross-encoder décrivent un type d'entrée multimodal très
+    # large ; une liste de paires texte est ce qu'il accepte en pratique.
+    scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
 
     for chunk, score in zip(chunks, scores, strict=False):
         chunk.rerank_score = score
