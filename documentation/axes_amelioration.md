@@ -123,19 +123,33 @@ réglable.
 
 ---
 
+## 1bis. Corrigé — qualité du retrieval et mesure
+
+| Sujet | Ce qui a été fait |
+|---|---|
+| Modèles multilingues | Embedder et reranker alignés sur la réingestion. Mesuré : le reranker anglais rendait une étendue de scores de 0,0 % sur une question française — un classement au hasard. |
+| Réécriture de requête | `node_rewrite` rend la question de suivi autonome avant l'encodage. Sans historique, aucun appel au LLM. |
+| Recherche hybride | BM25 + dense fusionnés par RRF. La fusion porte sur les **rangs**, pas sur les scores : une distance cosine et un score BM25 ne sont pas comparables. |
+| Texte intégral | Relu dans l'index quand le texte du graphe frôle la troncature à 2000 caractères. Les fenêtres recouvrantes sont recollées sans répéter la charnière. |
+| Tool-calling natif | `search_vectors` déclaré comme outil Ollama ; le regex sur la prose reste en second rideau. |
+| Endpoint `/answer` | Non interactif, expose les passages soumis au LLM et les temps par étage. C'est lui que consomme la campagne. |
+| Résilience | Réouverture des clients Chroma / Nebula / MinIO après redémarrage d'un store, timeout nGQL, sessions persistées sur disque. |
+| Serveur d'inférence | L'Ollama embarqué disparaît du compose : un seul serveur, celui de `llm-service`. |
+| Mesure | `scripts/evaluate.py` + jeu doré : rappel, complétude des citations, abstention, latence — sans juge LLM, donc déterministe. `make eval` compare à la campagne de référence. |
+
+---
+
 ## 2. Ouvert — agent
 
 | Priorité | Sujet | Détail |
 |---|---|---|
-| P1 | Recherche hybride | Dense seul aujourd'hui. BM25 + RRF est le standard de production : acronymes, noms propres, références et chiffres passent à travers du dense pur. |
-| P1 | Réécriture de requête | L'historique est injecté dans le prompt, mais la question de suivi est embarquée telle quelle : « Et pour les femmes ? » ne retrouve rien. |
-| P1 | Boucle agentique par regex | `search_vectors("…")` est détecté par `re.search` sur la réponse. Gemma 4 supporte le tool-calling natif via `/api/chat`. Effet de bord : les tokens de l'appel sont streamés à l'écran avant d'être retirés. |
-| P2 | Endpoint `/answer` non interactif | Tout passe par `/chat/start` + sélection humaine. Sans mode direct, le système n'est pas évaluable en campagne (voir `rag_evaluation_strategy.md`). |
-| P2 | Texte complet depuis ChromaDB | Le graphe ne porte qu'un aperçu tronqué à 2000 caractères ; le texte intégral est dans Chroma. Un tableau Docling dépasse souvent cette limite. |
-| P2 | Reconnexion des clients | `@lru_cache` sur Chroma / Nebula / MinIO : si un store redémarre, l'agent reste cassé jusqu'à son propre redémarrage. |
-| P2 | Persistance des sessions | `MemorySaver` reste incompatible avec plusieurs workers uvicorn, et perd les sessions au redémarrage. |
+| P1 | Rappel annoté à l'élément | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. Annoter les `gold_element_ids` est le seul moyen de trancher, et le seul travail non automatisable. |
+| P1 | Jeu doré trop petit | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. Viser 100 à 150, stratifiées par type et par langue. |
+| P2 | Branchement sur RAG-Eval-Bench | Le banc apporte les juges calibrés, la comparaison appariée et les intervalles de confiance. Il lui manque un `ExternalPipeline` qui poste sur `/answer`. |
+| P2 | Latence de génération | 11 s en médiane contre 0,4 s de retrieval. Le levier est le LLM — quantisation, `num_predict`, ou un modèle plus petit — pas la recherche. |
+| P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~10 s. Un corpus nettement plus gros demanderait un moteur dédié plutôt qu'un index Python. |
 | P3 | Surface exposée | CORS `*` et `/media/{object_name}` sans authentification : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
-| P3 | Timeouts NebulaGraph | Aucun timeout sur `session.execute`. |
+| P3 | Multi-workers | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
 
 ---
 
