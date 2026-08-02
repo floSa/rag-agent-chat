@@ -6,11 +6,11 @@ requires-python = ">=3.12"
 # Dépendances runtime — source de vérité pour uv (`uv sync`). requirements.txt
 # est conservé pour le build des images Docker (Dockerfile.agent / .frontend).
 dependencies = [
-    "fastapi==0.115.12",
+    "fastapi==0.141.1",
     "uvicorn==0.34.2",
-    "python-multipart==0.0.20",
+    "python-multipart==0.0.32",
     "sse-starlette==2.3.5",
-    "streamlit==1.44.1",
+    "streamlit==1.60.0",
     "langgraph==0.4.3",
     "langchain-core==0.3.59",
     "chromadb==1.5.8",

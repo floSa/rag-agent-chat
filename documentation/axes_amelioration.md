@@ -157,6 +157,7 @@ réglable.
 | P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. |
 | P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |
 | P3 | Multi-workers | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
+| P1 | Migration LangGraph 1.x | 16 vulnérabilités connues subsistent dans `langgraph`, `langchain-core` et `langsmith`. Les corriger impose de passer en 1.x, qui change la compilation du graphe, les checkpointers et le streaming. Chantier à part entière. |
 | P3 | Observabilité | Logs console uniquement, pas de tracing distribué ni de métriques exportées. |
 
 ---
