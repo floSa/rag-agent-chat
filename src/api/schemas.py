@@ -82,7 +82,10 @@ class SourcesResponse(BaseModel):
 
 class SourceSelectionRequest(BaseModel):
     thread_id: str
-    question: str
+    # Ignoré : la question vit dans l'état checkpointé sous `thread_id`. Le
+    # champ reste accepté pour ne pas casser les clients existants, mais il ne
+    # décrit aucun contrat — le renseigner ne change rien à la réponse.
+    question: str = ""
     selected_element_ids: list[ElementId] = Field(..., min_length=1)
     stream: bool = True
 

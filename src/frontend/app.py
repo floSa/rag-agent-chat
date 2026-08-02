@@ -143,7 +143,14 @@ elif st.session_state.phase == "select":
 
         for group in st.session_state.groups:
             filename = group["filename"]
-            best_score = group["best_score"]
+            collection = group.get("collection") or ""
+            # Identité réelle du document : deux ouvrages peuvent contenir un
+            # chapitre du même nom.
+            doc_id = group.get("source_path") or filename
+            title = f"{collection} › {filename}" if collection else filename
+            # Pertinence dans [0, 1] : le score brut est un logit de
+            # cross-encoder, non borné, illisible tel quel.
+            relevance = group.get("best_relevance") or 0.0
             chunks = group["chunks"]
             chunk_ids = [c["element_id"] for c in chunks]
 
@@ -153,13 +160,13 @@ elif st.session_state.phase == "select":
                     f"chunk_{eid}", eid in st.session_state.selected_ids
                 )
 
-            score_color = "green" if best_score > 0.5 else "orange" if best_score > 0.2 else "red"  # noqa: PLR2004
-            score_badge = f":{score_color}[score: {best_score:.3f}]"
+            score_color = "green" if relevance > 0.5 else "orange" if relevance > 0.2 else "red"  # noqa: PLR2004
+            score_badge = f":{score_color}[pertinence : {relevance:.0%}]"
 
-            with st.expander(f"📄 **{filename}** — {score_badge}", expanded=best_score > 0.2):  # noqa: PLR2004
+            with st.expander(f"📄 **{title}** — {score_badge}", expanded=relevance > 0.2):  # noqa: PLR2004
                 # Checkbox document entier : reflète l'état réel des chunks,
                 # le callback propage le clic à tous les chunks du document.
-                doc_key = f"doc_{filename}"
+                doc_key = f"doc_{doc_id}"
                 st.session_state[doc_key] = all(
                     st.session_state[f"chunk_{eid}"] for eid in chunk_ids
                 )
@@ -173,13 +180,20 @@ elif st.session_state.phase == "select":
                 st.divider()
                 for chunk in chunks:
                     eid = chunk["element_id"]
-                    rerank_score = chunk.get("rerank_score") or 0.0
+                    chunk_relevance = chunk.get("relevance") or 0.0
                     label = chunk.get("label", "")
                     page = chunk.get("page_no", 0)
+                    section = chunk.get("section_title") or ""
                     text_preview = chunk["document"][:200]
 
+                    # Le titre de section situe le passage : « p.42 [paragraph] »
+                    # seul ne dit rien de ce qu'on s'apprête à cocher.
+                    where = f"p.{page}" if page else label
+                    if section:
+                        where += f" — § {section[:60]}"
+
                     checked = st.checkbox(
-                        f"p.{page} [{label}] — score: {rerank_score:.3f}",
+                        f"{where} · {chunk_relevance:.0%}",
                         key=f"chunk_{eid}",
                         help=text_preview,
                     )
@@ -283,9 +297,16 @@ elif st.session_state.phase == "answer":
     if st.session_state.citations:
         with st.expander(f"📚 Sources utilisées ({len(st.session_state.citations)})"):
             for citation in st.session_state.citations:
+                book = citation.get("collection") or ""
+                name = f"{book} › {citation['filename']}" if book else citation["filename"]
+                where = [f"p.{citation['page_no']}"] if citation.get("page_no") else []
+                if citation.get("section_title"):
+                    where.append(f"§ {citation['section_title']}")
+                suffix = ", ".join(where)
                 st.markdown(
-                    f"- **{citation['filename']}**, p.{citation['page_no']} "
-                    f"`[src:{citation['element_id']}]`  \n"
+                    f"- **{name or 'document inconnu'}**"
+                    + (f" — {suffix}" if suffix else "")
+                    + f"  `[src:{citation['element_id']}]`  \n"
                     f"  _{citation['text_excerpt']}_"
                 )
 

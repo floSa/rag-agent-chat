@@ -1,6 +1,8 @@
 import json
 import logging
+import time
 import uuid
+from collections import OrderedDict
 from collections.abc import AsyncIterator
 
 import httpx
@@ -152,6 +154,40 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
 
 # ─── Chat avec agentic loop (LangGraph) ───────────────────────────────────────
 
+# Sessions LangGraph vivantes, de la plus ancienne à la plus récente. Le
+# checkpointer en mémoire ne purge rien de lui-même : sans ce registre, chaque
+# question laissait indéfiniment ses chunks, ses embeddings et ses contextes
+# reconstruits en mémoire. Fuite lente mais certaine sur un service qui tourne.
+_live_threads: OrderedDict[str, float] = OrderedDict()
+
+
+def _register_thread(thread_id: str) -> None:
+    """Enregistre une session et purge les périmées (âge ou nombre)."""
+    now = time.monotonic()
+    _live_threads[thread_id] = now
+
+    expired = [
+        tid
+        for tid, started in _live_threads.items()
+        if now - started > settings.session_ttl_seconds
+    ]
+    while len(_live_threads) - len(expired) > settings.max_live_sessions:
+        oldest = next(iter(_live_threads))
+        if oldest not in expired:
+            expired.append(oldest)
+        _live_threads.pop(oldest, None)
+
+    for tid in expired:
+        _live_threads.pop(tid, None)
+        try:
+            agent_graph.checkpointer.delete_thread(tid)
+        except Exception:
+            logger.debug("Purge du thread %s impossible", tid, exc_info=True)
+
+    if expired:
+        logger.info("Sessions purgées : %d (restantes : %d)", len(expired), len(_live_threads))
+
+
 @app.post("/chat/start")
 async def chat_start(req: SearchRequest) -> dict:
     """Démarre le flux LangGraph : retrieval + reranking, puis suspend en attente
@@ -160,6 +196,7 @@ async def chat_start(req: SearchRequest) -> dict:
     Retourne un thread_id à passer à /chat/resume.
     """
     thread_id = str(uuid.uuid4())
+    _register_thread(thread_id)
     config = {"configurable": {"thread_id": thread_id}}
 
     initial_state = {

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     prompts_dir: str = Field(default="/app/prompts", alias="PROMPTS_DIR")
 
     # API
+    # Sessions LangGraph (checkpointer en mémoire) : bornes de purge. Sans
+    # elles, chaque question laisse son état en mémoire indéfiniment.
+    max_live_sessions: int = Field(default=200, alias="MAX_LIVE_SESSIONS")
+    session_ttl_seconds: int = Field(default=3600, alias="SESSION_TTL_SECONDS")
+
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
