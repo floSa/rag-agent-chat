@@ -1,27 +1,18 @@
 {
   "_lisez_moi": [
-    "Jeu doré : questions dont on connaît la réponse attendue et les passages qui",
-    "la portent. Il sert à mesurer le retrieval SANS juge LLM — un element_id est",
-    "déterministe et stable d'une ingestion à l'autre (compute_id côté ingestion),",
-    "donc le rappel se calcule exactement.",
+    "Jeu ECRIT A LA MAIN, 15 questions. Conservé pour deux raisons :",
     "",
-    "gold_element_ids : identifiants des éléments qui contiennent la réponse.",
-    "  Les trouver : POST /sources avec la question, puis relever les element_id",
-    "  des passages effectivement pertinents. C'est le seul travail manuel, et",
-    "  il ne peut pas être automatisé : c'est lui qui fait la valeur du jeu.",
+    "  - il est relu, contrairement au jeu généré (reviewed: false partout) ;",
+    "  - il couvre des cas choisis exprès — multi-saut, synthèse, questions de",
+    "    suivi — là où la génération produit surtout du factuel.",
     "",
-    "gold_documents : repli quand on ne veut annoter qu'au niveau du document.",
-    "  Moins précis, mais déjà utile — et beaucoup plus rapide à produire.",
+    "Il n'annote qu'au DOCUMENT : trop grossier pour départager deux",
+    "configurations de retrieval. Le jeu de référence est",
+    "golden_qa_generated.json, annoté à l'élément, et c'est lui que `make eval`",
+    "utilise.",
     "",
-    "chat_history : facultatif. Présent, la question est une question de SUIVI —",
-    "  elle contient des pronoms ou des sous-entendus et ne veut rien dire seule.",
-    "  C'est ce qui met la réécriture de requête à l'épreuve.",
-    "",
-    "unanswerable : true si le corpus ne contient PAS la réponse. Un RAG qui",
-    "  n'admet jamais son ignorance est inutilisable : ces cas se mesurent.",
-    "",
-    "Ce fichier est une AMORCE de 15 questions, pas un jeu complet. Viser 100 à",
-    "150 questions stratifiées par type et par langue."
+    "Pour le passer :",
+    "  uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa.json"
   ],
   "questions": [
     {
