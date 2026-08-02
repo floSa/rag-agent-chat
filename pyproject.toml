@@ -91,4 +91,10 @@ markers = [
     "slow: tests requiring heavy infrastructure (NebulaGraph, Ollama)",
     "integration: tests requiring Docker services",
 ]
-addopts = "-q --tb=short"
+# strict-markers : un marqueur inconnu casse la suite au lieu de la laisser
+# passer en silence — c'est ainsi qu'un test async peut ne rien executer.
+addopts = "-q --tb=short --strict-markers"
+asyncio_mode = "strict"
+# Fixé explicitement : la valeur par défaut change dans les versions à venir
+# de pytest-asyncio, et l'avertissement de dépréciation pollue chaque run.
+asyncio_default_fixture_loop_scope = "function"
