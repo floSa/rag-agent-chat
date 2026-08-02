@@ -28,6 +28,11 @@ class ChunkResult(BaseModel):
     collection: str = ""              # ouvrage / dossier de premier niveau
     source_path: str = ""             # chemin relatif complet — identité réelle
     section_title: str = ""           # titre de la section porteuse
+    # Langue du document (ISO 639-1), vide si indéterminée. Le corpus est mixte :
+    # c'est ce qui permet d'annoncer la langue d'une source à l'utilisateur.
+    language: str = ""
+    # Profondeur du titre porteur dans la hiérarchie (0 = titre de tête).
+    depth: int = 0
     page_no: int
     label: str                        # paragraph, section_header, table, picture…
     minio_url: str | None = None

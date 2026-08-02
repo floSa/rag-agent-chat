@@ -40,10 +40,14 @@ class Settings(BaseSettings):
 
     # Retrieval
     embedding_model_name: str = Field(
-        default="all-MiniLM-L6-v2", alias="EMBEDDING_MODEL_NAME"
+        default="paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME"
     )
+    # Le cross-encoder doit parler les mêmes langues que l'embedder, sinon il
+    # défait son travail : mesuré sur une question française, ms-marco (anglais)
+    # rendait des scores plats — étendue 0,0 % sur 20 candidats, soit un
+    # classement au hasard. Son équivalent multilingue sépare à 75 %.
     rerank_model: str = Field(
-        default="cross-encoder/ms-marco-MiniLM-L6-v2", alias="RERANK_MODEL"
+        default="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", alias="RERANK_MODEL"
     )
     retrieval_top_k: int = Field(default=20, alias="RETRIEVAL_TOP_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")

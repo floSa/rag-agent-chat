@@ -191,6 +191,11 @@ elif st.session_state.phase == "select":
                     where = f"p.{page}" if page else label
                     if section:
                         where += f" — § {section[:60]}"
+                    # Le corpus est mixte : une question française ramène
+                    # légitimement des sources anglaises, autant l'annoncer.
+                    lang = chunk.get("language") or ""
+                    if lang:
+                        where = f"[{lang}] {where}"
 
                     checked = st.checkbox(
                         f"{where} · {chunk_relevance:.0%}",
