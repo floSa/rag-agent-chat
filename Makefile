@@ -13,8 +13,9 @@ typecheck:
 test:
 	pytest tests/unit/ -v
 
+# Exige la stack demarree ; sans elle les tests sont ignores, pas en echec.
 test-integration:
-	pytest tests/integration/ -v -m integration
+	API_URL=http://localhost:8011 pytest tests/integration/ -v -m integration
 
 audit:
 	pip-audit -r requirements.txt
