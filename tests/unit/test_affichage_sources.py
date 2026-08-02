@@ -112,3 +112,17 @@ def test_numerotation_suit_l_ordre_de_la_liste_des_sources() -> None:
     reponse = "[src:3333333333] puis [src:1111111111]"
 
     assert numeroter_citations(reponse, citations) == "[3] puis [1]"
+
+
+def test_crochet_groupant_plusieurs_sources_rend_plusieurs_renvois() -> None:
+    citations = [{"element_id": "abcdef0123"}, {"element_id": "1111111111"}]
+    reponse = "Deux sources [src:abcdef0123, src:1111111111]."
+
+    assert numeroter_citations(reponse, citations) == "Deux sources [1][2]."
+
+
+def test_crochet_groupe_dont_une_source_est_inconnue() -> None:
+    citations = [{"element_id": "abcdef0123"}]
+    reponse = "Sources [src:abcdef0123, src:deadbeef99]."
+
+    assert numeroter_citations(reponse, citations) == "Sources [1]."

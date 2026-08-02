@@ -152,3 +152,125 @@ def test_image_dupliquee_n_apparait_qu_une_fois() -> None:
         ],
     }
     assert len(node_postprocess(state)["images"]) == 1
+
+
+def test_illustration_de_la_section_citee_est_affichee() -> None:
+    """Le modèle n'émet presque jamais [img:] : une image n'a pas de texte.
+
+    Mais si une affirmation vient d'une section, la figure de cette section
+    illustre ce dont on parle — c'est tout l'intérêt d'avoir reconstruit la
+    section.
+    """
+    state = {
+        "response": "Le processus n'est pas linéaire [src:abcdef0123].",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(
+                elements=[
+                    _element("abcdef0123", text="Le processus n'est pas linéaire."),
+                    _element("1111111111", label="picture", minio_url=MINIO_URL),
+                ]
+            )
+        ],
+    }
+    result = node_postprocess(state)
+
+    assert [i.element_id for i in result["images"]] == ["1111111111"]
+
+
+def test_section_non_citee_ne_montre_pas_ses_illustrations() -> None:
+    """Sans quoi toute section reconstruite déverserait ses figures."""
+    state = {
+        "response": "Une affirmation sans source.",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(elements=[_element("1111111111", label="picture", minio_url=MINIO_URL)])
+        ],
+    }
+
+    assert node_postprocess(state)["images"] == []
+
+
+def test_nombre_d_illustrations_borne(monkeypatch) -> None:
+    from src.agent import graph as graph_module
+
+    monkeypatch.setattr(graph_module.settings, "max_images", 2)
+    elements = [_element("abcdef0123", text="Un fait.")] + [
+        _element(f"{i}" * 10, label="picture", minio_url=MINIO_URL) for i in range(1, 6)
+    ]
+    state = {
+        "response": "Un fait [src:abcdef0123].",
+        "reranked_chunks": [],
+        "enriched_contexts": [_context(elements=elements)],
+    }
+
+    assert len(node_postprocess(state)["images"]) == 2  # noqa: PLR2004
+
+
+def test_image_non_dupliquee_entre_les_deux_voies() -> None:
+    """Marqueur explicite ET illustration de section citée."""
+    state = {
+        "response": "[img:1111111111] et un fait [src:abcdef0123].",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(
+                elements=[
+                    _element("abcdef0123", text="Un fait."),
+                    _element("1111111111", label="picture", minio_url=MINIO_URL),
+                ]
+            )
+        ],
+    }
+
+    assert len(node_postprocess(state)["images"]) == 1
+
+
+# ─── Plusieurs sources dans un même crochet ───────────────────────────────────
+
+def test_crochet_groupant_plusieurs_sources() -> None:
+    """Le modèle écrit volontiers « [src:aaa, src:bbb] ».
+
+    Le motif exigeant le crochet fermant juste après l'identifiant ne matchait
+    alors RIEN — ni la première source ni les suivantes — et le marqueur restait
+    affiché tel quel dans la réponse.
+    """
+    state = {
+        "response": "Deux sources [src:abcdef0123, src:1111111111].",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(elements=[_element("abcdef0123"), _element("1111111111")])
+        ],
+    }
+
+    assert [c.element_id for c in node_postprocess(state)["citations"]] == [
+        "abcdef0123",
+        "1111111111",
+    ]
+
+
+def test_crochet_groupe_sans_repetition_du_prefixe() -> None:
+    """Variante rencontrée : « [src:aaa, bbb] »."""
+    state = {
+        "response": "Deux sources [src:abcdef0123, 1111111111].",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(elements=[_element("abcdef0123"), _element("1111111111")])
+        ],
+    }
+
+    assert len(node_postprocess(state)["citations"]) == 2  # noqa: PLR2004
+
+
+def test_ordre_du_texte_preserve_sans_doublon() -> None:
+    state = {
+        "response": "[src:1111111111] puis [src:abcdef0123, src:1111111111].",
+        "reranked_chunks": [],
+        "enriched_contexts": [
+            _context(elements=[_element("abcdef0123"), _element("1111111111")])
+        ],
+    }
+
+    assert [c.element_id for c in node_postprocess(state)["citations"]] == [
+        "1111111111",
+        "abcdef0123",
+    ]

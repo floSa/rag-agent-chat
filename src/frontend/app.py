@@ -111,14 +111,24 @@ def numeroter_citations(reponse: str, citations: list[dict[str, Any]]) -> str:
 
     Les identifiants non résolus — inventés par le modèle, ou absents des
     contextes — sont retirés plutôt que laissés bruts : ils ne renvoient à rien.
+
+    Un crochet peut en contenir plusieurs : le modèle écrit volontiers
+    « [src:54a896937a, src:822a883a43] ». Chacun reçoit son renvoi.
     """
     numeros = {c["element_id"]: index for index, c in enumerate(citations, start=1)}
 
     def remplacer(correspondance: re.Match[str]) -> str:
-        numero = numeros.get(correspondance.group(1))
-        return f"[{numero}]" if numero else ""
+        # Le modèle groupe souvent plusieurs sources dans un même crochet :
+        # « [src:54a896937a, src:822a883a43] ». On les rend toutes.
+        trouves = [
+            numeros[eid]
+            for eid in re.findall(r"[a-f0-9]{10}", correspondance.group(0))
+            if eid in numeros
+        ]
+        vus = list(dict.fromkeys(trouves))
+        return "".join(f"[{n}]" for n in vus)
 
-    return re.sub(r"\[src:([a-f0-9]+)\]", remplacer, reponse)
+    return re.sub(r"\[\s*src:[^\]]*\]", remplacer, reponse, flags=re.I)
 
 
 def _toggle_doc(element_ids: list[str], doc_key: str) -> None:

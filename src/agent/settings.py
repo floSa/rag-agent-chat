@@ -129,6 +129,10 @@ class Settings(BaseSettings):
     # Éléments repris de la section précédente (queue) et de la suivante
     # (tête). 0 désactive la traversée vers les sections voisines.
     adjacent_section_elements: int = Field(default=3, alias="ADJACENT_SECTION_ELEMENTS")
+    # Illustrations affichées au maximum dans une réponse. Elles proviennent
+    # des sections d'où viennent les citations : au-delà de cette borne, on
+    # remplirait l'écran de figures décoratives.
+    max_images: int = Field(default=4, alias="MAX_IMAGES")
     # Le graphe ne porte qu'un aperçu du texte (tronqué à l'ingestion) ; le
     # corpus complet vit dans l'index vectoriel. Un tableau Docling dépasse
     # souvent la limite et arrivait amputé au LLM.

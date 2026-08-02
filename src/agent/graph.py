@@ -20,6 +20,24 @@ from src.api.schemas import ChunkResult, Citation, ImageRef, SectionContext
 
 logger = logging.getLogger(__name__)
 
+# Le modèle regroupe volontiers plusieurs sources dans un seul crochet :
+# « [src:54a896937a, src:822a883a43] ». Un motif exigeant le crochet fermant
+# juste après l'identifiant ne matchait alors RIEN — ni la première source ni
+# les suivantes — et le marqueur restait affiché tel quel dans la réponse. On
+# capture donc le bloc entier, puis on en extrait tous les identifiants.
+_BLOC_SRC = re.compile(r"\[\s*src:[^\]]*\]", re.I)
+_BLOC_IMG = re.compile(r"\[\s*img:[^\]]*\]", re.I)
+_ELEMENT_ID = re.compile(r"[a-f0-9]{10}")
+
+
+def element_ids_cites(response: str, bloc: re.Pattern[str]) -> list[str]:
+    """Identifiants cités par la réponse, dans l'ordre du texte, sans doublon."""
+    vus: dict[str, None] = {}
+    for match in bloc.finditer(response):
+        for eid in _ELEMENT_ID.findall(match.group(0)):
+            vus.setdefault(eid, None)
+    return list(vus)
+
 
 # ─── Nœuds du graphe ─────────────────────────────────────────────────────────
 
@@ -268,10 +286,7 @@ def resolve_citations(
     # sinon depuis les éléments des sections reconstruites.
     citations: list[Citation] = []
     cited: set[str] = set()
-    for match in re.finditer(r"\[src:([a-f0-9]+)\]", response):
-        eid = match.group(1)
-        if eid in cited:
-            continue
+    for eid in element_ids_cites(response, _BLOC_SRC):
         chunk = chunks_map.get(eid)
         if chunk is not None:
             citations.append(
@@ -292,11 +307,45 @@ def resolve_citations(
     # Images servies via le proxy /media : les URLs internes minio:9000 ne sont
     # pas résolvables depuis le navigateur.
     images: list[ImageRef] = []
-    for match in re.finditer(r"\[img:([a-f0-9]+)\]", response):
-        eid = match.group(1)
+    vus: set[str] = set()
+
+    def ajouter(eid: str) -> None:
         minio_url = media_map.get(eid)
-        if minio_url and not any(i.element_id == eid for i in images):
+        if minio_url and eid not in vus:
+            vus.add(eid)
             images.append(ImageRef(element_id=eid, minio_url=to_media_path(minio_url)))
+
+    # Voie 1 : le marqueur explicite du modèle.
+    for eid in element_ids_cites(response, _BLOC_IMG):
+        ajouter(eid)
+
+    # Voie 2 : les illustrations des sections d'où viennent les citations.
+    #
+    # Le modèle n'émet presque jamais [img:ID]. Une illustration n'a pas de
+    # texte — l'ingestion ne lui en attache un que si le document portait une
+    # légende — donc il ne peut ni juger sa pertinence ni deviner qu'il faut la
+    # montrer. Mesuré : sur une question portant explicitement sur un schéma,
+    # le prompt contenait trois marqueurs et la réponse aucun.
+    #
+    # Mais si une affirmation est tirée d'une section, la figure de cette
+    # section illustre ce dont on parle. C'est ce que fait un lecteur humain,
+    # et c'est tout l'intérêt d'avoir reconstruit la section.
+    #
+    # Borné : au-delà, on remplirait l'écran d'illustrations décoratives.
+    sections_citees = {
+        ctx.section_id
+        for ctx in contexts
+        for elem in (*ctx.before, *ctx.elements, *ctx.after)
+        if elem.node_id in cited
+    }
+    for ctx in contexts:
+        if ctx.section_id not in sections_citees:
+            continue
+        for elem in ctx.elements:
+            if len(images) >= settings.max_images:
+                break
+            if elem.minio_url and elem.label.lower() in ("picture", "table"):
+                ajouter(elem.node_id)
 
     return citations, images
 
