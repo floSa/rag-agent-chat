@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from collections.abc import Iterator
 from typing import Any
 
@@ -98,6 +99,26 @@ def situer_passage(chunk: dict[str, Any]) -> str:
         ou += f" — § {section[:60]}"
     langue = chunk.get("language") or ""
     return f"[{langue}] {ou}" if langue else ou
+
+
+def numeroter_citations(reponse: str, citations: list[dict[str, Any]]) -> str:
+    """Remplace les marqueurs `[src:HASH]` par des renvois numérotés `[1]`.
+
+    Le hash sert au post-processing, pas à la lecture : « le CD est un élément
+    central de MLOps [src:203a2f3181] » demande à l'œil de sauter dix caractères
+    sans signification. Un renvoi numéroté pointe vers la liste des sources, où
+    figurent ouvrage, document, page et section.
+
+    Les identifiants non résolus — inventés par le modèle, ou absents des
+    contextes — sont retirés plutôt que laissés bruts : ils ne renvoient à rien.
+    """
+    numeros = {c["element_id"]: index for index, c in enumerate(citations, start=1)}
+
+    def remplacer(correspondance: re.Match[str]) -> str:
+        numero = numeros.get(correspondance.group(1))
+        return f"[{numero}]" if numero else ""
+
+    return re.sub(r"\[src:([a-f0-9]+)\]", remplacer, reponse)
 
 
 def _toggle_doc(element_ids: list[str], doc_key: str) -> None:
@@ -312,7 +333,9 @@ elif st.session_state.phase == "answer":
                 st.rerun()
             st.stop()
 
-    answer_placeholder.markdown(st.session_state.answer)
+    answer_placeholder.markdown(
+        numeroter_citations(st.session_state.answer, st.session_state.citations)
+    )
 
     # ── Images ────────────────────────────────────────────────────────────────
     if st.session_state.images:
@@ -336,8 +359,11 @@ elif st.session_state.phase == "answer":
 
     # ── Citations ─────────────────────────────────────────────────────────────
     if st.session_state.citations:
-        with st.expander(f"📚 Sources utilisées ({len(st.session_state.citations)})"):
-            for citation in st.session_state.citations:
+        # Dépliée : c'est le livrable, pas une annexe.
+        with st.expander(
+            f"📚 Sources utilisées ({len(st.session_state.citations)})", expanded=True
+        ):
+            for numero, citation in enumerate(st.session_state.citations, start=1):
                 book = citation.get("collection") or ""
                 name = f"{book} › {citation['filename']}" if book else citation["filename"]
                 where = [f"p.{citation['page_no']}"] if citation.get("page_no") else []
@@ -345,7 +371,7 @@ elif st.session_state.phase == "answer":
                     where.append(f"§ {citation['section_title']}")
                 suffix = ", ".join(where)
                 st.markdown(
-                    f"- **{name or 'document inconnu'}**"
+                    f"**[{numero}]** **{name or 'document inconnu'}**"
                     + (f" — {suffix}" if suffix else "")
                     + f"  `[src:{citation['element_id']}]`  \n"
                     f"  _{citation['text_excerpt']}_"

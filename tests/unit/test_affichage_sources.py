@@ -6,7 +6,7 @@ d'abord des logits bruts affichés comme des probabilités, puis des seuils
 absolus hérités d'un autre modèle qui peignaient tout en rouge.
 """
 
-from src.frontend.app import couleur_pertinence, situer_passage
+from src.frontend.app import couleur_pertinence, numeroter_citations, situer_passage
 
 # ─── Couleur du badge ─────────────────────────────────────────────────────────
 
@@ -76,3 +76,39 @@ def test_sans_langue_le_prefixe_disparait() -> None:
 
 def test_metadonnees_absentes_ne_font_pas_planter() -> None:
     assert situer_passage({}) == ""
+
+
+# ─── Renvois de citation ──────────────────────────────────────────────────────
+
+def test_hash_remplace_par_un_renvoi_numerote() -> None:
+    """Le hash sert au post-processing, pas à la lecture."""
+    citations = [{"element_id": "203a2f3181"}, {"element_id": "629eadaccb"}]
+    reponse = "Le CD est central [src:203a2f3181] et automatisable [src:629eadaccb]."
+
+    assert numeroter_citations(reponse, citations) == "Le CD est central [1] et automatisable [2]."
+
+
+def test_meme_source_citee_deux_fois_garde_son_numero() -> None:
+    citations = [{"element_id": "aaaaaaaaaa"}]
+    reponse = "Un fait [src:aaaaaaaaaa]. Le même [src:aaaaaaaaaa]."
+
+    assert numeroter_citations(reponse, citations) == "Un fait [1]. Le même [1]."
+
+
+def test_identifiant_non_resolu_est_retire() -> None:
+    """Un hash inventé par le modèle ne renvoie à rien : le laisser serait pire."""
+    reponse = "Une affirmation [src:deadbeef99]."
+
+    assert numeroter_citations(reponse, [{"element_id": "aaaaaaaaaa"}]) == "Une affirmation ."
+
+
+def test_reponse_sans_citation_inchangee() -> None:
+    assert numeroter_citations("Je n'ai pas trouvé.", []) == "Je n'ai pas trouvé."
+
+
+def test_numerotation_suit_l_ordre_de_la_liste_des_sources() -> None:
+    """L'utilisateur lit [3] et cherche la troisième ligne : elle doit correspondre."""
+    citations = [{"element_id": f"{i}" * 10} for i in range(1, 4)]
+    reponse = "[src:3333333333] puis [src:1111111111]"
+
+    assert numeroter_citations(reponse, citations) == "[3] puis [1]"
