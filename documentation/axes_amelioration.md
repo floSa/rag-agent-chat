@@ -1,275 +1,175 @@
 # Axes d'amélioration — rag-agent-chat
 
-Document basé sur une revue complète du code source. Chaque point est ancré dans un fichier et une ligne précise.
+Document remis à plat le 2 août 2026. La version précédente cochait « corrigé »
+des correctifs absents du code (`_window_around`, `RERANK_MIN_SCORE`,
+`section_header_text`, alias `[src:N]`) et listait comme ouvert `tools.py`,
+supprimé depuis. Un document d'audit faux est pire que pas de document : chaque
+ligne ci-dessous est vérifiable dans le code ou contre les services.
 
 ---
 
-## 1. Bugs avérés
+## 1. Corrigé
 
-### 1.1 Images jamais résolues dans `node_postprocess`
+### 1.1 La remontée `PARENT_OF` ne remontait rien — `graph_context.py`
 
-**Fichier** : `src/agent/graph.py` — `node_postprocess` (ligne ~110)
+Sous `REVERSELY`, nGQL fait renvoyer par `dst(edge)` le nœud de **départ**, pas
+le voisin atteint : c'est `src(edge)` qui porte le parent. `_find_parent`
+retournait donc l'élément lui-même, la boucle de remontée tournait dix fois sur
+place, et `reconstruct_section` rendait une section vide.
 
-Le LLM génère des références `[img:ELEMENT_ID]` à partir des éléments Picture/Table reconstruits par NebulaGraph. Mais la résolution des URLs présignées s'appuie sur `chunks_map`, qui ne contient que les chunks ChromaDB reranqués :
+La reconstruction du contexte par le graphe — la promesse centrale du projet —
+était sans effet depuis l'origine. Vérifié contre le graphe en production :
 
-```python
-chunks_map = {c.element_id: c for c in state.get("reranked_chunks", [])}
-
-for match in re.finditer(r"\[img:([a-f0-9]+)\]", response):
-    eid = match.group(1)
-    chunk = chunks_map.get(eid)          # ← presque toujours None pour les images
-    if chunk and chunk.minio_url and ...:
-        images.append(...)
+```
+MATCH (p)-[:PARENT_OF]->(c) WHERE id(c)=="1730443c8f"  -> "ffa6bda17d"
+GO FROM "1730443c8f" ... REVERSELY YIELD dst(edge)     -> "1730443c8f"
+GO FROM "1730443c8f" ... REVERSELY YIELD src(edge)     -> "ffa6bda17d"
 ```
 
-Les images viennent des enfants de section reconstruits par NebulaGraph (via `_build_markdown`), pas des chunks ChromaDB. `chunks_map.get(eid)` retourne `None` dans la quasi-totalité des cas : les images ne sont jamais affichées dans le frontend.
+### 1.2 Les citations perdaient le nom du document — `graph_context.py`, `graph.py`
 
-**Correction** : construire `images_map` depuis `enriched_contexts` (éléments avec `minio_url`) en plus de `chunks_map`.
+La remontée s'arrêtait au premier `SectionHeader`. Comme l'ingestion rattache
+tout élément à son en-tête et tout en-tête au `Document`, elle s'arrêtait donc
+systématiquement au premier saut : le nœud `Document` n'était jamais atteint, et
+`node_postprocess` — qui y cherchait le nom du fichier — laissait `filename`
+vide. Toutes les citations issues du graphe s'affichaient `****, p.42`.
 
-```python
-images_map: dict[str, str] = {}
-for ctx in state.get("enriched_contexts", []):
-    for elem in ctx.elements:
-        if elem.minio_url:
-            images_map[elem.node_id] = elem.minio_url
-```
+La remontée note désormais la section puis poursuit jusqu'à la racine.
+`SectionContext` expose `filename` et `section_title` au lieu de laisser ses
+appelants les deviner depuis les breadcrumbs.
 
----
+### 1.3 VIDs de documents rejetés — `graph_context.py`
 
-### 1.2 ~~Modèle Ollama inexistant dans `.env.example`~~ — invalidé
+Les VIDs de documents dérivent du chemin (`doc_htms/Practical MLOps/4. …`) :
+séparateurs, espaces, accents, jusqu'à 256 octets. Le motif de validation les
+rejetait tous, ce qui vidait les propriétés du nœud `Document`.
 
-`gemma4:e4b` est un modèle valide disponible sur ollama.com. Ce point était incorrect.
+Ils ne viennent jamais de l'utilisateur — ils sont découverts en remontant le
+graphe : ils sont **échappés** plutôt que filtrés. La validation stricte reste
+sur le seul format qu'un appelant peut fournir, le hash de 10 hexadécimaux.
 
----
+### 1.4 Contexte non borné — `graph_context.py`, `llm.py`
 
-### 1.3 Checkbox "Tout désélectionner" inopérante dans le frontend
+Deux causes cumulées, désormais traitées :
 
-**Fichier** : `src/frontend/app.py` — lignes 120–131
+- `_get_children` renvoyait tous les enfants. Un document sans `SectionHeader`
+  rattache ses éléments au nœud `Document` : la « section » reconstruite était
+  le document entier. `_window_around` borne à `CONTEXT_WINDOW_BEFORE/AFTER`
+  éléments autour de l'ancre.
+- `num_ctx` n'était jamais passé à Ollama : la fenêtre dépendait du serveur
+  (8192 embarqué, 32768 central), et le même prompt donnait deux comportements.
+  Elle est explicite, et `fit_contexts` écarte les sources qui dépassent le
+  budget, avec un log qui dit combien et pourquoi.
 
-La case "Tout sélectionner (doc)" ne déselectionne rien quand on la décoche :
+Mesuré sur une question réelle : 5 sections reconstruites font 13 961
+caractères pour un budget de 12 544 — une source écartée explicitement, là où
+Ollama en tronquait le **début** en silence.
 
-```python
-if doc_checked:
-    for c in chunks:
-        selected.add(c["element_id"])
-else:
-    # Ne désélectionner que si c'était coché avant
-    pass     # ← branche vide, bug connu
-```
+### 1.5 Éléments multi-chunks — `retriever.py`, `frontend/app.py`
 
-**Correction** :
+Un bloc long produit des chunks `abc#0`, `abc#1` partageant leur `element_id`.
+Ils se ressemblent, donc le reranker les remontait ensemble : plusieurs places
+du top-K pour un seul passage, et deux `st.checkbox` de même `key` — soit une
+`StreamlitDuplicateElementKey`. `dedupe_by_element` s'applique **avant** la
+troncature au top-K.
 
-```python
-for c in chunks:
-    if doc_checked:
-        selected.add(c["element_id"])
-    else:
-        selected.discard(c["element_id"])
-```
+### 1.6 Documents homonymes fusionnés — `schemas.py`, `retriever.py`
 
----
+`ChunkResult` ignorait `collection`, `source_path` et `section_title`, pourtant
+écrits par l'ingestion. Le groupement se faisait sur le seul nom de fichier :
+la « Préface » de deux ouvrages devenait un seul document. Le groupement porte
+sur `source_path`, et l'UI affiche « Ouvrage › Chapitre ».
 
-### 1.4 `CONTEXT_DEPTH` jamais utilisé
+### 1.7 Scores de rerank affichés comme des probabilités — `retriever.py`, `frontend/app.py`
 
-**Fichier** : `src/agent/settings.py` ligne 43 / `src/agent/graph_context.py`
+`ms-marco-MiniLM-L6-v2` sort des logits non bornés. Le frontend appliquait des
+seuils à 0.5 / 0.2 : une source pertinente à −2.0 ressortait en rouge et
+repliée. Le champ `relevance` porte la sigmoïde du logit, affichée en
+pourcentage.
 
-`context_depth: int = Field(default=1, alias="CONTEXT_DEPTH")` est défini dans `Settings` mais `_climb_to_section` ne consulte jamais `settings.context_depth`. La profondeur de remontée est toujours contrôlée par `_MAX_DEPTH = 10` et l'arrêt sur le premier `SectionHeader`.
+### 1.8 Sessions LangGraph sans purge — `api/main.py`
 
-Ce paramètre expose une option de configuration qui n'a aucun effet, ce qui est trompeur.
+Le checkpointer en mémoire ne purge rien : chaque question laissait ses chunks,
+ses embeddings et ses contextes reconstruits jusqu'au redémarrage. Un registre
+borne les sessions en âge (`SESSION_TTL_SECONDS`) et en nombre
+(`MAX_LIVE_SESSIONS`).
 
-**Correction** : soit implémenter la logique (remonter N niveaux de sections), soit supprimer le paramètre.
+### 1.9 « Avant / après » — `graph_context.py`
 
----
+`reconstruct_section` ne récupérait que la section de l'élément. Les en-têtes
+étant frères sous le `Document` et ordonnés par la propriété `sequence` de
+l'arête, `_find_sibling` atteint la section précédente et la suivante : leur
+queue et leur tête entrent dans le prompt, dans des blocs explicitement
+étiquetés pour que le LLM les distingue de la section trouvée.
 
-### 1.5 `SourceSelectionRequest.question` ignoré
+### 1.10 Légendes des illustrations — `graph_context.py`
 
-**Fichier** : `src/api/main.py` — `chat_resume`, `src/api/schemas.py`
+L'ingestion relie chaque `Caption` à l'illustration qui la précède par une arête
+`DESCRIBES`. L'agent ne la traversait jamais : le LLM recevait un `[img:ID]`
+muet et devait juger seul de sa pertinence. La légende est désormais rattachée
+au visuel dans le markdown.
 
-Le champ `question` de `SourceSelectionRequest` est envoyé par le frontend mais jamais utilisé dans `chat_resume` : la question est déjà dans l'état checkpointé. Ce champ crée une fausse impression de contrat d'interface.
+### 1.11 `CONTEXT_DEPTH` sans effet — `settings.py`
 
-**Correction** : supprimer `question` de `SourceSelectionRequest`.
+Le paramètre était lu nulle part, et ne pouvait rien faire : l'ingestion
+n'imbrique pas les titres, il n'y a aucun niveau à remonter (§3.1). Supprimé et
+remplacé par les bornes de fenêtrage, qui décrivent ce qui est réellement
+réglable.
 
----
+### 1.12 Tests de la logique métier — `tests/unit/`
 
-## 2. Architecture — code mort et incohérences
-
-### 2.1 `tools.py` est du code mort
-
-**Fichier** : `src/agent/tools.py`
-
-`search_vectors` est défini comme un `@tool` LangChain et `AGENT_TOOLS = [search_vectors]` est exporté, mais ce module n'est importé nulle part dans `graph.py` ou `llm.py`. Le LLM n'est jamais configuré avec ces outils.
-
-La boucle agentique réelle fonctionne par **parsing regex** de la réponse du LLM (`re.search(r"search_vectors\([\"'](.+?)[\"']\)")`), pas par tool-calling natif. Les deux approches coexistent sans qu'aucune soit complète :
-
-| Approche | Fichier | État |
-|----------|---------|------|
-| Tool-calling LangChain (`@tool`) | `tools.py` | Défini, jamais lié au LLM |
-| Regex sur la réponse texte | `graph.py` L95 | Actif mais fragile |
-
-La voie regex est fragile (le LLM doit produire exactement `search_vectors("...")` en texte) et contourne la gestion native des outils de LangGraph/LangChain.
-
-**Correction** : soit lier les outils via `llm.bind_tools(AGENT_TOOLS)` et passer par `tool_calls` dans la réponse, soit supprimer `tools.py` et assumer l'approche regex en la documentant.
-
----
-
-### 2.2 Nœud `await_source_selection` vide
-
-**Fichier** : `src/agent/graph.py` — lignes 39–52
-
-Ce nœud existe uniquement comme point d'interruption (grace au paramètre `interrupt_before` à la compilation). La logique `group_by_document` qu'il contient est dupliquée dans `chat_start` (main.py) pour extraire les groupes à retourner au client.
-
-```python
-def node_await_source_selection(state: AgentState) -> dict:
-    groups = group_by_document(state["reranked_chunks"])  # calculé mais non retourné
-    logger.info(...)
-    return {}
-```
-
-Les groupes calculés ici ne servent à rien — ils sont recalculés dans `/chat/start` via `aget_state`.
-
-**Correction** : supprimer l'appel à `group_by_document` dans ce nœud.
+38 tests s'ajoutent aux 21 existants : résolution des citations et des images,
+échappement des VIDs, fenêtrage, budget de contexte, déduplication.
 
 ---
 
-## 3. Performances
+## 2. Ouvert — agent
 
-### 3.1 `_get_node_properties` : jusqu'à 12 requêtes nGQL par nœud
-
-**Fichier** : `src/agent/graph_context.py` — lignes 63–89
-
-Pour déterminer le tag d'un nœud, la fonction itère sur 12 tags possibles et exécute une requête `FETCH PROP ON <tag>` pour chacun jusqu'à trouver le bon :
-
-```python
-tags = ["SectionHeader", "Paragraph", "Table", "Picture", "Code",
-        "Formula", "Caption", "ListItem", "Footnote", "PageHeader",
-        "PageFooter", "Document"]
-for tag in tags:
-    rows = _execute(f'FETCH PROP ON {tag} "{node_id}" ...')  # requête réseau
-    if rows and row.get("text") is not None:
-        return row
-```
-
-Pour un appel `reconstruct_section` complet (remontée + enfants), cela représente potentiellement **plusieurs dizaines de sessions NebulaGraph** ouvertes/fermées séquentiellement.
-
-**Correction** : NebulaGraph supporte `FETCH PROP ON * "<vid>"` qui retourne les propriétés de tous les tags d'un vertex en une seule requête. À utiliser en priorité, avec fallback sur la boucle uniquement si `ON *` n'est pas disponible.
+| Priorité | Sujet | Détail |
+|---|---|---|
+| P1 | Recherche hybride | Dense seul aujourd'hui. BM25 + RRF est le standard de production : acronymes, noms propres, références et chiffres passent à travers du dense pur. |
+| P1 | Réécriture de requête | L'historique est injecté dans le prompt, mais la question de suivi est embarquée telle quelle : « Et pour les femmes ? » ne retrouve rien. |
+| P1 | Boucle agentique par regex | `search_vectors("…")` est détecté par `re.search` sur la réponse. Gemma 4 supporte le tool-calling natif via `/api/chat`. Effet de bord : les tokens de l'appel sont streamés à l'écran avant d'être retirés. |
+| P2 | Endpoint `/answer` non interactif | Tout passe par `/chat/start` + sélection humaine. Sans mode direct, le système n'est pas évaluable en campagne (voir `rag_evaluation_strategy.md`). |
+| P2 | Texte complet depuis ChromaDB | Le graphe ne porte qu'un aperçu tronqué à 2000 caractères ; le texte intégral est dans Chroma. Un tableau Docling dépasse souvent cette limite. |
+| P2 | Reconnexion des clients | `@lru_cache` sur Chroma / Nebula / MinIO : si un store redémarre, l'agent reste cassé jusqu'à son propre redémarrage. |
+| P2 | Persistance des sessions | `MemorySaver` reste incompatible avec plusieurs workers uvicorn, et perd les sessions au redémarrage. |
+| P3 | Surface exposée | CORS `*` et `/media/{object_name}` sans authentification : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
+| P3 | Timeouts NebulaGraph | Aucun timeout sur `session.execute`. |
 
 ---
 
-### 3.2 Absence de gestion de la fenêtre de contexte
+## 3. Ouvert — dépend de l'ingestion
 
-**Fichier** : `src/agent/graph_context.py` — `_get_children` / `src/agent/llm.py`
+À transmettre à `rag-ingestion-pipeline` ; rien n'est faisable côté agent.
 
-Pour un document sans `SectionHeader` (ex. `statisticsfordatascience.pdf`), l'élément sélectionné est un enfant direct du nœud `Document`. `_get_children(document_id)` retourne alors **tous les éléments du document** (6030 éléments dans les tests), qui sont assemblés en un seul bloc markdown et transmis au LLM.
+### 3.1 Le graphe est plat
 
-`gemma3:4b` a une fenêtre de contexte de 8192 tokens. Un tel contexte dépasse largement cette limite sans avertissement ni erreur explicite — Ollama tronque silencieusement.
+Mesuré sur le graphe en production : **901** `SectionHeader` enfants d'un
+`Document`, **0** enfant d'un autre `SectionHeader`, et **0** chemin de
+longueur 3 depuis le `Document`. L'arbre fait exactement deux niveaux.
 
-**Corrections possibles** :
-- Limiter `_get_children` à N éléments autour de l'`element_id` ciblé (fenêtre glissante par `sequence`).
-- Compter les tokens avant envoi (`tiktoken` ou estimation par caractères) et tronquer si nécessaire.
-- Détecter le cas "enfant direct de Document" et appliquer une stratégie différente.
+En cause, `elements.py` : `reference_id = ROOT_REFERENCE` dès qu'un en-tête est
+rencontré. Docling expose pourtant le niveau des titres, que `TAG_MAP` écrase.
 
----
+Conséquence : le breadcrumb ne peut afficher qu'un seul titre — pas de
+`Chapitre 3 > 3.2 > 3.2.1`. Le « avant / après » n'en dépend pas (§1.9).
 
-### 3.3 ~~Reranking synchrone bloquant~~ ✅ Corrigé
+Correction : stocker le niveau du titre sur le tag `SectionHeader` et chaîner
+les parents. **Impose une purge du space** — le schéma Nebula n'évolue pas en
+place.
 
-`node_retrieve` et `node_rerank` sont maintenant des fonctions `async` qui délèguent l'appel CPU à un thread pool via `asyncio.get_running_loop().run_in_executor`. L'endpoint `/sources` utilise `run_in_threadpool` de Starlette pour le même effet. L'event loop reste libre pendant l'exécution du cross-encoder et de l'embedding.
+### 3.2 Modèle d'embedding monolingue
 
----
+`all-MiniLM-L6-v2` est un modèle anglais, tronqué à 256 tokens, utilisé sur un
+corpus et des questions en partie francophones. C'est l'écart le plus coûteux à
+l'état de l'art. Le modèle est décidé à l'ingestion et doit coïncider des deux
+côtés : en changer (`bge-m3`, `multilingual-e5-large`) **impose une réingestion
+complète**.
 
-## 4. Résilience et connexions
+### 3.3 Illustrations sans légende
 
-### 4.1 `lru_cache` sur les clients de services — pas de reconnexion
-
-**Fichiers** : `src/agent/retriever.py` (L15–28), `src/agent/graph_context.py` (L20–27), `src/agent/minio_client.py` (L11–19)
-
-Les clients ChromaDB, NebulaGraph et MinIO sont mis en cache via `@lru_cache(maxsize=1)`. Si un service redémarre, les clients cachés pointent vers des connexions mortes. Les requêtes suivantes lèvent des exceptions et il n'y a pas de logique de re-initialisation du cache.
-
-**Conséquence concrète** : si ChromaDB redémarre (mis à jour, OOM, etc.) pendant que `agent-api` tourne, toutes les requêtes de retrieval échouent jusqu'au redémarrage d'`agent-api`.
-
-**Correction** : ajouter une gestion d'erreur avec retry + invalidation du cache (`_get_chroma_collection.cache_clear()`), ou remplacer `lru_cache` par un pattern singleton avec reconnexion.
-
----
-
-### 4.2 Sessions NebulaGraph non libérées en cas d'exception
-
-**Fichier** : `src/agent/graph_context.py` — `_execute` (ligne 30)
-
-```python
-session = pool.get_session(...)
-try:
-    ...
-finally:
-    session.release()
-```
-
-Le `finally` protège la libération, mais si `pool.get_session()` lève une exception (pool épuisé, connexion refusée), `session` n'est pas définie et le `finally` lèvera une `NameError`. La session du pool est alors perdue.
-
-**Correction** :
-
-```python
-session = pool.get_session(...)  # peut lever
-try:
-    ...
-finally:
-    session.release()
-```
-
-Ou mieux, utiliser un context manager si la librairie `nebula3` en propose un.
-
----
-
-### 4.3 Pas de timeout sur les requêtes NebulaGraph
-
-**Fichier** : `src/agent/graph_context.py`
-
-`session.execute(nql)` n'a pas de timeout configuré. Si NebulaGraph est lent ou bloqué sur une requête coûteuse, la requête FastAPI correspondante attend indéfiniment (jusqu'au timeout httpx du frontend à 120s).
-
----
-
-## 5. Tests
-
-### 5.1 Aucun test pour le postprocessing des citations/images
-
-**Fichier** : `tests/unit/`
-
-`node_postprocess` (graph.py) extrait les citations et images de la réponse LLM via regex. Ce code n'est pas testé alors qu'il contient la logique métier des citations (format `[src:ID]`, déduplication) et le bug images décrit en §1.1.
-
-### 5.2 Aucun test pour la boucle agentique
-
-La détection `search_vectors("...")` dans `node_generate` et la condition `should_search_more` ne sont pas testées unitairement.
-
-### 5.3 Aucun test pour `tools.py`
-
-`search_vectors` comme outil LangChain n'est pas testé (et comme montré en §2.1, n'est pas utilisé non plus).
-
-### 5.4 Absence de tests d'intégration
-
-Aucun test dans `tests/integration/`. Les flux end-to-end (start → resume, simple) ne sont vérifiés que manuellement.
-
----
-
-## 6. Configuration
-
-### 6.1 `.env.example`
-
-`gemma4:e4b` est un modèle valide sur ollama.com — ce point était incorrect. `MINIO_ROOT_USER` doit correspondre à la valeur configurée dans `rag-ingestion-pipeline` (pas de valeur universelle). La variable `RERANK_MIN_SCORE=0.0` a été ajoutée.
-
----
-
-## Récapitulatif par priorité
-
-| Priorité | Item | État | Impact |
-|----------|------|------|--------|
-| P0 | §1.1 Images jamais affichées | ✅ Corrigé | Fonctionnalité cassée silencieusement |
-| P0 | §1.3 Checkbox désélection | ✅ Corrigé | Bug UX visible |
-| P1 | §3.2 Contexte LLM non borné | ✅ Corrigé (`_window_around`, max 12 éléments) | Silently broken sur docs sans sections |
-| P1 | §3.1 `_get_node_properties` 12 requêtes → max 2 | ✅ Corrigé (`FETCH PROP ON *`) | Latence réelle |
-| P1 | Filtrage par score (`RERANK_MIN_SCORE`) | ✅ Corrigé | Sources non pertinentes proposées |
-| P1 | Affichage SectionHeader dans sélection sources | ✅ Corrigé (`section_header_text`) | UX — contexte illisible |
-| P1 | Citations hex `[src:d89fb...] `→ alias `[src:N]` | ✅ Corrigé | Réponse illisible |
-| P1 | §2.1 `tools.py` dead code / incohérence agentic | Ouvert | Clarté architecturale |
-| P1 | §1.4 `CONTEXT_DEPTH` sans effet | Ouvert | Config trompeuse |
-| P2 | §3.3 Retrieve/rerank hors event loop | ✅ Corrigé (`run_in_executor`) | Concurrence API |
-| P2 | §4.1 Reconnexion services | Ouvert | Résilience en production |
-| P3 | §5.x Tests unitaires postprocess + boucle | Ouvert | Maintenabilité |
-| P3 | §4.3 Timeouts NebulaGraph | Ouvert | Robustesse |
+L'arête `DESCRIBES` couvre les visuels légendés dans le document d'origine. Une
+figure sans légende reste muette : introuvable par la recherche sémantique, et
+impossible à juger pertinente par le LLM. Une description générée par VLM à
+l'ingestion, indexée dans ChromaDB, comblerait ce trou.
