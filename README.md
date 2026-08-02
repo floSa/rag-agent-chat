@@ -10,7 +10,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.44-FF4B4B?logo=streamlit&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-service_central-000000?logo=ollama&logoColor=white)
 
-> Contrairement au RAG classique qui injecte des chunks isolés, l'agent utilise le **graphe de connaissances pour reconstruire la section complète** autour de chaque chunk trouvé : hiérarchie de titres (breadcrumb), paragraphes voisins, images et tableaux.
+> Contrairement au RAG classique qui injecte des chunks isolés, l'agent utilise le **graphe de connaissances pour reconstruire la section complète** autour de chaque passage trouvé : fil des titres jusqu'au document, éléments voisins, fin de la section précédente et début de la suivante, illustrations avec leur légende.
 
 ---
 
@@ -19,7 +19,8 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 - **Agent (LangGraph)** : machine à états `retrieve → rerank → sélection user → reconstruction graphe → génération → post-processing`, avec boucle agentique (le LLM peut relancer une recherche via `search_vectors(query)`, max 3 itérations).
 - **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`) et des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`), avec réponses en streaming SSE.
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
-- **Retrieval** : embeddings `all-MiniLM-L6-v2` (le **même modèle** que l'ingestion, obligatoire) + reranking par cross-encoder `ms-marco-MiniLM-L6-v2` (local, sans appel API).
+- **Recherche** : hybride — dense (`paraphrase-multilingual-MiniLM-L12-v2`, le **même modèle** que l'ingestion, obligatoire) et lexicale BM25, sur la question **et sa traduction**, fusionnées par Reciprocal Rank Fusion. Reranking par cross-encoder multilingue `mmarco-mMiniLMv2-L12-H384-v1`, local.
+- **Évaluation** : jeu doré de 138 questions généré depuis le corpus, campagne déterministe sans juge LLM (`make eval`), banc de réglage rapide pour les paramètres de recherche.
 - **LLM** : servi par le projet [`llm-service`](https://github.com/floSa/llm-service) (conteneur `ollama-central`, réseau `llm-net`). Ce projet n'embarque aucune instance Ollama : il consomme le service central.
 - **Stores en lecture** : ChromaDB, NebulaGraph et MinIO du projet d'ingestion, joints via le réseau Docker externe `rag_network`.
 
@@ -27,18 +28,19 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 
 ```mermaid
 flowchart TD
-    U["Utilisateur — question"] --> R["retrieve<br/>embedding + ChromaDB (top-20)"]
-    R --> K["rerank<br/>cross-encoder (top-10)"]
+    U["Utilisateur — question"] --> W["rewrite<br/>question de suivi → autonome, + traduction"]
+    W --> R["retrieve<br/>dense + BM25, question + traduction, fusion RRF (top-50)"]
+    R --> K["rerank<br/>cross-encoder multilingue (top-10)"]
     K --> S["await_source_selection<br/>interrupt LangGraph"]
-    S -- "sélection des sources<br/>(UI Streamlit -> /chat/resume)" --> G["reconstruct_context<br/>NebulaGraph : breadcrumb + section complète"]
-    G --> M["MinIO<br/>images & tableaux de la section"]
+    S -- "sélection des sources<br/>(UI Streamlit -> /chat/resume)" --> G["reconstruct_context<br/>NebulaGraph : fil des titres, fenêtre, sections voisines"]
+    G --> M["MinIO<br/>illustrations et leurs légendes"]
     M --> L["generate<br/>LLM Ollama (streaming)"]
     L --> P["postprocess<br/>citations [src:ID] + images [img:ID]"]
     P -- "search_vectors(query)<br/>max 3 itérations" --> R
     P --> F["Réponse finale<br/>texte + citations + images"]
 ```
 
-L'étape clé est la **Graph Context Reconstruction** : pour chaque chunk sélectionné, l'agent remonte les arêtes `PARENT_OF` jusqu'au `SectionHeader` parent, puis redescend pour récupérer tous les enfants de la section dans l'ordre — le LLM reçoit ainsi une section complète et son breadcrumb au lieu d'un fragment de 500 caractères.
+L'étape clé est la **reconstruction par le graphe** : pour chaque passage sélectionné, l'agent remonte les arêtes `PARENT_OF` jusqu'au `Document` en notant les titres traversés, puis récupère une fenêtre d'éléments autour du passage, la fin de la section précédente et le début de la suivante. Le LLM reçoit une section située dans son document au lieu d'un fragment isolé — et chaque élément porte son marqueur `[src:ID]`, ce qui permet de citer sans inventer.
 
 ---
 
@@ -101,14 +103,19 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 
 | Variable | Défaut | Note |
 | :--- | :--- | :--- |
-| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle servi par Ollama (Gemma 4 E4B). |
-| `OLLAMA_CONTEXT_LENGTH` | `8192` | Fenêtre de contexte (sinon Ollama tronque silencieusement). |
-| `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — désactivé par défaut (rédhibitoire en CPU), à activer sur GPU. |
-| `EMBEDDING_MODEL_NAME` | `all-MiniLM-L6-v2` | **DOIT** correspondre au modèle d'ingestion. |
-| `RERANK_MODEL` | `cross-encoder/ms-marco-MiniLM-L6-v2` | Cross-encoder local. |
-| `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `20` / `10` | Sur-récupération puis filtrage. |
-| `MAX_SEARCH_ITERATIONS` | `3` | Garde-fou de la boucle agentique. |
-| `CONTEXT_DEPTH` | `1` | Profondeur de remontée dans le graphe. |
+| `OLLAMA_HOST` | `http://ollama-central:11434` | Service central du projet `llm-service`. |
+| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération. |
+| `LLM_NUM_CTX` | `32768` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. |
+| `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
+| `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle d'ingestion, sinon la recherche rend des passages au hasard sans erreur. |
+| `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |
+| `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Mesuré : 20 → rappel 0,900, 50 → 0,962. |
+| `HYBRID_SEARCH` / `FETCH_K` / `RRF_K` | `true` / `50` / `60` | BM25 en plus du dense, fusionné par rangs. |
+| `CROSS_LINGUAL_SEARCH` / `TRANSLATION_WEIGHT` | `true` / `1.0` | Cherche aussi dans la traduction de la question. Mesuré : rappel translinguistique 0,806 → 1,000. |
+| `QUERY_REWRITE` | `true` | Rend une question de suivi autonome avant de l'encoder. |
+| `CONTEXT_WINDOW_BEFORE/AFTER` | `6` | Éléments retenus autour du passage trouvé. |
+| `ADJACENT_SECTION_ELEMENTS` | `3` | Éléments repris des sections voisines (0 désactive). |
+| `API_KEY` / `CORS_ORIGINS` | vide / `localhost` | Vide = pas d'authentification, acceptable en local seulement. |
 | `MINIO_ROOT_PASSWORD` | — | Même valeur que le projet d'ingestion. |
 
 ---
@@ -121,6 +128,9 @@ make format            # ruff format + fix
 make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
+make eval              # campagne d'évaluation, comparée à runs/reference.json
+make models            # modèles servis par llm-service
+make health            # état de l'API et de ses dépendances
 make eval              # campagne d'évaluation sur le jeu doré
 make models            # lister les modèles servis par llm-service
 make health            # état de l'API et de ses dépendances
