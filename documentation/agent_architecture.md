@@ -212,8 +212,22 @@ Le projet implémente un **RAG structurel, hybride et citable** :
    *citation anchoring* : ancrer les identifiants dans le prompt réduit les
    citations inventées, là où une extraction post-hoc doit deviner.
 7. **Post-processing** — les `[src:ID]` sont résolus vers ouvrage, document,
-   page et section ; les `[img:ID]` vers le proxy `/media`. Un identifiant
+   page et section ; les illustrations vers le proxy `/media`. Un identifiant
    inventé par le modèle est simplement ignoré.
+
+   Deux subtilités, apprises à l'écran :
+
+   Le modèle groupe volontiers plusieurs sources dans un seul crochet —
+   `[src:aaa, src:bbb]`. Un motif exigeant le crochet fermant juste après
+   l'identifiant n'en résolvait aucune, et les marqueurs restaient affichés
+   bruts. Le bloc entier est capturé, puis tous les identifiants en sont
+   extraits.
+
+   Le modèle n'émet presque jamais `[img:ID]` : une illustration n'a pas de
+   texte, il ne peut donc ni juger sa pertinence ni deviner qu'il faut la
+   montrer. Ce sont les **illustrations des sections d'où viennent les
+   citations** qui sont affichées — si une affirmation est tirée d'une section,
+   la figure de cette section illustre ce dont on parle. Borné par `MAX_IMAGES`.
 
 ### Prompts
 
@@ -265,6 +279,7 @@ silence.
 | `AUTO_SELECT_TOP_K`        | `3`    | Sources reconstruites sans sélection humaine      |
 | `CONTEXT_WINDOW_BEFORE/AFTER` | `6`  | Éléments retenus autour de l'ancre                |
 | `ADJACENT_SECTION_ELEMENTS`| `3`    | Éléments repris des sections voisines (0 désactive) |
+| `MAX_IMAGES`               | `4`    | Illustrations affichées au maximum dans une réponse |
 | `FULL_TEXT_FROM_VECTORS`   | `true` | Texte intégral relu dans l'index                  |
 | `MAX_SEARCH_ITERATIONS`    | `3`    | Plafond de la boucle agentique                    |
 
