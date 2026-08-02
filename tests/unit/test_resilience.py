@@ -98,6 +98,9 @@ def test_nebula_propage_l_echec_si_la_reouverture_ne_suffit_pas(monkeypatch) -> 
 # ─── MinIO ────────────────────────────────────────────────────────────────────
 
 def test_minio_recree_le_client_et_retente(monkeypatch) -> None:
+    # L'autorisation par le graphe est testée ailleurs : ici on isole la
+    # réouverture de connexion.
+    monkeypatch.setattr(minio_client, "is_allowed", lambda _n: True)
     class Response:
         def read(self) -> bytes:
             return b"PNG"
@@ -125,6 +128,7 @@ def test_minio_recree_le_client_et_retente(monkeypatch) -> None:
 
 
 def test_minio_abandonne_apres_un_second_echec(monkeypatch) -> None:
+    monkeypatch.setattr(minio_client, "is_allowed", lambda _n: True)
     class Client:
         def get_object(self, _bucket, _name):
             raise ConnectionError("MinIO est mort")

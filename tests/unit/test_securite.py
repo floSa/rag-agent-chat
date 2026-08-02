@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from src.agent import minio_client
 from src.agent.settings import Settings
 
-
 # ─── Clé d'API ────────────────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -32,9 +31,19 @@ def test_route_avec_mauvaise_cle_refusee(client) -> None:
     assert reponse.status_code == 401  # noqa: PLR2004
 
 
-def test_health_reste_interrogeable_sans_cle(client) -> None:
-    """Une sonde doit fonctionner sans secret, sinon plus rien ne la surveille."""
-    assert client.get("/health").status_code == 200  # noqa: PLR2004
+def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
+    """Une sonde doit fonctionner sans secret, sinon plus rien ne la surveille.
+
+    Les dépendances sont neutralisées : ce test doit passer en CI, où ni
+    ChromaDB ni NebulaGraph ne tournent.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "secret-de-test")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+
+    assert TestClient(main.app).get("/health").status_code == 200  # noqa: PLR2004
 
 
 def test_aucune_cle_configuree_laisse_passer(monkeypatch) -> None:
