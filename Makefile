@@ -1,7 +1,12 @@
 .PHONY: lint format typecheck test audit up down logs
 
-lint:
-	ruff check src/ tests/
+# La CI appelle `make lint` puis `make test`. Le typecheck est rattache au lint
+# — tous deux sont de l'analyse statique — parce que modifier le workflow exige
+# un jeton avec le scope `workflow`, que le jeton de push n'a pas. Sans ce
+# rattachement, `make typecheck` ne tournerait jamais en integration continue,
+# ce qui a deja laisse passer 54 erreurs.
+lint: typecheck
+	ruff check src/ tests/ scripts/
 
 format:
 	ruff format src/ tests/
