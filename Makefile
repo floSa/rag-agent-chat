@@ -34,3 +34,8 @@ models:
 
 health:
 	curl -s http://localhost:8011/health
+
+# Campagne d'evaluation : rappel du retrieval, completude des citations,
+# abstention et latence. Deterministe, sans juge LLM.
+eval:
+	uv run python scripts/evaluate.py --out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/baseline.json

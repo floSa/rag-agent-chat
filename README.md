@@ -87,6 +87,7 @@ docker compose up -d --build
 | `POST` | `/search` | Retrieval brut ChromaDB, sans reranking. |
 | `POST` | `/sources` | Retrieval + reranking + groupement par document. |
 | `GET` | `/context/{element_id}` | Reconstruction du contexte enrichi d'un élément. |
+| `POST` | `/answer` | Question → réponse, sans sélection humaine. Retourne aussi les passages soumis au LLM et les temps par étage : c'est le point d'entrée évaluable. |
 | `POST` | `/chat/start` | Démarre le flux LangGraph, suspend en attente de sélection. |
 | `POST` | `/chat/resume` | Reprend après sélection des sources (réponse en SSE). |
 | `POST` | `/chat/simple` | Génération directe sans boucle agentique. |
@@ -120,6 +121,7 @@ make format            # ruff format + fix
 make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
+make eval              # campagne d'évaluation sur le jeu doré
 make models            # lister les modèles servis par llm-service
 make health            # état de l'API et de ses dépendances
 bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + document ingéré)

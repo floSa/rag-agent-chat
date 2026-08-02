@@ -1,0 +1,138 @@
+{
+  "_lisez_moi": [
+    "Jeu doré : questions dont on connaît la réponse attendue et les passages qui",
+    "la portent. Il sert à mesurer le retrieval SANS juge LLM — un element_id est",
+    "déterministe et stable d'une ingestion à l'autre (compute_id côté ingestion),",
+    "donc le rappel se calcule exactement.",
+    "",
+    "gold_element_ids : identifiants des éléments qui contiennent la réponse.",
+    "  Les trouver : POST /sources avec la question, puis relever les element_id",
+    "  des passages effectivement pertinents. C'est le seul travail manuel, et",
+    "  il ne peut pas être automatisé : c'est lui qui fait la valeur du jeu.",
+    "",
+    "gold_documents : repli quand on ne veut annoter qu'au niveau du document.",
+    "  Moins précis, mais déjà utile — et beaucoup plus rapide à produire.",
+    "",
+    "expected_answer : facultatif, pour une évaluation de la génération.",
+    "unanswerable : true si le corpus ne contient PAS la réponse. Un RAG qui",
+    "  n'admet jamais son ignorance est inutilisable : ces cas se mesurent.",
+    "",
+    "Ce fichier est une AMORCE de 12 questions, pas un jeu complet. Viser 100 à",
+    "150 questions stratifiées par type et par langue."
+  ],
+  "questions": [
+    {
+      "id": "Q-001",
+      "question": "What is the standard deviation and how is it computed?",
+      "language": "en",
+      "type": "factuelle",
+      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-002",
+      "question": "Comment mesure-t-on la dispersion d'un ensemble de données ?",
+      "language": "fr",
+      "type": "factuelle-translinguistique",
+      "_note": "Question française, réponse dans le corpus anglais : c'est le cas que le modèle monolingue ratait systématiquement.",
+      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-003",
+      "question": "What is continuous delivery for machine learning models?",
+      "language": "en",
+      "type": "factuelle",
+      "gold_documents": ["htms/Practical MLOps"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-004",
+      "question": "Qu'est-ce que la livraison continue appliquée aux modèles de machine learning ?",
+      "language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_documents": ["htms/Practical MLOps"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-005",
+      "question": "Comment fonctionne le mécanisme d'attention dans un transformeur ?",
+      "language": "fr",
+      "type": "factuelle",
+      "gold_documents": ["mds/Architectures de LLM"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-006",
+      "question": "Quelles techniques permettent d'accélérer l'inférence d'un LLM ?",
+      "language": "fr",
+      "type": "multi-saut",
+      "gold_documents": ["mds/Infrastructure & Inférence", "mds/Architectures de LLM"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-007",
+      "question": "How do you package a machine learning model for deployment?",
+      "language": "en",
+      "type": "factuelle",
+      "gold_documents": ["htms/Practical MLOps"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-008",
+      "question": "What is a confidence interval and when is a small sample formula used?",
+      "language": "en",
+      "type": "multi-saut",
+      "gold_documents": ["htms/The Statistics and Calculus with Python Workshop"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-009",
+      "question": "Comment déployer un modèle sur AWS ?",
+      "language": "fr",
+      "type": "factuelle-translinguistique",
+      "gold_documents": ["htms/Practical MLOps"],
+      "gold_element_ids": [],
+      "unanswerable": false
+    },
+    {
+      "id": "Q-010",
+      "question": "Quel est le chiffre d'affaires de l'entreprise en 2024 ?",
+      "language": "fr",
+      "type": "sans-reponse",
+      "_note": "Aucun document du corpus ne parle de chiffre d'affaires. Le système doit refuser de répondre.",
+      "gold_documents": [],
+      "gold_element_ids": [],
+      "unanswerable": true
+    },
+    {
+      "id": "Q-011",
+      "question": "Who won the 2026 football world cup?",
+      "language": "en",
+      "type": "sans-reponse",
+      "gold_documents": [],
+      "gold_element_ids": [],
+      "unanswerable": true
+    },
+    {
+      "id": "Q-012",
+      "question": "What are the main statistical concepts a data scientist should master?",
+      "language": "en",
+      "type": "synthese",
+      "gold_documents": [
+        "pdfs/statisticsfordatascience.pdf",
+        "htms/The Statistics and Calculus with Python Workshop"
+      ],
+      "gold_element_ids": [],
+      "unanswerable": false
+    }
+  ]
+}
