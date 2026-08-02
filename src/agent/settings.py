@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     minio_root_password: str = Field(default="", alias="MINIO_ROOT_PASSWORD")
     minio_bucket: str = Field(default="documents", alias="MINIO_BUCKET")
     minio_secure: bool = Field(default=False, alias="MINIO_SECURE")
+    # Le proxy /media ne sert que les objets référencés par le graphe. Sans
+    # cette borne, il sert n'importe quel objet du bucket à qui devine son
+    # chemin — le garde-fou anti-traversal empêche de sortir du bucket, pas
+    # d'y fouiller.
+    restrict_media_to_graph: bool = Field(default=True, alias="RESTRICT_MEDIA_TO_GRAPH")
 
     # Ollama / LLM
     ollama_host: str = Field(default="http://ollama:11434", alias="OLLAMA_HOST")
@@ -106,9 +111,24 @@ class Settings(BaseSettings):
     max_live_sessions: int = Field(default=200, alias="MAX_LIVE_SESSIONS")
     session_ttl_seconds: int = Field(default=3600, alias="SESSION_TTL_SECONDS")
 
+    # Origines autorisées par CORS, séparées par des virgules. « * » ouvre
+    # l'API à n'importe quelle page web du navigateur de l'utilisateur.
+    cors_origins: str = Field(
+        default="http://localhost:8506,http://localhost:8501", alias="CORS_ORIGINS"
+    )
+    # Clé exigée dans l'en-tête X-API-Key. Vide = aucune authentification,
+    # ce qui convient à un déploiement local mais pas à une exposition.
+    api_key: str = Field(default="", alias="API_KEY")
+
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """Origines CORS sous forme de liste, vides écartées."""
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
 settings = Settings()

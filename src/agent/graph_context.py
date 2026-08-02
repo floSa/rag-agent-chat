@@ -281,6 +281,35 @@ def _caption_links(caption_ids: list[str]) -> dict[str, str]:
     return links
 
 
+# Tags porteurs d'une illustration exportée vers MinIO.
+_VISUAL_TAGS = ("Picture", "Table")
+
+
+def media_object_names() -> set[str]:
+    """Chemins d'objets MinIO réellement référencés par le graphe.
+
+    Sert d'autorisation au proxy `/media` : sans elle, l'endpoint sert
+    n'importe quel objet du bucket à qui devine son chemin. Le garde-fou
+    anti-traversal existant empêche de sortir du bucket, pas d'y fouiller.
+
+    La liste vient du graphe et non de l'index vectoriel : une illustration n'a
+    pas de texte, elle n'est donc pas vectorisée et manquerait à l'appel.
+    """
+    noms: set[str] = set()
+    for tag in _VISUAL_TAGS:
+        rows = _execute(
+            f'MATCH (n:{tag}) WHERE n.{tag}.minio_url != "" '
+            f"RETURN n.{tag}.minio_url AS url;"
+        )
+        for row in rows:
+            url = str(row.get("url") or "")
+            # http://minio:9000/{bucket}/{objet} → {objet}
+            parts = url.split("/", 4)
+            if len(parts) == 5:  # noqa: PLR2004
+                noms.add(parts[4])
+    return noms
+
+
 def ping() -> bool:
     """Vérifie que NebulaGraph répond (utilisé par /health)."""
     try:

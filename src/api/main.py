@@ -1,5 +1,6 @@
 import json
 import logging
+import secrets
 import time
 import uuid
 from collections import OrderedDict
@@ -8,7 +9,7 @@ from typing import Any
 
 import httpx
 from anyio import to_thread
-from fastapi import FastAPI, HTTPException, Path, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -47,12 +48,28 @@ app = FastAPI(
     version="0.1.0",
 )
 
+# Origines explicites plutôt que « * » : sans cela, n'importe quelle page web
+# ouverte dans le navigateur de l'utilisateur peut interroger l'API — et, tant
+# qu'aucune clé n'est exigée, lire le corpus.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origin_list,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
 )
+
+
+def require_api_key(x_api_key: str = Header(default="")) -> None:
+    """Exige la clé si `API_KEY` est renseignée.
+
+    Vide — le cas d'un déploiement local derrière un pare-feu — la dépendance
+    ne fait rien. Renseignée, toute route sauf `/health` l'exige : une sonde
+    doit rester interrogeable sans secret.
+    """
+    if not settings.api_key:
+        return
+    if not secrets.compare_digest(x_api_key, settings.api_key):
+        raise HTTPException(status_code=401, detail="Clé d'API absente ou invalide.")
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -84,7 +101,7 @@ async def health() -> HealthResponse:
 # cross-encoder) et les requêtes Nebula sont synchrones et CPU-bound — FastAPI
 # les exécute dans son threadpool, sans bloquer l'event loop.
 
-@app.post("/search", response_model=SearchResponse)
+@app.post("/search", response_model=SearchResponse, dependencies=[Depends(require_api_key)])
 def search(req: SearchRequest) -> SearchResponse:
     """Retrieval brut ChromaDB sans reranking."""
     chunks = retrieve(req.question, top_k=req.top_k)
@@ -93,7 +110,7 @@ def search(req: SearchRequest) -> SearchResponse:
 
 # ─── Reranking + groupement ───────────────────────────────────────────────────
 
-@app.post("/sources", response_model=SourcesResponse)
+@app.post("/sources", response_model=SourcesResponse, dependencies=[Depends(require_api_key)])
 def sources(req: SearchRequest) -> SourcesResponse:
     """Retrieval + reranking + groupement par document."""
     chunks = retrieve(req.question)
@@ -104,7 +121,7 @@ def sources(req: SearchRequest) -> SourcesResponse:
 
 # ─── Graph context ────────────────────────────────────────────────────────────
 
-@app.get("/context/{element_id}")
+@app.get("/context/{element_id}", dependencies=[Depends(require_api_key)])
 def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict[str, Any]:
     """Reconstruit le contexte enrichi pour un element_id donné."""
     try:
@@ -116,7 +133,7 @@ def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict[str, Any]
 
 # ─── Chat (génération directe, sans LangGraph) ────────────────────────────────
 
-@app.post("/chat/simple", response_model=None)
+@app.post("/chat/simple", response_model=None, dependencies=[Depends(require_api_key)])
 async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     """Génération directe (sans agentic loop) à partir des sources sélectionnées.
 
@@ -160,7 +177,7 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
 
 # ─── Réponse directe, sans sélection humaine ──────────────────────────────────
 
-@app.post("/answer", response_model=AnswerResponse)
+@app.post("/answer", response_model=AnswerResponse, dependencies=[Depends(require_api_key)])
 async def answer(req: AnswerRequest) -> AnswerResponse:
     """Question → réponse, sans interruption ni sélection des sources.
 
@@ -272,7 +289,7 @@ def _register_thread(thread_id: str) -> None:
         logger.info("Sessions purgées : %d (restantes : %d)", len(expired), len(_live_threads))
 
 
-@app.post("/chat/start")
+@app.post("/chat/start", dependencies=[Depends(require_api_key)])
 async def chat_start(req: SearchRequest) -> dict[str, Any]:
     """Démarre le flux LangGraph : retrieval + reranking, puis suspend en attente
     de la sélection des sources.
@@ -315,7 +332,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
     }
 
 
-@app.post("/chat/resume", response_model=None)
+@app.post("/chat/resume", response_model=None, dependencies=[Depends(require_api_key)])
 async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | ChatResponse:
     """Reprend le flux LangGraph après sélection des sources par l'utilisateur.
 
@@ -371,7 +388,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
 
 # ─── Médias (proxy MinIO) ─────────────────────────────────────────────────────
 
-@app.get("/media/{object_name:path}")
+@app.get("/media/{object_name:path}", dependencies=[Depends(require_api_key)])
 def media(object_name: str) -> Response:
     """Sert un objet MinIO (image croppée) au navigateur.
 

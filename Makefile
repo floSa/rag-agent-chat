@@ -38,4 +38,5 @@ health:
 # Campagne d'evaluation : rappel du retrieval, completude des citations,
 # abstention et latence. Deterministe, sans juge LLM.
 eval:
-	uv run python scripts/evaluate.py --out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/baseline.json
+	uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.json \
+		--out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/reference.json

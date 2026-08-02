@@ -56,10 +56,38 @@ def to_media_path(minio_url: str) -> str:
     return f"/media/{object_name}"
 
 
+@lru_cache(maxsize=1)
+def _allowed_objects() -> frozenset[str]:
+    """Objets que le proxy accepte de servir, lus dans le graphe."""
+    from src.agent.graph_context import media_object_names
+
+    noms = frozenset(media_object_names())
+    logger.info("Proxy média : %d objets autorisés.", len(noms))
+    return noms
+
+
+def is_allowed(object_name: str) -> bool:
+    """L'objet est-il référencé par le graphe ?
+
+    Un objet inconnu déclenche une relecture — un document fraîchement ingéré
+    apporte de nouvelles illustrations, et l'agent ne redémarre pas pour
+    autant. La relecture n'a lieu que sur un échec, donc jamais en régime
+    normal.
+    """
+    if object_name in _allowed_objects():
+        return True
+    _allowed_objects.cache_clear()
+    return object_name in _allowed_objects()
+
+
 def get_object_bytes(object_name: str) -> bytes | None:
     """Télécharge un objet du bucket. Retourne None si invalide ou introuvable."""
     if ".." in object_name or not _OBJECT_NAME_RE.fullmatch(object_name):
         logger.warning("Chemin d'objet MinIO rejeté : %s", object_name[:120])
+        return None
+
+    if settings.restrict_media_to_graph and not is_allowed(object_name):
+        logger.warning("Objet MinIO non référencé par le graphe : %s", object_name[:120])
         return None
 
     for attempt in (1, 2):
