@@ -65,9 +65,20 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
 
     trouves_ids = {c["element_id"] for c in contexts}
     trouves_docs = {c.get("source_path", "") for c in contexts}
+    # Classement complet de la recherche, avant la coupe qui décide de ce qui
+    # part au LLM.
+    classement = reponse.get("retrieved_element_ids") or []
 
     attendus_ids = set(question.get("gold_element_ids") or [])
     attendus_docs = set(question.get("gold_documents") or [])
+
+    # Rang du premier attendu dans le classement, pour le MRR : il dit si le bon
+    # passage était deuxième ou dix-huitième, là où un rappel binaire les
+    # confond.
+    rang = next((i for i, eid in enumerate(classement, 1) if eid in attendus_ids), None)
+    rappel_recherche = (
+        len(set(classement) & attendus_ids) / len(attendus_ids) if attendus_ids else None
+    )
 
     # Rappel au niveau de l'élément quand l'annotation est fine, au niveau du
     # document sinon. Le second est plus permissif : on ne mélange pas les deux
@@ -90,11 +101,17 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         1 for c in citations if c.get("filename") and (c.get("page_no") or c.get("section_title"))
     )
 
+    # Une question posée dans une autre langue que son document est le cas
+    # difficile : c'est celui qu'un modèle monolingue rate systématiquement.
+    doc_langue = question.get("doc_language") or question.get("language", "")
     return {
         "id": question["id"],
         "langue": question.get("language", ""),
+        "translinguistique": bool(doc_langue) and doc_langue != question.get("language", ""),
         "type": question.get("type", ""),
         "rappel_elements": rappel_elements,
+        "rappel_recherche": rappel_recherche,
+        "rang_reciproque": 1.0 / rang if rang else (0.0 if attendus_ids else None),
         "rappel_documents": rappel_documents,
         "abstention_correcte": a_refuse if sans_reponse else None,
         "hallucination_probable": (not a_refuse) if sans_reponse else None,
@@ -128,7 +145,9 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
 
     return {
         "questions": len(lignes),
+        "rappel_recherche": _moyenne([r["rappel_recherche"] for r in lignes]),
         "rappel_elements": _moyenne([r["rappel_elements"] for r in lignes]),
+        "mrr": _moyenne([r["rang_reciproque"] for r in lignes]),
         "rappel_documents": _moyenne([r["rappel_documents"] for r in lignes]),
         "taux_citation_complete": _moyenne([r["taux_citation_complete"] for r in lignes]),
         "citations_par_reponse": _moyenne([float(r["citations"]) for r in lignes]),
@@ -145,18 +164,29 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
     }
 
 
+def _tranche(sous_ensemble: list[dict]) -> dict[str, Any]:
+    return {
+        "questions": len(sous_ensemble),
+        "rappel_recherche": _moyenne([r["rappel_recherche"] for r in sous_ensemble]),
+        "rappel_elements": _moyenne([r["rappel_elements"] for r in sous_ensemble]),
+        "mrr": _moyenne([r["rang_reciproque"] for r in sous_ensemble]),
+        "rappel_documents": _moyenne([r["rappel_documents"] for r in sous_ensemble]),
+        "taux_citation_complete": _moyenne([r["taux_citation_complete"] for r in sous_ensemble]),
+    }
+
+
 def par_langue(lignes: list[dict]) -> dict[str, Any]:
     """Le corpus est mixte : une moyenne globale masquerait un écart par langue."""
-    resultat = {}
-    for langue in sorted({r["langue"] for r in lignes if r["langue"]}):
-        sous_ensemble = [r for r in lignes if r["langue"] == langue]
-        resultat[langue] = {
-            "questions": len(sous_ensemble),
-            "rappel_documents": _moyenne([r["rappel_documents"] for r in sous_ensemble]),
-            "taux_citation_complete": _moyenne(
-                [r["taux_citation_complete"] for r in sous_ensemble]
-            ),
-        }
+    resultat = {
+        langue: _tranche([r for r in lignes if r["langue"] == langue])
+        for langue in sorted({r["langue"] for r in lignes if r["langue"]})
+    }
+    # Découpe orthogonale : la difficulté ne vient pas de la langue de la
+    # question, mais de l'écart entre elle et celle du document.
+    translinguistiques = [r for r in lignes if r["translinguistique"]]
+    if translinguistiques:
+        resultat["translinguistique"] = _tranche(translinguistiques)
+        resultat["même langue"] = _tranche([r for r in lignes if not r["translinguistique"]])
     return resultat
 
 
@@ -170,11 +200,30 @@ def afficher(resume: dict, langues: dict, lignes: list[dict]) -> None:
     for langue, valeurs in langues.items():
         print(f"  [{langue}] {valeurs}")
 
-    manques = [r for r in lignes if (r["rappel_documents"] or 1.0) < 1.0]
-    if manques:
-        print(f"\nRappel incomplet sur {len(manques)} question(s) :")
-        for r in manques:
-            print(f"  {r['id']} ({r['langue']}, {r['type']}) — rappel {r['rappel_documents']}")
+    # Le rappel à l'ÉLÉMENT fait foi quand il est disponible : le rappel au
+    # document laisse passer une recherche qui trouve le bon livre au mauvais
+    # endroit.
+    # Deux échecs distincts : jamais trouvé par la recherche, ou trouvé puis
+    # écarté avant la génération. Le premier appelle un meilleur retrieval, le
+    # second un meilleur reranking ou plus de sources.
+    jamais = [r for r in lignes if r["rappel_recherche"] == 0.0]
+    ecartes = [
+        r for r in lignes if r["rappel_recherche"] and r["rappel_recherche"] > 0
+        and r["rappel_elements"] == 0.0
+    ]
+    if ecartes:
+        print(f"\nTrouvé par la recherche mais écarté avant le LLM — {len(ecartes)} question(s) :")
+        for r in ecartes[:10]:
+            print(f"  {r['id']} ({r['langue']}, {r['type']})")
+
+    rate = jamais
+    if rate:
+        print(f"\nPassage attendu jamais trouvé — {len(rate)} question(s) :")
+        for r in rate[:15]:
+            langue = f"{r['langue']}→doc" if r["translinguistique"] else r["langue"]
+            print(f"  {r['id']} ({langue}, {r['type']})")
+        if len(rate) > 15:  # noqa: PLR2004
+            print(f"  … et {len(rate) - 15} autres")
 
     fautives = [r for r in lignes if r["hallucination_probable"]]
     if fautives:

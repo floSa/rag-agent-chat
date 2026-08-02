@@ -214,6 +214,12 @@ class AnswerResponse(BaseModel):
 
     question: str
     answer: str
+    # Éléments distincts remontés par la recherche, du mieux au moins bien
+    # classé. Distinguer ce que la RECHERCHE a trouvé de ce qui a atteint le
+    # LLM est ce qui permet d'attribuer la faute : un passage trouvé puis
+    # écarté avant la génération n'est pas le même échec qu'un passage jamais
+    # trouvé.
+    retrieved_element_ids: list[str] = Field(default_factory=list)
     contexts: list[RetrievedContext]
     citations: list[Citation]
     images: list[ImageRef]

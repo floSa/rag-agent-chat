@@ -219,6 +219,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     return AnswerResponse(
         question=req.question,
         answer=result.get("response", ""),
+        retrieved_element_ids=[c.element_id for c in ranked],
         contexts=contexts,
         citations=result.get("citations", []),
         images=result.get("images", []),
