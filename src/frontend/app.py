@@ -66,6 +66,40 @@ def _clear_selection_state() -> None:
             del st.session_state[key]
 
 
+def couleur_pertinence(relevance: float, meilleure: float) -> str:
+    """Couleur du badge de pertinence, RELATIVE au meilleur score de la question.
+
+    Les scores d'un cross-encoder ne sont comparables ni d'un modèle à l'autre
+    ni d'une question à l'autre : le reranker multilingue rend des valeurs bien
+    plus basses que ms-marco, et les seuils absolus hérités affichaient tout en
+    rouge — y compris la meilleure source. Ce qui aide à trancher n'est pas la
+    valeur absolue mais le rang relatif : « ces sources-là sont les bonnes pour
+    cette question ».
+    """
+    if meilleure <= 0:
+        return "red"
+    part = relevance / meilleure
+    if part >= 0.6:  # noqa: PLR2004
+        return "green"
+    return "orange" if part >= 0.25 else "red"  # noqa: PLR2004
+
+
+def situer_passage(chunk: dict[str, Any]) -> str:
+    """Libellé qui situe un passage : langue, page, section.
+
+    « p.42 [paragraph] » ne disait rien de ce qu'on s'apprête à cocher. La
+    langue compte sur un corpus mixte : une question française ramène
+    légitimement des sources anglaises, autant l'annoncer.
+    """
+    page = chunk.get("page_no") or 0
+    ou = f"p.{page}" if page else (chunk.get("label") or "")
+    section = chunk.get("section_title") or ""
+    if section:
+        ou += f" — § {section[:60]}"
+    langue = chunk.get("language") or ""
+    return f"[{langue}] {ou}" if langue else ou
+
+
 def _toggle_doc(element_ids: list[str], doc_key: str) -> None:
     """Callback 'Tout sélectionner' : (dé)coche tous les chunks du document."""
     checked = st.session_state[doc_key]
@@ -145,7 +179,16 @@ elif st.session_state.phase == "select":
     else:
         selected: set[str] = set()
 
-        for group in st.session_state.groups:
+        # Les scores d'un cross-encoder ne sont pas comparables d'un modèle à
+        # l'autre ni d'une question à l'autre : le multilingue rend des valeurs
+        # bien plus basses que ms-marco, et des seuils absolus affichaient tout
+        # en rouge. Ce qui aide à trancher, c'est le rang RELATIF — « ces
+        # sources-là sont les bonnes pour cette question ».
+        meilleure = max(
+            (g.get("best_relevance") or 0.0 for g in st.session_state.groups), default=0.0
+        )
+
+        for rang, group in enumerate(st.session_state.groups):
             filename = group["filename"]
             collection = group.get("collection") or ""
             # Identité réelle du document : deux ouvrages peuvent contenir un
@@ -164,10 +207,13 @@ elif st.session_state.phase == "select":
                     f"chunk_{eid}", eid in st.session_state.selected_ids
                 )
 
-            score_color = "green" if relevance > 0.5 else "orange" if relevance > 0.2 else "red"  # noqa: PLR2004
-            score_badge = f":{score_color}[pertinence : {relevance:.0%}]"
+            score_badge = (
+                f":{couleur_pertinence(relevance, meilleure)}[pertinence : {relevance:.0%}]"
+            )
 
-            with st.expander(f"📄 **{title}** — {score_badge}", expanded=relevance > 0.2):  # noqa: PLR2004
+            # Le meilleur document est toujours déplié : replier l'ensemble
+            # oblige l'utilisateur à cliquer avant de voir quoi que ce soit.
+            with st.expander(f"📄 **{title}** — {score_badge}", expanded=rang == 0):
                 # Checkbox document entier : reflète l'état réel des chunks,
                 # le callback propage le clic à tous les chunks du document.
                 doc_key = f"doc_{doc_id}"
@@ -185,24 +231,10 @@ elif st.session_state.phase == "select":
                 for chunk in chunks:
                     eid = chunk["element_id"]
                     chunk_relevance = chunk.get("relevance") or 0.0
-                    label = chunk.get("label", "")
-                    page = chunk.get("page_no", 0)
-                    section = chunk.get("section_title") or ""
                     text_preview = chunk["document"][:200]
 
-                    # Le titre de section situe le passage : « p.42 [paragraph] »
-                    # seul ne dit rien de ce qu'on s'apprête à cocher.
-                    where = f"p.{page}" if page else label
-                    if section:
-                        where += f" — § {section[:60]}"
-                    # Le corpus est mixte : une question française ramène
-                    # légitimement des sources anglaises, autant l'annoncer.
-                    lang = chunk.get("language") or ""
-                    if lang:
-                        where = f"[{lang}] {where}"
-
                     checked = st.checkbox(
-                        f"{where} · {chunk_relevance:.0%}",
+                        f"{situer_passage(chunk)} · {chunk_relevance:.0%}",
                         key=f"chunk_{eid}",
                         help=text_preview,
                     )
@@ -210,7 +242,7 @@ elif st.session_state.phase == "select":
                         selected.add(eid)
 
         st.session_state.selected_ids = selected
-        st.info(f"**{len(selected)}** chunk(s) sélectionné(s)")
+        st.info(f"**{len(selected)}** passage(s) sélectionné(s)")
 
         col1, col2 = st.columns([3, 1])
         with col1:

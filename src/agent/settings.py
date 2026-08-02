@@ -57,7 +57,18 @@ class Settings(BaseSettings):
     rerank_model: str = Field(
         default="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", alias="RERANK_MODEL"
     )
-    retrieval_top_k: int = Field(default=20, alias="RETRIEVAL_TOP_K")
+    # Candidats conservés après fusion, soumis au reranking. Balayé sur 130
+    # questions, mesuré APRÈS reranking — donc sur ce qui atteint le LLM :
+    #
+    #   top_k   rappel   transling.   même langue
+    #      20    0.900       0.889         0.904
+    #      30    0.915       0.889         0.926
+    #      50    0.962       0.889         0.989   <- retenu
+    #
+    # La recherche translingue diluait la fusion et chassait du top-20 des
+    # passages que la question d'origine avait bien trouvés. Élargir le vivier
+    # règle cela sans rien céder : le cross-encoder, lui, sait trier.
+    retrieval_top_k: int = Field(default=50, alias="RETRIEVAL_TOP_K")
     # Recherche hybride : BM25 en plus du dense, fusionnés par Reciprocal Rank
     # Fusion. Le dense rate ce qui ne se paraphrase pas — acronymes, noms
     # propres, références, chiffres. BM25 les retrouve à la lettre.
@@ -85,18 +96,22 @@ class Settings(BaseSettings):
     # trouve alors rien du tout — deux langues ne partagent pas leurs mots.
     cross_lingual_search: bool = Field(default=True, alias="CROSS_LINGUAL_SEARCH")
     # Poids des résultats issus de la question traduite dans la fusion RRF.
-    # Balayé sur 130 questions (36 translinguistiques, 94 en même langue) :
+    # Balayé sur 130 questions (36 translinguistiques, 94 en même langue),
+    # mesuré APRÈS reranking, avec RETRIEVAL_TOP_K=50 :
     #
     #   poids   rappel   transling.   même langue
-    #   0.00     0.931       0.750         1.000
-    #   0.25     0.923       0.861         0.947   <- retenu
-    #   0.50     0.900       0.889         0.904
-    #   1.00     0.877       0.889         0.872
+    #   0.00     0.938       0.806         0.989
+    #   0.25     0.962       0.889         0.989
+    #   0.50     0.962       0.889         0.989
+    #   1.00     0.985       1.000         0.979   <- retenu
     #
-    # 0,25 gagne 11 points en translinguistique pour 5 perdus en même langue,
-    # et laisse le rappel global à un demi-point de son maximum. Au-delà, on
-    # paie cher les 3 derniers points translinguistiques.
-    translation_weight: float = Field(default=0.25, alias="TRANSLATION_WEIGHT")
+    # À pleine puissance, le rappel translinguistique atteint 1,000 pour un
+    # point cédé en même langue. Le réglage reste exposé, mais le compromis
+    # qu'il servait à arbitrer a disparu : à RETRIEVAL_TOP_K=20 il fallait
+    # brider la traduction à 0,25 pour ne pas chasser du top-20 ce que la
+    # question d'origine avait trouvé. Ce n'était pas un défaut de la
+    # traduction, c'était une coupe trop précoce.
+    translation_weight: float = Field(default=1.0, alias="TRANSLATION_WEIGHT")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------
