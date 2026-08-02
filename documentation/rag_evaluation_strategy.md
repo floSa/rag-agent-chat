@@ -104,7 +104,7 @@ uv run python scripts/sweep_retrieval.py --param translation_weight --valeurs 0,
 uv run python scripts/sweep_retrieval.py --param retrieval_top_k --valeurs 20,30,50 --entier --rerank
 ```
 
-Deux règles apprises à ses dépens :
+Trois règles apprises à ses dépens :
 
 - **`--rerank` ou rien.** Sans le cross-encoder, élargir le vivier améliore le
   rappel mécaniquement, ce qui ne prouve rien. C'est la coupe finale, celle qui
@@ -112,6 +112,14 @@ Deux règles apprises à ses dépens :
 - **Vérifier ce que le `.env` impose.** Un balayage a conclu à un compromis
   inexistant parce que `RETRIEVAL_TOP_K=20` y écrasait en silence le défaut du
   code.
+- **Quand le banc et la campagne divergent, regarder le chemin entre les deux.**
+  Le banc mesurait 0,985 de rappel, la campagne 0,877, sur la même configuration
+  en apparence. En cause : `AnswerRequest.top_k` valait 20 par défaut et
+  surchargeait le réglage du service. Ce sont les **logs du conteneur** qui ont
+  tranché — `50 + 50 + 50 + 50 → 20 fusionnés`, là où le réglage disait 50.
+
+  Le banc mesure la bibliothèque, la campagne mesure le service. Un écart entre
+  les deux n'est jamais du bruit : c'est un défaut dans ce qui les sépare.
 
 ## Ce que la mesure a déjà tranché
 
