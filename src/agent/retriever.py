@@ -5,10 +5,14 @@ from functools import lru_cache
 import chromadb
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
+from src.agent.lexical import LexicalIndex, chunk_from_record, fuse
 from src.agent.settings import settings
 from src.api.schemas import ChunkResult, SourceGroup
 
 logger = logging.getLogger(__name__)
+
+# Taille des lots de lecture pour la construction de l'index lexical.
+_LEXICAL_PAGE = 2000
 
 
 # ─── Singletons chargés une seule fois au démarrage ──────────────────────────
@@ -43,6 +47,69 @@ def reset_connection() -> None:
     _get_chroma_collection.cache_clear()
 
 
+# ─── Index lexical BM25 ───────────────────────────────────────────────────────
+
+_lexical_index = LexicalIndex()
+
+
+def _build_lexical_index() -> None:
+    """Charge tous les textes de la collection et construit l'index BM25.
+
+    Une seule fois, au premier besoin. Le coût est linéaire dans la taille du
+    corpus ; pour quelques dizaines de milliers de chunks il se compte en
+    secondes, et l'index tient en mémoire.
+    """
+    collection = _get_chroma_collection()
+    total = collection.count()
+    chunk_ids: list[str] = []
+    documents: list[str] = []
+
+    offset = 0
+    while offset < total:
+        lot = collection.get(limit=_LEXICAL_PAGE, offset=offset, include=["documents"])
+        chunk_ids.extend(lot.get("ids") or [])
+        documents.extend(lot.get("documents") or [])
+        offset += _LEXICAL_PAGE
+
+    _lexical_index.build(chunk_ids, documents)
+
+
+def lexical_ready() -> bool:
+    """L'index BM25 est-il construit ? (exposé par /health)"""
+    return _lexical_index.ready
+
+
+def _lexical_search(question: str, k: int) -> list[ChunkResult]:
+    """Recherche BM25, résolue en ChunkResult via ChromaDB."""
+    if not _lexical_index.ready:
+        try:
+            _build_lexical_index()
+        except Exception:
+            logger.exception("Index lexical indisponible, recherche dense seule.")
+            return []
+
+    hits = _lexical_index.search(question, k)
+    if not hits:
+        return []
+
+    ids = [chunk_id for chunk_id, _ in hits]
+    records = _get_chroma_collection().get(ids=ids, include=["documents", "metadatas"])
+    par_id = {
+        rid: (doc, meta)
+        for rid, doc, meta in zip(
+            records.get("ids") or [],
+            records.get("documents") or [],
+            records.get("metadatas") or [],
+            strict=False,
+        )
+    }
+    # L'ordre du classement BM25 est ce qui compte pour la fusion : on le
+    # préserve au lieu de reprendre celui, arbitraire, du `get`.
+    return [
+        chunk_from_record(chunk_id, *par_id[chunk_id]) for chunk_id, _ in hits if chunk_id in par_id
+    ]
+
+
 def ping() -> bool:
     """Vérifie que ChromaDB répond (utilisé par /health)."""
     try:
@@ -56,8 +123,36 @@ def ping() -> bool:
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
 def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
-    """Encode la question et interroge ChromaDB, retourne top_k chunks bruts."""
+    """Recherche les candidats : dense seul, ou dense + BM25 fusionnés.
+
+    En hybride, chaque moteur ramène FETCH_K candidats et la fusion RRF n'en
+    garde que top_k. Élargir en amont est ce qui donne à la fusion de quoi
+    travailler : deux listes identiques ne fusionnent rien.
+    """
     k = top_k or settings.retrieval_top_k
+    denses = _dense_search(question, settings.fetch_k if settings.hybrid_search else k)
+
+    if not settings.hybrid_search:
+        return denses[:k]
+
+    lexicaux = _lexical_search(question, settings.fetch_k)
+    if not lexicaux:
+        logger.info("Recherche lexicale vide, dense seul (%d chunks).", len(denses[:k]))
+        return denses[:k]
+
+    fusionnes = fuse(denses, lexicaux, k)
+    logger.info(
+        "Hybride : %d denses + %d lexicaux → %d fusionnés pour '%s'",
+        len(denses),
+        len(lexicaux),
+        len(fusionnes),
+        question[:50],
+    )
+    return fusionnes
+
+
+def _dense_search(question: str, k: int) -> list[ChunkResult]:
+    """Recherche vectorielle seule."""
     embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
@@ -108,7 +203,7 @@ def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
             )
         )
 
-    logger.info("Retrieval : %d chunks récupérés pour '%s'", len(chunks), question[:60])
+    logger.debug("Dense : %d chunks pour '%s'", len(chunks), question[:60])
     return chunks
 
 

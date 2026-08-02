@@ -44,6 +44,9 @@ class ChunkResult(BaseModel):
     # (typiquement -11..+11) : les afficher tels quels comme une similarité
     # induit l'utilisateur en erreur au moment où il arbitre les sources.
     relevance: float | None = None
+    # Score Reciprocal Rank Fusion quand la recherche hybride est active.
+    # Sur une autre échelle que distance et rerank_score : ne pas les mélanger.
+    fusion_score: float | None = None
 
     @property
     def document_key(self) -> str:

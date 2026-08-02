@@ -13,6 +13,7 @@ langchain-core==0.3.59
 
 # --- Retrieval & Reranking ---
 chromadb==1.5.8
+rank-bm25==0.2.2
 sentence-transformers==5.4.1
 
 # --- Graph DB ---

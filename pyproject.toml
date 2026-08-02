@@ -22,6 +22,7 @@ dependencies = [
     "pydantic-settings==2.9.1",
     "httpx==0.28.1",
     "langgraph-checkpoint-sqlite>=2.0",
+    "rank-bm25>=0.2.2",
 ]
 
 [tool.ruff]
