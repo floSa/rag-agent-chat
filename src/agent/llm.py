@@ -162,7 +162,7 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
-            rewritten = resp.json().get("message", {}).get("content", "").strip()
+            rewritten = str(resp.json().get("message", {}).get("content", "")).strip()
     except Exception:
         logger.warning("Réécriture de requête indisponible, question d'origine conservée.")
         return question
@@ -170,7 +170,7 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
     # Le modèle peut préfixer (« Question autonome : »), commenter, ou répondre.
     rewritten = rewritten.splitlines()[0].strip() if rewritten else ""
     rewritten = re.sub(r"^[\s\-*>]*(question\s+autonome\s*:)?\s*", "", rewritten, flags=re.I)
-    rewritten = rewritten.strip('"\'')
+    rewritten = rewritten.strip("\"'")
 
     if not rewritten or len(rewritten) > _MAX_REWRITE_CHARS:
         logger.info("Réécriture écartée (vide ou trop longue), question d'origine conservée.")
@@ -266,7 +266,7 @@ async def translate_question(question: str) -> str | None:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
-            traduction = resp.json().get("message", {}).get("content", "").strip()
+            traduction = str(resp.json().get("message", {}).get("content", "")).strip()
     except Exception:
         logger.warning("Traduction indisponible, recherche monolingue.")
         return None

@@ -7,6 +7,9 @@ format:
 	ruff format src/ tests/
 	ruff check --fix src/ tests/
 
+# La version de mypy est epinglee dans requirements-dev.txt : `uv run --with
+# mypy` en tirerait une plus recente, plus permissive sur certains points, et
+# la CI trouverait des erreurs invisibles en local.
 typecheck:
 	mypy src/
 
