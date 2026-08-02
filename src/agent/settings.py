@@ -85,9 +85,18 @@ class Settings(BaseSettings):
     # trouve alors rien du tout — deux langues ne partagent pas leurs mots.
     cross_lingual_search: bool = Field(default=True, alias="CROSS_LINGUAL_SEARCH")
     # Poids des résultats issus de la question traduite dans la fusion RRF.
-    # À 1, ils pèsent autant que ceux de la question d'origine : mesuré, cela
-    # gagne 16,7 points en translinguistique et en perd 6,9 en même langue.
-    translation_weight: float = Field(default=0.5, alias="TRANSLATION_WEIGHT")
+    # Balayé sur 130 questions (36 translinguistiques, 94 en même langue) :
+    #
+    #   poids   rappel   transling.   même langue
+    #   0.00     0.931       0.750         1.000
+    #   0.25     0.923       0.861         0.947   <- retenu
+    #   0.50     0.900       0.889         0.904
+    #   1.00     0.877       0.889         0.872
+    #
+    # 0,25 gagne 11 points en translinguistique pour 5 perdus en même langue,
+    # et laisse le rappel global à un demi-point de son maximum. Au-delà, on
+    # paie cher les 3 derniers points translinguistiques.
+    translation_weight: float = Field(default=0.25, alias="TRANSLATION_WEIGHT")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------

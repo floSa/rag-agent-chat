@@ -87,16 +87,26 @@ def cache_traductions(
 
 
 def evaluer_config(
-    questions: list[dict], traductions: dict[str, str], utiliser_traduction: bool
+    questions: list[dict],
+    traductions: dict[str, str],
+    utiliser_traduction: bool,
+    avec_rerank: bool = False,
 ) -> dict[str, Any]:
-    """Rejoue le retrieval sur toutes les questions et mesure le rappel."""
-    from src.agent.retriever import retrieve
+    """Rejoue le retrieval sur toutes les questions et mesure le rappel.
+
+    Avec ``avec_rerank``, le cross-encoder est appliqué : on mesure alors ce qui
+    atteint vraiment le LLM. Sans lui, élargir le vivier améliore le rappel
+    mécaniquement, ce qui ne prouve rien — c'est la coupe finale qui compte.
+    """
+    from src.agent.retriever import rerank, retrieve
 
     lignes = []
     for q in questions:
         attendus = set(q["gold_element_ids"])
         traduction = traductions.get(q["question"]) if utiliser_traduction else None
         chunks = retrieve(q["question"], translation=traduction)
+        if avec_rerank:
+            chunks = rerank(q["question"], chunks)
         classement = [c.element_id for c in chunks]
 
         rang = next((i for i, eid in enumerate(classement, 1) if eid in attendus), None)
@@ -146,6 +156,12 @@ def main() -> int:
     )
     parser.add_argument("--valeurs", default="0,0.25,0.5,0.75,1.0")
     parser.add_argument("--sans-traduction", action="store_true", help="Témoin monolingue")
+    parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Applique le cross-encoder : mesure ce qui atteint le LLM",
+    )
+    parser.add_argument("--entier", action="store_true", help="Le réglage balayé est un entier")
     args = parser.parse_args()
 
     from src.agent.settings import settings
@@ -158,17 +174,20 @@ def main() -> int:
     )
 
     if args.sans_traduction:
-        resultat = resumer(evaluer_config(questions, {}, False)["lignes"])
+        resultat = resumer(evaluer_config(questions, {}, False, args.rerank)["lignes"])
         print(f"\nTÉMOIN sans traduction : {resultat}")
         return 0
 
-    valeurs = [float(v) for v in args.valeurs.split(",")]
-    print(f"\nBalayage de {args.param} sur {valeurs}\n")
+    valeurs: list[Any] = [
+        int(v) if args.entier else float(v) for v in args.valeurs.split(",")
+    ]
+    mesure = "après reranking" if args.rerank else "avant reranking"
+    print(f"\nBalayage de {args.param} sur {valeurs} ({mesure})\n")
     print(f"{args.param:>18s} {'rappel':>8s} {'mrr':>7s} {'transling.':>11s} {'même lg':>9s}")
 
     for valeur in valeurs:
         setattr(settings, args.param, valeur)
-        resultat = resumer(evaluer_config(questions, traductions, True)["lignes"])
+        resultat = resumer(evaluer_config(questions, traductions, True, args.rerank)["lignes"])
         print(
             f"{valeur:>18} {resultat['rappel']:>8} {resultat['mrr']:>7} "
             f"{resultat['rappel_translinguistique']:>11} {resultat['rappel_meme_langue']:>9}"
