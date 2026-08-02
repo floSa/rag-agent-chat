@@ -143,7 +143,7 @@ bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + do
 
 ```text
 rag-agent-chat/
-├── documentation/              # Doc technique (architecture, plan LLM, services…)
+├── documentation/              # Doc technique (architecture, stores, évaluation, sécurité)
 │   └── llm_integration_plan.md # Contrat d'interface avec rag-ingestion-pipeline
 ├── prompts/                    # Prompts versionnés (system.txt, templates Jinja2)
 ├── scripts/
@@ -174,7 +174,20 @@ rag-agent-chat/
 | **NebulaGraph** | `graphd:9669` (space `rag_space`) | Remontée `PARENT_OF` → breadcrumb + reconstruction de section. |
 | **MinIO** | `minio:9000` (bucket `documents`) | Images et tableaux croppés, servis en URLs présignées. |
 
-L'agent est **en lecture seule** sur ces stores. Le contrat d'interface complet (schéma du graphe, métadonnées ChromaDB, format des VID) est documenté dans [documentation/llm_integration_plan.md](documentation/llm_integration_plan.md).
+L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées ChromaDB, schéma du graphe, format des VID, et ce qui casse quand il n'est pas tenu — est documenté dans [documentation/stores.md](documentation/stores.md).
+
+## Documentation
+
+| Fichier | Contenu |
+| :--- | :--- |
+| [architecture.md](documentation/architecture.md) | Le système tel qu'il est : services, machine à états, décisions |
+| [agent_architecture.md](documentation/agent_architecture.md) | Vue détaillée de l'agent : nœuds, données, prompts, réglages |
+| [stores.md](documentation/stores.md) | Le contrat avec l'ingestion, du point de vue du consommateur |
+| [llm.md](documentation/llm.md) | Le service d'inférence central et la fenêtre de contexte |
+| [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
+| [axes_amelioration.md](documentation/axes_amelioration.md) | Ce qui est corrigé, ce qui reste ouvert |
+| [SECURITY.md](documentation/SECURITY.md) | Surface exposée, défenses, et ce qui n'est pas protégé |
+| [llm_integration_plan.md](documentation/llm_integration_plan.md) | Plan de conception initial — historique |
 
 ---
 

@@ -1,11 +1,20 @@
 # Plan d'integration LLM / Agent RAG
 
-> **Note** : document de conception initial, conservé pour l'historique et pour
-> le contrat d'interface (§4, toujours valide). L'implémentation réelle diverge
-> sur la stack : LLM local Ollama (Gemma 4, thinking désactivé) au lieu de
-> Claude/GPT, protocole textuel `search_vectors(...)` au lieu de tools natifs,
-> pas de Langfuse/NeMo à ce stade. Voir [architecture.md](architecture.md)
-> pour l'état actuel.
+> **Document historique.** C'est le plan de conception écrit avant que le projet
+> existe. Il est conservé pour la trace des intentions, pas comme référence :
+> l'implémentation en diverge sur presque tous les points techniques.
+>
+> Pour l'état réel, lire plutôt :
+>
+> - [architecture.md](architecture.md) — le système tel qu'il est ;
+> - [stores.md](stores.md) — le contrat avec l'ingestion ;
+> - [rag_evaluation_strategy.md](rag_evaluation_strategy.md) — ce que la mesure
+>   a établi.
+>
+> Écarts principaux : recherche **hybride et translingue** au lieu du dense seul,
+> modèles **multilingues**, tool-calling **natif** au lieu du protocole textuel,
+> remontée jusqu'au `Document` avec sections voisines au lieu de la seule section
+> parente, et un jeu doré généré depuis le corpus plutôt qu'annoté à la main.
 
 ## 1. Contexte et vision
 
