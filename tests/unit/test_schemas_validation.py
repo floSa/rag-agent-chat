@@ -51,3 +51,22 @@ def test_search_request_accepts_chat_history() -> None:
         chat_history=[{"role": "user", "content": "bonjour"}],
     )
     assert req.chat_history[0].role == "user"
+
+
+def test_top_k_absent_laisse_la_configuration_decider() -> None:
+    """Un défaut chiffré dans le schéma écrasait le réglage du service.
+
+    Le service était réglé sur 50 candidats et en recevait 20, parce que le
+    client n'avait rien demandé — et le classement du retrieval s'en trouvait
+    amputé sans qu'aucun log ne le signale.
+    """
+    from src.api.schemas import AnswerRequest, SearchRequest
+
+    assert SearchRequest(question="q").top_k is None
+    assert AnswerRequest(question="q").top_k is None
+
+
+def test_top_k_explicite_est_respecte() -> None:
+    from src.api.schemas import AnswerRequest
+
+    assert AnswerRequest(question="q", top_k=80).top_k == 80  # noqa: PLR2004

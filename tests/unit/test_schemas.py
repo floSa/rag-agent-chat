@@ -11,7 +11,9 @@ from src.api.schemas import (
 
 def test_search_request_valid() -> None:
     req = SearchRequest(question="Comment Docling gère les tableaux ?")
-    assert req.top_k == 20  # valeur par défaut
+    # None = la valeur configurée : un défaut chiffré dans le schéma écrasait
+    # le réglage du service sans que rien ne le signale.
+    assert req.top_k is None  # valeur par défaut
 
 
 def test_search_request_empty_question() -> None:

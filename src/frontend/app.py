@@ -166,7 +166,6 @@ if st.session_state.phase == "search":
                     "/chat/start",
                     {
                         "question": question.strip(),
-                        "top_k": 20,
                         # Multi-turn : les questions suivantes bénéficient du contexte
                         "chat_history": st.session_state.chat_history,
                     },

@@ -56,7 +56,11 @@ class ChunkResult(BaseModel):
 
 class SearchRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
-    top_k: int = Field(default=20, ge=1, le=50)
+    # None = la valeur configurée (RETRIEVAL_TOP_K). Un défaut chiffré ici
+    # écrasait le réglage sans que rien ne le signale : le service était réglé
+    # sur 50 candidats et en recevait 20, parce que le client n'avait rien
+    # demandé.
+    top_k: int | None = Field(default=None, ge=1, le=200)
     # Historique de conversation (multi-turn) — utilisé par /chat/start,
     # ignoré par /search et /sources.
     chat_history: list[Message] = Field(default_factory=list)
@@ -185,9 +189,10 @@ class AnswerRequest(BaseModel):
     """Question posée sans sélection humaine des sources."""
 
     question: str = Field(..., min_length=1, max_length=2000)
-    top_k: int = Field(default=20, ge=1, le=50)
+    # None = la valeur configurée (RETRIEVAL_TOP_K).
+    top_k: int | None = Field(default=None, ge=1, le=200)
     chat_history: list[Message] = Field(default_factory=list)
-    # Nombre de sources reconstruites. Laissé à None, RERANK_TOP_K s'applique.
+    # Nombre de sources reconstruites. Laissé à None, AUTO_SELECT_TOP_K s'applique.
     max_sources: int | None = Field(default=None, ge=1, le=20)
 
 
