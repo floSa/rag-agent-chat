@@ -103,9 +103,9 @@ persistance ne ferait que déplacer la fuite sur le disque.
 
 | Module              | Responsabilité                                                  |
 |---------------------|-----------------------------------------------------------------|
-| `graph.py`          | Définition des nœuds, arêtes, conditions et compilation du graphe LangGraph |
+| `graph.py`          | Nœuds, arêtes, conditions, compilation du graphe, résolution des citations |
 | `graph_context.py`  | Reconstruction via NebulaGraph : fil des titres, fenêtre d'éléments, sections voisines, légendes |
-| `llm.py`            | Client Ollama (API native), réécriture de requête, budget de contexte, outil `search_vectors` |
+| `llm.py`            | Client Ollama (API native), réécriture et traduction de requête, budget de contexte, outil `search_vectors` |
 | `retriever.py`      | Recherche dense + lexicale, reranking, déduplication, texte intégral |
 | `lexical.py`        | Index BM25 en mémoire et fusion Reciprocal Rank Fusion          |
 | `minio_client.py`   | Lecture des objets MinIO servis par le proxy `/media`           |
@@ -186,10 +186,15 @@ Le projet implémente un **RAG structurel, hybride et citable** :
 
 1. **Réécriture de requête** — la question de suivi est rendue autonome avant
    l'encodage. Sans historique, la question est déjà autonome : aucun appel LLM.
-2. **Recherche hybride** — dense (`paraphrase-multilingual-MiniLM-L12-v2`) et
-   lexicale (BM25), `FETCH_K` candidats chacune, fusionnées par Reciprocal Rank
-   Fusion. La fusion porte sur les **rangs** : une distance cosine et un score
-   BM25 ne vivent pas sur la même échelle.
+2. **Recherche hybride et translingue** — la question est traduite dans l'autre
+   langue du corpus, et quatre classements entrent dans la fusion : dense et
+   lexical, pour la question et pour sa traduction. `FETCH_K` candidats chacun,
+   fusionnés par Reciprocal Rank Fusion — sur les **rangs**, car une distance
+   cosine et un score BM25 ne vivent pas sur la même échelle.
+
+   Mesuré sur 130 questions : sans traduction, le rappel translinguistique
+   plafonne à 0,806 ; avec, il atteint **1,000**. La recherche lexicale seule ne
+   trouvait alors *rien* — deux langues ne partagent pas leurs mots.
 3. **Reranking** — cross-encoder `mmarco-mMiniLMv2-L12-H384-v1`, multilingue.
    Déduplication par `element_id` avant la troncature au top-K. Le score exposé
    à l'utilisateur est la **sigmoïde** du logit : le brut est non borné et
@@ -251,7 +256,9 @@ silence.
 | `HYBRID_SEARCH`            | `true` | BM25 en plus du dense                             |
 | `FETCH_K`                  | `50`   | Candidats par moteur avant fusion                 |
 | `RRF_K`                    | `60`   | Amortissement RRF                                 |
-| `RETRIEVAL_TOP_K`          | `20`   | Candidats conservés après fusion                  |
+| `RETRIEVAL_TOP_K`          | `50`   | Candidats conservés après fusion, soumis au reranking |
+| `CROSS_LINGUAL_SEARCH`     | `true` | Cherche aussi dans la traduction de la question    |
+| `TRANSLATION_WEIGHT`       | `1.0`  | Poids de la traduction dans la fusion RRF          |
 | `RERANK_TOP_K`             | `10`   | Éléments distincts conservés après reranking      |
 | `QUERY_REWRITE`            | `true` | Réécriture des questions de suivi                 |
 | `NATIVE_TOOL_CALLING`      | `true` | Outil Ollama plutôt que repli par regex           |
@@ -339,7 +346,8 @@ Documentation interactive : `http://localhost:8001/docs`
 | Granularité de la mesure | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. |
 | Taille du jeu doré      | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. |
 | Latence de génération   | ~10 s en médiane contre 0,4 s de retrieval. Le levier est le LLM, pas la recherche. |
-| Index BM25              | Construit en mémoire au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |
+| Index BM25              | Construit en mémoire au premier appel : la première requête après un démarrage paie ~9 s. `/health` expose son état. Un corpus nettement plus gros demanderait un moteur dédié. |
+| Coût de la traduction   | Un appel LLM par question s'ajoute à la recherche. Un cache, ou un modèle plus petit dédié, l'amortirait. |
 | Multi-workers           | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
 | Authentification        | Absente. CORS `*` et `/media` ouvert : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
 | Streaming E2E           | SSE implémenté, non couvert par un test de bout en bout.       |
