@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     #      30    0.915       0.889         0.926
     #      50    0.962       0.889         0.989   <- retenu
     #
+    # (mesuré à TRANSLATION_WEIGHT=0.5 ; à 1.0 le rappel monte à 0.985)
+    #
     # La recherche translingue diluait la fusion et chassait du top-20 des
     # passages que la question d'origine avait bien trouvés. Élargir le vivier
     # règle cela sans rien céder : le cross-encoder, lui, sait trier.
@@ -73,8 +75,11 @@ class Settings(BaseSettings):
     # Fusion. Le dense rate ce qui ne se paraphrase pas — acronymes, noms
     # propres, références, chiffres. BM25 les retrouve à la lettre.
     hybrid_search: bool = Field(default=True, alias="HYBRID_SEARCH")
-    # Candidats demandés à chaque moteur avant fusion. Plus large que le top_k
-    # final : la fusion n'a d'intérêt que si les listes se recouvrent peu.
+    # Candidats demandés à CHAQUE moteur avant fusion — quatre au maximum :
+    # dense et lexical, pour la question et pour sa traduction. Jusqu'à 200
+    # candidats distincts entrent donc dans la fusion, qui n'en garde que
+    # RETRIEVAL_TOP_K. La fusion n'a d'intérêt que si les listes se recouvrent
+    # peu, d'où un vivier large en amont.
     fetch_k: int = Field(default=50, alias="FETCH_K")
     # Amortissement RRF. 60 = valeur de l'article d'origine.
     rrf_k: int = Field(default=60, alias="RRF_K")
