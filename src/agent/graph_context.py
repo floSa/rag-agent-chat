@@ -162,13 +162,16 @@ def _get_node_properties(node_id: str) -> dict[str, Any]:
         except Exception:
             return {}
 
-    # Le tag Document n'a pas de propriétés label/text : cas particulier
+    # Le tag Document n'a pas de propriétés label/text : cas particulier.
+    # Il porte en revanche l'ouvrage, seule source fiable quand la citation ne
+    # vient pas d'un chunk — l'endpoint de génération directe, notamment.
     if "Document" in tags:
         props = props_of("Document")
         return {
             "tag": "Document",
             "label": "document",
             "text": props.get("filename") or "",
+            "collection": props.get("collection") or "",
             "minio_url": None,
             "page_no": 0,
         }
@@ -370,6 +373,7 @@ class _Ancestry(NamedTuple):
     section_parent_id: str     # parent de la section — le Document en pratique
     breadcrumbs: list[BreadcrumbEntry]   # du Document jusqu'à la section
     filename: str              # nom du document, "" s'il n'a pas été atteint
+    collection: str            # ouvrage dont le document fait partie
 
 
 def _climb_to_section(element_id: str) -> _Ancestry:
@@ -391,6 +395,7 @@ def _climb_to_section(element_id: str) -> _Ancestry:
     section_sequence = 0
     section_parent_id = ""
     filename = ""
+    collection = ""
     section_found = False
 
     for _ in range(_MAX_DEPTH):
@@ -417,6 +422,7 @@ def _climb_to_section(element_id: str) -> _Ancestry:
 
         if tag in _ROOT_TAGS:
             filename = text
+            collection = str(props.get("collection") or "")
             if section_found and not section_parent_id:
                 section_parent_id = parent_id
             break
@@ -435,6 +441,7 @@ def _climb_to_section(element_id: str) -> _Ancestry:
         section_parent_id=section_parent_id,
         breadcrumbs=list(reversed(breadcrumbs_reversed)),
         filename=filename,
+        collection=collection,
     )
 
 
@@ -701,6 +708,7 @@ def reconstruct_section(element_id: str) -> SectionContext:
         elements=elements,
         markdown=markdown,
         filename=ancestry.filename,
+        collection=ancestry.collection,
         section_title=section_text if is_header else "",
         before=before,
         after=after,

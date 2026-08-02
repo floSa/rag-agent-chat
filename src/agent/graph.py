@@ -236,6 +236,9 @@ def resolve_citations(
     # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
     # les deux. Le nom du document est porté par SectionContext ; l'ouvrage,
     # lui, n'existe que dans les métadonnées vectorielles.
+    # L'ouvrage vient du graphe quand il y est, des chunks sinon : la
+    # génération directe n'a pas de chunks, et une citation sans ouvrage ne dit
+    # pas de quel livre elle vient.
     collections = {c.filename: c.collection for c in chunks if c.collection}
 
     media_map: dict[str, str] = {}
@@ -251,7 +254,7 @@ def resolve_citations(
                 Citation(
                     element_id=elem.node_id,
                     filename=ctx.filename,
-                    collection=collections.get(ctx.filename, ""),
+                    collection=ctx.collection or collections.get(ctx.filename, ""),
                     section_title=ctx.section_title,
                     page_no=elem.page_no,
                     text_excerpt=(elem.text or "")[:150],

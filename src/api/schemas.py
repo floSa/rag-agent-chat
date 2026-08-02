@@ -129,6 +129,7 @@ class SectionContext(BaseModel):
     # depuis les breadcrumbs par les appelants : le post-processing des
     # citations en dépend, et une heuristique sur `label` y était fausse.
     filename: str = ""                    # nom du document porteur
+    collection: str = ""                  # ouvrage dont il fait partie
     section_title: str = ""               # titre de la section
     # Queue de la section précédente et tête de la suivante : le « avant /
     # après » demandé au produit. Les sections sont frères sous le Document,
