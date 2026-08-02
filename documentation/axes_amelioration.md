@@ -123,19 +123,26 @@ réglable.
 
 ---
 
-## 1bis. Corrigé — qualité du retrieval et mesure
+## 1bis. Corrigé — qualité, mesure, exploitation
 
 | Sujet | Ce qui a été fait |
 |---|---|
 | Modèles multilingues | Embedder et reranker alignés sur la réingestion. Mesuré : le reranker anglais rendait une étendue de scores de 0,0 % sur une question française — un classement au hasard. |
 | Réécriture de requête | `node_rewrite` rend la question de suivi autonome avant l'encodage. Sans historique, aucun appel au LLM. |
 | Recherche hybride | BM25 + dense fusionnés par RRF. La fusion porte sur les **rangs**, pas sur les scores : une distance cosine et un score BM25 ne sont pas comparables. |
-| Texte intégral | Relu dans l'index quand le texte du graphe frôle la troncature à 2000 caractères. Les fenêtres recouvrantes sont recollées sans répéter la charnière. |
+| Recherche translingue | La question est traduite et la recherche porte sur les deux. Le rappel translinguistique passe de 0,806 à **1,000**. |
+| Vivier élargi | `RETRIEVAL_TOP_K` 20 → 50. Le rappel global passe de 0,900 à **0,985** : la coupe précoce chassait, avant le reranking, ce que la question d'origine avait trouvé. |
+| Texte intégral | Relu dans l'index quand le texte du graphe frôle sa troncature à 2000 caractères. |
+| Légendes des illustrations | L'arête avait été renommée côté ingestion : la requête échouait à chaque reconstruction, sans casser la réponse mais en privant les illustrations de leur légende. Le nom est désormais lu dans le schéma. |
 | Tool-calling natif | `search_vectors` déclaré comme outil Ollama ; le regex sur la prose reste en second rideau. |
-| Endpoint `/answer` | Non interactif, expose les passages soumis au LLM et les temps par étage. C'est lui que consomme la campagne. |
-| Résilience | Réouverture des clients Chroma / Nebula / MinIO après redémarrage d'un store, timeout nGQL, sessions persistées sur disque. |
+| Endpoint `/answer` | Non interactif, expose le classement du retrieval, les passages soumis au LLM et les temps par étage. |
+| Flux interactif | Le checkpointer SQLite **synchrone** faisait tomber toute l'interface en 500. Corrigé et couvert par six tests. |
+| Résilience | Réouverture des clients après redémarrage d'un store, timeout nGQL, sessions persistées et purgées. |
 | Serveur d'inférence | L'Ollama embarqué disparaît du compose : un seul serveur, celui de `llm-service`. |
-| Mesure | `scripts/evaluate.py` + jeu doré : rappel, complétude des citations, abstention, latence — sans juge LLM, donc déterministe. `make eval` compare à la campagne de référence. |
+| Sécurité | CORS restreint, clé d'API optionnelle, proxy média borné aux objets référencés par le graphe. |
+| Typage | `make typecheck` n'avait jamais tourné : 54 erreurs corrigées, pas désactivées. |
+| Lisibilité des réponses | Les hachages `[src:…]` deviennent des renvois numérotés vers une liste de sources nommant ouvrage, document, page et section. |
+| Mesure | Jeu doré de 138 questions généré depuis le corpus, campagne déterministe, banc de réglage rapide. |
 
 ---
 
@@ -143,13 +150,14 @@ réglable.
 
 | Priorité | Sujet | Détail |
 |---|---|---|
-| P1 | Rappel annoté à l'élément | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. Annoter les `gold_element_ids` est le seul moyen de trancher, et le seul travail non automatisable. |
-| P1 | Jeu doré trop petit | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. Viser 100 à 150, stratifiées par type et par langue. |
-| P2 | Branchement sur RAG-Eval-Bench | Le banc apporte les juges calibrés, la comparaison appariée et les intervalles de confiance. Il lui manque un `ExternalPipeline` qui poste sur `/answer`. |
-| P2 | Latence de génération | 11 s en médiane contre 0,4 s de retrieval. Le levier est le LLM — quantisation, `num_predict`, ou un modèle plus petit — pas la recherche. |
-| P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~10 s. Un corpus nettement plus gros demanderait un moteur dédié plutôt qu'un index Python. |
-| P3 | Surface exposée | CORS `*` et `/media/{object_name}` sans authentification : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
+| P1 | Le pari central n'est pas vérifié | Personne n'a montré que la reconstruction de section améliore les **réponses**. Le rappel mesure le retrieval, pas ce que le LLM en fait. Trancher demande un juge calibré — donc RAG-Eval-Bench. |
+| P1 | Jeu doré non relu | 138 questions générées, toutes `reviewed: false`. L'approche est fiable pour régler un retriever, moins pour arbitrer entre générateurs. Une relecture humaine les promeut. |
+| P2 | Branchement sur RAG-Eval-Bench | Le banc apporte juges calibrés, comparaison appariée et intervalles de confiance. Il lui manque un `ExternalPipeline` qui poste sur `/answer`. |
+| P2 | Latence de génération | ~3 à 10 s contre 0,5 s de recherche. Le levier est le LLM — quantisation, `num_predict`, modèle plus petit — pas la recherche. |
+| P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. |
+| P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |
 | P3 | Multi-workers | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
+| P3 | Observabilité | Logs console uniquement, pas de tracing distribué ni de métriques exportées. |
 
 ---
 
