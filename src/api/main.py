@@ -5,6 +5,7 @@ import time
 import uuid
 from collections import OrderedDict
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -15,7 +16,12 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from sse_starlette.sse import EventSourceResponse
 
-from src.agent.graph import agent_graph, answer_graph
+from src.agent.graph import (
+    answer_graph,
+    build_checkpointer,
+    close_checkpointers,
+    compile_interactive,
+)
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import context_budget_chars, fit_contexts, generate_stream
@@ -42,10 +48,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Graphe interactif, compilé au démarrage : son checkpointer ouvre une
+# connexion asynchrone, ce qui ne peut pas se faire à l'import du module.
+_interactive: Any = None
+
+
+def interactive_graph() -> Any:
+    """Graphe du flux interactif, une fois le service démarré."""
+    if _interactive is None:
+        raise HTTPException(status_code=503, detail="Service en cours de démarrage.")
+    return _interactive
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Ouvre le checkpointer avant de servir, le referme à l'arrêt."""
+    global _interactive
+    checkpointer = await build_checkpointer()
+    _interactive = compile_interactive(checkpointer)
+    try:
+        yield
+    finally:
+        await close_checkpointers()
+
+
 app = FastAPI(
     title="rag-agent-chat",
     description="API de l'agent RAG conversationnel",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Origines explicites plutôt que « * » : sans cela, n'importe quelle page web
@@ -280,7 +311,7 @@ def _register_thread(thread_id: str) -> None:
     for tid in expired:
         _live_threads.pop(tid, None)
         try:
-            checkpointer = agent_graph.checkpointer
+            checkpointer = interactive_graph().checkpointer
             if isinstance(checkpointer, BaseCheckpointSaver):
                 checkpointer.delete_thread(tid)
         except Exception:
@@ -324,7 +355,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
 
     # Exécuter jusqu'à l'interruption (avant await_source_selection) ;
     # l'état est persisté par le checkpointer LangGraph sous ce thread_id.
-    result = await agent_graph.ainvoke(initial_state, config)
+    result = await interactive_graph().ainvoke(initial_state, config)
 
     groups = group_by_document(result.get("reranked_chunks", []))
     return {
@@ -342,7 +373,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
     """
     config: RunnableConfig = {"configurable": {"thread_id": req.thread_id}}
 
-    snapshot = await agent_graph.aget_state(config)
+    snapshot = await interactive_graph().aget_state(config)
     if not snapshot.values or not snapshot.next:
         raise HTTPException(
             status_code=404,
@@ -351,7 +382,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
 
     # Injecter la sélection dans l'état persisté, puis reprendre là où le
     # graphe s'était interrompu (input None = resume, pas un nouveau run).
-    await agent_graph.aupdate_state(
+    await interactive_graph().aupdate_state(
         config, {"selected_element_ids": req.selected_element_ids}
     )
 
@@ -360,7 +391,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
             final_state: dict[str, Any] = {}
             # "custom" : tokens émis par node_generate ; "values" : état complet
             # après chaque nœud (le dernier reçu = état final).
-            async for mode, chunk in agent_graph.astream(
+            async for mode, chunk in interactive_graph().astream(
                 None, config, stream_mode=["custom", "values"]
             ):
                 if mode == "custom":
@@ -379,7 +410,7 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
 
         return EventSourceResponse(stream_generator())
 
-    result = await agent_graph.ainvoke(None, config)
+    result = await interactive_graph().ainvoke(None, config)
     return ChatResponse(
         answer=result.get("response", ""),
         citations=result.get("citations", []),

@@ -1,13 +1,12 @@
 import logging
 import re
-import sqlite3
 import time
 from pathlib import Path
 from typing import Any
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
@@ -339,16 +338,25 @@ def build_graph() -> StateGraph:
     return graph
 
 
-def build_checkpointer() -> BaseCheckpointSaver[Any]:
+# Gestionnaires de contexte des checkpointers ouverts, refermés à l'arrêt.
+_ouverts: list[Any] = []
+
+
+async def build_checkpointer() -> BaseCheckpointSaver[Any]:
     """Ouvre le checkpointer qui persiste les sessions entre /chat/start et /resume.
 
-    Sur disque par défaut : en mémoire, une session en attente de sélection ne
-    survivait pas au redémarrage de l'API, et deux workers uvicorn ne
-    partageaient pas leurs threads — /chat/resume tombait alors sur un process
-    qui n'avait jamais vu le thread_id.
+    **Asynchrone obligatoirement.** Le flux interactif passe par `ainvoke`,
+    `astream`, `aget_state` et `aupdate_state` ; le `SqliteSaver` synchrone lève
+    alors `NotImplementedError: does not support async methods` et toute la
+    session échoue en 500. Seul `AsyncSqliteSaver` convient.
 
-    Repli en mémoire si le fichier est inaccessible (volume non monté, disque
-    en lecture seule) : mieux vaut un service dégradé qu'un service mort.
+    Sur disque par défaut : en mémoire, une session en attente de sélection ne
+    survit pas au redémarrage de l'API, et deux workers uvicorn ne partagent pas
+    leurs threads — /chat/resume tomberait sur un process n'ayant jamais vu le
+    thread_id.
+
+    Repli en mémoire si le fichier est inaccessible (volume non monté, disque en
+    lecture seule) : mieux vaut un service dégradé qu'un service mort.
     """
     path = settings.checkpoint_db_path
     if not path:
@@ -356,25 +364,38 @@ def build_checkpointer() -> BaseCheckpointSaver[Any]:
         return MemorySaver()
     try:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
-        # check_same_thread=False : LangGraph exécute les nœuds synchrones dans
-        # un threadpool, la connexion est donc partagée entre threads.
-        connection = sqlite3.connect(path, check_same_thread=False)
-        saver = SqliteSaver(connection)
-        saver.setup()
-        logger.info("Checkpointer SQLite : %s", path)
+        # `from_conn_string` est le constructeur supporté : il ouvre la
+        # connexion comme la bibliothèque l'attend. La construire à la main
+        # depuis `aiosqlite.connect` produisait un objet sans `is_alive`, que
+        # `setup()` exige — les versions récentes d'aiosqlite n'héritent plus
+        # de Thread.
+        gestionnaire = AsyncSqliteSaver.from_conn_string(path)
+        saver = await gestionnaire.__aenter__()
+        await saver.setup()
+        _ouverts.append(gestionnaire)
+        logger.info("Checkpointer SQLite asynchrone : %s", path)
         return saver
     except Exception:
         logger.exception("Checkpointer SQLite indisponible (%s), repli en mémoire.", path)
         return MemorySaver()
 
 
-# Graphe compilé avec interrupt avant la sélection des sources.
-# Le checkpointer est requis par LangGraph pour suspendre/reprendre le flux
-# (l'état est persisté par thread_id, cf. /chat/start et /chat/resume).
-agent_graph = build_graph().compile(
-    checkpointer=build_checkpointer(),
-    interrupt_before=["await_source_selection"],
-)
+async def close_checkpointers() -> None:
+    """Referme les checkpointers ouverts par `build_checkpointer`."""
+    while _ouverts:
+        gestionnaire = _ouverts.pop()
+        try:
+            await gestionnaire.__aexit__(None, None, None)
+        except Exception:
+            logger.debug("Fermeture du checkpointer impossible", exc_info=True)
+
+
+def compile_interactive(checkpointer: BaseCheckpointSaver[Any]) -> Any:
+    """Compile le graphe interactif : interruption avant la sélection des sources."""
+    return build_graph().compile(
+        checkpointer=checkpointer,
+        interrupt_before=["await_source_selection"],
+    )
 
 # Même graphe, sans interruption ni checkpointer : la sélection des sources est
 # automatique. C'est ce que consomme POST /answer, et donc ce sur quoi porte
