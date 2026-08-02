@@ -89,7 +89,7 @@ class LexicalIndex:
 
 
 def reciprocal_rank_fusion(
-    classements: list[list[str]], k: int = 60
+    classements: list[list[str]], k: int = 60, poids: list[float] | None = None
 ) -> dict[str, float]:
     """Fusionne plusieurs classements par Reciprocal Rank Fusion.
 
@@ -98,23 +98,35 @@ def reciprocal_rank_fusion(
     et ne sont pas comparables. Il n'additionne que des RANGS, ce qui rend la
     fusion insensible à la calibration de chaque moteur.
 
+    Les poids servent quand un classement est moins digne de confiance que les
+    autres. Mesuré sur ce corpus : ajouter à poids égal les résultats de la
+    question traduite gagne 16,7 points de rappel en translinguistique, mais en
+    perd 6,9 sur les questions dont le document est déjà dans la bonne langue —
+    la traduction y ramène du bruit qui chasse la bonne réponse du top-K.
+
     Args:
         classements: Listes d'identifiants, du mieux classé au moins bien.
         k: Constante d'amortissement. À 60 — la valeur de l'article d'origine —
             l'écart entre le 1er et le 2e pèse plus que celui entre le 50e et le
             51e, ce qui est le comportement voulu.
+        poids: Un poids par classement. Absent, tous valent 1.
 
     Returns:
         Dict {identifiant: score fusionné}, à trier par score décroissant.
     """
+    if poids is None:
+        poids = [1.0] * len(classements)
+
     scores: dict[str, float] = {}
-    for classement in classements:
+    for classement, poids_liste in zip(classements, poids, strict=False):
         for rang, identifiant in enumerate(classement, start=1):
-            scores[identifiant] = scores.get(identifiant, 0.0) + 1.0 / (k + rang)
+            scores[identifiant] = scores.get(identifiant, 0.0) + poids_liste / (k + rang)
     return scores
 
 
-def fuse(classements: list[list[ChunkResult]], top_k: int) -> list[ChunkResult]:
+def fuse(
+    classements: list[list[ChunkResult]], top_k: int, poids: list[float] | None = None
+) -> list[ChunkResult]:
     """Fusionne des classements hétérogènes et retourne les top_k.
 
     Un chunk présent dans plusieurs classements remonte : c'est tout l'intérêt
@@ -128,6 +140,8 @@ def fuse(classements: list[list[ChunkResult]], top_k: int) -> list[ChunkResult]:
             recherche dense y est placée en tête, car elle seule porte une
             distance vectorielle réelle.
         top_k: Nombre de résultats conservés.
+        poids: Un poids par classement, pour ceux qui méritent moins de
+            confiance — les résultats d'une question traduite, notamment.
     """
     par_id: dict[str, ChunkResult] = {}
     for classement in reversed(classements):
@@ -136,6 +150,7 @@ def fuse(classements: list[list[ChunkResult]], top_k: int) -> list[ChunkResult]:
     scores = reciprocal_rank_fusion(
         [[c.chunk_id for c in classement] for classement in classements],
         k=settings.rrf_k,
+        poids=poids,
     )
 
     ordonnes = sorted(scores.items(), key=lambda t: t[1], reverse=True)

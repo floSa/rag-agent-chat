@@ -217,20 +217,30 @@ def retrieve(
     if not settings.hybrid_search and not translation:
         return _dense_search(question, k)[:k]
 
-    requetes = [question] + ([translation] if translation else [])
+    requetes = [(question, 1.0)]
+    if translation:
+        # La traduction pèse moins : elle sauve les questions dont le document
+        # est dans l'autre langue, mais ramène du bruit sur les autres.
+        requetes.append((translation, settings.translation_weight))
+
     # La recherche dense d'abord : elle seule porte une distance vectorielle
     # réelle, et fait donc foi sur les métadonnées d'un chunk vu deux fois.
-    classements: list[list[ChunkResult]] = [
-        _dense_search(requete, settings.fetch_k) for requete in requetes
-    ]
+    classements: list[list[ChunkResult]] = []
+    poids: list[float] = []
+    for requete, poids_requete in requetes:
+        classements.append(_dense_search(requete, settings.fetch_k))
+        poids.append(poids_requete)
     if settings.hybrid_search:
-        classements += [_lexical_search(requete, settings.fetch_k) for requete in requetes]
+        for requete, poids_requete in requetes:
+            classements.append(_lexical_search(requete, settings.fetch_k))
+            poids.append(poids_requete)
 
-    non_vides = [c for c in classements if c]
-    if not non_vides:
+    retenus = [(c, p) for c, p in zip(classements, poids, strict=True) if c]
+    if not retenus:
         return []
+    non_vides = [c for c, _ in retenus]
 
-    fusionnes = fuse(non_vides, k)
+    fusionnes = fuse(non_vides, k, poids=[p for _, p in retenus])
     logger.info(
         "Recherche : %s → %d fusionnés pour %r%s",
         " + ".join(str(len(c)) for c in non_vides),

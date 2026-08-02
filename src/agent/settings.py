@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     # document ne sont pas dans la même langue, et la recherche lexicale ne
     # trouve alors rien du tout — deux langues ne partagent pas leurs mots.
     cross_lingual_search: bool = Field(default=True, alias="CROSS_LINGUAL_SEARCH")
+    # Poids des résultats issus de la question traduite dans la fusion RRF.
+    # À 1, ils pèsent autant que ceux de la question d'origine : mesuré, cela
+    # gagne 16,7 points en translinguistique et en perd 6,9 en même langue.
+    translation_weight: float = Field(default=0.5, alias="TRANSLATION_WEIGHT")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------

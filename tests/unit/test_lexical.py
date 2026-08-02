@@ -179,3 +179,35 @@ def test_chunk_lexical_porte_les_metadonnees_et_une_distance_defavorable() -> No
     assert chunk.collection == "Ouvrage"
     assert chunk.language == "fr"
     assert chunk.distance == 1.0
+
+
+# ─── Pondération de la fusion ─────────────────────────────────────────────────
+
+def test_poids_reduit_l_influence_d_un_classement() -> None:
+    """Un classement moins digne de confiance doit peser moins."""
+    plein = reciprocal_rank_fusion([["a"], ["b"]], k=60)
+    pondere = reciprocal_rank_fusion([["a"], ["b"]], k=60, poids=[1.0, 0.5])
+
+    assert plein["a"] == pytest.approx(plein["b"])
+    assert pondere["a"] > pondere["b"]
+
+
+def test_poids_nul_neutralise_un_classement() -> None:
+    scores = reciprocal_rank_fusion([["a"], ["b"]], k=60, poids=[1.0, 0.0])
+
+    assert scores["b"] == pytest.approx(0.0)
+    assert scores["a"] > 0
+
+
+def test_sans_poids_tous_les_classements_pesent_pareil() -> None:
+    assert reciprocal_rank_fusion([["a"], ["a"]], k=60)["a"] == pytest.approx(2 / 61)
+
+
+def test_fuse_transmet_les_poids() -> None:
+    """Le classement de la question d'origine doit primer sur celui de sa traduction."""
+    origine = [_chunk("a")]
+    traduction = [_chunk("b")]
+
+    resultat = fuse([origine, traduction], top_k=2, poids=[1.0, 0.3])
+
+    assert [c.chunk_id for c in resultat] == ["a", "b"]
