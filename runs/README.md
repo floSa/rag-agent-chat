@@ -20,6 +20,30 @@ balayage suppose de refaire 130 appels au LLM, et les traductions changeraient
 d'une exécution à l'autre — le balayage ne serait plus comparable. Le supprimer
 le fait simplement se reconstruire.
 
+## Résultat de la configuration retenue
+
+`final.json` — 138 questions, campagne complète, aucun échec.
+
+| Métrique | Valeur |
+|---|---|
+| `rappel_recherche` | **0,985** |
+| `rappel_elements` | 0,962 |
+| `mrr` | 0,963 |
+| `rappel_documents` | **1,000** |
+| `taux_citation_complete` | **1,000** |
+| `abstention_correcte` | **1,000** |
+| translinguistique (36 q.) | **1,000** |
+| même langue (102 q.) | 0,979 |
+| latence recherche p50 / p95 | 959 ms / 1 185 ms |
+| latence génération p50 / p95 | 4 397 ms / 12 831 ms |
+
+Deux questions seulement voient leur passage attendu jamais remonter, trois le
+voient remonter puis écarter avant le LLM.
+
+La recherche a triplé de coût (425 → 959 ms) : quatre classements au lieu de
+deux, plus un appel LLM de traduction. Elle reste vingt fois moins chère que la
+génération.
+
 ## Ce que les campagnes ont établi
 
 **L'écart translinguistique était le premier problème du système.** Rappel de
@@ -33,8 +57,14 @@ question d'origine avait trouvés. À 50 candidats, le compromis disparaît.
 
 | Configuration | rappel | translinguistique | même langue | MRR |
 |---|---|---|---|---|
-| top-20, sans traduction | 0,900 | 0,889 | 0,904 | 0,883 |
-| top-50, traduction pleine | 0,985 | 1,000 | 0,979 | 0,963 |
+| référence (top-20, sans traduction) | 0,915 | 0,743 | 0,988 | 0,896 |
+| retenue (top-50, traduction pleine) | **0,985** | **1,000** | 0,979 | **0,963** |
+
+**Un défaut de schéma a failli invalider tout cela.** `AnswerRequest.top_k`
+valait 20 par défaut et surchargeait `RETRIEVAL_TOP_K` : le banc mesurait 0,985,
+la campagne 0,877, sur la même configuration en apparence. Ce sont les logs du
+conteneur qui ont tranché — « 50 + 50 + 50 + 50 → 20 fusionnés », là où le
+réglage disait 50.
 
 ## Lire une comparaison
 

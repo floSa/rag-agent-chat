@@ -1,50 +1,50 @@
 {
   "resume": {
     "questions": 138,
-    "rappel_recherche": 0.877,
-    "rappel_elements": 0.862,
-    "mrr": 0.86,
-    "rappel_documents": 0.985,
+    "rappel_recherche": 0.985,
+    "rappel_elements": 0.962,
+    "mrr": 0.963,
+    "rappel_documents": 1.0,
     "taux_citation_complete": 1.0,
-    "citations_par_reponse": 2.993,
+    "citations_par_reponse": 3.0,
     "abstention_correcte": 1.0,
     "contextes_ecartes_total": 0,
-    "retrieval_ms_p50": 484,
-    "retrieval_ms_p95": 580,
-    "generation_ms_p50": 4262,
-    "generation_ms_p95": 13014
+    "retrieval_ms_p50": 959,
+    "retrieval_ms_p95": 1185,
+    "generation_ms_p50": 4397,
+    "generation_ms_p95": 12831
   },
   "par_langue": {
     "en": {
       "questions": 68,
-      "rappel_recherche": 0.844,
-      "rappel_elements": 0.828,
-      "mrr": 0.836,
-      "rappel_documents": 0.984,
+      "rappel_recherche": 0.969,
+      "rappel_elements": 0.953,
+      "mrr": 0.953,
+      "rappel_documents": 1.0,
       "taux_citation_complete": 1.0
     },
     "fr": {
       "questions": 70,
-      "rappel_recherche": 0.909,
-      "rappel_elements": 0.894,
-      "mrr": 0.883,
-      "rappel_documents": 0.985,
+      "rappel_recherche": 1.0,
+      "rappel_elements": 0.97,
+      "mrr": 0.972,
+      "rappel_documents": 1.0,
       "taux_citation_complete": 1.0
     },
     "translinguistique": {
       "questions": 36,
-      "rappel_recherche": 0.889,
-      "rappel_elements": 0.889,
-      "mrr": 0.889,
+      "rappel_recherche": 1.0,
+      "rappel_elements": 1.0,
+      "mrr": 1.0,
       "rappel_documents": 1.0,
       "taux_citation_complete": 1.0
     },
     "même langue": {
       "questions": 102,
-      "rappel_recherche": 0.872,
-      "rappel_elements": 0.851,
-      "mrr": 0.848,
-      "rappel_documents": 0.979,
+      "rappel_recherche": 0.979,
+      "rappel_elements": 0.947,
+      "mrr": 0.949,
+      "rappel_documents": 1.0,
       "taux_citation_complete": 1.0
     }
   },
@@ -60,16 +60,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 7,
-      "citations_completes": 7,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 443,
-      "generation_ms": 8262
+      "retrieval_ms": 966,
+      "generation_ms": 8800
     },
     {
       "id": "G-002",
@@ -90,8 +90,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 391,
-      "generation_ms": 6483
+      "retrieval_ms": 771,
+      "generation_ms": 6906
     },
     {
       "id": "G-003",
@@ -104,16 +104,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
-      "taux_citation_complete": 1.0,
-      "contextes": 3,
+      "citations": 0,
+      "citations_completes": 0,
+      "taux_citation_complete": null,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en"
+        "en",
+        "fr"
       ],
-      "retrieval_ms": 450,
-      "generation_ms": 1911
+      "retrieval_ms": 954,
+      "generation_ms": 3261
     },
     {
       "id": "G-004",
@@ -135,8 +136,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 506,
-      "generation_ms": 5405
+      "retrieval_ms": 911,
+      "generation_ms": 6696
     },
     {
       "id": "G-005",
@@ -149,17 +150,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 5,
+      "citations_completes": 5,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 474,
-      "generation_ms": 4477
+      "retrieval_ms": 1070,
+      "generation_ms": 8128
     },
     {
       "id": "G-006",
@@ -180,8 +181,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 466,
-      "generation_ms": 5143
+      "retrieval_ms": 945,
+      "generation_ms": 5449
     },
     {
       "id": "G-007",
@@ -194,16 +195,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 7,
-      "citations_completes": 7,
+      "citations": 9,
+      "citations_completes": 9,
       "taux_citation_complete": 1.0,
-      "contextes": 3,
+      "contextes": 2,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 481,
-      "generation_ms": 11942
+      "retrieval_ms": 941,
+      "generation_ms": 12049
     },
     {
       "id": "G-008",
@@ -225,8 +226,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 441,
-      "generation_ms": 2131
+      "retrieval_ms": 936,
+      "generation_ms": 1871
     },
     {
       "id": "G-009",
@@ -242,36 +243,36 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 545,
-      "generation_ms": 3359
+      "retrieval_ms": 989,
+      "generation_ms": 3104
     },
     {
       "id": "G-010",
       "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
-      "rappel_documents": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
-      "contextes": 3,
+      "citations": 1,
+      "citations_completes": 1,
+      "taux_citation_complete": 1.0,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 534,
-      "generation_ms": 1653
+      "retrieval_ms": 1008,
+      "generation_ms": 2906
     },
     {
       "id": "G-011",
@@ -284,16 +285,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 6,
-      "citations_completes": 6,
+      "citations": 5,
+      "citations_completes": 5,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 491,
-      "generation_ms": 8737
+      "retrieval_ms": 1000,
+      "generation_ms": 8675
     },
     {
       "id": "G-012",
@@ -314,8 +315,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 510,
-      "generation_ms": 2116
+      "retrieval_ms": 1001,
+      "generation_ms": 3567
     },
     {
       "id": "G-013",
@@ -328,16 +329,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 5,
+      "citations_completes": 5,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 529,
-      "generation_ms": 5240
+      "retrieval_ms": 952,
+      "generation_ms": 9508
     },
     {
       "id": "G-014",
@@ -350,16 +351,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 453,
-      "generation_ms": 6628
+      "retrieval_ms": 935,
+      "generation_ms": 5266
     },
     {
       "id": "G-015",
@@ -380,8 +381,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 489,
-      "generation_ms": 3977
+      "retrieval_ms": 1118,
+      "generation_ms": 4068
     },
     {
       "id": "G-016",
@@ -394,16 +395,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 439,
-      "generation_ms": 2766
+      "retrieval_ms": 943,
+      "generation_ms": 2718
     },
     {
       "id": "G-017",
@@ -419,13 +420,13 @@
       "citations": 2,
       "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 2,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 529,
-      "generation_ms": 3836
+      "retrieval_ms": 1011,
+      "generation_ms": 3023
     },
     {
       "id": "G-018",
@@ -446,8 +447,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 428,
-      "generation_ms": 4457
+      "retrieval_ms": 929,
+      "generation_ms": 4813
     },
     {
       "id": "G-019",
@@ -460,16 +461,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 1,
+      "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 388,
-      "generation_ms": 4482
+      "retrieval_ms": 882,
+      "generation_ms": 2976
     },
     {
       "id": "G-020",
@@ -490,8 +491,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 477,
-      "generation_ms": 4043
+      "retrieval_ms": 984,
+      "generation_ms": 4266
     },
     {
       "id": "G-021",
@@ -504,16 +505,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 14,
+      "citations_completes": 14,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 447,
-      "generation_ms": 3778
+      "retrieval_ms": 915,
+      "generation_ms": 16755
     },
     {
       "id": "G-022",
@@ -534,31 +535,31 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 456,
-      "generation_ms": 2394
+      "retrieval_ms": 943,
+      "generation_ms": 4051
     },
     {
       "id": "G-023",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 1.0,
+      "rappel_elements": 0.0,
       "rappel_recherche": 1.0,
-      "rang_reciproque": 0.25,
+      "rang_reciproque": 0.16666666666666666,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
-      "taux_citation_complete": 1.0,
+      "citations": 0,
+      "citations_completes": 0,
+      "taux_citation_complete": null,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 489,
-      "generation_ms": 4210
+      "retrieval_ms": 894,
+      "generation_ms": 1585
     },
     {
       "id": "G-024",
@@ -571,8 +572,8 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 8,
-      "citations_completes": 8,
+      "citations": 7,
+      "citations_completes": 7,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
@@ -580,8 +581,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 506,
-      "generation_ms": 6575
+      "retrieval_ms": 958,
+      "generation_ms": 6871
     },
     {
       "id": "G-025",
@@ -603,8 +604,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 438,
-      "generation_ms": 5225
+      "retrieval_ms": 879,
+      "generation_ms": 5197
     },
     {
       "id": "G-026",
@@ -617,16 +618,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
       "contextes": 2,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 424,
-      "generation_ms": 1837
+      "retrieval_ms": 848,
+      "generation_ms": 2827
     },
     {
       "id": "G-027",
@@ -647,8 +648,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 485,
-      "generation_ms": 2409
+      "retrieval_ms": 932,
+      "generation_ms": 2546
     },
     {
       "id": "G-028",
@@ -661,16 +662,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 494,
-      "generation_ms": 2147
+      "retrieval_ms": 1049,
+      "generation_ms": 4684
     },
     {
       "id": "G-029",
@@ -692,8 +693,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 511,
-      "generation_ms": 7128
+      "retrieval_ms": 998,
+      "generation_ms": 7352
     },
     {
       "id": "G-030",
@@ -706,8 +707,8 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
@@ -715,8 +716,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 468,
-      "generation_ms": 4265
+      "retrieval_ms": 962,
+      "generation_ms": 4871
     },
     {
       "id": "G-031",
@@ -737,8 +738,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 511,
-      "generation_ms": 4971
+      "retrieval_ms": 934,
+      "generation_ms": 5064
     },
     {
       "id": "G-032",
@@ -751,16 +752,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 520,
-      "generation_ms": 7935
+      "retrieval_ms": 1147,
+      "generation_ms": 13544
     },
     {
       "id": "G-033",
@@ -776,13 +777,13 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 2,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 481,
-      "generation_ms": 3475
+      "retrieval_ms": 1126,
+      "generation_ms": 3956
     },
     {
       "id": "G-034",
@@ -795,38 +796,38 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 524,
-      "generation_ms": 3637
+      "retrieval_ms": 975,
+      "generation_ms": 4872
     },
     {
       "id": "G-035",
       "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
+      "citations": 1,
+      "citations_completes": 1,
+      "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 413,
-      "generation_ms": 1368
+      "retrieval_ms": 887,
+      "generation_ms": 5347
     },
     {
       "id": "G-036",
@@ -847,8 +848,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 530,
-      "generation_ms": 4262
+      "retrieval_ms": 1046,
+      "generation_ms": 4235
     },
     {
       "id": "G-037",
@@ -869,8 +870,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 492,
-      "generation_ms": 3192
+      "retrieval_ms": 990,
+      "generation_ms": 3265
     },
     {
       "id": "G-038",
@@ -886,14 +887,14 @@
       "citations": 3,
       "citations_completes": 3,
       "taux_citation_complete": 1.0,
-      "contextes": 3,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 477,
-      "generation_ms": 2897
+      "retrieval_ms": 983,
+      "generation_ms": 4472
     },
     {
       "id": "G-039",
@@ -914,8 +915,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 462,
-      "generation_ms": 2753
+      "retrieval_ms": 832,
+      "generation_ms": 2860
     },
     {
       "id": "G-040",
@@ -928,16 +929,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 13,
-      "citations_completes": 13,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 512,
-      "generation_ms": 8351
+      "retrieval_ms": 995,
+      "generation_ms": 4669
     },
     {
       "id": "G-041",
@@ -959,8 +960,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 536,
-      "generation_ms": 2117
+      "retrieval_ms": 855,
+      "generation_ms": 2015
     },
     {
       "id": "G-042",
@@ -973,16 +974,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 503,
-      "generation_ms": 5685
+      "retrieval_ms": 964,
+      "generation_ms": 6123
     },
     {
       "id": "G-043",
@@ -1003,8 +1004,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 494,
-      "generation_ms": 3280
+      "retrieval_ms": 941,
+      "generation_ms": 2995
     },
     {
       "id": "G-044",
@@ -1017,16 +1018,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 5,
-      "citations_completes": 5,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 555,
-      "generation_ms": 4857
+      "retrieval_ms": 919,
+      "generation_ms": 5534
     },
     {
       "id": "G-045",
@@ -1039,16 +1040,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 8,
-      "citations_completes": 8,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 484,
-      "generation_ms": 15780
+      "retrieval_ms": 929,
+      "generation_ms": 11748
     },
     {
       "id": "G-046",
@@ -1070,8 +1072,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 502,
-      "generation_ms": 2022
+      "retrieval_ms": 987,
+      "generation_ms": 2214
     },
     {
       "id": "G-047",
@@ -1092,30 +1094,31 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 559,
-      "generation_ms": 4071
+      "retrieval_ms": 1165,
+      "generation_ms": 4323
     },
     {
       "id": "G-048",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
-      "contextes": 4,
+      "citations": 4,
+      "citations_completes": 4,
+      "taux_citation_complete": 1.0,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 482,
-      "generation_ms": 1218
+      "retrieval_ms": 1020,
+      "generation_ms": 3856
     },
     {
       "id": "G-049",
@@ -1131,35 +1134,36 @@
       "citations": 4,
       "citations_completes": 4,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 581,
-      "generation_ms": 5816
+      "retrieval_ms": 1212,
+      "generation_ms": 6923
     },
     {
       "id": "G-050",
       "langue": "fr",
       "translinguistique": true,
       "type": "factuelle-translinguistique",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
       "citations": 2,
       "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 632,
-      "generation_ms": 4893
+      "retrieval_ms": 1070,
+      "generation_ms": 3525
     },
     {
       "id": "G-051",
@@ -1175,13 +1179,13 @@
       "citations": 4,
       "citations_completes": 4,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 467,
-      "generation_ms": 8453
+      "retrieval_ms": 1016,
+      "generation_ms": 9120
     },
     {
       "id": "G-052",
@@ -1197,13 +1201,13 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 2,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 580,
-      "generation_ms": 1657
+      "retrieval_ms": 940,
+      "generation_ms": 3104
     },
     {
       "id": "G-053",
@@ -1224,8 +1228,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 609,
-      "generation_ms": 5890
+      "retrieval_ms": 855,
+      "generation_ms": 7674
     },
     {
       "id": "G-054",
@@ -1247,8 +1251,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 457,
-      "generation_ms": 1913
+      "retrieval_ms": 934,
+      "generation_ms": 2031
     },
     {
       "id": "G-055",
@@ -1264,35 +1268,36 @@
       "citations": 8,
       "citations_completes": 8,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 443,
-      "generation_ms": 6596
+      "retrieval_ms": 922,
+      "generation_ms": 6041
     },
     {
       "id": "G-056",
       "langue": "fr",
       "translinguistique": true,
       "type": "factuelle-translinguistique",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 8,
-      "citations_completes": 8,
+      "citations": 1,
+      "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 566,
-      "generation_ms": 20563
+      "retrieval_ms": 1185,
+      "generation_ms": 3672
     },
     {
       "id": "G-057",
@@ -1305,16 +1310,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 1,
+      "citations_completes": 1,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 523,
-      "generation_ms": 5049
+      "retrieval_ms": 1008,
+      "generation_ms": 5138
     },
     {
       "id": "G-058",
@@ -1336,8 +1342,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 441,
-      "generation_ms": 4523
+      "retrieval_ms": 864,
+      "generation_ms": 5652
     },
     {
       "id": "G-059",
@@ -1350,16 +1356,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 2,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 437,
-      "generation_ms": 2555
+      "retrieval_ms": 882,
+      "generation_ms": 3123
     },
     {
       "id": "G-060",
@@ -1380,8 +1386,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 418,
-      "generation_ms": 3078
+      "retrieval_ms": 863,
+      "generation_ms": 3141
     },
     {
       "id": "G-061",
@@ -1394,39 +1400,39 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 7,
-      "citations_completes": 7,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 422,
-      "generation_ms": 4458
+      "retrieval_ms": 998,
+      "generation_ms": 3223
     },
     {
       "id": "G-062",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
-      "contextes": 5,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 535,
-      "generation_ms": 2684
+      "retrieval_ms": 974,
+      "generation_ms": 6073
     },
     {
       "id": "G-063",
@@ -1439,22 +1445,113 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
+      "citations": 8,
+      "citations_completes": 8,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 521,
-      "generation_ms": 6512
+      "retrieval_ms": 994,
+      "generation_ms": 9748
     },
     {
       "id": "G-064",
       "langue": "en",
       "translinguistique": true,
       "type": "factuelle-translinguistique",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 3,
+      "citations_completes": 3,
+      "taux_citation_complete": 1.0,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "en",
+        "fr"
+      ],
+      "retrieval_ms": 937,
+      "generation_ms": 3464
+    },
+    {
+      "id": "G-065",
+      "langue": "fr",
+      "translinguistique": false,
+      "type": "factuelle",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 2,
+      "citations_completes": 2,
+      "taux_citation_complete": 1.0,
+      "contextes": 5,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "en",
+        "fr"
+      ],
+      "retrieval_ms": 1080,
+      "generation_ms": 4669
+    },
+    {
+      "id": "G-066",
+      "langue": "fr",
+      "translinguistique": false,
+      "type": "factuelle",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 0,
+      "citations_completes": 0,
+      "taux_citation_complete": null,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "en",
+        "fr"
+      ],
+      "retrieval_ms": 971,
+      "generation_ms": 4205
+    },
+    {
+      "id": "G-067",
+      "langue": "en",
+      "translinguistique": true,
+      "type": "factuelle-translinguistique",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 3,
+      "citations_completes": 3,
+      "taux_citation_complete": 1.0,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "fr"
+      ],
+      "retrieval_ms": 990,
+      "generation_ms": 3574
+    },
+    {
+      "id": "G-068",
+      "langue": "fr",
+      "translinguistique": false,
+      "type": "factuelle",
       "rappel_elements": 1.0,
       "rappel_recherche": 1.0,
       "rang_reciproque": 1.0,
@@ -1470,99 +1567,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 465,
-      "generation_ms": 2266
-    },
-    {
-      "id": "G-065",
-      "langue": "fr",
-      "translinguistique": false,
-      "type": "factuelle",
-      "rappel_elements": 1.0,
-      "rappel_recherche": 1.0,
-      "rang_reciproque": 1.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
-      "taux_citation_complete": 1.0,
-      "contextes": 5,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "en",
-        "fr"
-      ],
-      "retrieval_ms": 539,
-      "generation_ms": 6186
-    },
-    {
-      "id": "G-066",
-      "langue": "fr",
-      "translinguistique": false,
-      "type": "factuelle",
-      "rappel_elements": 1.0,
-      "rappel_recherche": 1.0,
-      "rang_reciproque": 1.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 6,
-      "citations_completes": 6,
-      "taux_citation_complete": 1.0,
-      "contextes": 5,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "en",
-        "fr"
-      ],
-      "retrieval_ms": 499,
-      "generation_ms": 5082
-    },
-    {
-      "id": "G-067",
-      "langue": "en",
-      "translinguistique": true,
-      "type": "factuelle-translinguistique",
-      "rappel_elements": 1.0,
-      "rappel_recherche": 1.0,
-      "rang_reciproque": 1.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
-      "taux_citation_complete": 1.0,
-      "contextes": 4,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "fr"
-      ],
-      "retrieval_ms": 606,
-      "generation_ms": 4786
-    },
-    {
-      "id": "G-068",
-      "langue": "fr",
-      "translinguistique": false,
-      "type": "factuelle",
-      "rappel_elements": 1.0,
-      "rappel_recherche": 1.0,
-      "rang_reciproque": 1.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
-      "taux_citation_complete": 1.0,
-      "contextes": 4,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "en",
-        "fr"
-      ],
-      "retrieval_ms": 431,
-      "generation_ms": 3321
+      "retrieval_ms": 863,
+      "generation_ms": 3747
     },
     {
       "id": "G-069",
@@ -1575,16 +1581,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 621,
-      "generation_ms": 7360
+      "retrieval_ms": 949,
+      "generation_ms": 8473
     },
     {
       "id": "G-070",
@@ -1603,11 +1610,10 @@
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en",
-        "fr"
+        "en"
       ],
-      "retrieval_ms": 418,
-      "generation_ms": 4886
+      "retrieval_ms": 902,
+      "generation_ms": 4644
     },
     {
       "id": "G-071",
@@ -1626,10 +1632,11 @@
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 540,
-      "generation_ms": 4543
+      "retrieval_ms": 1192,
+      "generation_ms": 5981
     },
     {
       "id": "G-072",
@@ -1651,8 +1658,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 484,
-      "generation_ms": 1668
+      "retrieval_ms": 869,
+      "generation_ms": 1799
     },
     {
       "id": "G-073",
@@ -1674,8 +1681,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 445,
-      "generation_ms": 3101
+      "retrieval_ms": 959,
+      "generation_ms": 1437
     },
     {
       "id": "G-074",
@@ -1688,16 +1695,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
-      "contextes": 2,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 495,
-      "generation_ms": 3289
+      "retrieval_ms": 1068,
+      "generation_ms": 5756
     },
     {
       "id": "G-075",
@@ -1710,8 +1717,8 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 11,
-      "citations_completes": 11,
+      "citations": 13,
+      "citations_completes": 13,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
@@ -1719,8 +1726,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 419,
-      "generation_ms": 14013
+      "retrieval_ms": 882,
+      "generation_ms": 14670
     },
     {
       "id": "G-076",
@@ -1733,8 +1740,8 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 10,
+      "citations_completes": 10,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
@@ -1742,17 +1749,17 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 618,
-      "generation_ms": 5365
+      "retrieval_ms": 1325,
+      "generation_ms": 18044
     },
     {
       "id": "G-077",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
@@ -1764,8 +1771,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 550,
-      "generation_ms": 5133
+      "retrieval_ms": 995,
+      "generation_ms": 4326
     },
     {
       "id": "G-078",
@@ -1787,8 +1794,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 557,
-      "generation_ms": 2642
+      "retrieval_ms": 1025,
+      "generation_ms": 2889
     },
     {
       "id": "G-079",
@@ -1809,8 +1816,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 525,
-      "generation_ms": 5101
+      "retrieval_ms": 1106,
+      "generation_ms": 2903
     },
     {
       "id": "G-080",
@@ -1826,14 +1833,13 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en",
-        "fr"
+        "en"
       ],
-      "retrieval_ms": 477,
-      "generation_ms": 2451
+      "retrieval_ms": 938,
+      "generation_ms": 2219
     },
     {
       "id": "G-081",
@@ -1855,8 +1861,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 430,
-      "generation_ms": 4479
+      "retrieval_ms": 934,
+      "generation_ms": 4538
     },
     {
       "id": "G-082",
@@ -1872,35 +1878,36 @@
       "citations": 3,
       "citations_completes": 3,
       "taux_citation_complete": 1.0,
-      "contextes": 2,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en"
+        "en",
+        "fr"
       ],
-      "retrieval_ms": 544,
-      "generation_ms": 7153
+      "retrieval_ms": 1185,
+      "generation_ms": 5803
     },
     {
       "id": "G-083",
       "langue": "en",
       "translinguistique": true,
       "type": "factuelle-translinguistique",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
-      "contextes": 5,
+      "citations": 4,
+      "citations_completes": 4,
+      "taux_citation_complete": 1.0,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 461,
-      "generation_ms": 1425
+      "retrieval_ms": 1016,
+      "generation_ms": 4426
     },
     {
       "id": "G-084",
@@ -1922,8 +1929,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 468,
-      "generation_ms": 2860
+      "retrieval_ms": 867,
+      "generation_ms": 2982
     },
     {
       "id": "G-085",
@@ -1939,13 +1946,14 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 402,
-      "generation_ms": 3440
+      "retrieval_ms": 797,
+      "generation_ms": 3776
     },
     {
       "id": "G-086",
@@ -1958,8 +1966,8 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
@@ -1967,8 +1975,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 475,
-      "generation_ms": 5898
+      "retrieval_ms": 887,
+      "generation_ms": 2671
     },
     {
       "id": "G-087",
@@ -1989,8 +1997,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 523,
-      "generation_ms": 4534
+      "retrieval_ms": 930,
+      "generation_ms": 4547
     },
     {
       "id": "G-088",
@@ -2003,17 +2011,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en",
         "fr"
       ],
-      "retrieval_ms": 550,
-      "generation_ms": 3981
+      "retrieval_ms": 1027,
+      "generation_ms": 4483
     },
     {
       "id": "G-089",
@@ -2034,8 +2041,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 518,
-      "generation_ms": 4110
+      "retrieval_ms": 1185,
+      "generation_ms": 3532
     },
     {
       "id": "G-090",
@@ -2048,16 +2055,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 482,
-      "generation_ms": 5238
+      "retrieval_ms": 985,
+      "generation_ms": 5525
     },
     {
       "id": "G-091",
@@ -2070,23 +2077,44 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 1,
+      "citations_completes": 1,
       "taux_citation_complete": 1.0,
       "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en",
-        "fr"
+        "en"
       ],
-      "retrieval_ms": 487,
-      "generation_ms": 4956
+      "retrieval_ms": 950,
+      "generation_ms": 5051
     },
     {
       "id": "G-092",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 3,
+      "citations_completes": 3,
+      "taux_citation_complete": 1.0,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "fr"
+      ],
+      "retrieval_ms": 1057,
+      "generation_ms": 3553
+    },
+    {
+      "id": "G-093",
+      "langue": "en",
+      "translinguistique": true,
+      "type": "factuelle-translinguistique",
       "rappel_elements": 1.0,
       "rappel_recherche": 1.0,
       "rang_reciproque": 1.0,
@@ -2101,30 +2129,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 481,
-      "generation_ms": 3074
-    },
-    {
-      "id": "G-093",
-      "langue": "en",
-      "translinguistique": true,
-      "type": "factuelle-translinguistique",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
-      "contextes": 5,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "fr"
-      ],
-      "retrieval_ms": 474,
-      "generation_ms": 1182
+      "retrieval_ms": 963,
+      "generation_ms": 6972
     },
     {
       "id": "G-094",
@@ -2145,8 +2151,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 452,
-      "generation_ms": 3551
+      "retrieval_ms": 940,
+      "generation_ms": 3549
     },
     {
       "id": "G-095",
@@ -2162,13 +2168,13 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 3,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 457,
-      "generation_ms": 1328
+      "retrieval_ms": 1015,
+      "generation_ms": 1484
     },
     {
       "id": "G-096",
@@ -2189,8 +2195,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 504,
-      "generation_ms": 14857
+      "retrieval_ms": 1193,
+      "generation_ms": 12831
     },
     {
       "id": "G-097",
@@ -2203,16 +2209,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 8,
-      "citations_completes": 8,
+      "citations": 5,
+      "citations_completes": 5,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 555,
-      "generation_ms": 9733
+      "retrieval_ms": 1168,
+      "generation_ms": 6988
     },
     {
       "id": "G-098",
@@ -2233,8 +2239,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 521,
-      "generation_ms": 9521
+      "retrieval_ms": 1112,
+      "generation_ms": 6151
     },
     {
       "id": "G-099",
@@ -2256,8 +2262,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 443,
-      "generation_ms": 3579
+      "retrieval_ms": 933,
+      "generation_ms": 3248
     },
     {
       "id": "G-100",
@@ -2270,17 +2276,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 1,
-      "citations_completes": 1,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 480,
-      "generation_ms": 3670
+      "retrieval_ms": 1012,
+      "generation_ms": 5246
     },
     {
       "id": "G-101",
@@ -2293,16 +2299,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 13,
-      "citations_completes": 13,
+      "citations": 9,
+      "citations_completes": 9,
       "taux_citation_complete": 1.0,
-      "contextes": 5,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 492,
-      "generation_ms": 11763
+      "retrieval_ms": 934,
+      "generation_ms": 8127
     },
     {
       "id": "G-102",
@@ -2315,38 +2321,38 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 21,
-      "citations_completes": 21,
+      "citations": 10,
+      "citations_completes": 10,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 538,
-      "generation_ms": 17958
+      "retrieval_ms": 1181,
+      "generation_ms": 10785
     },
     {
       "id": "G-103",
       "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 6,
-      "citations_completes": 6,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
-      "contextes": 3,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 438,
-      "generation_ms": 13014
+      "retrieval_ms": 1016,
+      "generation_ms": 3958
     },
     {
       "id": "G-104",
@@ -2362,13 +2368,13 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 493,
-      "generation_ms": 3044
+      "retrieval_ms": 1090,
+      "generation_ms": 3184
     },
     {
       "id": "G-105",
@@ -2389,8 +2395,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 417,
-      "generation_ms": 3375
+      "retrieval_ms": 869,
+      "generation_ms": 3125
     },
     {
       "id": "G-106",
@@ -2406,14 +2412,14 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 441,
-      "generation_ms": 6019
+      "retrieval_ms": 825,
+      "generation_ms": 4933
     },
     {
       "id": "G-107",
@@ -2426,16 +2432,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
+      "citations": 7,
+      "citations_completes": 7,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 463,
-      "generation_ms": 12652
+      "retrieval_ms": 955,
+      "generation_ms": 12744
     },
     {
       "id": "G-108",
@@ -2448,16 +2454,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 6,
-      "citations_completes": 6,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 471,
-      "generation_ms": 11581
+      "retrieval_ms": 965,
+      "generation_ms": 10387
     },
     {
       "id": "G-109",
@@ -2473,14 +2479,14 @@
       "citations": 2,
       "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 487,
-      "generation_ms": 3787
+      "retrieval_ms": 970,
+      "generation_ms": 4546
     },
     {
       "id": "G-110",
@@ -2493,16 +2499,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 9,
-      "citations_completes": 9,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 548,
-      "generation_ms": 11320
+      "retrieval_ms": 1101,
+      "generation_ms": 6808
     },
     {
       "id": "G-111",
@@ -2523,8 +2529,8 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 500,
-      "generation_ms": 4921
+      "retrieval_ms": 1074,
+      "generation_ms": 4068
     },
     {
       "id": "G-112",
@@ -2537,16 +2543,17 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 2,
+      "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 4,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
+        "en",
         "fr"
       ],
-      "retrieval_ms": 495,
-      "generation_ms": 3091
+      "retrieval_ms": 948,
+      "generation_ms": 2862
     },
     {
       "id": "G-113",
@@ -2567,8 +2574,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 484,
-      "generation_ms": 8085
+      "retrieval_ms": 962,
+      "generation_ms": 7338
     },
     {
       "id": "G-114",
@@ -2584,13 +2591,13 @@
       "citations": 2,
       "citations_completes": 2,
       "taux_citation_complete": 1.0,
-      "contextes": 5,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 510,
-      "generation_ms": 3426
+      "retrieval_ms": 1104,
+      "generation_ms": 3178
     },
     {
       "id": "G-115",
@@ -2603,16 +2610,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 6,
-      "citations_completes": 6,
+      "citations": 8,
+      "citations_completes": 8,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 475,
-      "generation_ms": 17997
+      "retrieval_ms": 1075,
+      "generation_ms": 15651
     },
     {
       "id": "G-116",
@@ -2625,16 +2632,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 1,
+      "citations_completes": 1,
       "taux_citation_complete": 1.0,
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 526,
-      "generation_ms": 5621
+      "retrieval_ms": 1110,
+      "generation_ms": 4397
     },
     {
       "id": "G-117",
@@ -2656,30 +2663,31 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 496,
-      "generation_ms": 2676
+      "retrieval_ms": 945,
+      "generation_ms": 2345
     },
     {
       "id": "G-118",
       "langue": "fr",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
-      "rappel_documents": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 0,
-      "citations_completes": 0,
-      "taux_citation_complete": null,
+      "citations": 2,
+      "citations_completes": 2,
+      "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en"
+        "en",
+        "fr"
       ],
-      "retrieval_ms": 493,
-      "generation_ms": 2327
+      "retrieval_ms": 980,
+      "generation_ms": 2751
     },
     {
       "id": "G-119",
@@ -2701,8 +2709,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 491,
-      "generation_ms": 11498
+      "retrieval_ms": 974,
+      "generation_ms": 13005
     },
     {
       "id": "G-120",
@@ -2723,8 +2731,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 464,
-      "generation_ms": 5450
+      "retrieval_ms": 940,
+      "generation_ms": 6131
     },
     {
       "id": "G-121",
@@ -2737,38 +2745,38 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 2,
-      "citations_completes": 2,
+      "citations": 3,
+      "citations_completes": 3,
       "taux_citation_complete": 1.0,
       "contextes": 2,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 450,
-      "generation_ms": 4208
+      "retrieval_ms": 995,
+      "generation_ms": 4283
     },
     {
       "id": "G-122",
       "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 7,
-      "citations_completes": 7,
+      "citations": 6,
+      "citations_completes": 6,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 500,
-      "generation_ms": 10393
+      "retrieval_ms": 1023,
+      "generation_ms": 10259
     },
     {
       "id": "G-123",
@@ -2784,14 +2792,14 @@
       "citations": 1,
       "citations_completes": 1,
       "taux_citation_complete": 1.0,
-      "contextes": 5,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 463,
-      "generation_ms": 2811
+      "retrieval_ms": 970,
+      "generation_ms": 2591
     },
     {
       "id": "G-124",
@@ -2804,17 +2812,16 @@
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 3,
-      "citations_completes": 3,
+      "citations": 4,
+      "citations_completes": 4,
       "taux_citation_complete": 1.0,
       "contextes": 3,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "en",
-        "fr"
+        "en"
       ],
-      "retrieval_ms": 448,
-      "generation_ms": 6194
+      "retrieval_ms": 888,
+      "generation_ms": 6355
     },
     {
       "id": "G-125",
@@ -2835,12 +2842,35 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 487,
-      "generation_ms": 3332
+      "retrieval_ms": 941,
+      "generation_ms": 3072
     },
     {
       "id": "G-126",
       "langue": "fr",
+      "translinguistique": false,
+      "type": "factuelle",
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 1.0,
+      "rappel_documents": 1.0,
+      "abstention_correcte": null,
+      "hallucination_probable": null,
+      "citations": 1,
+      "citations_completes": 1,
+      "taux_citation_complete": 1.0,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "en",
+        "fr"
+      ],
+      "retrieval_ms": 908,
+      "generation_ms": 3128
+    },
+    {
+      "id": "G-127",
+      "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
       "rappel_elements": 1.0,
@@ -2855,33 +2885,10 @@
       "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
-        "fr"
+        "en"
       ],
-      "retrieval_ms": 525,
-      "generation_ms": 3254
-    },
-    {
-      "id": "G-127",
-      "langue": "en",
-      "translinguistique": false,
-      "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
-      "rappel_documents": 1.0,
-      "abstention_correcte": null,
-      "hallucination_probable": null,
-      "citations": 5,
-      "citations_completes": 5,
-      "taux_citation_complete": 1.0,
-      "contextes": 4,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "en",
-        "fr"
-      ],
-      "retrieval_ms": 436,
-      "generation_ms": 9144
+      "retrieval_ms": 844,
+      "generation_ms": 4784
     },
     {
       "id": "G-128",
@@ -2903,8 +2910,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 500,
-      "generation_ms": 3373
+      "retrieval_ms": 943,
+      "generation_ms": 3551
     },
     {
       "id": "G-129",
@@ -2926,30 +2933,30 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 532,
-      "generation_ms": 5410
+      "retrieval_ms": 942,
+      "generation_ms": 5581
     },
     {
       "id": "G-130",
       "langue": "en",
       "translinguistique": false,
       "type": "factuelle",
-      "rappel_elements": 0.0,
-      "rappel_recherche": 0.0,
-      "rang_reciproque": 0.0,
+      "rappel_elements": 1.0,
+      "rappel_recherche": 1.0,
+      "rang_reciproque": 0.5,
       "rappel_documents": 1.0,
       "abstention_correcte": null,
       "hallucination_probable": null,
-      "citations": 4,
-      "citations_completes": 4,
+      "citations": 5,
+      "citations_completes": 5,
       "taux_citation_complete": 1.0,
       "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 419,
-      "generation_ms": 11652
+      "retrieval_ms": 880,
+      "generation_ms": 6159
     },
     {
       "id": "N-001",
@@ -2965,14 +2972,14 @@
       "citations": 0,
       "citations_completes": 0,
       "taux_citation_complete": null,
-      "contextes": 3,
+      "contextes": 5,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en",
         "fr"
       ],
-      "retrieval_ms": 449,
-      "generation_ms": 1421
+      "retrieval_ms": 873,
+      "generation_ms": 1959
     },
     {
       "id": "N-002",
@@ -2993,8 +3000,8 @@
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 421,
-      "generation_ms": 1548
+      "retrieval_ms": 840,
+      "generation_ms": 1819
     },
     {
       "id": "N-003",
@@ -3016,8 +3023,8 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 437,
-      "generation_ms": 1228
+      "retrieval_ms": 849,
+      "generation_ms": 1385
     },
     {
       "id": "N-004",
@@ -3033,13 +3040,13 @@
       "citations": 0,
       "citations_completes": 0,
       "taux_citation_complete": null,
-      "contextes": 3,
+      "contextes": 4,
       "contextes_ecartes": 0,
       "langues_sources": [
         "en"
       ],
-      "retrieval_ms": 414,
-      "generation_ms": 1157
+      "retrieval_ms": 910,
+      "generation_ms": 1323
     },
     {
       "id": "N-005",
@@ -3060,34 +3067,11 @@
       "langues_sources": [
         "fr"
       ],
-      "retrieval_ms": 441,
-      "generation_ms": 1780
+      "retrieval_ms": 856,
+      "generation_ms": 1369
     },
     {
       "id": "N-006",
-      "langue": "en",
-      "translinguistique": false,
-      "type": "sans-reponse",
-      "rappel_elements": null,
-      "rappel_recherche": null,
-      "rang_reciproque": null,
-      "rappel_documents": null,
-      "abstention_correcte": true,
-      "hallucination_probable": false,
-      "citations": 1,
-      "citations_completes": 1,
-      "taux_citation_complete": 1.0,
-      "contextes": 5,
-      "contextes_ecartes": 0,
-      "langues_sources": [
-        "en",
-        "fr"
-      ],
-      "retrieval_ms": 377,
-      "generation_ms": 3439
-    },
-    {
-      "id": "N-007",
       "langue": "en",
       "translinguistique": false,
       "type": "sans-reponse",
@@ -3106,11 +3090,11 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 411,
-      "generation_ms": 1202
+      "retrieval_ms": 862,
+      "generation_ms": 1359
     },
     {
-      "id": "N-008",
+      "id": "N-007",
       "langue": "en",
       "translinguistique": false,
       "type": "sans-reponse",
@@ -3129,8 +3113,31 @@
         "en",
         "fr"
       ],
-      "retrieval_ms": 408,
-      "generation_ms": 1484
+      "retrieval_ms": 923,
+      "generation_ms": 1341
+    },
+    {
+      "id": "N-008",
+      "langue": "en",
+      "translinguistique": false,
+      "type": "sans-reponse",
+      "rappel_elements": null,
+      "rappel_recherche": null,
+      "rang_reciproque": null,
+      "rappel_documents": null,
+      "abstention_correcte": true,
+      "hallucination_probable": false,
+      "citations": 0,
+      "citations_completes": 0,
+      "taux_citation_complete": null,
+      "contextes": 4,
+      "contextes_ecartes": 0,
+      "langues_sources": [
+        "en",
+        "fr"
+      ],
+      "retrieval_ms": 837,
+      "generation_ms": 1267
     }
   ]
 }
