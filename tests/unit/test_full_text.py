@@ -8,7 +8,6 @@ Docling dépasse souvent cette limite et arrivait amputé au LLM.
 from src.agent import retriever
 from src.agent.retriever import _join_overlapping, full_texts
 
-
 # ─── Recollage des fenêtres recouvrantes ──────────────────────────────────────
 
 def test_recouvrement_supprime_a_la_jointure() -> None:
