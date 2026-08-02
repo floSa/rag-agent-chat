@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # API
     # Sessions LangGraph (checkpointer en mémoire) : bornes de purge. Sans
     # elles, chaque question laisse son état en mémoire indéfiniment.
+    # Fichier SQLite des sessions LangGraph. Vide = checkpointer en mémoire
+    # (sessions perdues au redémarrage, incompatible multi-workers).
+    checkpoint_db_path: str = Field(default="/app/data/checkpoints.sqlite",
+                                    alias="CHECKPOINT_DB_PATH")
     max_live_sessions: int = Field(default=200, alias="MAX_LIVE_SESSIONS")
     session_ttl_seconds: int = Field(default=3600, alias="SESSION_TTL_SECONDS")
 

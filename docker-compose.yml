@@ -23,6 +23,9 @@ services:
       # Modèles HF (embedding + cross-encoder) téléchargés au premier démarrage,
       # persistés pour survivre aux recreate du conteneur.
       - hf_cache:/root/.cache/huggingface
+      # Sessions LangGraph : une session en attente de sélection doit survivre
+      # à un redémarrage de l'API.
+      - agent_state:/app/data
     env_file:
       - .env
     healthcheck:
@@ -60,6 +63,8 @@ services:
 # Volumes
 # ──────────────────────────────────────────────────────────────────
 volumes:
+  agent_state:
+    name: rag_agent_state
   hf_cache:
     name: rag_hf_cache
 

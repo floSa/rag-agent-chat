@@ -7,6 +7,7 @@ streamlit==1.44.1
 
 # --- LangGraph (agentic loop) ---
 langgraph==0.4.3
+langgraph-checkpoint-sqlite==2.0.11
 langchain-core==0.3.59
 
 

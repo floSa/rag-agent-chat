@@ -1,7 +1,11 @@
 import logging
 import re
+import sqlite3
+from pathlib import Path
 
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
@@ -267,10 +271,39 @@ def build_graph() -> StateGraph:
     return graph
 
 
+def build_checkpointer() -> BaseCheckpointSaver:
+    """Ouvre le checkpointer qui persiste les sessions entre /chat/start et /resume.
+
+    Sur disque par défaut : en mémoire, une session en attente de sélection ne
+    survivait pas au redémarrage de l'API, et deux workers uvicorn ne
+    partageaient pas leurs threads — /chat/resume tombait alors sur un process
+    qui n'avait jamais vu le thread_id.
+
+    Repli en mémoire si le fichier est inaccessible (volume non monté, disque
+    en lecture seule) : mieux vaut un service dégradé qu'un service mort.
+    """
+    path = settings.checkpoint_db_path
+    if not path:
+        logger.info("Checkpointer en mémoire (CHECKPOINT_DB_PATH vide).")
+        return MemorySaver()
+    try:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        # check_same_thread=False : LangGraph exécute les nœuds synchrones dans
+        # un threadpool, la connexion est donc partagée entre threads.
+        connection = sqlite3.connect(path, check_same_thread=False)
+        saver = SqliteSaver(connection)
+        saver.setup()
+        logger.info("Checkpointer SQLite : %s", path)
+        return saver
+    except Exception:
+        logger.exception("Checkpointer SQLite indisponible (%s), repli en mémoire.", path)
+        return MemorySaver()
+
+
 # Graphe compilé avec interrupt avant la sélection des sources.
 # Le checkpointer est requis par LangGraph pour suspendre/reprendre le flux
 # (l'état est persisté par thread_id, cf. /chat/start et /chat/resume).
 agent_graph = build_graph().compile(
-    checkpointer=MemorySaver(),
+    checkpointer=build_checkpointer(),
     interrupt_before=["await_source_selection"],
 )
