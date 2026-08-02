@@ -148,19 +148,27 @@ def node_postprocess(state: AgentState) -> dict:
 
     # Les [src:ID] et [img:ID] référencent surtout des éléments des sections
     # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
-    # les deux. Le filename d'un élément vient du breadcrumb Document.
+    # les deux. Le nom du document est désormais porté par SectionContext ;
+    # l'ouvrage, lui, n'existe que dans les métadonnées vectorielles.
+    collections = {
+        c.filename: c.collection for c in state.get("reranked_chunks", []) if c.collection
+    }
+
     media_map: dict[str, str] = {}
     elements_map: dict[str, Citation] = {}
     for ctx in state.get("enriched_contexts", []):
-        filename = next((b.text for b in ctx.breadcrumbs if b.label == "document"), "")
-        for elem in ctx.elements:
+        # Les éléments des sections voisines sont citables au même titre que
+        # ceux de la section trouvée : ils sont dans le prompt.
+        for elem in (*ctx.before, *ctx.elements, *ctx.after):
             if elem.minio_url:
                 media_map.setdefault(elem.node_id, elem.minio_url)
             elements_map.setdefault(
                 elem.node_id,
                 Citation(
                     element_id=elem.node_id,
-                    filename=filename,
+                    filename=ctx.filename,
+                    collection=collections.get(ctx.filename, ""),
+                    section_title=ctx.section_title,
                     page_no=elem.page_no,
                     text_excerpt=(elem.text or "")[:150],
                 ),
@@ -183,6 +191,8 @@ def node_postprocess(state: AgentState) -> dict:
                 Citation(
                     element_id=eid,
                     filename=chunk.filename,
+                    collection=chunk.collection,
+                    section_title=chunk.section_title,
                     page_no=chunk.page_no,
                     text_excerpt=chunk.document[:150],
                 )

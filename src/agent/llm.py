@@ -40,6 +40,49 @@ def _build_context_message(
     return template.render(question=question, contexts=contexts)
 
 
+# Estimation grossière du ratio caractères/token. Le tokenizer réel dépend du
+# modèle ; ~3.5 est prudent pour du français, plus dense en tokens que l'anglais.
+_CHARS_PER_TOKEN = 3.5
+# Marge pour le prompt système, le gabarit et l'historique.
+_PROMPT_OVERHEAD_TOKENS = 512
+
+
+def context_budget_chars() -> int:
+    """Nombre de caractères de contexte que la fenêtre du modèle peut absorber.
+
+    `num_ctx` est partagé entre le prompt et la génération : ce qui est réservé
+    à `num_predict` n'est pas disponible pour les sources.
+    """
+    available = settings.llm_num_ctx - settings.llm_max_tokens - _PROMPT_OVERHEAD_TOKENS
+    return max(0, int(available * _CHARS_PER_TOKEN))
+
+
+def fit_contexts(
+    contexts: list[SectionContext], budget_chars: int
+) -> tuple[list[SectionContext], int]:
+    """Écarte les sources qui ne tiennent pas dans la fenêtre de contexte.
+
+    Sans cette borne, Ollama tronque le prompt lui-même — silencieusement, et
+    par le DÉBUT, donc en jetant les premières sources. Le système pouvait
+    répondre « je n'ai pas trouvé » sur une information qu'il avait reçue.
+
+    Les sources sont conservées dans leur ordre (le meilleur classement
+    d'abord) : c'est la queue de la liste qui saute.
+
+    Returns:
+        (sources retenues, nombre de sources écartées).
+    """
+    kept: list[SectionContext] = []
+    used = 0
+    for ctx in contexts:
+        cost = len(ctx.markdown)
+        if kept and used + cost > budget_chars:
+            continue
+        kept.append(ctx)
+        used += cost
+    return kept, len(contexts) - len(kept)
+
+
 def _build_messages(
     question: str,
     contexts: list[SectionContext],
@@ -50,7 +93,20 @@ def _build_messages(
     for msg in chat_history:
         msgs.append({"role": msg.role, "content": msg.content})
 
-    msgs.append({"role": "user", "content": _build_context_message(question, contexts)})
+    budget = context_budget_chars()
+    kept, dropped = fit_contexts(contexts, budget)
+    if dropped:
+        logger.warning(
+            "Contexte tronqué : %d source(s) sur %d écartée(s) — budget %d caractères "
+            "(num_ctx=%d, num_predict=%d). Réduire RERANK_TOP_K ou augmenter LLM_NUM_CTX.",
+            dropped,
+            len(contexts),
+            budget,
+            settings.llm_num_ctx,
+            settings.llm_max_tokens,
+        )
+
+    msgs.append({"role": "user", "content": _build_context_message(question, kept)})
     return msgs
 
 
@@ -84,6 +140,10 @@ async def generate_stream(
         "options": {
             "temperature": settings.llm_temperature,
             "num_predict": settings.llm_max_tokens,
+            # Explicite : sans ce champ la fenêtre dépend de l'OLLAMA_CONTEXT_LENGTH
+            # du serveur, qui diffère entre l'Ollama embarqué (8192) et le service
+            # central (32768). Le même prompt donnait deux comportements.
+            "num_ctx": settings.llm_num_ctx,
         },
     }
 
