@@ -102,6 +102,10 @@ class SectionElement(BaseModel):
     minio_url: str | None = None
     sequence: int
     page_no: int = 0
+    # Légende rattachée à une image ou un tableau, via l'arête DESCRIBES du
+    # graphe. Sans elle le LLM ne voit qu'un [img:ID] muet et ne peut pas
+    # juger si l'illustration sert la réponse.
+    caption: str = ""
 
 
 class SectionContext(BaseModel):
@@ -115,6 +119,14 @@ class SectionContext(BaseModel):
     # citations en dépend, et une heuristique sur `label` y était fausse.
     filename: str = ""                    # nom du document porteur
     section_title: str = ""               # titre de la section
+    # Queue de la section précédente et tête de la suivante : le « avant /
+    # après » demandé au produit. Les sections sont frères sous le Document,
+    # ordonnées par la propriété `sequence` de l'arête PARENT_OF.
+    before: list[SectionElement] = Field(default_factory=list)
+    after: list[SectionElement] = Field(default_factory=list)
+    before_title: str = ""
+    after_title: str = ""
+    truncated: bool = False               # la fenêtre a-t-elle écarté des éléments ?
 
 
 # ─── Chat / génération ────────────────────────────────────────────────────────

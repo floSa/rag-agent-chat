@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
+    # Fenêtre de contexte demandée à Ollama. Doit être passée explicitement :
+    # sinon elle dépend de l'OLLAMA_CONTEXT_LENGTH du serveur, qui diffère
+    # entre l'Ollama embarqué (8192) et le service central (32768) — le même
+    # prompt produisait donc deux comportements selon le mode de déploiement.
+    llm_num_ctx: int = Field(default=8192, alias="LLM_NUM_CTX")
     # Gemma 4 = modèle à raisonnement ; thinking désactivé par défaut (en CPU,
     # la réflexion peut consommer tout le budget avant le 1er token de réponse)
     llm_thinking: bool = Field(default=False, alias="LLM_THINKING")
@@ -43,7 +48,18 @@ class Settings(BaseSettings):
     retrieval_top_k: int = Field(default=20, alias="RETRIEVAL_TOP_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")
     max_search_iterations: int = Field(default=3, alias="MAX_SEARCH_ITERATIONS")
-    context_depth: int = Field(default=1, alias="CONTEXT_DEPTH")
+
+    # Reconstruction du contexte via le graphe
+    # ---------------------------------------
+    # Fenêtre d'éléments retenus autour de l'élément trouvé, à l'intérieur de
+    # sa section. Sans borne, un document sans SectionHeader rattache tous ses
+    # éléments au nœud Document : la « section » reconstruite est alors le
+    # document entier, et Ollama tronque le prompt en silence.
+    context_window_before: int = Field(default=6, alias="CONTEXT_WINDOW_BEFORE")
+    context_window_after: int = Field(default=6, alias="CONTEXT_WINDOW_AFTER")
+    # Éléments repris de la section précédente (queue) et de la suivante
+    # (tête). 0 désactive la traversée vers les sections voisines.
+    adjacent_section_elements: int = Field(default=3, alias="ADJACENT_SECTION_ELEMENTS")
 
     # Prompts
     prompts_dir: str = Field(default="/app/prompts", alias="PROMPTS_DIR")

@@ -1,7 +1,7 @@
 import logging
 import re
 from functools import lru_cache
-from typing import Any
+from typing import Any, NamedTuple
 
 from nebula3.Config import SessionPoolConfig
 from nebula3.gclient.net.SessionPool import SessionPool
@@ -15,12 +15,49 @@ logger = logging.getLogger(__name__)
 _SECTION_TAGS = {"SectionHeader"}
 # Tags racine (on s'arrête avant de remonter au-delà)
 _ROOT_TAGS = {"Document"}
-# Profondeur max de remontée pour éviter les boucles
+# Profondeur max de remontée pour éviter les boucles. L'ingestion produit
+# aujourd'hui un arbre à deux niveaux (Document > SectionHeader > éléments),
+# donc deux sauts suffisent ; la marge couvre une future imbrication réelle
+# des titres sans rien changer ici.
 _MAX_DEPTH = 10
+# Frères examinés de chaque côté avant d'abandonner la recherche d'une section
+# voisine. Les enfants d'un Document ne sont pas tous des en-têtes : quelques
+# candidats suffisent pour tomber sur le premier vrai SectionHeader.
+_SIBLING_CANDIDATES = 5
 
-# VIDs autorisés : hash sha256[:10] des éléments, ou doc_{stem} des documents.
-# Validé strictement car les VIDs sont interpolés dans les requêtes nGQL.
-_VALID_VID = re.compile(r"^[a-f0-9]{10}$|^doc_[\w\-. ()]{1,59}$")
+# Identifiant d'élément : hash sha256[:10] produit par l'ingestion. C'est le
+# SEUL format qu'un appelant extérieur peut fournir, et il est validé
+# strictement — les VIDs sont interpolés dans les requêtes nGQL.
+_VALID_VID = re.compile(r"^[a-f0-9]{10}$")
+
+# Les VIDs de documents sont dérivés du chemin du fichier : ils contiennent des
+# séparateurs, des espaces, des accents, et pèsent jusqu'à 256 octets
+# (« doc_htms/Practical MLOps/4. Continuous Delivery for ML Models »). Aucun
+# motif raisonnable ne les couvre sans devenir une passoire, et ils ne viennent
+# jamais de l'utilisateur : ils sont découverts en remontant le graphe. On les
+# échappe donc au lieu de les filtrer.
+_DOC_VID_PREFIX = "doc_"
+# Caractères de contrôle : jamais légitimes dans un VID, et seuls capables de
+# casser une littérale nGQL une fois les guillemets et antislashs échappés.
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _quote_vid(vid: str) -> str | None:
+    """Rend un VID sous forme de littérale nGQL échappée, None s'il est refusé.
+
+    Accepte les identifiants d'éléments (hash) et les identifiants de documents
+    (dérivés d'un chemin). L'antislash est échappé en premier, sans quoi les
+    séquences produites seraient invalides — même règle que l'échappement côté
+    ingestion.
+    """
+    if _VALID_VID.fullmatch(vid):
+        return f'"{vid}"'
+    if not vid.startswith(_DOC_VID_PREFIX) or len(vid.encode()) > 256:  # noqa: PLR2004
+        return None
+    if _CONTROL_CHARS.search(vid):
+        return None
+    escaped = vid.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
 
 
 @lru_cache(maxsize=1)
@@ -80,11 +117,12 @@ def _get_node_properties(node_id: str) -> dict:
     ("section_header", "paragraph", …) ; c'est le tag Nebula ("SectionHeader",
     "Document", …) qui identifie le type de nœud lors de la remontée.
     """
-    if not _VALID_VID.fullmatch(node_id):
+    quoted = _quote_vid(node_id)
+    if quoted is None:
         logger.warning("VID Nebula rejeté : %s", node_id[:80])
         return {}
 
-    result = _get_pool().execute(f'FETCH PROP ON * "{node_id}" YIELD vertex AS node;')
+    result = _get_pool().execute(f"FETCH PROP ON * {quoted} YIELD vertex AS node;")
     if not result.is_succeeded() or result.row_size() == 0:
         return {}
 
@@ -125,13 +163,99 @@ def _get_node_properties(node_id: str) -> dict:
     }
 
 
-def _find_parent(node_id: str) -> str | None:
-    """Retourne le VID du parent direct via PARENT_OF REVERSELY."""
+def _find_parent(node_id: str) -> tuple[str | None, int]:
+    """Retourne (VID du parent direct, rang du nœud sous ce parent).
+
+    Le rang est la propriété `sequence` de l'arête PARENT_OF, c'est-à-dire
+    l'ordre de lecture global attribué par l'ingestion. Il sert à situer une
+    section parmi ses sœurs pour atteindre la précédente et la suivante.
+
+    ATTENTION à la sémantique nGQL : sous ``REVERSELY``, ``dst(edge)`` renvoie
+    le nœud de DÉPART, pas le voisin atteint. C'est ``src(edge)`` qui porte le
+    parent. La requête retournait donc l'élément lui-même, la remontée
+    n'avançait jamais, et toute la reconstruction par le graphe était sans
+    effet — vérifié contre le graphe :
+
+        MATCH (p)-[:PARENT_OF]->(c) WHERE id(c)=="1730443c8f" -> "ffa6bda17d"
+        GO FROM "1730443c8f" OVER PARENT_OF REVERSELY YIELD dst(edge) -> "1730443c8f"
+        GO FROM "1730443c8f" OVER PARENT_OF REVERSELY YIELD src(edge) -> "ffa6bda17d"
+    """
+    quoted = _quote_vid(node_id)
+    if quoted is None:
+        return None, 0
     rows = _execute(
-        f'GO FROM "{node_id}" OVER PARENT_OF REVERSELY '
-        f'YIELD dst(edge) AS parent_id;'
+        f"GO FROM {quoted} OVER PARENT_OF REVERSELY "
+        f"YIELD src(edge) AS parent_id, properties(edge).sequence AS seq;"
     )
-    return rows[0]["parent_id"] if rows else None
+    if not rows:
+        return None, 0
+    return rows[0]["parent_id"], int(rows[0].get("seq") or 0)
+
+
+def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
+    """Retourne le SectionHeader frère juste avant ou juste après `sequence`.
+
+    Les en-têtes sont tous enfants directs du Document (l'ingestion ne les
+    imbrique pas) : la section voisine est donc un frère, atteint par un
+    encadrement sur la propriété `sequence` de l'arête. Le LIMIT borne le coût
+    sur un ouvrage de plusieurs centaines de sections.
+
+    Args:
+        parent_id: VID du parent commun (en pratique, le Document).
+        sequence: Rang de la section de départ.
+        direction: "before" ou "after".
+    """
+    if direction == "before":
+        comparison, order = f"< {sequence}", "DESC"
+    else:
+        comparison, order = f"> {sequence}", "ASC"
+
+    quoted = _quote_vid(parent_id)
+    if quoted is None:
+        return None
+    rows = _execute(
+        f"GO FROM {quoted} OVER PARENT_OF "
+        f"WHERE properties(edge).sequence {comparison} "
+        f"YIELD dst(edge) AS sibling_id, properties(edge).sequence AS seq "
+        f"| ORDER BY $-.seq {order} | LIMIT {_SIBLING_CANDIDATES};"
+    )
+    for row in rows:
+        sibling_id = row.get("sibling_id")
+        if sibling_id and _get_node_properties(sibling_id).get("tag") in _SECTION_TAGS:
+            return sibling_id
+    return None
+
+
+def _caption_links(caption_ids: list[str]) -> dict[str, str]:
+    """Relie chaque visuel à la légende qui le décrit, via l'arête DESCRIBES.
+
+    L'ingestion relie chaque Caption à l'illustration qui la précède. Sans
+    cette traversée, le LLM reçoit un `[img:ID]` sans le moindre texte et ne
+    peut pas juger si l'image sert la réponse — alors que le prompt système lui
+    demande précisément d'en juger.
+
+    Args:
+        caption_ids: VIDs des éléments de label ``caption`` de la section.
+
+    Returns:
+        Dict {VID du visuel: VID de sa légende}. Les textes sont repris par
+        l'appelant, qui les a déjà dans la liste des enfants.
+    """
+    quoted = [q for q in (_quote_vid(cid) for cid in caption_ids) if q]
+    if not quoted:
+        return {}
+
+    sources = ", ".join(quoted)
+    rows = _execute(
+        f"GO FROM {sources} OVER DESCRIBES "
+        f"YIELD src(edge) AS caption_id, dst(edge) AS visual_id;"
+    )
+    links: dict[str, str] = {}
+    for row in rows:
+        visual_id, caption_id = row.get("visual_id"), row.get("caption_id")
+        if visual_id and caption_id:
+            links[visual_id] = caption_id
+    return links
 
 
 def ping() -> bool:
@@ -144,8 +268,11 @@ def ping() -> bool:
 
 def _get_children(section_id: str) -> list[dict]:
     """Retourne les enfants d'une section, ordonnés par sequence."""
+    quoted = _quote_vid(section_id)
+    if quoted is None:
+        return []
     return _execute(
-        f'GO FROM "{section_id}" OVER PARENT_OF '
+        f'GO FROM {quoted} OVER PARENT_OF '
         f'YIELD dst(edge) AS child_id, '
         f'properties($$).label AS label, '
         f'properties($$).text AS text, '
@@ -156,17 +283,39 @@ def _get_children(section_id: str) -> list[dict]:
     )
 
 
-def _climb_to_section(element_id: str) -> tuple[str, list[BreadcrumbEntry]]:
-    """Remonte jusqu'au SectionHeader (ou Document) le plus proche.
+class _Ancestry(NamedTuple):
+    """Résultat de la remontée d'un élément vers la racine de son document."""
 
-    Retourne (section_id, breadcrumbs_du_haut_vers_le_bas).
+    section_id: str            # SectionHeader porteur, ou l'élément lui-même
+    section_sequence: int      # rang de cette section sous son parent
+    section_parent_id: str     # parent de la section — le Document en pratique
+    breadcrumbs: list[BreadcrumbEntry]   # du Document jusqu'à la section
+    filename: str              # nom du document, "" s'il n'a pas été atteint
+
+
+def _climb_to_section(element_id: str) -> _Ancestry:
+    """Remonte de l'élément jusqu'au Document, en notant sa section au passage.
+
+    La version précédente s'arrêtait au premier SectionHeader rencontré. Comme
+    l'ingestion rattache tout élément à son en-tête et tout en-tête au
+    Document, la remontée s'arrêtait donc systématiquement au premier saut : le
+    nœud Document n'était jamais atteint, et le nom du fichier — que le
+    post-processing des citations y cherchait — restait vide. Toutes les
+    citations issues du graphe s'affichaient sans document source.
+
+    On mémorise désormais la première section traversée, puis on poursuit
+    jusqu'au tag racine.
     """
     breadcrumbs_reversed: list[BreadcrumbEntry] = []
     current_id = element_id
     section_id = element_id
+    section_sequence = 0
+    section_parent_id = ""
+    filename = ""
+    section_found = False
 
     for _ in range(_MAX_DEPTH):
-        parent_id = _find_parent(current_id)
+        parent_id, sequence = _find_parent(current_id)
         if parent_id is None:
             break
 
@@ -179,25 +328,116 @@ def _climb_to_section(element_id: str) -> tuple[str, list[BreadcrumbEntry]]:
             BreadcrumbEntry(node_id=parent_id, label=label, text=text[:120])
         )
 
-        if tag in _SECTION_TAGS:
+        if tag in _SECTION_TAGS and not section_found:
             section_id = parent_id
-            break
+            section_found = True
+        elif not section_found:
+            # L'élément est enfant direct du Document : c'est lui qui porte son
+            # propre rang, et il n'y a pas de section intermédiaire.
+            section_sequence = sequence
+
         if tag in _ROOT_TAGS:
+            filename = text
+            if section_found and not section_parent_id:
+                section_parent_id = parent_id
             break
 
         current_id = parent_id
 
-    # Remettre dans l'ordre document → section
-    breadcrumbs = list(reversed(breadcrumbs_reversed))
-    return section_id, breadcrumbs
+    # Le rang de la section sous le Document n'est connu qu'au saut suivant.
+    if section_found:
+        parent_id, sequence = _find_parent(section_id)
+        section_parent_id = parent_id or section_parent_id
+        section_sequence = sequence
+
+    return _Ancestry(
+        section_id=section_id,
+        section_sequence=section_sequence,
+        section_parent_id=section_parent_id,
+        breadcrumbs=list(reversed(breadcrumbs_reversed)),
+        filename=filename,
+    )
+
+
+def _window_around(
+    rows: list[dict], anchor_id: str, before: int, after: int
+) -> tuple[list[dict], bool]:
+    """Restreint les enfants d'une section à une fenêtre autour de l'ancre.
+
+    Un document dépourvu de SectionHeader rattache tous ses éléments au nœud
+    Document : sans borne, la « section » reconstruite est le document entier,
+    et Ollama tronque le prompt en silence, par le début — donc en jetant les
+    premières sources.
+
+    Args:
+        rows: Enfants de la section, déjà ordonnés par `sequence`.
+        anchor_id: VID de l'élément trouvé par la recherche vectorielle.
+        before: Nombre d'éléments conservés avant l'ancre.
+        after: Nombre d'éléments conservés après.
+
+    Returns:
+        (fenêtre, des éléments ont-ils été écartés).
+    """
+    if not rows:
+        return [], False
+
+    index = next(
+        (i for i, row in enumerate(rows) if row.get("child_id") == anchor_id), None
+    )
+    if index is None:
+        # L'ancre est la section elle-même : on prend la tête de la section.
+        window = rows[: before + after + 1]
+        return window, len(window) < len(rows)
+
+    start = max(0, index - before)
+    stop = min(len(rows), index + after + 1)
+    return rows[start:stop], (start > 0 or stop < len(rows))
+
+
+def _render_element(elem: SectionElement) -> str:
+    """Rend un élément en markdown, suivi de son identifiant de citation.
+
+    Le marqueur `[src:ID]` est ce qui permet au LLM de citer précisément, et au
+    post-processing de résoudre la citation vers document / page / section.
+    """
+    label = elem.label.lower()
+    src = f"[src:{elem.node_id}]"
+
+    if label in ("paragraph", "text", "listitem"):
+        return f"{elem.text} {src}"
+    if label == "table":
+        header = f"[Tableau] {elem.caption}".rstrip() if elem.caption else "[Tableau]"
+        body = f"{header} {elem.text} {src}"
+        return f"{body}\n\n[img:{elem.node_id}]" if elem.minio_url else body
+    if label == "picture":
+        if not elem.minio_url:
+            return ""
+        # La légende est le seul texte dont dispose le LLM pour juger si
+        # l'illustration sert la réponse.
+        header = f"[Figure] {elem.caption}" if elem.caption else "[Figure]"
+        return f"{header}\n\n[img:{elem.node_id}]"
+    if label == "caption":
+        return f"_{elem.text}_ {src}"
+    if label in ("code", "formula"):
+        return f"```\n{elem.text}\n```\n{src}"
+    return f"{elem.text} {src}" if elem.text else ""
 
 
 def _build_markdown(
     breadcrumbs: list[BreadcrumbEntry],
     elements: list[SectionElement],
     section_text: str,
+    before: list[SectionElement] | None = None,
+    after: list[SectionElement] | None = None,
+    before_title: str = "",
+    after_title: str = "",
 ) -> str:
-    """Assemble le contexte enrichi en markdown structuré."""
+    """Assemble le contexte enrichi en markdown structuré.
+
+    Les éléments repris des sections voisines sont rendus dans des blocs
+    explicitement étiquetés : le LLM doit pouvoir distinguer ce qui appartient
+    à la section trouvée de ce qui l'entoure.
+    """
     if not breadcrumbs and not elements:
         return ""
 
@@ -207,83 +447,148 @@ def _build_markdown(
         trail = " > ".join(b.text[:60] or b.label for b in breadcrumbs)
         parts.append(f"[Contexte] {trail}\n")
 
+    if before:
+        parts.append(f"[Fin de la section précédente — {before_title}]".rstrip(" —"))
+        parts.extend(_render_element(e) for e in before)
+
     if section_text:
         parts.append(f"## {section_text}\n")
 
-    # Chaque élément textuel est suivi de son identifiant [src:ID] : c'est ce
-    # qui permet au LLM de citer précisément, et au post-processing de
-    # résoudre les citations vers fichier/page.
-    for elem in elements:
-        label = elem.label.lower()
-        src = f"[src:{elem.node_id}]"
-        if label in ("paragraph", "text", "listitem"):
-            parts.append(f"{elem.text} {src}")
-        elif label == "table":
-            parts.append(f"[Tableau] {elem.text} {src}")
-            if elem.minio_url:
-                parts.append(f"[img:{elem.node_id}]")
-        elif label == "picture":
-            if elem.minio_url:
-                parts.append(f"[img:{elem.node_id}]")
-        elif label == "caption":
-            parts.append(f"_{elem.text}_ {src}")
-        elif label in ("code", "formula"):
-            parts.append(f"```\n{elem.text}\n```\n{src}")
-        else:
-            if elem.text:
-                parts.append(f"{elem.text} {src}")
+    parts.extend(_render_element(e) for e in elements)
+
+    if after:
+        parts.append(f"[Début de la section suivante — {after_title}]".rstrip(" —"))
+        parts.extend(_render_element(e) for e in after)
 
     return "\n\n".join(p for p in parts if p.strip())
+
+
+def _to_elements(rows: list[dict]) -> list[SectionElement]:
+    """Convertit des lignes nGQL d'enfants en éléments de section."""
+    return [
+        SectionElement(
+            node_id=row.get("child_id", ""),
+            label=row.get("label", "") or "",
+            text=row.get("text", "") or "",
+            minio_url=row.get("minio_url") or None,
+            sequence=int(row.get("seq", 0)),
+            page_no=int(row.get("page_no") or 0),
+        )
+        for row in rows
+    ]
+
+
+def _attach_captions(elements: list[SectionElement]) -> None:
+    """Reporte sur chaque visuel le texte de la légende qui le décrit."""
+    caption_ids = [e.node_id for e in elements if e.label.lower() == "caption"]
+    if not caption_ids:
+        return
+
+    texts = {e.node_id: e.text for e in elements}
+    for visual_id, caption_id in _caption_links(caption_ids).items():
+        caption = texts.get(caption_id)
+        if not caption:
+            continue
+        for elem in elements:
+            if elem.node_id == visual_id:
+                elem.caption = caption
+
+
+def _neighbour_elements(
+    ancestry: _Ancestry, direction: str, budget: int
+) -> tuple[list[SectionElement], str]:
+    """Retourne la queue de la section précédente, ou la tête de la suivante.
+
+    Répond au besoin « récupérer les informations avant et après » : les
+    en-têtes étant frères sous le Document et ordonnés par `sequence`, la
+    section voisine s'atteint sans imbrication réelle des titres.
+    """
+    if budget <= 0 or not ancestry.section_parent_id:
+        return [], ""
+
+    sibling_id = _find_sibling(
+        ancestry.section_parent_id, ancestry.section_sequence, direction
+    )
+    if sibling_id is None:
+        return [], ""
+
+    rows = _get_children(sibling_id)
+    # Avant : la fin de la section qui précède. Après : le début de la suivante.
+    selected = rows[-budget:] if direction == "before" else rows[:budget]
+    title = _get_node_properties(sibling_id).get("text", "") or ""
+    return _to_elements(selected), title[:120]
 
 
 def reconstruct_section(element_id: str) -> SectionContext:
     """Point d'entrée principal : reconstruit le contexte complet d'un élément.
 
-    1. Remonte via PARENT_OF jusqu'au SectionHeader le plus proche
-    2. Récupère tous les enfants de la section (ordonnés)
-    3. Assemble en markdown structuré avec breadcrumbs
+    1. Remonte via PARENT_OF jusqu'au Document, en notant la section au passage
+    2. Récupère les enfants de la section, fenêtrés autour de l'élément trouvé
+    3. Rattache les légendes aux illustrations (arête DESCRIBES)
+    4. Ajoute la fin de la section précédente et le début de la suivante
+    5. Assemble en markdown structuré avec breadcrumbs
     """
     if not _VALID_VID.fullmatch(element_id):
         raise ValueError(f"Identifiant d'élément invalide : {element_id[:80]}")
 
-    section_id, breadcrumbs = _climb_to_section(element_id)
+    ancestry = _climb_to_section(element_id)
+    section_id = ancestry.section_id
 
     # Propriétés de la section (ou de l'élément lui-même si aucune section parente)
     section_props = _get_node_properties(section_id)
     section_text = section_props.get("text", "") or ""
     is_header = section_props.get("tag") in _SECTION_TAGS
 
-    # Enfants de la section
     children_rows = _get_children(section_id)
-    elements: list[SectionElement] = []
-    for row in children_rows:
-        elements.append(
-            SectionElement(
-                node_id=row.get("child_id", ""),
-                label=row.get("label", ""),
-                text=row.get("text", "") or "",
-                minio_url=row.get("minio_url") or None,
-                sequence=int(row.get("seq", 0)),
-                page_no=int(row.get("page_no") or 0),
-            )
-        )
+    window, truncated = _window_around(
+        children_rows,
+        element_id,
+        settings.context_window_before,
+        settings.context_window_after,
+    )
+    elements = _to_elements(window)
+    _attach_captions(elements)
 
-    markdown = _build_markdown(breadcrumbs, elements, section_text if is_header else "")
+    budget = settings.adjacent_section_elements
+    before, before_title = _neighbour_elements(ancestry, "before", budget)
+    after, after_title = _neighbour_elements(ancestry, "after", budget)
+
+    markdown = _build_markdown(
+        ancestry.breadcrumbs,
+        elements,
+        section_text if is_header else "",
+        before=before,
+        after=after,
+        before_title=before_title,
+        after_title=after_title,
+    )
     if not is_header and section_text:
         # Élément orphelin de section : son propre texte est le contexte
         markdown = "\n\n".join(p for p in (markdown, section_text) if p)
 
-    logger.debug(
-        "Reconstruction : element=%s → section=%s (%d enfants)",
+    logger.info(
+        "Reconstruction %s → section %s : %d/%d éléments%s, voisins %d/%d, doc='%s'",
         element_id,
         section_id,
         len(elements),
+        len(children_rows),
+        " (fenêtrés)" if truncated else "",
+        len(before),
+        len(after),
+        ancestry.filename,
     )
 
     return SectionContext(
         element_id=element_id,
         section_id=section_id,
-        breadcrumbs=breadcrumbs,
+        breadcrumbs=ancestry.breadcrumbs,
         elements=elements,
         markdown=markdown,
+        filename=ancestry.filename,
+        section_title=section_text if is_header else "",
+        before=before,
+        after=after,
+        before_title=before_title,
+        after_title=after_title,
+        truncated=truncated,
     )
