@@ -37,52 +37,63 @@
 
 ```
           ┌──────────┐
- START ──▶│ retrieve │  ChromaDB : top-K chunks par embedding
+ START ──▶│ rewrite  │  Question de suivi → question autonome
+          └────┬─────┘     (aucun appel LLM sans historique)
+               │
+          ┌────▼─────┐
+          │ retrieve │  Dense ChromaDB + BM25 lexical, fusionnés par RRF
           └────┬─────┘
                │
           ┌────▼─────┐
-          │  rerank  │  Cross-encoder : affine la sélection → top-N
-          └────┬─────┘
+          │  rerank  │  Cross-encoder multilingue, dédup par element_id
+          └────┬─────┘     AVANT la troncature au top-K
                │
           ┌────▼──────────────────┐
-          │ await_source_selection│  ← INTERRUPT (human-in-the-loop)
-          └────┬──────────────────┘    L'utilisateur choisit ses sources
+          │ await_source_selection│  ← INTERRUPT (flux interactif seulement)
+          └────┬──────────────────┘    /answer ne passe pas par là
                │  selected_element_ids injectés via /chat/resume
           ┌────▼──────────────────┐
-          │ reconstruct_context   │  NebulaGraph : contexte hiérarchique
-          └────┬──────────────────┘
-               │
+          │ reconstruct_context   │  NebulaGraph : fil des titres, fenêtre
+          └────┬──────────────────┘  d'éléments, sections voisines, légendes,
+               │                     texte intégral relu dans l'index
           ┌────▼─────┐
-          │ generate │  Ollama : génération LLM avec streaming optionnel
+          │ generate │  Ollama, num_ctx explicite, sources bornées, streaming
           └────┬─────┘
                │
           ┌────▼───────────┐
-          │  postprocess   │  Extraction citations [src:ID] et images [img:ID]
-          └────┬───────────┘
+          │  postprocess   │  Citations [src:ID] → document/ouvrage/page/section
+          └────┬───────────┘  Images [img:ID] → proxy /media
                │
         ┌──────▼──────┐
-        │ needs_more? │  Le LLM peut demander search_vectors("query")
+        │ needs_more? │  Appel d'outil natif search_vectors, ou repli regex
         └──┬──────────┘
            │ True (≤ 3x)      │ False
            └──▶ retrieve      └──▶ END
 ```
 
-### Interrupt / Resume
+### Deux compilations du même graphe
 
-Le graphe est compilé avec `interrupt_before=["await_source_selection"]` et un `MemorySaver` comme checkpointer :
+| Compilation    | Interruption                                 | Checkpointer | Consommé par |
+|----------------|----------------------------------------------|--------------|--------------|
+| `agent_graph`  | `interrupt_before=["await_source_selection"]` | SQLite       | `/chat/start` + `/chat/resume` |
+| `answer_graph` | aucune                                       | aucun        | `/answer` |
 
-```python
-agent_graph = build_graph().compile(
-    interrupt_before=["await_source_selection"],
-    checkpointer=MemorySaver(),
-)
-```
+Le flux interactif attend un humain : il n'est pas rejouable en batch. Sans
+`answer_graph`, aucune campagne d'évaluation ne pourrait mesurer le système.
 
-**Protocole API** :
-1. `POST /chat/start` — `ainvoke(initial_state, config)` → s'arrête avant `await_source_selection`, retourne `thread_id` + groupes de sources.
-2. `POST /chat/resume` — `aupdate_state(config, {selected_element_ids})` puis `ainvoke(None, config)` → reprend depuis le point d'interruption.
+**Protocole du flux interactif** :
 
-**Limite** : le `MemorySaver` est in-memory. Les sessions sont perdues au redémarrage du container `agent-api`.
+1. `POST /chat/start` — `ainvoke(initial_state, config)` s'arrête avant
+   `await_source_selection`, retourne `thread_id` et les groupes de sources.
+2. `POST /chat/resume` — `aupdate_state(config, {selected_element_ids})` puis
+   `ainvoke(None, config)` reprend au point d'interruption.
+
+Le checkpointer écrit dans un fichier SQLite monté sur le volume
+`rag_agent_state` : une session en attente de sélection survit au redémarrage
+de `agent-api`, et plusieurs workers uvicorn partagent leurs threads. Repli en
+mémoire si le fichier est inaccessible. Les sessions sont purgées par âge
+(`SESSION_TTL_SECONDS`) et par nombre (`MAX_LIVE_SESSIONS`) : sans purge, la
+persistance ne ferait que déplacer la fuite sur le disque.
 
 ---
 
@@ -93,19 +104,19 @@ agent_graph = build_graph().compile(
 | Module              | Responsabilité                                                  |
 |---------------------|-----------------------------------------------------------------|
 | `graph.py`          | Définition des nœuds, arêtes, conditions et compilation du graphe LangGraph |
-| `graph_context.py`  | Reconstruction contextuelle via NebulaGraph (breadcrumbs + enfants de section) |
-| `llm.py`            | Client Ollama (OpenAI-compatible), rendu Jinja2 des prompts, streaming |
-| `retriever.py`      | Embedding ChromaDB + reranking cross-encoder + groupement par document |
-| `minio_client.py`   | Génération d'URLs présignées MinIO pour les assets visuels      |
-| `state.py`          | `AgentState` — TypedDict LangGraph (question, chunks, contextes, réponse…) |
+| `graph_context.py`  | Reconstruction via NebulaGraph : fil des titres, fenêtre d'éléments, sections voisines, légendes |
+| `llm.py`            | Client Ollama (API native), réécriture de requête, budget de contexte, outil `search_vectors` |
+| `retriever.py`      | Recherche dense + lexicale, reranking, déduplication, texte intégral |
+| `lexical.py`        | Index BM25 en mémoire et fusion Reciprocal Rank Fusion          |
+| `minio_client.py`   | Lecture des objets MinIO servis par le proxy `/media`           |
+| `state.py`          | `AgentState` — TypedDict LangGraph (question, chunks, contextes, réponse, chronométrage) |
 | `settings.py`       | Configuration via `pydantic-settings` (lecture `.env`)          |
-| `tools.py`          | Outil `search_vectors` déclaré pour la boucle agentique         |
 
 ### `src/api/`
 
 | Module       | Responsabilité                               |
 |--------------|----------------------------------------------|
-| `main.py`    | Endpoints FastAPI (7 routes), middleware CORS |
+| `main.py`    | Endpoints FastAPI (8 routes), purge des sessions, middleware CORS |
 | `schemas.py` | Modèles Pydantic v2 (requêtes et réponses)   |
 
 ### `src/frontend/`
@@ -171,52 +182,84 @@ class AgentState(TypedDict):
 
 ### Stratégie RAG
 
-Le projet implémente un **RAG sélectif interactif** :
+Le projet implémente un **RAG structurel, hybride et citable** :
 
-1. **Retrieval dense** : embedding `all-MiniLM-L6-v2` sur la question, recherche par cosine similarity dans ChromaDB.
-2. **Reranking** : cross-encoder `cross-encoder/ms-marco-MiniLM-L6-v2` pour affiner la pertinence.
-3. **Sélection humaine** : l'utilisateur visualise les sources groupées par document. Chaque chunk affiche le texte de son SectionHeader parent (`section_header_text`) et son score de reranking. Seuls les chunks avec `rerank_score ≥ RERANK_MIN_SCORE` sont proposés.
-4. **Enrichissement contextuel** : pour chaque source sélectionnée, NebulaGraph reconstruit la section parente, les breadcrumbs hiérarchiques et les éléments frères (max 12, images/tableaux résolus via MinIO).
-5. **Génération citée** : le LLM génère une réponse avec citations numérotées `[src:N]` et références visuelles `[img:ELEMENT_ID]`. Le postprocessing résout `N` → `element_id` via `alias_map` pour constituer les citations structurées.
+1. **Réécriture de requête** — la question de suivi est rendue autonome avant
+   l'encodage. Sans historique, la question est déjà autonome : aucun appel LLM.
+2. **Recherche hybride** — dense (`paraphrase-multilingual-MiniLM-L12-v2`) et
+   lexicale (BM25), `FETCH_K` candidats chacune, fusionnées par Reciprocal Rank
+   Fusion. La fusion porte sur les **rangs** : une distance cosine et un score
+   BM25 ne vivent pas sur la même échelle.
+3. **Reranking** — cross-encoder `mmarco-mMiniLMv2-L12-H384-v1`, multilingue.
+   Déduplication par `element_id` avant la troncature au top-K. Le score exposé
+   à l'utilisateur est la **sigmoïde** du logit : le brut est non borné et
+   l'afficher comme une similarité induisait en erreur.
+4. **Sélection** — interactive (l'utilisateur coche, sources groupées par
+   document avec ouvrage, section, langue et pertinence) ou automatique
+   (`AUTO_SELECT_TOP_K` mieux classées) pour `/answer`.
+5. **Enrichissement structurel** — NebulaGraph reconstruit le fil des titres
+   jusqu'au document, une fenêtre d'éléments autour de l'ancre, la fin de la
+   section précédente et le début de la suivante, et rattache aux illustrations
+   la légende que l'arête `DESCRIBES` désigne. Le texte intégral est relu dans
+   l'index quand celui du graphe frôle sa troncature.
+6. **Génération citée** — le LLM reçoit chaque élément suivi de son marqueur
+   `[src:ELEMENT_ID]` et ne peut donc citer que de vrais identifiants. C'est du
+   *citation anchoring* : ancrer les identifiants dans le prompt réduit les
+   citations inventées, là où une extraction post-hoc doit deviner.
+7. **Post-processing** — les `[src:ID]` sont résolus vers ouvrage, document,
+   page et section ; les `[img:ID]` vers le proxy `/media`. Un identifiant
+   inventé par le modèle est simplement ignoré.
 
 ### Prompts
 
-Les prompts sont versionnés dans `prompts/` et chargés dynamiquement :
+Versionnés dans `prompts/`, chargés dynamiquement. Le dossier configuré est
+celui de l'image Docker ; hors conteneur, repli sur celui du dépôt.
 
-| Fichier                    | Rôle                                                              |
-|----------------------------|-------------------------------------------------------------------|
-| `system.txt`               | Règles système : citer toutes les affirmations, ne pas halluciner, répondre en français |
-| `answer_with_context.j2`   | Template Jinja2 : injecte les contextes enrichis + la question    |
-| `rewrite_query.j2`         | Template de reformulation de requête (boucle agentique)           |
+| Fichier                    | Rôle                                                        |
+|----------------------------|-------------------------------------------------------------|
+| `system.txt`               | Règles : citer chaque affirmation, ne rien inventer, admettre l'ignorance, appeler l'outil plutôt que répondre partiellement |
+| `answer_with_context.j2`   | Injecte les contextes enrichis et la question               |
+| `rewrite_query.j2`         | Rend une question de suivi autonome                         |
 
-**Règles de citation** (system.txt) :
-- Citer chaque affirmation avec `[src:N]` (N = numéro de source, 1-based)
-- Référencer les images/tableaux avec `[img:ELEMENT_ID]`
-- Ne jamais aller au-delà des sources fournies
-- Déclarer explicitement l'absence d'information si non trouvée
+### Boucle agentique
 
-### Boucle agentique (agentic loop)
+`search_vectors` est déclaré comme **outil natif** Ollama : le modèle répond par
+un `tool_calls` structuré, capté au fil du flux et jamais rendu à l'utilisateur.
+Le repérage de `search_vectors("…")` dans la prose reste actif en second rideau,
+pour les modèles sans tool-calling ; le log indique lequel des deux canaux a
+parlé. Limite : `MAX_SEARCH_ITERATIONS`.
 
-Le LLM peut demander une recherche supplémentaire en incluant `search_vectors("sous-question")` dans sa réponse. Le nœud `node_generate` détecte ce pattern par regex et relance le graphe via la condition `should_search_more` (limite : `MAX_SEARCH_ITERATIONS=3`).
+### Budget de contexte
 
-**Statut** : implémenté, non évalué en production.
+`num_ctx` est passé explicitement à chaque requête. Sans lui, la fenêtre dépend
+de l'`OLLAMA_CONTEXT_LENGTH` du serveur interrogé — 8192 ou 32768 selon le
+déploiement — et le même prompt produit deux comportements.
 
-### Paramètres LLM
+Le budget de sources vaut `LLM_NUM_CTX - LLM_MAX_TOKENS`. Ce qui dépasse est
+écarté **ici**, avec un log qui dit combien et pourquoi. Ollama, lui, tronque
+par le **début** du prompt, donc par les sources les mieux classées — en
+silence.
 
-| Paramètre         | Valeur    | Description                             |
-|-------------------|-----------|-----------------------------------------|
-| `LLM_TEMPERATURE` | `0.1`     | Faible pour des réponses factuelles     |
-| `LLM_MAX_TOKENS`  | `4096`    | Limite de génération                    |
-| Contexte max      | dépend du modèle | gemma3:4b : 8192 tokens         |
+### Paramètres
 
-### Paramètres de retrieval
-
-| Paramètre              | Valeur   | Description                                              |
-|------------------------|----------|----------------------------------------------------------|
-| `RETRIEVAL_TOP_K`      | `20`     | Nombre de chunks retournés par ChromaDB                  |
-| `RERANK_TOP_K`         | `10`     | Chunks conservés après reranking cross-encoder           |
-| `RERANK_MIN_SCORE`     | `0.0`    | Score minimum cross-encoder — chunks en dessous écartés  |
-| `MAX_SEARCH_ITERATIONS`| `3`      | Limite de la boucle agentique                            |
+| Paramètre                  | Défaut | Rôle                                              |
+|----------------------------|--------|---------------------------------------------------|
+| `LLM_TEMPERATURE`          | `0.1`  | Faible, pour des réponses factuelles              |
+| `LLM_MAX_TOKENS`           | `4096` | Plafond de génération (`num_predict`)             |
+| `LLM_NUM_CTX`              | `8192` | Fenêtre demandée par requête                      |
+| `LLM_THINKING`             | `false`| Raisonnement de Gemma 4, coûteux en CPU           |
+| `HYBRID_SEARCH`            | `true` | BM25 en plus du dense                             |
+| `FETCH_K`                  | `50`   | Candidats par moteur avant fusion                 |
+| `RRF_K`                    | `60`   | Amortissement RRF                                 |
+| `RETRIEVAL_TOP_K`          | `20`   | Candidats conservés après fusion                  |
+| `RERANK_TOP_K`             | `10`   | Éléments distincts conservés après reranking      |
+| `QUERY_REWRITE`            | `true` | Réécriture des questions de suivi                 |
+| `NATIVE_TOOL_CALLING`      | `true` | Outil Ollama plutôt que repli par regex           |
+| `AUTO_SELECT_TOP_K`        | `3`    | Sources reconstruites sans sélection humaine      |
+| `CONTEXT_WINDOW_BEFORE/AFTER` | `6`  | Éléments retenus autour de l'ancre                |
+| `ADJACENT_SECTION_ELEMENTS`| `3`    | Éléments repris des sections voisines (0 désactive) |
+| `FULL_TEXT_FROM_VECTORS`   | `true` | Texte intégral relu dans l'index                  |
+| `MAX_SEARCH_ITERATIONS`    | `3`    | Plafond de la boucle agentique                    |
 
 ---
 
@@ -291,11 +334,13 @@ Documentation interactive : `http://localhost:8001/docs`
 
 ## Limitations connues
 
-| Aspect                 | Limitation                                                     |
-|------------------------|----------------------------------------------------------------|
-| Persistance sessions   | `MemorySaver` in-memory — sessions perdues au redémarrage      |
-| Documents sans sections | Éléments enfants du nœud `Document` racine — contexte reconstruit = document entier (potentiellement très large) |
-| Streaming E2E          | SSE implémenté, non testé de bout en bout avec le frontend     |
-| Tests d'intégration    | Non implémentés                                                |
-| Authentification       | Absente — API accessible sans contrôle d'accès                 |
-| Observabilité          | Logs console uniquement, pas de tracing distribué              |
+| Aspect                  | Limitation                                                     |
+|-------------------------|----------------------------------------------------------------|
+| Granularité de la mesure | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. |
+| Taille du jeu doré      | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. |
+| Latence de génération   | ~10 s en médiane contre 0,4 s de retrieval. Le levier est le LLM, pas la recherche. |
+| Index BM25              | Construit en mémoire au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |
+| Multi-workers           | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
+| Authentification        | Absente. CORS `*` et `/media` ouvert : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
+| Streaming E2E           | SSE implémenté, non couvert par un test de bout en bout.       |
+| Observabilité           | Logs console uniquement, pas de tracing distribué.             |
