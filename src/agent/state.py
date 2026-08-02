@@ -18,6 +18,9 @@ class AgentState(TypedDict):
     # Question rendue autonome par node_rewrite, utilisée pour la recherche.
     # La génération continue de voir `question`, telle que posée.
     search_query: str | None
+    # La même question dans l'autre langue du corpus. N'existe que pour la
+    # recherche : la génération ne la voit jamais.
+    search_translation: str | None
 
     # Retrieval
     retrieved_chunks: list[ChunkResult]

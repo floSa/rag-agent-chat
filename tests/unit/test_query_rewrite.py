@@ -111,3 +111,56 @@ async def test_desactivable_par_reglage(monkeypatch) -> None:
 
     assert await llm.rewrite_question("Et pour les femmes ?", HISTORIQUE) == "Et pour les femmes ?"
     assert appels == []
+
+
+# ─── Traduction pour la recherche ─────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_question_traduite_dans_l_autre_langue(monkeypatch) -> None:
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    reponse = _reponse_ollama("What is the standard deviation?")
+    monkeypatch.setattr(llm.httpx, "AsyncClient", reponse)
+
+    result = await llm.translate_question("Qu'est-ce que l'écart-type ?")
+    assert result == "What is the standard deviation?"
+
+
+@pytest.mark.asyncio
+async def test_traduction_identique_a_l_original_ecartee(monkeypatch) -> None:
+    """Le modèle rend parfois la question inchangée : rien à fusionner alors."""
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _reponse_ollama("Qu'est-ce que l'écart-type ?"))
+
+    assert await llm.translate_question("Qu'est-ce que l'écart-type ?") is None
+
+
+@pytest.mark.asyncio
+async def test_traduction_trop_longue_ecartee(monkeypatch) -> None:
+    """Une sortie démesurée n'est pas une traduction : le modèle a commenté."""
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _reponse_ollama("x" * 500))
+
+    assert await llm.translate_question("Question courte ?") is None
+
+
+@pytest.mark.asyncio
+async def test_traduction_desactivable(monkeypatch) -> None:
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", False)
+    appels = []
+    monkeypatch.setattr(llm.httpx, "AsyncClient", lambda **_k: appels.append(True))
+
+    assert await llm.translate_question("Question ?") is None
+    assert appels == []
+
+
+@pytest.mark.asyncio
+async def test_repli_si_le_llm_echoue(monkeypatch) -> None:
+    """Une recherche monolingue vaut mieux qu'une recherche interrompue."""
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+
+    def boom(**_kwargs):
+        raise ConnectionError("Ollama injoignable")
+
+    monkeypatch.setattr(llm.httpx, "AsyncClient", boom)
+
+    assert await llm.translate_question("Question ?") is None

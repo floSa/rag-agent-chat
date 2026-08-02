@@ -114,19 +114,27 @@ def reciprocal_rank_fusion(
     return scores
 
 
-def fuse(
-    denses: list[ChunkResult], lexicaux: list[ChunkResult], top_k: int
-) -> list[ChunkResult]:
-    """Fusionne les résultats dense et lexicaux, et retourne les top_k.
+def fuse(classements: list[list[ChunkResult]], top_k: int) -> list[ChunkResult]:
+    """Fusionne des classements hétérogènes et retourne les top_k.
 
-    Un chunk présent dans les deux classements remonte : c'est tout l'intérêt de
-    la fusion, et c'est ce que ni l'un ni l'autre ne sait faire seul.
+    Un chunk présent dans plusieurs classements remonte : c'est tout l'intérêt
+    de la fusion, et ce qu'aucun moteur ne sait faire seul. Le nombre de
+    classements est libre — dense et lexical, dans la langue de la question et
+    dans sa traduction, font quatre listes.
+
+    Args:
+        classements: Listes ordonnées, de la mieux classée à la moins bien. Les
+            premières font foi sur les métadonnées en cas de doublon : la
+            recherche dense y est placée en tête, car elle seule porte une
+            distance vectorielle réelle.
+        top_k: Nombre de résultats conservés.
     """
-    par_id: dict[str, ChunkResult] = {c.chunk_id: c for c in lexicaux}
-    par_id.update({c.chunk_id: c for c in denses})  # le dense fait foi sur la distance
+    par_id: dict[str, ChunkResult] = {}
+    for classement in reversed(classements):
+        par_id.update({c.chunk_id: c for c in classement})
 
     scores = reciprocal_rank_fusion(
-        [[c.chunk_id for c in denses], [c.chunk_id for c in lexicaux]],
+        [[c.chunk_id for c in classement] for classement in classements],
         k=settings.rrf_k,
     )
 

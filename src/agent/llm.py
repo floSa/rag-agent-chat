@@ -226,6 +226,62 @@ def extract_tool_query(message: dict[str, Any]) -> str | None:
     return None
 
 
+# Une traduction plus longue que cela n'en est pas une : le modèle a commenté,
+# explique, ou a répondu à la question.
+_MAX_TRANSLATION_RATIO = 3.0
+
+
+async def translate_question(question: str) -> str | None:
+    """Traduit la question dans l'autre langue du corpus, None en cas d'échec.
+
+    Mesuré sur le corpus : quand la question et le document ne sont pas dans la
+    même langue, le rappel du retrieval tombe de 0,99 à 0,74. La recherche
+    lexicale, elle, ne trouve **rien** — deux langues ne partagent pas leurs
+    mots. Sur cinq échecs analysés, BM25 sur la question traduite ramène le bon
+    passage au rang 1 à 3, y compris pour deux passages que la recherche dense
+    ne trouvait nulle part.
+
+    La traduction n'est pas une réécriture : la question d'origine reste
+    utilisée, la traduction s'y ajoute.
+    """
+    if not settings.cross_lingual_search:
+        return None
+
+    try:
+        template = _get_jinja_env().get_template("translate_query.j2")
+        prompt = template.render(question=question)
+    except Exception:
+        logger.warning("Gabarit de traduction introuvable, recherche monolingue.")
+        return None
+
+    payload = {
+        "model": settings.ollama_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": False,
+        "think": False,
+        "options": {"temperature": 0.0, "num_predict": 150, "num_ctx": settings.llm_num_ctx},
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
+            resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
+            resp.raise_for_status()
+            traduction = resp.json().get("message", {}).get("content", "").strip()
+    except Exception:
+        logger.warning("Traduction indisponible, recherche monolingue.")
+        return None
+
+    traduction = traduction.splitlines()[0].strip().strip("\"'") if traduction else ""
+    if not traduction or len(traduction) > len(question) * _MAX_TRANSLATION_RATIO:
+        return None
+    # Le modèle rend parfois la question inchangée : rien à fusionner alors.
+    if traduction.casefold() == question.casefold():
+        return None
+
+    logger.info("Question traduite : %r → %r", question[:50], traduction[:50])
+    return traduction
+
+
 async def generate_stream(
     question: str,
     contexts: list[SectionContext],

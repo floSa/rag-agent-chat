@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # Reformule une question de suivi en question autonome avant l'encodage.
     # « Et pour les femmes ? » embarqué tel quel ne retrouve rien.
     query_rewrite: bool = Field(default=True, alias="QUERY_REWRITE")
+    # Traduit la question dans l'autre langue du corpus et cherche avec les
+    # deux. Mesuré : le rappel tombe de 0,99 à 0,74 quand la question et le
+    # document ne sont pas dans la même langue, et la recherche lexicale ne
+    # trouve alors rien du tout — deux langues ne partagent pas leurs mots.
+    cross_lingual_search: bool = Field(default=True, alias="CROSS_LINGUAL_SEARCH")
 
     # Reconstruction du contexte via le graphe
     # ---------------------------------------

@@ -12,7 +12,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate_stream, rewrite_question
+from src.agent.llm import generate_stream, rewrite_question, translate_question
 from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
@@ -33,7 +33,10 @@ async def node_rewrite(state: AgentState) -> dict[str, Any]:
     if state.get("search_query"):
         return {}
     rewritten = await rewrite_question(state["question"], state.get("chat_history"))
-    return {"search_query": rewritten}
+    # La traduction porte sur la question REÉCRITE : traduire « et pour les
+    # femmes ? » ne donnerait rien de plus utile en anglais qu'en français.
+    translation = await translate_question(rewritten)
+    return {"search_query": rewritten, "search_translation": translation}
 
 
 def _search_query(state: AgentState) -> str:
@@ -49,7 +52,10 @@ def node_retrieve(state: AgentState) -> dict[str, Any]:
     """Encode la question et récupère les chunks ChromaDB."""
     question = _search_query(state)
     started = time.monotonic()
-    chunks = retrieve(question, top_k=state.get("top_k"))
+    # La boucle agentique cherche une sous-question précise fournie par le
+    # modèle : elle n'a pas de traduction, et n'en a pas besoin.
+    translation = None if state.get("next_query") else state.get("search_translation")
+    chunks = retrieve(question, top_k=state.get("top_k"), translation=translation)
     elapsed = int((time.monotonic() - started) * 1000)
     logger.info("retrieve: %d chunks en %d ms pour '%s'", len(chunks), elapsed, question[:60])
     metadata = dict(state.get("_metadata") or {})

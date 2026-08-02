@@ -197,31 +197,46 @@ def ping() -> bool:
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
-def retrieve(question: str, top_k: int | None = None) -> list[ChunkResult]:
-    """Recherche les candidats : dense seul, ou dense + BM25 fusionnés.
+def retrieve(
+    question: str, top_k: int | None = None, translation: str | None = None
+) -> list[ChunkResult]:
+    """Recherche les candidats et fusionne tout ce qui a été trouvé.
 
-    En hybride, chaque moteur ramène FETCH_K candidats et la fusion RRF n'en
-    garde que top_k. Élargir en amont est ce qui donne à la fusion de quoi
-    travailler : deux listes identiques ne fusionnent rien.
+    Jusqu'à quatre classements entrent dans la fusion : dense et lexical, pour
+    la question et pour sa traduction. Chacun ramène FETCH_K candidats et la
+    fusion RRF n'en garde que top_k — élargir en amont est ce qui donne à la
+    fusion de quoi travailler, deux listes identiques ne fusionnent rien.
+
+    Args:
+        question: La question, dans sa langue d'origine.
+        top_k: Candidats conservés après fusion.
+        translation: La même question dans l'autre langue du corpus. Elle
+            n'existe que pour la recherche : la génération ne la voit jamais.
     """
     k = top_k or settings.retrieval_top_k
-    denses = _dense_search(question, settings.fetch_k if settings.hybrid_search else k)
+    if not settings.hybrid_search and not translation:
+        return _dense_search(question, k)[:k]
 
-    if not settings.hybrid_search:
-        return denses[:k]
+    requetes = [question] + ([translation] if translation else [])
+    # La recherche dense d'abord : elle seule porte une distance vectorielle
+    # réelle, et fait donc foi sur les métadonnées d'un chunk vu deux fois.
+    classements: list[list[ChunkResult]] = [
+        _dense_search(requete, settings.fetch_k) for requete in requetes
+    ]
+    if settings.hybrid_search:
+        classements += [_lexical_search(requete, settings.fetch_k) for requete in requetes]
 
-    lexicaux = _lexical_search(question, settings.fetch_k)
-    if not lexicaux:
-        logger.info("Recherche lexicale vide, dense seul (%d chunks).", len(denses[:k]))
-        return denses[:k]
+    non_vides = [c for c in classements if c]
+    if not non_vides:
+        return []
 
-    fusionnes = fuse(denses, lexicaux, k)
+    fusionnes = fuse(non_vides, k)
     logger.info(
-        "Hybride : %d denses + %d lexicaux → %d fusionnés pour '%s'",
-        len(denses),
-        len(lexicaux),
+        "Recherche : %s → %d fusionnés pour %r%s",
+        " + ".join(str(len(c)) for c in non_vides),
         len(fusionnes),
-        question[:50],
+        question[:44],
+        " (+ traduction)" if translation else "",
     )
     return fusionnes
 

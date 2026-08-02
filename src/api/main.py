@@ -196,6 +196,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "search_query": None,
+        "search_translation": None,
         "selected_element_ids": [],
         "max_sources": req.max_sources,
         "top_k": req.top_k,
@@ -305,6 +306,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
         # Multi-turn : derniers échanges seulement, pour borner le contexte
         "chat_history": req.chat_history[-6:],
         "search_query": None,
+        "search_translation": None,
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "selected_element_ids": [],

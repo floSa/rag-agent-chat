@@ -124,7 +124,7 @@ def test_fuse_borne_au_top_k_et_reporte_le_score() -> None:
     denses = [_chunk("a"), _chunk("b"), _chunk("c")]
     lexicaux = [_chunk("c"), _chunk("d")]
 
-    resultat = fuse(denses, lexicaux, top_k=2)
+    resultat = fuse([denses, lexicaux], top_k=2)
 
     assert len(resultat) == 2  # noqa: PLR2004
     assert all(c.fusion_score is not None for c in resultat)
@@ -136,11 +136,22 @@ def test_fuse_privilegie_le_chunk_dense_pour_ses_metadonnees() -> None:
     denses = [_chunk("a", distance=0.1)]
     lexicaux = [_chunk("a", distance=1.0)]
 
-    assert fuse(denses, lexicaux, top_k=1)[0].distance == pytest.approx(0.1)
+    assert fuse([denses, lexicaux], top_k=1)[0].distance == pytest.approx(0.1)
 
 
 def test_fuse_sans_resultat_lexical() -> None:
-    assert len(fuse([_chunk("a")], [], top_k=5)) == 1
+    assert len(fuse([[_chunk("a")]], top_k=5)) == 1
+
+
+def test_fuse_quatre_classements() -> None:
+    """Dense et lexical, pour la question et pour sa traduction."""
+    resultat = fuse(
+        [[_chunk("a"), _chunk("b")], [_chunk("c")], [_chunk("b")], [_chunk("b"), _chunk("d")]],
+        top_k=4,
+    )
+
+    # « b » apparaît dans trois listes sur quatre : il doit sortir en tête.
+    assert resultat[0].chunk_id == "b"
 
 
 # ─── Conversion des enregistrements ChromaDB ──────────────────────────────────
