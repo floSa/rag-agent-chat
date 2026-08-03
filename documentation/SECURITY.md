@@ -101,31 +101,44 @@ une littérale une fois guillemets et antislashs échappés.
 make audit          # pip-audit sur requirements.txt
 ```
 
-**État au 3 août 2026 : 16 vulnérabilités connues dans 6 paquets**, toutes dans
-l'écosystème LangChain / LangGraph. Elles exigent une migration majeure —
-`langgraph` 0.4 → 1.0, `langchain-core` 0.3 → 1.x — qui change des API que ce
-projet utilise (compilation du graphe, checkpointers, streaming). C'est un
-chantier à part entière, pas une montée de version.
+**État au 3 août 2026 : 1 vulnérabilité connue, dans `chromadb` 1.5.8**
+(PYSEC-2026-311). Aucune version corrigée n'est publiée à ce jour : il n'y a
+rien à faire d'autre que la surveiller.
 
-Les paquets concernés : `langgraph`, `langgraph-checkpoint`,
-`langgraph-checkpoint-sqlite`, `langchain-core`, `langsmith`, `chromadb`.
-`chromadb` n'a aucune version corrigée publiée à ce jour.
+### D'où venaient les 58 précédentes
 
-L'audit n'avait jamais été lancé : il en comptait **58 dans 10 paquets**. Les
-montées sans rupture ont été faites et validées — suite unitaire, tests
-d'intégration contre la stack, et parcours complet dans un navigateur :
+L'audit n'avait jamais été lancé. Il en comptait **58 dans 10 paquets**, et la
+cause tient en une phrase : **le projet a démarré, le 30 avril 2026, sur des
+versions publiées le 7 mai 2025.** Elles avaient déjà onze mois le premier
+jour, et aucun des commits suivants ne les a montées.
 
 | Paquet | Avant | Après |
 |---|---|---|
+| `langgraph` | 0.4.3 *(mai 2025)* | 1.2.10 |
+| `langchain-core` | 0.3.59 *(mai 2025)* | 1.5.3 |
+| `langgraph-checkpoint-sqlite` | 2.0.11 | 3.1.1 |
+| `aiosqlite` | 0.20.0 | 0.22.1 |
 | `fastapi` (et `starlette`) | 0.115.12 | 0.141.1 |
 | `streamlit` | 1.44.1 | 1.60.0 |
 | `python-multipart` | 0.0.20 | 0.0.32 |
 
-Les versions sont épinglées avec `==`. Deux épinglages ont une raison qu'il ne
-faut pas défaire par inadvertance :
+Le passage en LangGraph 1.x avait été annoncé ici comme un « chantier à part
+entière ». C'était faux, et l'erreur mérite d'être écrite : la surface d'appel
+tient en six imports, et le seul code à changer a été l'annotation de type de
+`build_graph`. Le diagnostic avait été posé sur le **nombre** de failles, sans
+lire ce que chacune faisait ni vérifier ce que le projet utilisait vraiment.
 
-- `aiosqlite<0.21` — au-delà, `Connection` n'hérite plus de `Thread` et
-  `langgraph-checkpoint-sqlite` appelle `conn.is_alive()` à l'initialisation ;
-- `mypy==1.15.0` — une version plus récente est plus permissive sur les valeurs
-  `Any` traversant une frontière JSON, et la CI ne verrait plus ce que le code
-  laisse passer.
+L'épinglage `aiosqlite<0.21` a sauté avec : il existait parce que
+`langgraph-checkpoint-sqlite` 2.x appelait `conn.is_alive()`, ce que la 3.x ne
+fait plus.
+
+Validé après montée : `mypy` + `ruff`, 173 tests unitaires, 10 tests
+d'intégration contre la stack, et le flux SSE vérifié à la main — le streaming
+et l'interruption `interrupt_before` étaient les deux points de rupture
+plausibles.
+
+Reste un épinglage à ne pas défaire par inadvertance : `mypy==1.15.0`. Une
+version plus récente est plus permissive sur les valeurs `Any` traversant une
+frontière JSON, et la CI ne verrait plus ce que le code laisse passer. En
+contrepartie, elle ne résout pas encore les paramètres génériques par défaut
+(PEP 696), d'où les quatre paramètres explicités sur `StateGraph`.

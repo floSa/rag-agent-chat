@@ -30,6 +30,7 @@ from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, lexical_ready, rerank, retrieve
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
+from src.agent.state import AgentState
 from src.api.schemas import (
     AnswerRequest,
     AnswerResponse,
@@ -247,7 +248,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     échec de recherche d'un échec de génération — c'est la mesure qui permet
     d'attribuer la faute.
     """
-    initial_state: dict[str, Any] = {
+    initial_state: AgentState = {
         "question": req.question,
         "chat_history": req.chat_history[-6:],
         "retrieved_chunks": [],
@@ -358,7 +359,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
     _register_thread(thread_id)
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
-    initial_state: dict[str, Any] = {
+    initial_state: AgentState = {
         "question": req.question,
         # Multi-turn : derniers échanges seulement, pour borner le contexte
         "chat_history": req.chat_history[-6:],

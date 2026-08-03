@@ -6,12 +6,14 @@ sse-starlette==2.3.5
 streamlit==1.60.0
 
 # --- LangGraph (agentic loop) ---
-langgraph==0.4.3
-langgraph-checkpoint-sqlite==2.0.11
-# aiosqlite < 0.21 : au-dela, Connection n'herite plus de Thread et
-# langgraph-checkpoint-sqlite appelle conn.is_alive() a l'initialisation.
-aiosqlite==0.20.0
-langchain-core==0.3.59
+# Le projet est parti en 0.4.3 / 0.3.59, publiees en mai 2025 : elles avaient
+# deja onze mois a l'initialisation du depot (avril 2026) et n'ont pas bouge
+# ensuite. D'ou 16 vulnerabilites connues a l'audit du 3 aout 2026. Garder ces
+# lignes au courant fait partie de l'entretien, ce n'est pas un chantier.
+langgraph==1.2.10
+langgraph-checkpoint-sqlite==3.1.1
+aiosqlite==0.22.1
+langchain-core==1.5.3
 
 
 # --- Retrieval & Reranking ---
