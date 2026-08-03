@@ -185,6 +185,7 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | [stores.md](documentation/stores.md) | Le contrat avec l'ingestion, du point de vue du consommateur |
 | [llm.md](documentation/llm.md) | Le service d'inférence central et la fenêtre de contexte |
 | [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
+| [tests.md](documentation/tests.md) | Les trois niveaux de test, et ce que rien ne couvre |
 | [axes_amelioration.md](documentation/axes_amelioration.md) | Ce qui est corrigé, ce qui reste ouvert |
 | [SECURITY.md](documentation/SECURITY.md) | Surface exposée, défenses, et ce qui n'est pas protégé |
 | [llm_integration_plan.md](documentation/llm_integration_plan.md) | Plan de conception initial — historique |

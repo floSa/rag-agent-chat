@@ -101,9 +101,15 @@ une littérale une fois guillemets et antislashs échappés.
 make audit          # pip-audit sur requirements.txt
 ```
 
-**État au 3 août 2026 : 1 vulnérabilité connue, dans `chromadb` 1.5.8**
+**État au 3 août 2026 : 1 vulnérabilité connue, dans `chromadb`**
 (PYSEC-2026-311). Aucune version corrigée n'est publiée à ce jour : il n'y a
 rien à faire d'autre que la surveiller.
+
+**Toutes les autres dépendances sont à leur dernière version publiée**, celles
+du projet comme celles de développement. C'est un état, pas une garantie : rien
+ne le maintient. `make audit` existe mais ne tourne pas en intégration
+continue, et aucun outil ne signale une version qui vieillit sans faille
+connue — c'est précisément ce qui a laissé passer quinze mois de retard.
 
 ### D'où venaient les 58 précédentes
 
@@ -122,6 +128,19 @@ jour, et aucun des commits suivants ne les a montées.
 | `streamlit` | 1.44.1 | 1.60.0 |
 | `python-multipart` | 0.0.20 | 0.0.32 |
 
+Un second passage a rattrapé les onze paquets restants — `uvicorn`,
+`sse-starlette`, `pydantic`, `pydantic-settings`, `sentence-transformers`,
+`chromadb`, `ruff`, `mypy`, `pytest`, `pytest-asyncio`, `pip-audit` — dont
+aucun n'était signalé par l'audit, et dont la plupart dataient d'avril 2025.
+
+Deux d'entre eux touchaient la **qualité** et non la sécurité :
+`sentence-transformers` produit les vecteurs de la question, et `chromadb` les
+compare à ceux que l'ingestion a écrits. Un écart aurait dégradé la recherche
+sans lever la moindre erreur — le mode de panne le plus coûteux du système.
+Vérifié avant de monter : les deux versions encodent les mêmes phrases en
+vecteurs **identiques au bit près**, puis une campagne complète l'a confirmé
+sur les 138 questions.
+
 Le passage en LangGraph 1.x avait été annoncé ici comme un « chantier à part
 entière ». C'était faux, et l'erreur mérite d'être écrite : la surface d'appel
 tient en six imports, et le seul code à changer a été l'annotation de type de
@@ -137,8 +156,14 @@ d'intégration contre la stack, et le flux SSE vérifié à la main — le strea
 et l'interruption `interrupt_before` étaient les deux points de rupture
 plausibles.
 
-Reste un épinglage à ne pas défaire par inadvertance : `mypy==1.15.0`. Une
-version plus récente est plus permissive sur les valeurs `Any` traversant une
-frontière JSON, et la CI ne verrait plus ce que le code laisse passer. En
-contrepartie, elle ne résout pas encore les paramètres génériques par défaut
-(PEP 696), d'où les quatre paramètres explicités sur `StateGraph`.
+`mypy` était épinglé en 1.15.0 avec cette justification : « une version plus
+récente est plus permissive sur les valeurs `Any` traversant une frontière
+JSON ». Elle était fausse. Mise à l'épreuve sur le défaut qu'elle prétendait
+protéger — une fonction déclarée `-> int` qui renvoie le résultat d'un
+`json.loads` — la 1.15 et la 2.3 lèvent **la même erreur** `no-any-return`.
+L'épinglage a donc sauté, et avec lui le contournement PEP 696 qu'il imposait
+sur les paramètres génériques de `StateGraph`.
+
+La leçon vaut plus que le paquet : **un épinglage doit porter une raison
+vérifiable, et la raison doit être vérifiée avant d'être écrite.** Celle-ci a
+figé un outil pendant dix-huit mois.

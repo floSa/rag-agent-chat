@@ -1,0 +1,93 @@
+# Les tests, et ce qu'ils ne disent pas
+
+Trois niveaux, qui répondent à trois questions différentes. Aucun ne remplace
+les autres, et le troisième est le seul à parler de **qualité**.
+
+| Niveau | Commande | Question à laquelle il répond |
+|---|---|---|
+| Unitaire | `make test` | La logique est-elle correcte ? |
+| Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
+| Campagne | `make eval` | Les réponses sont-elles bonnes ? |
+
+## Unitaire — 173 tests, aucune dépendance
+
+Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
+quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
+continue.
+
+Les fichiers les plus fournis disent où sont les pièges du projet :
+
+| Fichier | Ce qu'il protège |
+|---|---|
+| `test_lexical.py` | Tokenisation et fusion RRF — la fusion se fait sur les **rangs**, jamais sur les scores, qui ne sont pas comparables entre moteurs. |
+| `test_context_assembly.py` | Fenêtrage, sections voisines, assemblage du markdown soumis au LLM. |
+| `test_affichage_sources.py` | Numérotation des citations et couleurs de pertinence côté frontend. |
+| `test_postprocess.py` | Extraction des `[src:…]` — y compris les crochets à identifiants multiples, qui avaient fait perdre 27 citations sur 30. |
+| `test_securite.py` | Traversée de chemin, échappement nGQL, comparaison de clé à temps constant. |
+| `test_resilience.py` | Un store qui redémarre doit rester invisible : cache oublié, une seule reprise. |
+
+**`--strict-markers` et `asyncio_mode = "strict"` ne sont pas décoratifs.** Sans
+eux, un test asynchrone mal marqué n'échoue pas : il *passe sans rien
+exécuter*. Une suite verte qui ne teste rien est pire qu'une suite rouge.
+
+Pour vérifier que ce garde-fou tient encore, écrire un test asynchrone qui
+échoue et s'assurer qu'il échoue bien. S'il passe, le greffon ne fait plus son
+travail.
+
+## Intégration — 10 tests, stack requise
+
+Ils existent parce que **trois des défauts les plus coûteux de ce projet
+étaient invisibles en unitaire**, tous parce qu'ils vivaient dans l'écart entre
+ce que le code croyait et ce que les services faisaient :
+
+- une requête nGQL écrite à l'envers — `dst(edge)` sous `REVERSELY` renvoie le
+  nœud de départ — qui rendait toute la reconstruction par le graphe
+  inopérante, sans une seule erreur ;
+- une arête renommée côté ingestion (`DESCRIBES` → `LINKED_TO`), dont l'échec
+  était avalé et privait les illustrations de leur légende ;
+- un checkpointer synchrone branché sur un flux asynchrone, qui faisait tomber
+  toute l'interface en 500.
+
+Aucun test simulé ne pouvait les voir : un faux ChromaDB répond ce qu'on lui a
+dit de répondre.
+
+**Sans la stack, ils sont ignorés, pas en échec.** Un test rouge faute
+d'infrastructure ne dit rien sur le code, et apprend à ignorer le rouge.
+
+```bash
+make up && make test-integration
+```
+
+## Campagne — 138 questions, la seule mesure de qualité
+
+`make eval` rejoue le jeu doré contre l'API réelle et compare à
+`runs/reference.json`. C'est le seul niveau qui mesure si le système
+**répond bien**, par opposition à *fonctionne*.
+
+Les métriques et leur lecture sont dans
+[rag_evaluation_strategy.md](rag_evaluation_strategy.md) ; les résultats et les
+règles de comparaison dans [runs/README.md](../runs/README.md).
+
+Trois règles apprises en se trompant :
+
+1. Mesurer **après** le reranking — c'est ce qui atteint le LLM qui compte.
+2. Vérifier ce que le `.env` impose : il surcharge les valeurs par défaut du
+   code, et a déjà invalidé un balayage entier.
+3. **Ne toucher à rien pendant une campagne.** Deux ont été faussées par un
+   `docker compose build` lancé pendant qu'elles tournaient.
+
+## Ce que rien ne teste
+
+À dire franchement, parce que la couverture n'est pas la confiance :
+
+- **La qualité des réponses n'est jugée par personne.** Le rappel mesure la
+  recherche. Savoir si la reconstruction de section améliore la *réponse*
+  demande un juge calibré, qui n'existe pas ici.
+- **Le jeu doré n'est pas relu.** 138 questions générées, toutes
+  `reviewed: false`. Aucun humain n'a confirmé qu'elles sont de vraies
+  questions.
+- **Le frontend n'a pas de tests de bout en bout.** Les fonctions d'affichage
+  sont testées ; le parcours dans un navigateur ne l'est qu'à la main. Les deux
+  derniers défauts de citation ont été trouvés à l'œil, pas par la suite.
+- **Ni charge, ni concurrence.** Rien ne dit ce qui se passe à dix questions
+  simultanées.

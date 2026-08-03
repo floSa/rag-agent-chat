@@ -378,11 +378,8 @@ def is_first_pass(state: AgentState) -> bool:
 
 # ─── Construction du graphe ───────────────────────────────────────────────────
 
-# Les quatre paramètres génériques sont explicités : mypy 1.15 ne résout pas
-# encore leurs valeurs par défaut (PEP 696), et `StateGraph[AgentState]` seul
-# laisse le type d'entrée non résolu — `ainvoke` refuse alors l'état initial.
-def build_graph() -> StateGraph[AgentState, None, AgentState, AgentState]:
-    graph = StateGraph[AgentState, None, AgentState, AgentState](AgentState)
+def build_graph() -> StateGraph[AgentState]:
+    graph = StateGraph(AgentState)
 
     graph.add_node("rewrite", node_rewrite)
     graph.add_node("retrieve", node_retrieve)

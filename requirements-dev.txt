@@ -1,8 +1,8 @@
 # Outils de développement (lint, typecheck, tests) — cf. Makefile
-ruff==0.11.8
-mypy==1.15.0
-pytest==8.3.5
+ruff==0.16.1
+mypy==2.3.0
+pytest==9.1.1
 # Les tests des fonctions async (reecriture, traduction, checkpointer)
 # n'executent RIEN sans ce greffon : ils echouent, ou pire, passent a vide.
-pytest-asyncio==0.26.0
-pip-audit==2.9.0
+pytest-asyncio==1.4.0
+pip-audit==2.10.1

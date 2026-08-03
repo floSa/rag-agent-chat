@@ -13,6 +13,7 @@ réglage restent vérifiables plutôt que d'être affirmées.
 | `reference.json` | 138 questions annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. |
 | `c3-translingue.json` | 138 questions | Après la recherche dans la traduction, avant réglage du vivier |
 | `final.json` | 138 questions | Configuration retenue |
+| `c-deps-a-jour.json` | 138 questions | Contrôle après la montée de toutes les dépendances. Aucune métrique de recherche ne bouge. |
 
 `.traductions.json` est le cache des traductions de questions utilisé par
 `scripts/sweep_retrieval.py`. Il est versionné à dessein : sans lui, rejouer un
@@ -65,6 +66,27 @@ valait 20 par défaut et surchargeait `RETRIEVAL_TOP_K` : le banc mesurait 0,985
 la campagne 0,877, sur la même configuration en apparence. Ce sont les logs du
 conteneur qui ont tranché — « 50 + 50 + 50 + 50 → 20 fusionnés », là où le
 réglage disait 50.
+
+**Monter `sentence-transformers` et `chromadb` n'a rien changé.** C'était le
+risque à écarter : l'un encode la question, l'autre la compare aux vecteurs
+écrits par l'ingestion. Un écart aurait dégradé la recherche sans lever la
+moindre erreur.
+
+| Métrique | `final.json` | `c-deps-a-jour.json` |
+|---|---|---|
+| `rappel_recherche` | 0,985 | 0,985 |
+| `rappel_elements` | 0,962 | 0,962 |
+| `mrr` | 0,963 | 0,963 |
+| génération p50 | 4 449 ms | **3 076 ms** |
+
+Les mêmes cinq questions échouent, aux mêmes endroits — c'est ce qui prouve
+l'identité, mieux qu'une moyenne égale. La génération a gagné 31 %, effet des
+montées côté serveur, sans contrepartie mesurée.
+
+Une seule valeur bouge : `citations_par_reponse`, 3,25 → 2,95. Ce n'est pas une
+régression mais la variabilité du LLM d'une exécution à l'autre — le
+`taux_citation_complete` reste à 1,000, donc toutes les citations émises
+restent résolues et situées.
 
 ## Lire une comparaison
 
