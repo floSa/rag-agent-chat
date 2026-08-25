@@ -211,12 +211,17 @@ async def _connexion() -> AsyncIterator[aiosqlite.Connection]:
     """
     chemin = Path(settings.usage_db_path)
     chemin.parent.mkdir(parents=True, exist_ok=True)
-    # `isolation_level=None` : pas de transaction implicite. Le pilote Python
-    # ouvre sinon un BEGIN *deferred*, qui prend un verrou de lecture puis tente
-    # de le promouvoir en écriture — et cette promotion échoue IMMÉDIATEMENT en
-    # « database is locked » sans passer par le délai d'attente, parce que
-    # SQLite refuse d'attendre là où deux connexions pourraient se bloquer
-    # mutuellement. Mesuré : dix interactions simultanées, la moitié perdue.
+    # `isolation_level=None` : aucune transaction implicite, chaque écriture
+    # ouvre la sienne. C'est le `BEGIN IMMEDIATE` plus bas qui rend une capture
+    # ATOMIQUE — sans lui, l'interaction et ses sources partiraient en deux
+    # transactions séparées, et un arrêt entre les deux laisserait une
+    # interaction sans son classement. Il prend de plus le verrou d'écriture
+    # d'entrée : une transaction *deferred* qui promeut son verrou de lecture
+    # reçoit un SQLITE_BUSY que le délai d'attente ne rejoue pas (comportement
+    # documenté de SQLite). Ce second point est une précaution, pas un
+    # correctif : mesuré, il n'est pas ce à quoi la perte d'écritures
+    # simultanées était imputable — c'était le mode de journalisation, cf.
+    # `initialiser`.
     async with aiosqlite.connect(
         chemin, timeout=_VERROU_TIMEOUT_S, isolation_level=None
     ) as conn:
@@ -235,7 +240,6 @@ async def _connexion() -> AsyncIterator[aiosqlite.Connection]:
             await conn.execute(instruction)
         # IMMEDIATE : le verrou d'écriture est pris d'entrée, donc l'attente est
         # celle du délai ci-dessus, pas un échec sec.
-        await conn.execute("BEGIN IMMEDIATE")
         yield conn
         await conn.commit()
 
@@ -245,10 +249,13 @@ async def initialiser() -> None:
 
     Appelée au démarrage de l'API, avant de servir. Le mode WAL doit être fixé
     LÀ et nulle part ailleurs : le changer exige un verrou exclusif, et ce
-    changement-là ne respecte PAS le délai d'attente. Mesuré : avec le PRAGMA
-    dans le chemin d'écriture, dix interactions simultanées sur une base neuve
-    en perdaient une à six ; sans lui, vingt écritures concurrentes n'en perdent
-    aucune sur trois tirages.
+    changement-là ne respecte PAS le délai d'attente.
+
+    C'est le seul défaut auquel la perte d'écritures simultanées a pu être
+    imputée, et il a été isolé : avec le PRAGMA dans le chemin d'écriture, dix
+    interactions simultanées perdaient six écritures sur vingt, et un banc
+    dédié une sur dix ; sans lui, vingt écritures concurrentes n'en perdent
+    aucune sur trois tirages — que la base ait été initialisée ou non.
 
     WAL sert les lecteurs — /health et l'export ne bloquent plus un écrivain.
     Une base jamais initialisée reste en journal de restauration : elle

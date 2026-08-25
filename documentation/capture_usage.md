@@ -270,13 +270,19 @@ Rien de tout cela n'est dans le chemin de diffusion : l'écriture de
 
 Trois réglages SQLite portent ces chiffres, et chacun a une raison :
 
-- `BEGIN IMMEDIATE` avec `isolation_level=None` — sans lui, le pilote ouvre une
-  transaction *deferred* qui prend un verrou de lecture puis tente de le
-  promouvoir, promotion qui échoue **immédiatement** sans respecter le délai
-  d'attente. Mesuré : dix interactions simultanées, jusqu'à six perdues ;
 - `PRAGMA journal_mode = WAL` **au démarrage seulement** — le changer exige un
-  verrou exclusif et ne respecte pas non plus le délai d'attente. Dans le chemin
-  d'écriture, il redevenait la cause des pertes qu'il servait à éviter ;
+  verrou exclusif, et ce changement-là ne respecte pas le délai d'attente. C'est
+  le seul défaut auquel la perte d'écritures simultanées ait pu être imputée, et
+  il a été isolé : avec le PRAGMA dans le chemin d'écriture, dix interactions
+  simultanées perdaient **six écritures sur vingt** ; sans lui, vingt écritures
+  concurrentes n'en perdent aucune sur trois tirages ;
+- `BEGIN IMMEDIATE` avec `isolation_level=None` — ce qui rend une capture
+  atomique : sans lui, l'interaction et ses sources partiraient en deux
+  transactions, et un arrêt entre les deux laisserait une interaction sans son
+  classement. Il évite en outre le `SQLITE_BUSY` qu'une transaction *deferred*
+  reçoit en promouvant son verrou, et que le délai d'attente ne rejoue pas.
+  Cette seconde raison est une précaution documentée, **pas** un correctif
+  mesuré : retiré seul, il ne fait rien perdre dans les conditions du test ;
 - `PRAGMA synchronous = NORMAL` — perdre la dernière transaction lors d'une
   coupure de courant est acceptable pour de l'observation ; faire attendre une
   requête le temps d'un `fsync` ne l'est pas. Mesuré : 1 162 ms pour vingt
