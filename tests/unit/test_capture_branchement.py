@@ -174,8 +174,10 @@ def test_start_et_resume_forment_un_seul_enregistrement(client, base) -> None:
     assert json.loads(complet["submitted_section_ids"]) == ["ssssssssaa"]
     assert complet["generation_ms"] is not None
     assert complet["config_hash"]
-    # Personne n'a mesuré de source écartée sur ce chemin : NULL, pas 0.
-    assert complet["dropped_contexts"] is None
+    # Zéro mérité, pas zéro par défaut : la section reconstruite tient dans la
+    # fenêtre, `node_generate` l'a mesuré et l'état le porte. Avant le lot 1
+    # cette colonne restait NULL sur ce chemin, faute que l'état la porte.
+    assert complet["dropped_contexts"] == 0
 
 
 def test_le_decochage_est_derivable_apres_le_flux_complet(client, base) -> None:
@@ -493,3 +495,134 @@ def test_health_ne_ment_pas_quand_la_capture_est_coupee(client_sans_capture) -> 
 
     assert etat["enabled"] is False
     assert etat["size_bytes"] == 0
+
+
+# ─── Le budget de fenêtre atteint la colonne ──────────────────────────────────
+
+# Six sections, six documents distincts : la reconstruction n'en dédoublonne
+# aucune, et le budget de fenêtre en écarte forcément.
+_GROSSES = [_chunk(f"aaaaaaaa{i:02d}", 0.99 - i / 100) for i in range(6)]
+
+
+def _grosse_section(element_id: str) -> SectionContext:
+    """4 000 caractères, terminés par leur marqueur de citation.
+
+    Le marqueur compte : `_cut_on_marker` recule la troncature jusqu'à sa fin,
+    et une section qui n'en porte aucun ne ressemble pas à ce que
+    `reconstruct_section` produit.
+    """
+    return SectionContext(
+        element_id=element_id,
+        # Une section DISTINCTE par élément : la reconstruction dédoublonne par
+        # section_id, et un préfixe commun les ramènerait toutes à une seule.
+        section_id=f"section{element_id[8:]}",
+        breadcrumbs=[],
+        elements=[],
+        markdown="Le contexte reconstruit. " * 160 + f"[src:{element_id}]",
+        filename="3. Statistical Toolbox",
+        section_title="Dispersion",
+    )
+
+
+@pytest.fixture
+def client_hors_budget(tmp_path, monkeypatch):
+    """Comme `client`, mais la génération n'est simulée qu'à la couche HTTP.
+
+    `client` remplace `generate_stream` entier : le rappel `on_fit` n'est alors
+    jamais appelé et `dropped_contexts` vaut 0 quoi qu'on soumette — le test ne
+    prouverait rien. Ici le vrai `generate_stream` tourne, donc le vrai
+    `fit_prompt`, et seul l'appel à Ollama est remplacé.
+    """
+    from src.agent import graph as graph_module
+    from src.agent import llm as llm_module
+    from src.api import main
+
+    with _client(tmp_path, monkeypatch, capture=True) as testclient:
+        monkeypatch.setattr(
+            graph_module, "retrieve", lambda _q, top_k=None, translation=None: list(_GROSSES)
+        )
+        monkeypatch.setattr(graph_module, "reconstruct_section", _grosse_section)
+        monkeypatch.setattr(main, "reconstruct_section", _grosse_section)
+        monkeypatch.setattr(llm_module.httpx, "AsyncClient", _ollama_muet())
+        # `_client` l'avait remplacé par un faux ; on remet le vrai.
+        monkeypatch.setattr(graph_module, "generate_stream", llm_module.generate_stream)
+        yield testclient
+
+
+def _ollama_muet():
+    """Un /api/chat qui rend une réponse citant la première source, et rien d'autre."""
+    lignes = [
+        {"message": {"content": "La dispersion se mesure [src:aaaaaaaa00]."}},
+        {"message": {"content": ""}, "done": True, "prompt_eval_count": 3500},
+    ]
+
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        async def aiter_lines(self):
+            for ligne in lignes:
+                yield json.dumps(ligne)
+
+    class Stream:
+        async def __aenter__(self):
+            return Resp()
+
+        async def __aexit__(self, *_):
+            return False
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        def stream(self, *_args, **_kwargs):
+            return Stream()
+
+    return lambda **_kwargs: Client()
+
+
+def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(client_hors_budget, base) -> None:
+    """La colonne `dropped_contexts` porte ce que `fit_prompt` a réellement coupé.
+
+    C'était la seule affirmation du lot laissée à l'inférence : « la colonne se
+    remplira quand l'état du graphe portera le chiffre ». Le lot 1 l'y met, et
+    ceci le constate au lieu de l'annoncer — sur le flux interactif, celui dont
+    la valeur transitait par `_completer_capture`, pas par `/answer`.
+
+    Le chiffre attendu n'est pas écrit en dur : il est recalculé par le vrai
+    `fit_prompt` sur les mêmes sections, dans le même ordre.
+    """
+    from src.agent.llm import fit_prompt
+
+    question = "Comment mesurer la dispersion ?"
+    thread = client_hors_budget.post("/chat/start", json={"question": question}).json()[
+        "thread_id"
+    ]
+    _flux(
+        client_hors_budget,
+        "/chat/resume",
+        {
+            "thread_id": thread,
+            "selected_element_ids": [c.element_id for c in _GROSSES],
+            "stream": True,
+        },
+    )
+
+    attendu = fit_prompt(
+        question, [_grosse_section(c.element_id) for c in _GROSSES], []
+    ).dropped_contexts
+    assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
+
+    ligne = _lire(base, "SELECT * FROM interactions WHERE thread_id = ?", thread)[0]
+
+    assert ligne["dropped_contexts"] is not None, "la colonne est restée NULL"
+    assert ligne["dropped_contexts"] == attendu
+    # `submitted_section_ids` enregistre les sections RECONSTRUITES, avant la
+    # coupe de fenêtre — les six. C'est `dropped_contexts` qui dit combien
+    # d'entre elles n'ont pas atteint le modèle : les deux colonnes ne se lisent
+    # qu'ensemble, et six moins trois est le seul chiffre que personne ne stocke.
+    soumises = json.loads(ligne["submitted_section_ids"])
+    assert len(soumises) == len(_GROSSES)
+    assert len(soumises) - ligne["dropped_contexts"] == 3  # noqa: PLR2004

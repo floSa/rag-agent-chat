@@ -521,9 +521,12 @@ async def _completer_capture(
 ) -> None:
     """Complète l'enregistrement d'usage avec ce que la génération a produit.
 
-    `dropped_contexts` est lu dans l'état plutôt que recalculé : absent, il est
-    enregistré NULL. Écrire 0 affirmerait qu'aucune source n'a été écartée, ce
-    que personne n'a mesuré.
+    `dropped_contexts` est lu dans l'état plutôt que recalculé : c'est le chiffre
+    que `node_generate` a réellement appliqué au prompt, publié par le rappel
+    `on_fit`. Le `.get` reste défensif — un état sans la clé enregistre NULL
+    plutôt que 0, parce que 0 affirmerait qu'aucune source n'a été écartée — mais
+    le graphe la porte désormais sur les trois chemins, et un test l'exerce sur
+    des sections qui dépassent réellement la fenêtre.
     """
     await record_completion(
         thread_id=thread_id,

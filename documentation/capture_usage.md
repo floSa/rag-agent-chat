@@ -81,11 +81,11 @@ l'usage humain.
 | `search_translation` | TEXT | la question traduite, qui n'a servi qu'à chercher |
 | `ranked_element_ids` | TEXT (JSON) | le classement complet, du mieux au moins bien classé |
 | `submitted_element_ids` | TEXT (JSON) | les éléments dont la section a réellement été soumise |
-| `submitted_section_ids` | TEXT (JSON) | les sections correspondantes — deux éléments d'une même section n'en font qu'une |
+| `submitted_section_ids` | TEXT (JSON) | les sections correspondantes — deux éléments d'une même section n'en font qu'une. Ce sont les sections **reconstruites**, avant la coupe de fenêtre : à lire avec `dropped_contexts` |
 | `response` | TEXT | la réponse, marqueurs `[src:…]` compris |
 | `citations` / `images` | TEXT (JSON) | les identifiants effectivement cités et illustrés |
 | `search_count` | INTEGER | itérations de la boucle agentique (> 1 = le modèle a redemandé) |
-| `dropped_contexts` | INTEGER | sources écartées faute de place. **NULL quand l'état du graphe ne le porte pas** : 0 affirmerait qu'aucune n'a été écartée |
+| `dropped_contexts` | INTEGER | sections reconstruites que le budget de fenêtre a écartées avant le modèle. `submitted_section_ids` moins celles-ci = ce qui a réellement atteint le LLM, seul chiffre qu'aucune colonne ne stocke |
 | `retrieval_ms` / `rerank_ms` / `generation_ms` | INTEGER | latences par étage |
 | `config_hash` | TEXT | empreinte courte de la configuration — sert à grouper |
 | `config_json` | TEXT (JSON) | son détail |
