@@ -446,17 +446,23 @@ async def stats() -> UsageStats:
     qui grossit sans qu'on le sache redevient une fuite.
     """
     chemin = Path(settings.usage_db_path)
-    vide = UsageStats(
-        enabled=capture_active(),
-        path=str(chemin),
-        interactions=0,
-        sources=0,
-        size_bytes=0,
-        failures=_echecs,
-    )
+
+    def vide() -> UsageStats:
+        # Construit à l'appel, pas d'avance : le compteur d'échecs doit être lu
+        # APRÈS l'échec qu'on est en train de signaler, sinon la sonde rend
+        # l'ancienne valeur et une base illisible passe pour saine.
+        return UsageStats(
+            enabled=capture_active(),
+            path=str(chemin),
+            interactions=0,
+            sources=0,
+            size_bytes=0,
+            failures=_echecs,
+        )
+
     # Ne pas créer le fichier pour le mesurer : /health n'écrit pas.
     if not settings.usage_db_path or not chemin.exists():
-        return vide
+        return vide()
     try:
         async with aiosqlite.connect(chemin, timeout=_VERROU_TIMEOUT_S) as conn:
             interactions = await _compte(conn, "interactions")
@@ -479,7 +485,7 @@ async def stats() -> UsageStats:
         )
     except Exception as exc:
         _echec("stats", exc)
-        return vide
+        return vide()
 
 
 async def _compte(conn: aiosqlite.Connection, table: str) -> int:

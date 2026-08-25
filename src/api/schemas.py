@@ -321,3 +321,6 @@ class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
     services: dict[str, bool] = Field(default_factory=dict)
+    # Taille de la base de capture. Aucune purge n'existe : un actif qui
+    # grossit sans qu'on le sache redevient une fuite, donc la sonde le porte.
+    usage: UsageStats | None = None

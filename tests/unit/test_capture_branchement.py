@@ -72,6 +72,13 @@ def _client(tmp_path, monkeypatch, capture: bool):
     from src.api import main
 
     monkeypatch.setattr(main.settings, "checkpoint_db_path", "")
+    # Les sondes de /health sont neutralisées : sans cela, chaque appel attend
+    # ChromaDB et NebulaGraph, absents en CI comme ici.
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    # Adresse qui refuse immédiatement, plutôt qu'un nom qui attend sa résolution.
+    monkeypatch.setattr(main.settings, "ollama_host", "http://127.0.0.1:1")
     monkeypatch.setattr(usage.settings, "usage_db_path", str(tmp_path / "usage.sqlite"))
     monkeypatch.setattr(usage.settings, "usage_capture", capture)
     monkeypatch.setattr(usage, "_echecs", 0)
@@ -441,3 +448,48 @@ def test_une_note_hors_du_binaire_est_refusee_par_le_schema(client) -> None:
     assert client.post(
         "/feedback", json={"thread_id": "t", "rating": "moyen"}
     ).status_code == 422  # noqa: PLR2004
+
+
+# ─── La taille, visible ───────────────────────────────────────────────────────
+
+def test_health_expose_la_taille_de_l_actif(client, base) -> None:
+    """Aucune purge n'existe : la taille doit être visible, sinon l'actif
+    redevient une fuite. C'est la contrepartie assumée du « pas de purge »."""
+    avant = client.get("/health").json()["usage"]
+    assert avant["enabled"] is True
+    assert avant["interactions"] == 0
+    assert avant["failures"] == 0
+
+    thread = client.post("/chat/start", json={"question": "q"}).json()["thread_id"]
+    _flux(
+        client,
+        "/chat/resume",
+        {"thread_id": thread, "selected_element_ids": ["abcdef0123"], "stream": True},
+    )
+
+    apres = client.get("/health").json()["usage"]
+    assert apres["interactions"] == 1
+    assert apres["sources"] == 3  # noqa: PLR2004
+    assert apres["size_bytes"] > 0
+    assert apres["path"] == str(base)
+
+
+def test_health_survit_a_une_base_de_capture_illisible(client, monkeypatch) -> None:
+    """Une sonde qui tombe parce qu'une base d'OBSERVATION est illisible serait
+    une régression, pas une mesure. Le compteur d'échecs dit ce qui s'est passé."""
+    def lecture_en_echec(*_args, **_kwargs):
+        raise sqlite3.DatabaseError("file is not a database")
+
+    monkeypatch.setattr(usage.aiosqlite, "connect", lecture_en_echec)
+
+    reponse = client.get("/health")
+
+    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.json()["usage"]["failures"] >= 1
+
+
+def test_health_ne_ment_pas_quand_la_capture_est_coupee(client_sans_capture) -> None:
+    etat = client_sans_capture.get("/health").json()["usage"]
+
+    assert etat["enabled"] is False
+    assert etat["size_bytes"] == 0

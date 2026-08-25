@@ -33,6 +33,7 @@ from src.agent.settings import settings
 from src.agent.state import AgentState
 from src.agent.usage import initialiser as usage_initialiser
 from src.agent.usage import record_completion, record_feedback, record_start
+from src.agent.usage import stats as usage_stats
 from src.api.schemas import (
     MAX_HISTORY_MESSAGES,
     AnswerRequest,
@@ -80,6 +81,18 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     # de la base de capture est sûr. Le faire dans le chemin d'écriture faisait
     # perdre des interactions simultanées (cf. usage.initialiser).
     await usage_initialiser()
+    # La taille de l'actif au démarrage. Aucune purge n'existe et c'est
+    # délibéré : la contrepartie est qu'elle doit être VISIBLE, sans quoi un jeu
+    # de données qui grossit sans qu'on le sache redevient une fuite.
+    capture = await usage_stats()
+    logger.info(
+        "Capture d'usage %s : %d interactions, %d sources, %d ko (%s)",
+        "active" if capture.enabled else "désactivée",
+        capture.interactions,
+        capture.sources,
+        capture.size_bytes // 1024,
+        capture.path,
+    )
     try:
         yield
     finally:
@@ -145,7 +158,15 @@ async def health() -> HealthResponse:
     # redémarrer le service pour ça.
     essentiels = {k: v for k, v in services.items() if k != "index_lexical"}
     status = "ok" if all(essentiels.values()) else "degraded"
-    return HealthResponse(status=status, ollama_model=settings.ollama_model, services=services)
+    # `stats` absorbe ses propres échecs et rend des zéros : une sonde qui
+    # tombe parce qu'une base d'observation est illisible serait une régression,
+    # pas une mesure. Le compteur `failures` dit alors ce qui s'est passé.
+    return HealthResponse(
+        status=status,
+        ollama_model=settings.ollama_model,
+        services=services,
+        usage=await usage_stats(),
+    )
 
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
