@@ -114,3 +114,25 @@ def test_le_frontend_ne_derive_pas_de_la_borne_du_schema() -> None:
 
     assert app.MAX_HISTORY_MESSAGES == MAX_HISTORY_MESSAGES
 
+def test_l_image_du_frontend_suit_les_versions_declarees() -> None:
+    """`Dockerfile.frontend` réinstalle ses dépendances à la main, sans lire
+    requirements.txt : l'image tournait sur streamlit 1.44.1 et pydantic 2.11.4
+    quand le dépôt déclarait tester 1.60.0 et 2.13.4.
+
+    Une divergence entre l'image et le lock est le vieillissement silencieux que
+    décrit documentation/SECURITY.md — que rien ne signalait ici.
+    """
+    from pathlib import Path
+
+    racine = Path(__file__).resolve().parents[2]
+    dockerfile = (racine / "Dockerfile.frontend").read_text(encoding="utf-8")
+    declarees = dict(
+        ligne.split("==", 1)
+        for ligne in (racine / "requirements.txt").read_text(encoding="utf-8").splitlines()
+        if "==" in ligne and not ligne.startswith("#")
+    )
+
+    for paquet in ("streamlit", "httpx", "pydantic"):
+        assert f"{paquet}=={declarees[paquet]}" in dockerfile, (
+            f"Dockerfile.frontend n'epingle pas {paquet}=={declarees[paquet]}"
+        )

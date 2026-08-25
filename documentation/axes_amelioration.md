@@ -295,6 +295,18 @@ ne construit un `Message` avec un autre rôle — ni le frontend, ni les fixture
 dorées, ni `scripts/evaluate.py`. Les `{"role": "system"}` restants sont des
 dictionnaires de charge utile Ollama, pas des `Message`.
 
+### 1.19 L'image du frontend ne suivait pas les versions déclarées — `Dockerfile.frontend`
+
+`Dockerfile.frontend` réinstalle ses dépendances à la main, sans lire
+`requirements.txt`. Elles avaient divergé de deux versions mineures — streamlit
+1.44.1 contre 1.60.0, pydantic 2.11.4 contre 2.13.4 : l'image ne tournait pas sur
+ce que le dépôt déclare tester, et le badge du README annonçait 1.60.
+
+C'est le vieillissement silencieux décrit dans
+[SECURITY.md](SECURITY.md#dépendances) — « aucun outil ne signale une version qui
+vieillit ». Les versions sont alignées, et un test échoue si les deux fichiers
+divergent à nouveau.
+
 ### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
 
 `README.md` et `documentation/llm.md` annonçaient `32768`, `.env.example` et
