@@ -18,6 +18,7 @@ des modèles de [llm-service](https://github.com/floSa/llm-service).
 | Proxy média | Borné aux objets référencés par le graphe | `RESTRICT_MEDIA_TO_GRAPH` |
 | Chiffrement | Aucun — HTTP en clair | — |
 | Limitation de débit | Aucune | — |
+| Capture d'usage | **Active par défaut**, sur le disque local | `USAGE_CAPTURE` |
 
 **Le déploiement par défaut convient à un poste local derrière un pare-feu, pas
 à une exposition.** Avant d'exposer l'API, au minimum : renseigner `API_KEY`,
@@ -83,10 +84,55 @@ une littérale une fois guillemets et antislashs échappés.
   c'est vous qui l'alimentez.
 - **Données personnelles.** Aucune détection ni anonymisation. Un corpus en
   contenant les verrait ressortir dans les réponses.
-- **Journalisation.** Les prompts et réponses ne sont pas archivés : pas de piste
-  d'audit, mais pas de fuite par les journaux non plus.
+- **Journalisation.** Les questions, les sources proposées et les réponses sont
+  désormais **enregistrées sur le disque local** — cf. « Ce qui est enregistré »
+  ci-dessous. La version précédente de ce document affirmait le contraire ; ce
+  n'est plus vrai.
 - **Épuisement de ressources.** Rien ne limite le débit. Une boucle sur `/answer`
   saturerait le serveur d'inférence partagé.
+
+## Ce qui est enregistré
+
+Depuis la capture d'usage, le service tient un journal de ce qu'il sert. Le
+détail du schéma et des requêtes est dans
+[capture_usage.md](capture_usage.md) ; ce qui suit est la posture.
+
+| | |
+|---|---|
+| **Quoi** | la question telle qu'elle a été posée, sa réécriture et sa traduction, le classement complet des sources, celles que l'utilisateur a retenues ou décochées, la réponse, les citations, les latences, et l'appréciation quand elle est donnée |
+| **Où** | `/app/data/usage.sqlite`, volume Docker `rag_agent_state`, sur la machine hôte |
+| **Combien de temps** | indéfiniment — **aucune purge**, c'est un jeu de données et non un cache |
+| **Sortie réseau** | aucune, rien ne quitte le disque local |
+| **Comment le désactiver** | `USAGE_CAPTURE=false` (ou `USAGE_DB_PATH=` vide) : le fichier n'est alors même pas créé |
+| **Comment le voir grossir** | `GET /health` porte le nombre de lignes et le poids du fichier ; le démarrage les journalise |
+
+### Pourquoi le drapeau est à VRAI par défaut
+
+C'est une décision assumée, pas un oubli. Un drapeau à faux annule le dispositif :
+personne ne le basculera avant les premiers utilisateurs, et les premières
+semaines d'usage sont les plus instructives — elles ne se rattrapent pas.
+
+Ce qui rend la décision tenable est que **l'exposition n'est pas nouvelle**. Le
+checkpointer LangGraph persiste **déjà** l'état complet du graphe — question,
+historique, chunks, contextes reconstruits, réponse — dans le même volume, sous
+`/app/data/checkpoints.sqlite`. Sa purge existe, mais elle ne porte que sur les
+sessions que le processus connaît encore : le registre `_live_threads` est en
+mémoire, donc toute session antérieure à un redémarrage reste sur le disque
+indéfiniment. La capture ne crée donc pas une classe de données durables : elle
+rend **interrogeable** ce qui l'était déjà, et sous une forme dont on connaît la
+taille.
+
+### Ce que la capture ne protège pas
+
+- **Aucune détection de données personnelles.** Une question saisie par un
+  utilisateur peut en contenir ; elle est stockée **telle quelle**, sans
+  anonymisation ni masquage. C'est un fait à connaître avant d'exposer l'API à
+  des tiers, pas un chantier de ce lot.
+- **Aucun chiffrement au repos.** Le fichier est lisible par qui accède au
+  volume, comme les checkpoints à côté de lui.
+- **Aucun contrôle d'accès propre.** Les enregistrements se lisent avec
+  `sqlite3` sur l'hôte, ou par `scripts/usage_export.py`. Il n'existe aucun
+  endpoint de lecture : la capture écrit, elle ne sert rien.
 
 ## Secrets
 

@@ -161,6 +161,17 @@ class Settings(BaseSettings):
     max_live_sessions: int = Field(default=200, alias="MAX_LIVE_SESSIONS")
     session_ttl_seconds: int = Field(default=3600, alias="SESSION_TTL_SECONDS")
 
+    # Capture d'usage : questions posées, sources proposées, sources retenues,
+    # réponses, appréciations. VRAI par défaut — un drapeau à faux annulerait
+    # le dispositif, puisque personne ne le basculera avant les premiers
+    # utilisateurs, et que les premières semaines d'usage ne se rattrapent pas.
+    # L'exposition n'est pas nouvelle : le checkpointer persiste DÉJÀ l'état
+    # complet du graphe dans le même volume, sans purge. Cf. SECURITY.md.
+    usage_capture: bool = Field(default=True, alias="USAGE_CAPTURE")
+    # Même volume que le checkpointer : ce qui est monté est déjà durable.
+    # Vide désactive la capture aussi sûrement que USAGE_CAPTURE=false.
+    usage_db_path: str = Field(default="/app/data/usage.sqlite", alias="USAGE_DB_PATH")
+
     # Origines autorisées par CORS, séparées par des virgules. « * » ouvre
     # l'API à n'importe quelle page web du navigateur de l'utilisateur.
     cors_origins: str = Field(

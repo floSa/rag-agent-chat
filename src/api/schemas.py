@@ -275,6 +275,26 @@ class AnswerResponse(BaseModel):
     dropped_contexts: int = 0     # sources écartées faute de place dans la fenêtre
 
 
+# ─── Capture d'usage ──────────────────────────────────────────────────────────
+
+class UsageStats(BaseModel):
+    """Taille de l'actif constitué par la capture.
+
+    Aucune purge n'existe : c'est un jeu de données, pas un cache. La
+    contrepartie est que sa taille doit être visible — un actif qui grossit
+    sans qu'on le sache redevient une fuite.
+    """
+
+    enabled: bool
+    path: str
+    interactions: int
+    sources: int
+    size_bytes: int
+    # Échecs de capture depuis le démarrage. Non nul = des interactions ont été
+    # servies sans être enregistrées ; le journal en porte la cause.
+    failures: int = 0
+
+
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
