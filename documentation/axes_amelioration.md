@@ -181,9 +181,19 @@ Budget de sources à `8192 / 4096` : **12 444** caractères au premier tour,
 **9 908** avec trois tours de 600 caractères par message, dont un tour écarté par
 `fit_history`.
 Contre 12 544 constants auparavant, appliqués au seul `markdown` : le budget est
-donc légèrement plus serré à un tour, et c'est correct — l'ancien ignorait 1 872
-caractères de prompt système, de gabarit et de déclaration d'outil qui y étaient
-bel et bien. La formule complète est dans [llm.md](llm.md).
+donc légèrement plus serré à un tour, et **c'est correct**. L'ancien ignorait
+1 892 caractères de prompt système, de gabarit, de balises de tour et de
+déclaration d'outil qui étaient bel et bien dans le prompt, plus l'encadrement de
+chaque source.
+
+Vérifié sur un cas que l'ancien budget acceptait : cinq sources de 2 500
+caractères, soit 12 500 ≤ 12 544. Le prompt réellement envoyé faisait **15 062
+caractères pour une fenêtre utile de 14 336** — 726 de trop, ~207 tokens
+qu'Ollama tronquait par le début. La reprise n'en retient que quatre, pour
+12 428 caractères. Écarter cette cinquième source n'est pas une perte : c'est le
+défaut qui disparaît.
+
+La formule complète est dans [llm.md](llm.md).
 
 ### 1.14 La source unique trop grosse était transmise entière — `llm.py`
 
