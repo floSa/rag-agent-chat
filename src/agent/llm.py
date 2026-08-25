@@ -92,7 +92,11 @@ _CACHE_HIT_RATIO = 0.6
 # résolu par le post-processing — ou, pire, correspond à un AUTRE élément. Le
 # prompt système ordonne de reprendre ces identifiants tels quels, et les
 # citations sont l'objet même de ce dépôt.
-_MARKER_RE = re.compile(r"\[(?:src|img):[^\]\s]*\]")
+#
+# Même forme que `_BLOC_SRC` dans graph.py, à dessein : « marqueur complet » doit
+# vouloir dire la même chose ici et dans le post-processing qui les résout. Un
+# marqueur reconnu d'un côté seulement rouvrirait l'écart qu'on vient de fermer.
+_MARKER_RE = re.compile(r"\[\s*(?:src|img):[^\]]*\]", re.I)
 
 
 def prompt_window_chars() -> int:

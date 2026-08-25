@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 218 tests, aucune dépendance
+## Unitaire — 219 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -26,7 +26,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_securite.py` | Traversée de chemin, échappement nGQL, comparaison de clé à temps constant. |
 | `test_resilience.py` | Un store qui redémarre doit rester invisible : cache oublié, une seule reprise. |
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
-| `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. |
+| `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 250 budgets). |
 
 **`--strict-markers` et `asyncio_mode = "strict"` ne sont pas décoratifs.** Sans
 eux, un test asynchrone mal marqué n'échoue pas : il *passe sans rien

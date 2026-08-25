@@ -460,6 +460,19 @@ def test_la_coupe_tombe_sur_une_frontiere_d_element() -> None:
     assert corps.endswith("]")
 
 
+def test_la_notion_de_marqueur_complet_est_celle_du_post_processing() -> None:
+    """`_MARKER_RE` doit reconnaître ce que `_BLOC_SRC` de graph.py résout.
+
+    Un marqueur complet d'un seul côté rouvrirait l'écart : la troncature le
+    croirait tronqué et couperait trop tôt, ou l'inverse.
+    """
+    from src.agent.graph import _BLOC_SRC
+
+    for marqueur in ("[src:abcdef0123]", "[ src:abcdef0123]", "[SRC:abcdef0123]"):
+        texte = f"Du texte. {marqueur}"
+        assert bool(_BLOC_SRC.search(texte)) == bool(llm._MARKER_RE.search(texte)), marqueur  # noqa: SLF001
+
+
 def test_une_fenetre_trop_etroite_pour_la_marque_ecarte_la_source() -> None:
     """Seule la marque de troncature entrerait : cela n'apprend rien au modèle."""
     kept, dropped = fit_contexts(
