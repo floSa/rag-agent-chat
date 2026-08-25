@@ -62,20 +62,12 @@ def _build_context_message(
 _CHARS_PER_TOKEN = 3.5
 
 # Balises de tour que le gabarit de chat du modèle ajoute autour de CHAQUE
-# message (« <start_of_turn>user … <end_of_turn> » chez Gemma). Le gabarit exact
-# dépend du modèle, d'où une provision ; l'ignorer sous-estime le prompt autant
-# de fois qu'il y a de messages.
-_MESSAGE_FRAMING_CHARS = 24
-
-# Part de la fenêtre utile que l'historique peut occuper au maximum.
-# L'historique est du contexte de second rang : `node_rewrite` a déjà rendu la
-# question de suivi autonome avant l'encodage, donc les sources répondent sans
-# lui. Sans ce plafond, six messages à la borne de `Message.content` dépassent à
-# eux seuls num_ctx — et c'est alors Ollama qui tranche, par le DÉBUT du prompt,
-# donc en jetant le message système : les règles de citation et d'abstention
-# disparaissent exactement quand la conversation devient assez longue pour en
-# avoir besoin.
-_HISTORY_WINDOW_SHARE = 0.25
+# message. FORFAIT : le gabarit exact dépend du modèle. La valeur est celle de
+# Gemma, comptée — « <start_of_turn>user\n » 20 caractères plus
+# « <end_of_turn>\n » 14. Elle valait 24, soit 30 % de moins que le gabarit que
+# son propre commentaire citait, et dans le sens dangereux : sous-estimer le
+# prompt autant de fois qu'il y a de messages.
+_MESSAGE_FRAMING_CHARS = 34
 
 # Marque laissée dans une source coupée. Le modèle doit pouvoir distinguer une
 # section qui s'achève d'une section amputée : sans marque, il conclut sur un
@@ -100,34 +92,57 @@ def prompt_window_chars() -> int:
 
 
 def history_budget_chars() -> int:
-    """Caractères que l'historique de conversation peut occuper au maximum."""
-    return int(prompt_window_chars() * _HISTORY_WINDOW_SHARE)
+    """Caractères que l'historique de conversation peut occuper au maximum.
+
+    `HISTORY_WINDOW_SHARE` est un forfait, pas une mesure : l'historique est du
+    contexte de second rang — `node_rewrite` a déjà rendu la question de suivi
+    autonome avant l'encodage, donc les sources répondent sans lui. Trancher le
+    partage autrement demanderait une mesure de la qualité multi-tour, qui
+    n'existe pas ici.
+    """
+    return int(prompt_window_chars() * settings.history_window_share)
 
 
 def fit_history(chat_history: Sequence[Message]) -> tuple[list[Message], int]:
-    """Ne garde de l'historique que les derniers messages qui tiennent au budget.
+    """Ne garde de l'historique que les derniers TOURS qui tiennent au budget.
 
     Sens inverse des sources : là on garde la tête du classement, ici la fin de
-    la conversation — c'est le dernier échange qui situe la question. La coupe
-    s'arrête au premier message qui ne tient plus, au lieu de continuer à
-    remplir : sauter un message du milieu rendrait une réponse sans sa question.
+    la conversation — c'est le dernier échange qui situe la question.
 
-    Un message trop gros à lui seul est écarté, pas tronqué : un demi-tour de
-    conversation n'apporte rien, alors qu'une demi-section reste lisible.
+    La coupe porte sur des tours, pas sur des messages. Couper par message
+    produisait exactement ce que le docstring prétendait éviter : avec six
+    messages de 2 000 caractères, seul le dernier survivait — l'assistant, sans
+    la question à laquelle il répondait. Le prompt valait alors
+    `['system', 'assistant', 'user']`, et un gabarit de chat strict sur
+    l'alternance recevait un tour « model » juste après le système.
+
+    Un tour est reconnu à son message `user` d'ouverture : on accumule depuis la
+    fin, et on ne retient un bloc que lorsqu'il en a un. Un message d'assistant
+    orphelin en tête de conversation ne part donc jamais seul.
+
+    Un tour trop gros à lui seul est écarté, pas tronqué : un demi-échange
+    n'apporte rien, alors qu'une demi-section reste lisible.
 
     Returns:
         (messages retenus, dans l'ordre ; nombre de messages écartés).
     """
     budget = history_budget_chars()
     kept: list[Message] = []
+    tour: list[Message] = []
     used = 0
+
     for msg in reversed(chat_history):
-        cost = len(msg.content) + _MESSAGE_FRAMING_CHARS
+        tour.insert(0, msg)
+        if msg.role != "user":
+            # Le début du tour n'est pas encore atteint : rien à arbitrer.
+            continue
+        cost = sum(len(m.content) + _MESSAGE_FRAMING_CHARS for m in tour)
         if used + cost > budget:
             break
-        kept.append(msg)
+        kept = tour + kept
         used += cost
-    kept.reverse()
+        tour = []
+
     return kept, len(chat_history) - len(kept)
 
 
@@ -329,11 +344,12 @@ def fit_prompt(
     if dropped_history:
         logger.warning(
             "Historique tronqué : %d message(s) sur %d écarté(s) — budget %d caractères "
-            "(%.0f %% de la fenêtre utile). Les plus anciens sautent.",
+            "(%.0f %% de la fenêtre utile, HISTORY_WINDOW_SHARE). Les tours les plus "
+            "anciens sautent, entiers.",
             dropped_history,
             len(chat_history or []),
             history_budget_chars(),
-            _HISTORY_WINDOW_SHARE * 100,
+            settings.history_window_share * 100,
         )
 
     budget = context_budget_chars(question, history)

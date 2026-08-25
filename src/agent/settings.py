@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     # Gemma 4 = modèle à raisonnement ; thinking désactivé par défaut (en CPU,
     # la réflexion peut consommer tout le budget avant le 1er token de réponse)
     llm_thinking: bool = Field(default=False, alias="LLM_THINKING")
+    # Part de la fenêtre de prompt que l'historique de conversation peut occuper.
+    # FORFAIT, pas une mesure : arbitrer entre historique et sources demanderait
+    # une mesure de la qualité multi-tour, qui n'existe pas ici. Sans plafond,
+    # une conversation longue affame les sources ; à 1.0, six messages à la borne
+    # de Message.content dépassent à eux seuls num_ctx, et c'est Ollama qui
+    # tranche — par le DÉBUT, donc en jetant le message système.
+    history_window_share: float = Field(default=0.25, alias="HISTORY_WINDOW_SHARE",
+                                        ge=0.0, le=1.0)
 
     # Retrieval
     embedding_model_name: str = Field(

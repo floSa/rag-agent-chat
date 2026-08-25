@@ -108,6 +108,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | `LLM_NUM_CTX` | `8192` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. Le budget de sources en dérive (cf. [llm.md](documentation/llm.md)). |
 | `LLM_MAX_TOKENS` | `4096` | Plafond de génération. Réserve la moitié de la fenêtre : **à mesurer**, cf. [llm.md](documentation/llm.md). |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
+| `HISTORY_WINDOW_SHARE` | `0.25` | Part de la fenêtre de prompt laissée à l'historique, le reste allant aux sources. Forfait, cf. [llm.md](documentation/llm.md). |
 | `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle d'ingestion, sinon la recherche rend des passages au hasard sans erreur. |
 | `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |
 | `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Mesuré : 20 → rappel 0,900, 50 → 0,962. |

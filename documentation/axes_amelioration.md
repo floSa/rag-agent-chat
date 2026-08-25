@@ -149,9 +149,13 @@ Le ratio de 3,5 caractères/token reste une estimation, mais il s'applique à
 **toutes** les parties du prompt — c'était l'application partielle qui trompait,
 pas le ratio.
 
-`fit_history` borne l'historique à 25 % de la fenêtre utile et garde les messages
-les plus **récents** : sens inverse des sources, c'est le dernier échange qui
-situe la question. `fit_prompt` devient le point d'entrée unique — `/answer`
+`fit_history` borne l'historique à `HISTORY_WINDOW_SHARE` de la fenêtre utile et
+garde les **tours** les plus récents : sens inverse des sources, c'est le dernier
+échange qui situe la question. La coupe porte sur des tours et non des messages —
+couper par message laissait passer une réponse sans la question à laquelle elle
+répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit de chat
+strict sur l'alternance refuse. Le partage est un **forfait** : arbitrer entre
+historique et sources demanderait une mesure de la qualité multi-tour (§2). `fit_prompt` devient le point d'entrée unique — `/answer`
 chiffrait ses `dropped_contexts` avec un budget calculé à part, et rapportait à
 la campagne d'évaluation un autre nombre que ce qui avait atteint le LLM.
 
@@ -170,8 +174,9 @@ sept, dix n'en gardaient plus que six. L'encadrement réel va de 34 caractères
 sans fil des titres à 275 avec cinq niveaux — un forfait unique est faux dans les
 deux sens selon le document.
 
-Budget de sources à `8192 / 4096` : **12 464** caractères au premier tour,
-**9 344** avec six messages de 600 caractères dont un écarté par `fit_history`.
+Budget de sources à `8192 / 4096` : **12 444** caractères au premier tour,
+**9 908** avec trois tours de 600 caractères par message, dont un tour écarté par
+`fit_history`.
 Contre 12 544 constants auparavant, appliqués au seul `markdown` : le budget est
 donc légèrement plus serré à un tour, et c'est correct — l'ancien ignorait 1 872
 caractères de prompt système, de gabarit et de déclaration d'outil qui y étaient
@@ -280,6 +285,8 @@ dans une table.
 | P2 | Branchement sur RAG-Eval-Bench | Le banc apporte juges calibrés, comparaison appariée et intervalles de confiance. Il lui manque un `ExternalPipeline` qui poste sur `/answer`. |
 | P1 | `LLM_MAX_TOKENS` non mesuré | 4096 tokens réservent la **moitié** de la fenêtre à une génération qui n'arrive jamais : les campagnes donnent ~3,2 citations et quelques centaines de tokens par réponse. La valeur n'a pas été ajustée faute de stack joignable, et `runs/*.json` n'enregistre pas la longueur des réponses — les campagnes passées ne permettent pas de reconstituer la distribution. Protocole de mesure dans [llm.md](llm.md). |
 | P2 | Ratio caractères/token posé au jugé | `_CHARS_PER_TOKEN = 3,5` gouverne tout le budget. Le log `prompt_eval_count` donne maintenant de quoi le calibrer, mais aucune campagne ne l'a encore fait. |
+| P2 | `HISTORY_WINDOW_SHARE` posé au jugé | 25 % de la fenêtre de prompt pour l'historique, 75 % pour les sources. Forfait assumé : arbitrer demande de mesurer la qualité des réponses **multi-tour**, ce que `make eval` ne fait pas — le jeu doré ne pose que des questions isolées. Le réglage est exposé pour qu'un balayage soit possible le jour où la mesure existe. |
+| P3 | Balises de tour du gabarit de chat | 34 caractères par message, le décompte du gabarit Gemma appliqué à tous les modèles. Le log `prompt_eval_count` permettrait de le déduire par différence. |
 | P2 | Latence de génération | ~3 à 10 s contre 0,5 s de recherche. Le levier est le LLM — quantisation, `num_predict`, modèle plus petit — pas la recherche. |
 | P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. |
 | P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |

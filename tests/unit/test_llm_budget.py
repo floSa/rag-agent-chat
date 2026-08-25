@@ -242,7 +242,78 @@ def test_le_prompt_garde_toujours_le_message_systeme() -> None:
     assert estimate_prompt_tokens(msgs) <= settings.llm_num_ctx
 
 
-# ─── Historique : les plus récents survivent ──────────────────────────────────
+# ─── Historique : les tours les plus récents survivent ────────────────────────
+
+def _conversation(nb_tours: int, taille: int) -> list[Message]:
+    """Une conversation réelle : question utilisateur, puis réponse assistante."""
+    messages: list[Message] = []
+    for i in range(nb_tours):
+        messages.append(Message(role="user", content=f"question {i} " + "q" * taille))
+        messages.append(Message(role="assistant", content=f"reponse {i} " + "r" * taille))
+    return messages
+
+
+def test_une_reponse_ne_part_jamais_sans_sa_question() -> None:
+    """La coupe porte sur des TOURS, pas sur des messages.
+
+    Couper par message produisait ce que le docstring prétendait éviter : avec
+    six messages de 2 000 caractères, seul le dernier survivait — l'assistant,
+    sans la question à laquelle il répondait.
+    """
+    for taille in (500, 1000, 2000, 3000):
+        kept, _ = fit_history(_conversation(3, taille))
+        if kept:
+            assert kept[0].role == "user", (
+                f"taille {taille} : historique retenu {[m.role for m in kept]}"
+            )
+
+
+def test_le_prompt_alterne_les_roles() -> None:
+    """Un gabarit de chat strict sur l'alternance recevait un tour « model »
+    directement après le système."""
+    msgs = _build_messages("Et pour les femmes ?", [], _conversation(3, 2000))
+    roles = [m["role"] for m in msgs]
+
+    assert roles == ["system", *["user", "assistant"] * ((len(roles) - 2) // 2), "user"], roles
+
+
+def test_un_tour_trop_gros_est_ecarte_entier() -> None:
+    """Pas de demi-échange : ni la question sans sa réponse, ni l'inverse."""
+    kept, dropped = fit_history(_conversation(1, MAX_MESSAGE_CHARS // 2))
+
+    assert kept == []
+    assert dropped == 2  # noqa: PLR2004
+
+
+def test_un_assistant_orphelin_ne_part_jamais_seul() -> None:
+    """Un historique qui commence par une réponse — client mal élevé, ou tour
+    coupé en amont — ne doit pas produire un « model » juste après le système."""
+    kept, dropped = fit_history([Message(role="assistant", content="reponse orpheline")])
+
+    assert kept == []
+    assert dropped == 1
+
+
+def test_la_part_de_fenetre_de_l_historique_est_reglable(monkeypatch) -> None:
+    """Forfait assumé, mais exposé : HISTORY_WINDOW_SHARE le rend arbitrable
+    sans toucher au code."""
+    monkeypatch.setattr(llm.settings, "history_window_share", 0.5)
+    large = history_budget_chars()
+    monkeypatch.setattr(llm.settings, "history_window_share", 0.1)
+    etroit = history_budget_chars()
+
+    assert etroit < large
+    assert large == int(prompt_window_chars() * 0.5)
+
+
+def test_les_balises_de_tour_valent_le_gabarit_qu_elles_citent() -> None:
+    """Le forfait valait 24 pour un gabarit qui en fait 34 — 30 % de moins, et
+    dans le sens dangereux : sous-estimer le prompt une fois par message."""
+    gemma = len("<start_of_turn>user\n") + len("<end_of_turn>\n")
+
+    assert llm._MESSAGE_FRAMING_CHARS == gemma == 34  # noqa: PLR2004, SLF001
+
+
 
 def test_l_historique_garde_les_messages_les_plus_recents() -> None:
     """Sens inverse des sources : c'est le dernier échange qui situe la question."""

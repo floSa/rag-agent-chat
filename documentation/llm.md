@@ -22,6 +22,7 @@ modèle déjà servi à côté. Un seul serveur d'inférence pour tous les proje
 | `LLM_MAX_TOKENS` | `4096` | Plafond de génération (`num_predict`) |
 | `LLM_TEMPERATURE` | `0.1` | Température |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4, coûteux en CPU |
+| `HISTORY_WINDOW_SHARE` | `0.25` | Part de la fenêtre de prompt laissée à l'historique — **forfait**, cf. plus bas |
 
 `LLM_NUM_CTX` est passé explicitement dans chaque requête. Sans lui, la fenêtre
 dépendrait de l'`OLLAMA_CONTEXT_LENGTH` du serveur, et le même prompt
@@ -69,8 +70,8 @@ chaîne réellement construite, pas une provision :
 | Encadrement d'une source, sans fil des titres | 34 |
 | Encadrement d'une source, fil des titres à 2 niveaux | 134 |
 | Encadrement d'une source, fil des titres à 5 niveaux | 275 |
-| **Budget de sources** — premier tour | **12 464** |
-| **Budget de sources** — six messages de 600 caractères (dont un écarté) | **9 344** |
+| **Budget de sources** — premier tour | **12 444** |
+| **Budget de sources** — trois tours de 600 caractères par message (dont un tour écarté) | **9 908** |
 
 L'encadrement va de 34 caractères sans fil des titres à 275 avec cinq niveaux :
 un forfait unique serait faux dans les deux sens selon le document. Il était
@@ -90,8 +91,8 @@ Ce qui reste un **forfait**, et le reste explicitement :
 | Forfait | Valeur | À mesurer |
 |---|---|---|
 | Ratio caractères/token | 3,5 | Le log `prompt_eval_count` donne le ratio mesuré à chaque génération |
-| Balises de tour du gabarit de chat, par message | 24 | Dépend du modèle ; se déduirait du même log |
-| Part de la fenêtre laissée à l'historique | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
+| Balises de tour du gabarit de chat, par message | 34 | Dépend du modèle. C'est le décompte du gabarit Gemma — `<start_of_turn>user\n` 20 caractères, `<end_of_turn>\n` 14 — appliqué à tous |
+| Part de la fenêtre laissée à l'historique (`HISTORY_WINDOW_SHARE`) | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
 
 Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
 tokens tenait lieu de provision pour « le prompt système, le gabarit et
@@ -117,8 +118,8 @@ n'était pas le ratio qui trompait, c'était son application partielle.
 |---|---|---|
 | Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
 | Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un identifiant amputé n'est plus résolu par le post-processing, ou correspond à un **autre** élément, et un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
-| Historique | Les messages les plus **anciens** | C'est le dernier échange qui situe la question. La coupe s'arrête au premier message qui ne tient plus : sauter un message du milieu rendrait une réponse sans sa question |
-| Message trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
+| Historique | Les **tours** les plus anciens, entiers | C'est le dernier échange qui situe la question. La coupe porte sur des tours et non des messages : couper par message laissait passer une réponse sans la question à laquelle elle répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit strict sur l'alternance refuse |
+| Tour trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
 
 `fit_prompt` est le point d'entrée unique : `_build_messages` construit le prompt
 avec, `/answer` chiffre ses `dropped_contexts` avec. Deux calculs séparés
