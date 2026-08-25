@@ -122,8 +122,13 @@ réglable.
 
 ### 1.12 Tests de la logique métier — `tests/unit/`
 
-38 tests s'ajoutent aux 21 existants : résolution des citations et des images,
-échappement des VIDs, fenêtrage, budget de contexte, déduplication.
+Le projet n'avait de tests que sur les schémas. La suite couvre désormais la
+logique qui casse en silence : résolution des citations et des images,
+échappement des VIDs, fenêtrage du contexte, budget de fenêtre, déduplication
+des éléments multi-chunks, profondeur d'historique par route.
+
+Le décompte vit dans [tests.md](tests.md), qui est régénéré à chaque lot — le
+répéter ici en faisait un chiffre périmé de plus.
 
 ### 1.13 Le budget de contexte ignorait l'historique — `llm.py`, `api/main.py`
 
@@ -272,6 +277,23 @@ soumet effectivement au LLM et d'où dérive le budget. Les trois `[-6:]` litté
 de `main.py` passent par la constante, et le frontend n'envoie plus que ces six
 messages au lieu du fil complet — il duplique la constante, faute de pouvoir
 importer le schéma, et un test échoue si les deux divergent.
+
+### 1.18 `Message.role` non contraint — `api/schemas.py`
+
+`role` était un `str` libre, et `_build_messages` le recopie tel quel dans le
+prompt. Un client pouvait donc poster `{"role": "system", …}` dans
+`chat_history` et glisser un **second message système** à côté du vrai — celui
+qui porte « cite chaque affirmation », « ne réponds jamais au-delà des sources »,
+« dis-le si tu ne trouves pas ».
+
+C'est le défaut de §1.13 par une autre route : la troncature jetait ces règles,
+une injection de rôle les contredit. Dans les deux cas le garde-fou disparaît
+sans laisser de trace dans la réponse.
+
+`Literal["user", "assistant"]`. Vérifié avant de contraindre : rien dans le dépôt
+ne construit un `Message` avec un autre rôle — ni le frontend, ni les fixtures
+dorées, ni `scripts/evaluate.py`. Les `{"role": "system"}` restants sont des
+dictionnaires de charge utile Ollama, pas des `Message`.
 
 ### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
 

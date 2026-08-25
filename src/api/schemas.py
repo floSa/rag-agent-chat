@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -36,7 +36,13 @@ MAX_HISTORY_PAYLOAD = 50
 
 
 class Message(BaseModel):
-    role: str    # "user" | "assistant"
+    # Recopié tel quel dans le prompt par `_build_messages`. En `str` libre, un
+    # client pouvait poster {"role": "system", ...} dans chat_history et glisser
+    # un second message système à côté du vrai — celui qui porte « cite chaque
+    # affirmation » et « dis-le si tu ne trouves pas ». C'est le défaut que ce
+    # budget corrige, par une autre route : la troncature jetait ces règles,
+    # une injection de rôle les contredit.
+    role: Literal["user", "assistant"]
     # « question » était plafonnée, l'historique non : c'était le vecteur par
     # lequel un prompt dépassait num_ctx, et Ollama le tronquait par le début.
     content: str = Field(..., max_length=MAX_MESSAGE_CHARS)

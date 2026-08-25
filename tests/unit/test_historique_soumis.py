@@ -113,3 +113,4 @@ def test_le_frontend_ne_derive_pas_de_la_borne_du_schema() -> None:
     from src.frontend import app
 
     assert app.MAX_HISTORY_MESSAGES == MAX_HISTORY_MESSAGES
+
