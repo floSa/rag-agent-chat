@@ -31,16 +31,21 @@ from src.agent.retriever import group_by_document, lexical_ready, rerank, retrie
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.agent.state import AgentState
+from src.agent.usage import initialiser as usage_initialiser
+from src.agent.usage import record_completion, record_start
 from src.api.schemas import (
     MAX_HISTORY_MESSAGES,
     AnswerRequest,
     AnswerResponse,
     ChatRequest,
     ChatResponse,
+    Citation,
     HealthResponse,
+    ImageRef,
     RetrievedContext,
     SearchRequest,
     SearchResponse,
+    SectionContext,
     SourceSelectionRequest,
     SourcesResponse,
 )
@@ -69,6 +74,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     global _interactive
     checkpointer = await build_checkpointer()
     _interactive = compile_interactive(checkpointer)
+    # Avant de servir : c'est le seul moment où fixer le mode de journalisation
+    # de la base de capture est sûr. Le faire dans le chemin d'écriture faisait
+    # perdre des interactions simultanées (cf. usage.initialiser).
+    await usage_initialiser()
     try:
         yield
     finally:
@@ -175,6 +184,30 @@ def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict[str, Any]
 
 # ─── Chat (génération directe, sans LangGraph) ────────────────────────────────
 
+async def _capturer_generation_directe(
+    thread_id: str,
+    question: str,
+    reponse: str,
+    citations: list[Citation],
+    images: list[ImageRef],
+    contexts: list[SectionContext],
+) -> None:
+    """Enregistre une génération directe : la question et ce qu'elle a produit.
+
+    Les deux écritures ont lieu à la fin, jamais avant la réponse : cet endpoint
+    diffuse, et rien de synchrone n'entre dans le chemin de diffusion.
+    """
+    await record_start(thread_id=thread_id, endpoint="chat_simple", question=question)
+    await record_completion(
+        thread_id=thread_id,
+        response=reponse,
+        citations=citations,
+        images=images,
+        search_count=1,
+        submitted=contexts,
+    )
+
+
 @app.post("/chat/simple", response_model=None, dependencies=[Depends(require_api_key)])
 async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     """Génération directe (sans agentic loop) à partir des sources sélectionnées.
@@ -203,6 +236,13 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
             detail="Impossible de reconstruire le contexte des sources sélectionnées.",
         )
 
+    # La capture de cet endpoint n'écrit AUCUNE source proposée : le client
+    # arrive avec ses element_ids déjà choisis, rien ne lui a été soumis. Y
+    # inscrire ses sources comme « retenues » gonflerait le taux de retenue
+    # d'une décision que personne n'a prise. La question, elle, compte : c'est
+    # la distribution des classes de questions qu'on cherche à connaître.
+    thread_id = str(uuid.uuid4())
+
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             morceaux: list[str] = []
@@ -223,6 +263,9 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
                     }
                 )
             }
+            await _capturer_generation_directe(
+                thread_id, req.question, reponse, citations, images, contexts
+            )
 
         return EventSourceResponse(stream_generator())
 
@@ -236,6 +279,9 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     # même conversation selon la route empruntée.
     response = await generate(req.question, contexts, req.chat_history[-MAX_HISTORY_MESSAGES:])
     citations, images = resolve_citations(response, contexts, [])
+    await _capturer_generation_directe(
+        thread_id, req.question, response, citations, images, contexts
+    )
     return ChatResponse(answer=response, citations=citations, images=images, search_count=1)
 
 
@@ -306,6 +352,34 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         )
         for ctx in enriched
     ]
+
+    # Capturé comme le flux interactif, mais sous `endpoint='answer'` : la
+    # sélection est automatique ici, aucune décision humaine n'y figure. C'est
+    # ce qui permet de comparer une campagne à l'usage réel — à condition de
+    # filtrer, une campagne écrivant 138 interactions d'un coup.
+    thread_id = str(uuid.uuid4())
+    await record_start(
+        thread_id=thread_id,
+        endpoint="answer",
+        question=req.question,
+        search_query=result.get("search_query"),
+        search_translation=result.get("search_translation"),
+        ranking=ranked,
+        timings=timings,
+    )
+    await record_completion(
+        thread_id=thread_id,
+        response=result.get("response", ""),
+        citations=result.get("citations", []),
+        images=result.get("images", []),
+        search_count=result.get("search_count"),
+        submitted=enriched,
+        selected_element_ids=[c.element_id for c in enriched],
+        # Seul endroit où le nombre de sources écartées est connu sans passer
+        # par l'état du graphe : il vient d'être calculé juste au-dessus.
+        dropped_contexts=dropped,
+        timings=timings,
+    )
 
     return AnswerResponse(
         question=req.question,
@@ -397,11 +471,51 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
     result = await interactive_graph().ainvoke(initial_state, config)
 
     groups = group_by_document(result.get("reranked_chunks", []))
+
+    # Ouverture de l'enregistrement de capture. C'est ici, et nulle part
+    # ailleurs, qu'on sait ce qui a été PROPOSÉ : /chat/resume ne verra que ce
+    # qui a été retenu, et l'écart entre les deux est la donnée que ce lot
+    # récolte. Les deux phases sont jointes par thread_id.
+    await record_start(
+        thread_id=thread_id,
+        endpoint="chat",
+        question=req.question,
+        search_query=result.get("search_query"),
+        search_translation=result.get("search_translation"),
+        ranking=result.get("reranked_chunks", []),
+        timings=result.get("_metadata") or {},
+    )
+
     return {
         "thread_id": thread_id,
         "question": req.question,
         "groups": [g.model_dump() for g in groups],
     }
+
+
+async def _completer_capture(
+    thread_id: str, etat: dict[str, Any], selection: list[str]
+) -> None:
+    """Complète l'enregistrement d'usage avec ce que la génération a produit.
+
+    `dropped_contexts` est lu dans l'état plutôt que recalculé : absent, il est
+    enregistré NULL. Écrire 0 affirmerait qu'aucune source n'a été écartée, ce
+    que personne n'a mesuré.
+    """
+    await record_completion(
+        thread_id=thread_id,
+        response=etat.get("response", ""),
+        citations=etat.get("citations", []),
+        images=etat.get("images", []),
+        search_count=etat.get("search_count"),
+        submitted=etat.get("enriched_contexts", []),
+        # La sélection HUMAINE, pas les sections soumises : deux éléments d'une
+        # même section n'en produisent qu'une, et la boucle agentique peut en
+        # ajouter que personne n'a jamais vues.
+        selected_element_ids=selection,
+        dropped_contexts=etat.get("dropped_contexts"),
+        timings=etat.get("_metadata") or {},
+    )
 
 
 @app.post("/chat/resume", response_model=None, dependencies=[Depends(require_api_key)])
@@ -446,10 +560,15 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
                     "search_count": final_state.get("search_count", 1),
                 })
             }
+            # APRÈS le dernier événement : la réponse est servie, l'écriture ne
+            # coûte rien à qui attendait. Rien de synchrone n'entre dans le
+            # chemin de diffusion, c'est la contrainte du lot.
+            await _completer_capture(req.thread_id, final_state, req.selected_element_ids)
 
         return EventSourceResponse(stream_generator())
 
     result = await interactive_graph().ainvoke(None, config)
+    await _completer_capture(req.thread_id, result, req.selected_element_ids)
     return ChatResponse(
         answer=result.get("response", ""),
         citations=result.get("citations", []),

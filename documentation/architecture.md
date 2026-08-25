@@ -28,7 +28,8 @@ Trois réseaux :
 - `internal` (bridge) : frontend ↔ agent-api.
 
 Volumes : `rag_hf_cache` (modèles HuggingFace — embedding et cross-encoder,
-téléchargés au premier démarrage), `rag_agent_state` (sessions LangGraph).
+téléchargés au premier démarrage), `rag_agent_state` (sessions LangGraph **et
+base de capture d'usage** — deux fichiers SQLite dans le même volume).
 
 ## Machine à états LangGraph
 
@@ -77,6 +78,41 @@ mesurer le système.
 8. **Boucle agentique** : si le modèle appelle l'outil `search_vectors`, une
    nouvelle passe recherche → rerank → reconstruction s'enchaîne sans
    re-sélection, contextes accumulés, dans la limite de `MAX_SEARCH_ITERATIONS`.
+
+## Capture d'usage
+
+`src/agent/usage.py` enregistre ce que le service sert : la question posée, le
+classement proposé, les sources retenues ou décochées, la réponse, les latences
+et l'appréciation. Détail du schéma et requêtes dans
+[capture_usage.md](capture_usage.md), posture dans [SECURITY.md](SECURITY.md).
+
+**Le branchement appartient à l'API, pas au graphe**, et ce n'est pas un détail
+d'implémentation : c'est `/chat/start` qui sait ce qui a été **proposé** et
+`/chat/resume` qui sait ce qui a été **retenu**. Aucun nœud du graphe ne voit
+les deux. Un enregistrement couvre donc deux requêtes HTTP, jointes par
+`thread_id` — inséré au start, complété au resume.
+
+```
+/chat/start  ──→ graphe (rewrite → retrieve → rerank) ──→ record_start      (1 ligne + N sources)
+                                                              ↓ thread_id
+/chat/resume ──→ graphe (reconstruct → generate → postprocess)
+                 ──→ dernier événement SSE ──→ record_completion  (retenue, réponse, latences)
+/answer      ──→ graphe complet ──→ record_start + record_completion  (endpoint = 'answer')
+/feedback    ──→ record_feedback  (note binaire, commentaire libre)
+```
+
+Trois propriétés portées par le code, chacune pour une raison :
+
+- **l'écriture de `/chat/resume` a lieu après le dernier événement SSE** — la
+  diffusion est le chemin critique, et une écriture qui s'y glisse retarde une
+  réponse déjà lente ;
+- **aucun échec ne remonte** — base verrouillée, disque plein, schéma divergent :
+  WARNING et on continue de servir. La capture est de l'observation, pas une
+  fonctionnalité ;
+- **le mode de journalisation SQLite est fixé au démarrage** (`usage.initialiser`
+  appelé par le `lifespan`), jamais dans le chemin d'écriture : le changer exige
+  un verrou exclusif qui ne respecte pas le délai d'attente, et faisait perdre
+  des interactions simultanées.
 
 ## Décisions d'architecture
 
@@ -127,6 +163,11 @@ mesurer le système.
 - **Endpoints synchrones en `def`** : l'inférence CPU tourne dans le threadpool
   FastAPI, l'event loop reste libre.
 - **Torch CPU-only** dans l'image : pas de libs CUDA embarquées.
+- **La capture d'usage est branchée sur l'API, non sur le graphe**, et son
+  drapeau est à vrai par défaut. Un drapeau à faux annulerait le dispositif :
+  personne ne le basculera avant les premiers utilisateurs, et les premières
+  semaines d'usage ne se rattrapent pas. L'exposition n'est pas nouvelle — le
+  checkpointer persiste déjà l'état complet du graphe dans le même volume.
 
 ## Contrat d'interface avec l'ingestion
 
