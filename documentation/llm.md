@@ -59,9 +59,14 @@ Mesuré à `8192 / 4096`, sur une question réelle (`src/agent/llm.py`) :
 | Gabarit rendu sans sources | 472 |
 | Encadrement, par source | 200 |
 | Balise de tour, par message | 24 |
+| Déclaration de l'outil `search_vectors` (si `NATIVE_TOOL_CALLING`) | 417 |
 | Plafond de l'historique (25 % de la fenêtre utile) | 3 584 |
-| **Budget de sources** — 3 sources, premier tour | **12 281** |
-| **Budget de sources** — 5 sources, six messages d'historique | **8 137** |
+| **Budget de sources** — 3 sources, premier tour | **11 864** |
+| **Budget de sources** — 5 sources, six messages de 600 caractères | **7 720** |
+
+`tools` n'est pas un canal séparé pour le modèle : Ollama le rend **dans** le
+prompt via le gabarit de chat. Ne pas le compter laissait le même trou que le
+forfait, à plus petite échelle — 417 caractères, soit ~119 tokens.
 
 Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
 tokens tenait lieu de provision pour « le prompt système, le gabarit et

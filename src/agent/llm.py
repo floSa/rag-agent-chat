@@ -130,6 +130,17 @@ def fit_history(chat_history: Sequence[Message]) -> tuple[list[Message], int]:
     return kept, len(chat_history) - len(kept)
 
 
+def tools_overhead_chars() -> int:
+    """Caractères de la déclaration d'outil, quand elle est envoyée.
+
+    `tools` n'est pas un canal séparé pour le modèle : Ollama le rend DANS le
+    prompt via le gabarit de chat, donc il consomme la fenêtre comme le reste.
+    417 caractères, soit ~119 tokens, que rien ne comptait — le même trou que le
+    forfait qu'on vient de retirer, à plus petite échelle.
+    """
+    return len(json.dumps(SEARCH_TOOL, ensure_ascii=False)) if settings.native_tool_calling else 0
+
+
 def prompt_overhead_chars(
     question: str, chat_history: Sequence[Message], source_count: int
 ) -> int:
@@ -151,6 +162,7 @@ def prompt_overhead_chars(
     # Un tour par message d'historique, plus le système et les sources.
     overhead += (len(chat_history) + 2) * _MESSAGE_FRAMING_CHARS
     overhead += source_count * _SOURCE_FRAMING_CHARS
+    overhead += tools_overhead_chars()
     return overhead
 
 
@@ -294,7 +306,7 @@ def estimate_prompt_tokens(messages: Sequence[dict[str, Any]]) -> int:
     que l'estimation qui a décidé de la coupe ne calibrerait rien.
     """
     chars = sum(len(str(msg.get("content", ""))) + _MESSAGE_FRAMING_CHARS for msg in messages)
-    return math.ceil(chars / _CHARS_PER_TOKEN)
+    return math.ceil((chars + tools_overhead_chars()) / _CHARS_PER_TOKEN)
 
 
 def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> None:

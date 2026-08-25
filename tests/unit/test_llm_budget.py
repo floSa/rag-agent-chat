@@ -94,6 +94,23 @@ def test_l_encadrement_des_sources_est_compte() -> None:
     )
 
 
+def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
+    """`tools` n'est pas un canal séparé : Ollama le rend dans le prompt.
+
+    417 caractères que rien ne comptait — le même trou que le forfait retiré,
+    à plus petite échelle.
+    """
+    from src.agent import llm
+
+    avec = context_budget_chars("q", [], source_count=1)
+    cout = llm.tools_overhead_chars()
+    monkeypatch.setattr(llm.settings, "native_tool_calling", False)
+    sans = context_budget_chars("q", [], source_count=1)
+
+    assert llm.tools_overhead_chars() == 0
+    assert sans - avec == cout > 0
+
+
 def test_le_budget_ne_devient_jamais_negatif() -> None:
     """Un historique qui dépasse la fenêtre donne 0, pas un budget négatif.
 
@@ -250,11 +267,14 @@ def test_fit_prompt_sans_historique() -> None:
 # ─── L'estimation confrontée à la mesure ──────────────────────────────────────
 
 def test_estimate_prompt_tokens_compte_les_balises_de_tour() -> None:
-    """Le gabarit de chat encadre chaque message : trois messages, trois tours."""
-    un = estimate_prompt_tokens([{"role": "system", "content": "abc"}])
-    trois = estimate_prompt_tokens([{"role": "system", "content": "abc"}] * 3)
+    """Le gabarit de chat encadre chaque message : trois messages, trois tours.
 
-    assert trois > un * 2
+    Même texte total, découpé autrement : c'est l'encadrement qui fait l'écart.
+    """
+    groupe = estimate_prompt_tokens([{"role": "system", "content": "abc" * 3}])
+    eclate = estimate_prompt_tokens([{"role": "system", "content": "abc"}] * 3)
+
+    assert eclate > groupe
 
 
 def test_l_ecart_entre_estimation_et_reel_est_journalise(caplog) -> None:

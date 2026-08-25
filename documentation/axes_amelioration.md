@@ -155,9 +155,14 @@ situe la question. `fit_prompt` devient le point d'entrée unique — `/answer`
 chiffrait ses `dropped_contexts` avec un budget calculé à part, et rapportait à
 la campagne d'évaluation un autre nombre que ce qui avait atteint le LLM.
 
-Budget de sources à `8192 / 4096` : **12 281** caractères au premier tour avec 3
-sources, **8 137** avec 5 sources et six messages d'historique — contre 12 544
-constants auparavant. La formule complète est dans [llm.md](llm.md).
+La déclaration de l'outil `search_vectors` y entre aussi : `tools` n'est pas un
+canal séparé pour le modèle, Ollama le rend dans le prompt via le gabarit de
+chat. 417 caractères que rien ne comptait — le même trou que le forfait, à plus
+petite échelle.
+
+Budget de sources à `8192 / 4096` : **11 864** caractères au premier tour avec 3
+sources, **7 720** avec 5 sources et six messages de 600 caractères — contre
+12 544 constants auparavant. La formule complète est dans [llm.md](llm.md).
 
 ### 1.14 La source unique trop grosse était transmise entière — `llm.py`
 
