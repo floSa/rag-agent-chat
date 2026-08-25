@@ -193,16 +193,20 @@ docker compose logs -f agent-api | grep "Prompt :"
 
 ## `LLM_MAX_TOKENS` — à mesurer
 
-`LLM_MAX_TOKENS = 4096` réserve la **moitié** de la fenêtre à une génération qui
-n'arrive jamais : les campagnes de `runs/` donnent ~3,2 citations par réponse et
-quelques centaines de tokens. Ce plafond confisque la moitié de `num_ctx` au
-profit de sources qui, elles, sont écartées.
+`LLM_MAX_TOKENS = 4096` réserve la **moitié** de la fenêtre à la génération, et
+rien ne dit que celle-ci en a besoin. Le seul indice sourcé est indirect :
+`runs/final.json` donne 3,246 citations par réponse — une réponse à trois
+citations est rarement longue. Mais **la longueur des réponses n'est mesurée
+nulle part**, donc l'affirmation « une génération qui n'arrive jamais » reste une
+présomption, pas un fait. C'est exactement ce que le protocole ci-dessous
+mesure.
 
 **La valeur n'a pas été ajustée, faute de pouvoir la mesurer** : ni
 `ollama-central` ni les stores n'étaient joignables. Un chiffre inventé est pire
-que pas de chiffre — et `runs/*.json` n'enregistre pas la longueur des réponses,
-seulement `generation_ms`, donc les campagnes passées ne permettent pas de
-reconstituer la distribution après coup.
+que pas de chiffre — et `runs/*.json` n'enregistre que `generation_ms`, pas la
+longueur des réponses, donc les campagnes passées ne permettent pas de
+reconstituer la distribution après coup. C'est un manque du protocole
+d'évaluation autant que de ce lot.
 
 Ce qu'il faut mesurer, stack démarrée :
 
