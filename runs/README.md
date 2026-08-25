@@ -21,6 +21,46 @@ balayage suppose de refaire 130 appels au LLM, et les traductions changeraient
 d'une exécution à l'autre — le balayage ne serait plus comparable. Le supprimer
 le fait simplement se reconstruire.
 
+## Avertissement — aucune campagne depuis la correction du budget de contexte
+
+**À lire avant de comparer une nouvelle campagne à `final.json`.** Le budget de la
+fenêtre de contexte a été corrigé (cf. [llm.md](../documentation/llm.md) et
+[axes_amelioration.md](../documentation/axes_amelioration.md) §1.13 à §1.19), et
+aucune campagne n'a tourné depuis : la stack n'était pas joignable. Ce que la
+première fera bouger, et dans quel sens :
+
+| Métrique | Sens attendu | Pourquoi |
+|---|---|---|
+| `contextes_ecartes_total` | **En hausse**, depuis 0 | Le budget ne prétend plus qu'un forfait de 512 tokens couvre le prompt système, le gabarit et l'historique. Il compte ce qui est réellement envoyé, donc il écarte plus tôt |
+| `rappel_elements` | **Peut reculer** — et c'est correct | Il se mesure sur ce qui atteint le LLM. Une source écartée en moins le fait baisser, même quand l'écarter est le correctif |
+| `citations_par_reponse` | En légère baisse | Moins de texte en entrée, donc moins de sources citables |
+| `taux_citation_complete`, `abstention_correcte` | Stables | Rien ne change dans la résolution des citations |
+| `rappel_recherche`, `mrr`, `rappel_documents` | Inchangés | Rien n'est touché en amont du reranking |
+| latences | Quasi inchangées | Quelques rendus Jinja de plus par génération, négligeables devant 4,4 s |
+
+**Un recul de `rappel_elements` n'est pas à annuler sans avoir vérifié la cause.**
+Démonstration sur un cas que l'ancien budget acceptait : cinq sources de 2 500
+caractères, soit 12 500 ≤ 12 544, le plafond d'alors. Le prompt réellement émis
+faisait **15 062 caractères pour une fenêtre utile de 14 336** — 726 de trop, soit
+~207 tokens qu'Ollama tronquait **par le début**, donc en jetant le message
+système et ses règles de citation. La cinquième source ne tenait pas. Le budget
+corrigé n'en retient que quatre, pour 12 428 caractères : la métrique baisse parce
+que le dépassement disparaît.
+
+### Ce que cette campagne ne verra pas
+
+Le gain principal de la correction est la **survie du message système en
+conversation** : c'est au troisième tour que le prompt débordait. Or `make eval`
+ne pose que des questions isolées — le jeu doré n'a pas de fil multi-tour
+exploitable. **La campagne mesurera donc le coût de la correction sans mesurer son
+bénéfice.** C'est une lacune du protocole de mesure, ouverte en P2 dans
+[axes_amelioration.md](../documentation/axes_amelioration.md), pas une raison de
+lire les chiffres comme une régression.
+
+Deuxième angle mort, même document : `scripts/evaluate.py` n'enregistre pas la
+longueur des réponses, seulement `generation_ms`. C'est la mesure qui manque pour
+régler `LLM_MAX_TOKENS`, qui réserve aujourd'hui la moitié de la fenêtre.
+
 ## Résultat de la configuration retenue
 
 `final.json` — 138 questions, campagne complète, aucun échec.
