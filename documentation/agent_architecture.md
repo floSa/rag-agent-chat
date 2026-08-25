@@ -254,10 +254,18 @@ parlé. Limite : `MAX_SEARCH_ITERATIONS`.
 de l'`OLLAMA_CONTEXT_LENGTH` du serveur interrogé — 8192 ou 32768 selon le
 déploiement — et le même prompt produit deux comportements.
 
-Le budget de sources vaut `LLM_NUM_CTX - LLM_MAX_TOKENS`. Ce qui dépasse est
-écarté **ici**, avec un log qui dit combien et pourquoi. Ollama, lui, tronque
-par le **début** du prompt, donc par les sources les mieux classées — en
-silence.
+Le budget de sources vaut la fenêtre **moins la génération, moins tout ce que le
+prompt contient déjà** : prompt système, gabarit rendu, historique retenu,
+encadrement des sources. L'historique n'y entrait pas — un forfait de 512 tokens
+en tenait lieu — et le prompt dépassait `num_ctx` dès le troisième tour d'une
+conversation. Ollama tronque alors par le **début** du prompt, donc il jette le
+message système et ses règles de citation, puis les sources les mieux classées —
+en silence.
+
+Ce qui dépasse est écarté **ici**, avec un log qui dit combien et pourquoi ;
+`prompt_eval_count`, rendu par Ollama sur l'événement final du flux, confronte
+l'estimation au décompte réel. Formule, chiffres et lecture des logs dans
+[llm.md](llm.md).
 
 ### Paramètres
 

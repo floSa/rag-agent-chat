@@ -70,8 +70,8 @@ mesurer le système.
    rattachées aux illustrations via `DESCRIBES`, texte intégral relu dans
    l'index quand celui du graphe frôle sa troncature.
 6. **Génération** (`node_generate`) : Ollama `/api/chat`, `num_ctx` explicite,
-   sources écartées avec un log si le budget de fenêtre est dépassé, tokens
-   streamés en SSE.
+   historique puis sources bornés au budget de fenêtre avec un log, prompt
+   estimé confronté au `prompt_eval_count` réel, tokens streamés en SSE.
 7. **Post-processing** (`node_postprocess`) : citations `[src:ID]` résolues vers
    document, ouvrage, page et section ; images `[img:ID]` servies par `/media`.
 8. **Boucle agentique** : si le modèle appelle l'outil `search_vectors`, une
@@ -98,7 +98,14 @@ mesurer le système.
 - **`num_ctx` explicite** dans chaque requête : sans lui la fenêtre dépend du
   serveur interrogé, et le même prompt produit deux comportements. Les sources
   qui dépassent le budget sont écartées **ici**, avec un log ; Ollama, lui,
-  tronque par le début, donc par les sources les mieux classées.
+  tronque par le début, donc le message système puis les sources les mieux
+  classées.
+- **Le budget se calcule sur ce qui est réellement dans le prompt** — système,
+  gabarit, historique, sources — et non sur les sources seules. Un forfait
+  couvrait le reste ; il ignorait l'historique, et le prompt dépassait la fenêtre
+  dès le troisième tour. Le prompt estimé est confronté au `prompt_eval_count`
+  d'Ollama à chaque génération : une devinette instrumentée vaut mieux qu'une
+  devinette.
 - **Tool-calling natif, repli par regex.** `search_vectors` est déclaré comme
   outil ; le repérage de l'appel dans la prose reste actif pour les modèles sans
   tool-calling.

@@ -105,7 +105,8 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | :--- | :--- | :--- |
 | `OLLAMA_HOST` | `http://ollama-central:11434` | Service central du projet `llm-service`. |
 | `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération. |
-| `LLM_NUM_CTX` | `32768` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. |
+| `LLM_NUM_CTX` | `8192` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. Le budget de sources en dérive (cf. [llm.md](documentation/llm.md)). |
+| `LLM_MAX_TOKENS` | `4096` | Plafond de génération. Réserve la moitié de la fenêtre : **à mesurer**, cf. [llm.md](documentation/llm.md). |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
 | `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle d'ingestion, sinon la recherche rend des passages au hasard sans erreur. |
 | `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |

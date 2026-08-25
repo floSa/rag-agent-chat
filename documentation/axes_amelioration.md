@@ -65,6 +65,10 @@ Mesuré sur une question réelle : 5 sections reconstruites font 13 961
 caractères pour un budget de 12 544 — une source écartée explicitement, là où
 Ollama en tronquait le **début** en silence.
 
+Ce budget de 12 544 caractères était lui-même faux : il ne comptait ni
+l'historique de conversation, ni la source qui dépasse seule la fenêtre.
+Cf. §1.13 et §1.14.
+
 ### 1.5 Éléments multi-chunks — `retriever.py`, `frontend/app.py`
 
 Un bloc long produit des chunks `abc#0`, `abc#1` partageant leur `element_id`.
@@ -121,6 +125,102 @@ réglable.
 38 tests s'ajoutent aux 21 existants : résolution des citations et des images,
 échappement des VIDs, fenêtrage, budget de contexte, déduplication.
 
+### 1.13 Le budget de contexte ignorait l'historique — `llm.py`, `api/main.py`
+
+`context_budget_chars` forfaitisait à 512 tokens « le prompt système, le gabarit
+et l'historique ». L'historique n'était **jamais** compté : six messages sont
+acceptés, chaque réponse assistante peut atteindre `LLM_MAX_TOKENS`, et
+`Message.content` n'avait aucune borne. Le forfait était dépassé d'un ordre de
+grandeur.
+
+Mesuré avant correctif, sur six messages de 3 000 caractères et deux sources de
+12 000 : **31 380 caractères de prompt pour une fenêtre utile de 14 336**, soit
+2,2 fois la fenêtre. Ollama tronque alors par le **début** — il jette donc le
+message système, c'est-à-dire « cite chaque affirmation », « ne réponds jamais
+au-delà des sources », « dis-le si tu ne trouves pas ». Le garde-fou
+disparaissait exactement quand la conversation devenait assez longue pour en
+avoir besoin, et `fit_contexts`, écrit pour ce mode de panne, ne couvrait que
+les sources.
+
+Le budget se calcule désormais sur ce qui est réellement dans le prompt : prompt
+système lu, gabarit rendu sans ses sources (mesuré, donc une retouche du gabarit
+s'y répercute), historique retenu, encadrement de chaque source, balises de tour.
+Le ratio de 3,5 caractères/token reste une estimation, mais il s'applique à
+**toutes** les parties du prompt — c'était l'application partielle qui trompait,
+pas le ratio.
+
+`fit_history` borne l'historique à 25 % de la fenêtre utile et garde les messages
+les plus **récents** : sens inverse des sources, c'est le dernier échange qui
+situe la question. `fit_prompt` devient le point d'entrée unique — `/answer`
+chiffrait ses `dropped_contexts` avec un budget calculé à part, et rapportait à
+la campagne d'évaluation un autre nombre que ce qui avait atteint le LLM.
+
+Budget de sources à `8192 / 4096` : **12 281** caractères au premier tour avec 3
+sources, **8 137** avec 5 sources et six messages d'historique — contre 12 544
+constants auparavant. La formule complète est dans [llm.md](llm.md).
+
+### 1.14 La source unique trop grosse était transmise entière — `llm.py`
+
+`fit_contexts` garde la première source même si elle dépasse seule le budget :
+mieux vaut une source amputée que zéro source, et ce choix est assumé. Mais elle
+était transmise **entière** — donc c'était Ollama qui coupait, par le début du
+prompt. Le mode de panne que la fonction existe précisément pour éviter. Une
+section sans `SectionHeader` y arrive : ses éléments sont rattachés au nœud
+`Document`, la fenêtre en retient treize, et les textes intégraux sont relus dans
+l'index.
+
+La coupe se fait désormais dans la fonction, par la **fin**, avec un log qui dit
+de combien et une marque dans le markdown — sans elle, le modèle conclut sur un
+texte tronqué comme s'il était complet.
+
+Le docstring annonçait par ailleurs « c'est la queue de la liste qui saute »,
+alors que le `continue` implémente un remplissage **au mieux** : une petite
+source après une grosse écartée est conservée. Le docstring est aligné sur le
+code, et le test distingue les deux comportements — à tailles égales ils sont
+indistinguables, ce que l'ancien test ne voyait pas.
+
+### 1.15 Le prompt réel n'était jamais mesuré — `llm.py`
+
+Le dernier événement du flux Ollama — celui qui porte `done: true` — contient
+`prompt_eval_count` : le nombre **réel** de tokens du prompt. La boucle sortait
+sur `done` sans le lire. Deux conséquences : le ratio caractères/token sur lequel
+tout le budget repose restait une devinette qu'aucune mesure ne corrigeait, et un
+prompt qui dépassait `num_ctx` ne laissait **aucune trace** — Ollama le tronque
+en silence.
+
+Chaque génération journalise maintenant l'estimation, le décompte réel, l'écart
+et le ratio qui aurait rendu l'estimation exacte. Un prompt réel au-delà de
+`num_ctx` lève un `WARNING` qui nomme la conséquence. C'est ce qui permettra de
+calibrer `_CHARS_PER_TOKEN` sur des campagnes réelles au lieu de le poser au jugé.
+
+### 1.16 La surface d'entrée n'était pas bornée — `api/schemas.py`, `frontend/app.py`
+
+`question` était plafonnée à 2000 caractères ; `Message.content` n'avait aucune
+borne et les trois schémas exposant `chat_history` acceptaient une liste de
+longueur quelconque. C'était le vecteur du §1.13, et une consommation de
+ressources non bornée sur un serveur d'inférence **partagé** avec d'autres
+projets.
+
+`MAX_MESSAGE_CHARS` vaut 14 336 caractères, soit le plafond de génération
+lui-même (`LLM_MAX_TOKENS` à 3,5 caractères/token) : une réponse que le modèle
+pouvait légitimement produire doit pouvoir revenir dans l'historique au tour
+suivant, sans quoi la borne casserait la conversation en 422 — pire que le défaut
+corrigé. `MAX_HISTORY_PAYLOAD` vaut 50 messages, assez pour un fil entier ; la
+borne qui compte reste `MAX_HISTORY_MESSAGES = 6`, ce que l'API soumet
+effectivement au LLM et d'où dérive le budget. Les trois `[-6:]` littéraux de
+`main.py` passent par la constante, et le frontend n'envoie plus que ces six
+messages au lieu du fil complet.
+
+### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
+
+`README.md` et `documentation/llm.md` annonçaient `32768`, `.env.example` et
+`settings.py` valaient `8192` : un facteur quatre sur la capacité annoncée, dont
+le budget de sources dérive directement. La doc est alignée sur **8192**, la
+valeur qui s'exécute. Monter à 32768 quadruple le cache KV et le coût de
+préremplissage sur un déploiement dont la latence de génération est déjà à 12,4 s
+au p95 : c'est un changement qui se mesure par une campagne, pas qui se décrète
+dans une table.
+
 ---
 
 ## 1bis. Corrigé — qualité, mesure, exploitation
@@ -153,6 +253,8 @@ réglable.
 | P1 | Le pari central n'est pas vérifié | Personne n'a montré que la reconstruction de section améliore les **réponses**. Le rappel mesure le retrieval, pas ce que le LLM en fait. Trancher demande un juge calibré — donc RAG-Eval-Bench. |
 | P1 | Jeu doré non relu | 138 questions générées, toutes `reviewed: false`. L'approche est fiable pour régler un retriever, moins pour arbitrer entre générateurs. Une relecture humaine les promeut. |
 | P2 | Branchement sur RAG-Eval-Bench | Le banc apporte juges calibrés, comparaison appariée et intervalles de confiance. Il lui manque un `ExternalPipeline` qui poste sur `/answer`. |
+| P1 | `LLM_MAX_TOKENS` non mesuré | 4096 tokens réservent la **moitié** de la fenêtre à une génération qui n'arrive jamais : les campagnes donnent ~3,2 citations et quelques centaines de tokens par réponse. La valeur n'a pas été ajustée faute de stack joignable, et `runs/*.json` n'enregistre pas la longueur des réponses — les campagnes passées ne permettent pas de reconstituer la distribution. Protocole de mesure dans [llm.md](llm.md). |
+| P2 | Ratio caractères/token posé au jugé | `_CHARS_PER_TOKEN = 3,5` gouverne tout le budget. Le log `prompt_eval_count` donne maintenant de quoi le calibrer, mais aucune campagne ne l'a encore fait. |
 | P2 | Latence de génération | ~3 à 10 s contre 0,5 s de recherche. Le levier est le LLM — quantisation, `num_predict`, modèle plus petit — pas la recherche. |
 | P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. |
 | P2 | Index BM25 en mémoire | Construit au premier appel : la première requête après un démarrage paie ~9 s. Un corpus nettement plus gros demanderait un moteur dédié. |

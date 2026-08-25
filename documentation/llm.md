@@ -18,7 +18,7 @@ modèle déjà servi à côté. Un seul serveur d'inférence pour tous les proje
 |---|---|---|
 | `OLLAMA_HOST` | `http://ollama-central:11434` | Endpoint du service central |
 | `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération |
-| `LLM_NUM_CTX` | `32768` | Fenêtre de contexte demandée par requête |
+| `LLM_NUM_CTX` | `8192` | Fenêtre de contexte demandée par requête |
 | `LLM_MAX_TOKENS` | `4096` | Plafond de génération (`num_predict`) |
 | `LLM_TEMPERATURE` | `0.1` | Température |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4, coûteux en CPU |
@@ -27,10 +27,149 @@ modèle déjà servi à côté. Un seul serveur d'inférence pour tous les proje
 dépendrait de l'`OLLAMA_CONTEXT_LENGTH` du serveur, et le même prompt
 produirait deux comportements selon le serveur interrogé.
 
-Le budget de sources vaut `LLM_NUM_CTX - LLM_MAX_TOKENS` : au-delà, les sources
-excédentaires sont écartées avec un log explicite, plutôt que tronquées en
-silence par Ollama — qui coupe par le **début** du prompt, donc par les sources
-les mieux classées.
+Ce tableau annonçait `32768`, alors que `.env.example` et `settings.py` valent
+`8192` — un facteur quatre sur la capacité annoncée, dont le budget de sources
+dérive directement. La valeur retenue est **8192**, celle qui s'exécute. Monter à
+32768 quadruple le cache KV et le coût de préremplissage, sur un déploiement où
+la latence de génération est déjà à 12,4 s au p95 : c'est un changement qui se
+mesure par une campagne, pas qui se décrète dans une table.
+
+## Le budget de contexte
+
+### La formule
+
+Le budget ne se calcule pas sur la fenêtre nue. `num_ctx` est partagé entre le
+prompt et la génération, et le prompt ne contient pas que des sources :
+
+```
+fenêtre utile   = (LLM_NUM_CTX − LLM_MAX_TOKENS) × 3,5 caractères/token
+budget sources  = fenêtre utile − prompt système
+                                − gabarit rendu sans ses sources
+                                − historique retenu
+                                − encadrement de chaque source
+                                − balises de tour du gabarit de chat
+```
+
+Mesuré à `8192 / 4096`, sur une question réelle (`src/agent/llm.py`) :
+
+| Terme | Caractères |
+|---|---|
+| Fenêtre utile | 14 336 |
+| Prompt système (`prompts/system.txt`) | 935 |
+| Gabarit rendu sans sources | 472 |
+| Encadrement, par source | 200 |
+| Balise de tour, par message | 24 |
+| Plafond de l'historique (25 % de la fenêtre utile) | 3 584 |
+| **Budget de sources** — 3 sources, premier tour | **12 281** |
+| **Budget de sources** — 5 sources, six messages d'historique | **8 137** |
+
+Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
+tokens tenait lieu de provision pour « le prompt système, le gabarit et
+l'historique ». L'historique n'y entrait jamais. Six messages sont acceptés,
+chaque réponse assistante peut atteindre `LLM_MAX_TOKENS`, et `Message.content`
+n'avait aucune borne : mesuré sur six messages de 3 000 caractères et deux
+sources de 12 000, le prompt faisait **31 380 caractères pour une fenêtre utile
+de 14 336**, soit 2,2 fois la fenêtre.
+
+Ce qui se passait alors est le mode de panne le plus coûteux du projet : Ollama
+tronque **par le début** du prompt. Il jette donc le message système — « cite
+chaque affirmation », « ne réponds jamais au-delà des sources », « dis-le si tu
+ne trouves pas ». Le garde-fou disparaissait exactement quand la conversation
+devenait assez longue pour en avoir besoin.
+
+Le ratio de 3,5 caractères/token reste une estimation — le tokenizer réel dépend
+du modèle. Mais il s'applique désormais à **toutes** les parties du prompt : ce
+n'était pas le ratio qui trompait, c'était son application partielle.
+
+### Ce qui est écarté, et par quel bout
+
+| Élément | Coupe | Sens |
+|---|---|---|
+| Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
+| Source unique trop grosse | Tronquée par la **fin**, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début |
+| Historique | Les messages les plus **anciens** | C'est le dernier échange qui situe la question. La coupe s'arrête au premier message qui ne tient plus : sauter un message du milieu rendrait une réponse sans sa question |
+| Message trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
+
+`fit_prompt` est le point d'entrée unique : `_build_messages` construit le prompt
+avec, `/answer` chiffre ses `dropped_contexts` avec. Deux calculs séparés
+dériveraient, et la campagne d'évaluation rapporterait un autre nombre de
+sources écartées que ce qui a réellement atteint le LLM.
+
+Les bornes d'entrée correspondantes sont dans `src/api/schemas.py` :
+`MAX_MESSAGE_CHARS` (14 336, soit le plafond de génération lui-même),
+`MAX_HISTORY_MESSAGES` (6, ce qui est soumis au LLM) et `MAX_HISTORY_PAYLOAD`
+(50, ce qu'une requête peut porter).
+
+### L'instrumentation : `prompt_eval_count`
+
+Le dernier événement du flux Ollama — celui qui porte `done: true` — contient
+`prompt_eval_count` : le nombre **réel** de tokens du prompt. Personne ne le
+lisait. Le ratio caractères/token restait une devinette qu'aucune mesure ne
+corrigeait, et un prompt qui dépassait `num_ctx` ne laissait **aucune trace**.
+
+Chaque génération journalise désormais :
+
+```
+INFO  Prompt : estimé 3214 tokens, réel 3480, écart -7.6 % — ratio mesuré
+      3.23 caractères/token (retenu : 3.50).
+```
+
+Comment la lire :
+
+- **écart négatif** : l'estimation sous-estime le prompt. Le budget est trop
+  permissif, et le ratio devrait baisser vers le ratio mesuré ;
+- **écart positif** : le budget est trop prudent et écarte des sources qui
+  auraient tenu ;
+- **ratio mesuré** : la valeur qu'il aurait fallu donner à `_CHARS_PER_TOKEN`
+  pour que l'estimation soit exacte. C'est de là que viendra sa calibration —
+  sur la distribution observée en campagne, pas sur une valeur posée au jugé.
+
+Un prompt réel au-delà de `num_ctx` lève en plus un `WARNING` qui nomme la
+conséquence : les règles de citation et d'abstention n'encadraient pas cette
+réponse.
+
+```bash
+docker compose logs -f agent-api | grep "Prompt :"
+```
+
+## `LLM_MAX_TOKENS` — à mesurer
+
+`LLM_MAX_TOKENS = 4096` réserve la **moitié** de la fenêtre à une génération qui
+n'arrive jamais : les campagnes de `runs/` donnent ~3,2 citations par réponse et
+quelques centaines de tokens. Ce plafond confisque la moitié de `num_ctx` au
+profit de sources qui, elles, sont écartées.
+
+**La valeur n'a pas été ajustée, faute de pouvoir la mesurer** : ni
+`ollama-central` ni les stores n'étaient joignables. Un chiffre inventé est pire
+que pas de chiffre — et `runs/*.json` n'enregistre pas la longueur des réponses,
+seulement `generation_ms`, donc les campagnes passées ne permettent pas de
+reconstituer la distribution après coup.
+
+Ce qu'il faut mesurer, stack démarrée :
+
+```bash
+make up && make health          # ollama-central et les stores doivent répondre
+uv run python - <<'EOF'
+import json, httpx, statistics
+golden = json.load(open("tests/fixtures/golden_qa_generated.json"))
+longueurs = []
+for q in golden["questions"][:30]:
+    r = httpx.post("http://localhost:8011/answer",
+                   json={"question": q["question"]}, timeout=180.0)
+    longueurs.append(len(r.json()["answer"]) / 3.5)   # caractères -> tokens estimés
+longueurs.sort()
+print("n =", len(longueurs), "p50 =", statistics.median(longueurs),
+      "p95 =", longueurs[int(len(longueurs) * 0.95)], "max =", longueurs[-1])
+EOF
+```
+
+Poser ensuite `LLM_MAX_TOKENS` au p95 mesuré, majoré d'une marge assumée — un
+plafond atteint tronque la réponse, ce qui est un défaut visible, alors qu'un
+plafond trop haut ne coûte « que » du budget de sources. Le `WARNING` sur
+`prompt_eval_count` dira si la nouvelle valeur fait déborder la fenêtre.
+
+Une fois la valeur posée, relancer `make eval` : le budget de sources en dérive,
+donc `contextes_ecartes` et `citations_par_reponse` bougeront.
 
 ## Prérequis
 
