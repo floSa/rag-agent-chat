@@ -133,9 +133,7 @@ make test-integration  # tests d'intégration (stores requis)
 make eval              # campagne d'évaluation, comparée à runs/reference.json
 make models            # modèles servis par llm-service
 make health            # état de l'API et de ses dépendances
-make eval              # campagne d'évaluation sur le jeu doré
-make models            # lister les modèles servis par llm-service
-make health            # état de l'API et de ses dépendances
+make audit             # pip-audit sur requirements.txt
 bash scripts/e2e_smoke.sh   # test de fumée bout en bout (stack démarrée + document ingéré)
 ```
 
