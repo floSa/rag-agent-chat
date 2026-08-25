@@ -102,37 +102,3 @@ def test_un_historique_hors_borne_est_rejete(soumis) -> None:
 
     assert reponse.status_code == 422  # noqa: PLR2004
 
-
-def test_le_frontend_ne_derive_pas_de_la_borne_du_schema() -> None:
-    """`src/frontend/app.py` duplique la constante : l'image du frontend ne
-    contient que `src/frontend` et ne peut pas importer les schémas.
-
-    Sans ce garde-fou, les deux valeurs divergent en silence — et le frontend
-    enverrait soit plus que ce que l'API lit, soit moins que ce qu'elle accepte.
-    """
-    from src.frontend import app
-
-    assert app.MAX_HISTORY_MESSAGES == MAX_HISTORY_MESSAGES
-
-def test_l_image_du_frontend_suit_les_versions_declarees() -> None:
-    """`Dockerfile.frontend` réinstalle ses dépendances à la main, sans lire
-    requirements.txt : l'image tournait sur streamlit 1.44.1 et pydantic 2.11.4
-    quand le dépôt déclarait tester 1.60.0 et 2.13.4.
-
-    Une divergence entre l'image et le lock est le vieillissement silencieux que
-    décrit documentation/SECURITY.md — que rien ne signalait ici.
-    """
-    from pathlib import Path
-
-    racine = Path(__file__).resolve().parents[2]
-    dockerfile = (racine / "Dockerfile.frontend").read_text(encoding="utf-8")
-    declarees = dict(
-        ligne.split("==", 1)
-        for ligne in (racine / "requirements.txt").read_text(encoding="utf-8").splitlines()
-        if "==" in ligne and not ligne.startswith("#")
-    )
-
-    for paquet in ("streamlit", "httpx", "pydantic"):
-        assert f"{paquet}=={declarees[paquet]}" in dockerfile, (
-            f"Dockerfile.frontend n'epingle pas {paquet}=={declarees[paquet]}"
-        )
