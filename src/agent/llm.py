@@ -311,10 +311,11 @@ def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> 
         return
 
     ecart = (estimated_tokens - prompt_eval_count) / prompt_eval_count * 100
+    # Le ratio mesuré est celui qu'il aurait fallu retenir pour que l'estimation
+    # soit exacte : c'est lui, pas l'écart, qui se reporte dans le code.
     logger.info(
         "Prompt : estimé %d tokens, réel %d, écart %+.1f %% — ratio mesuré "
-        "%.2f caractères/token (retenu : %.2f). Écart négatif = estimation trop "
-        "optimiste, le budget laisse passer plus que la fenêtre n'absorbe.",
+        "%.2f caractères/token (retenu : %.2f).",
         estimated_tokens,
         prompt_eval_count,
         ecart,
