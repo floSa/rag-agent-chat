@@ -48,6 +48,7 @@ budget sources  = fenêtre utile − prompt système
                                 − historique retenu
                                 − encadrement de chaque source
                                 − balises de tour du gabarit de chat
+                                − déclaration de l'outil search_vectors
 ```
 
 Mesuré à `8192 / 4096`, sur une question réelle (`src/agent/llm.py`) :
