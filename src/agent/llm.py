@@ -74,6 +74,19 @@ _MESSAGE_FRAMING_CHARS = 34
 # texte tronqué comme s'il était complet.
 _TRUNCATION_MARKER = "\n\n[…] Section tronquée : elle dépasse à elle seule la fenêtre."
 
+# Tolérance sous num_ctx en deçà de laquelle on considère qu'Ollama a tronqué le
+# prompt. Il tronque AVANT d'évaluer, donc `prompt_eval_count` ne peut jamais
+# dépasser num_ctx : un décompte qui affleure la fenêtre est la seule trace
+# observable de l'événement. Quelques tokens de jeu, le gabarit de chat pouvant
+# ne pas retomber pile sur la borne.
+_TRUNCATION_SUSPICION_TOKENS = 8
+
+# En dessous de cette fraction de l'estimation, `prompt_eval_count` ne mesure
+# plus le prompt : Ollama ne réévalue que le préfixe absent de son cache KV.
+# Calibrer `_CHARS_PER_TOKEN` sur une telle mesure le ferait fondre à chaque
+# tour de conversation.
+_CACHE_HIT_RATIO = 0.6
+
 # Marqueurs que `_render_element` intercale dans le markdown, un par élément.
 # Couper à un index de caractère brut les ampute : `[src:00000000` n'est plus
 # résolu par le post-processing — ou, pire, correspond à un AUTRE élément. Le
@@ -380,17 +393,45 @@ def estimate_prompt_tokens(messages: Sequence[dict[str, Any]]) -> int:
     return math.ceil((chars + tools_overhead_chars()) / _CHARS_PER_TOKEN)
 
 
+def prompt_window_tokens() -> int:
+    """Tokens que la fenêtre laisse au prompt, `num_predict` réservé."""
+    return max(0, settings.llm_num_ctx - settings.llm_max_tokens)
+
+
 def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> None:
     """Confronte l'estimation du prompt au décompte réel rendu par Ollama.
 
     `prompt_eval_count` arrive dans le dernier événement du flux (celui qui
     porte `done: true`) : c'est le nombre RÉEL de tokens du prompt. Personne ne
     le lisait — le ratio caractères/token restait une devinette, et un prompt
-    qui dépassait num_ctx ne laissait aucune trace, Ollama le tronquant sans
-    rien dire. Le ratio mesuré journalisé ici est ce qui permettra de le
-    calibrer sur des campagnes réelles au lieu de le poser au jugé.
+    trop long ne laissait aucune trace, Ollama le tronquant sans rien dire.
+
+    Deux pièges, tous deux dus à la façon dont Ollama compte.
+
+    La première version avertissait sur `prompt_eval_count > num_ctx`, condition
+    structurellement inatteignable : Ollama tronque le prompt AVANT de l'évaluer,
+    donc le décompte est majoré par num_ctx par construction. Le détecteur ne
+    pouvait pas voir ce qu'il cherchait. Ce sont les deux zones en dessous de la
+    borne qui parlent : un décompte qui affleure num_ctx (troncature très
+    probable) et un décompte au-delà de la fenêtre de prompt (la génération se
+    fait rogner son `num_predict`, en silence).
+
+    Second piège : le cache KV. Ollama ne réévalue que le préfixe absent de son
+    cache, donc au deuxième tour d'une conversation `prompt_eval_count` ne
+    mesure plus le prompt. Une telle valeur est écartée de la calibration, sans
+    quoi le ratio fondrait à chaque tour.
     """
     if not prompt_eval_count or estimated_tokens <= 0:
+        return
+
+    if prompt_eval_count < estimated_tokens * _CACHE_HIT_RATIO:
+        logger.info(
+            "Prompt : réel %d tokens pour %d estimés — écart trop grand pour être une "
+            "erreur d'estimation. Ollama n'a réévalué que le préfixe absent de son "
+            "cache KV : mesure écartée de la calibration de _CHARS_PER_TOKEN.",
+            prompt_eval_count,
+            estimated_tokens,
+        )
         return
 
     ecart = (estimated_tokens - prompt_eval_count) / prompt_eval_count * 100
@@ -406,13 +447,26 @@ def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> 
         _CHARS_PER_TOKEN,
     )
 
-    if prompt_eval_count > settings.llm_num_ctx:
+    if prompt_eval_count >= settings.llm_num_ctx - _TRUNCATION_SUSPICION_TOKENS:
         logger.warning(
-            "Prompt réel de %d tokens pour num_ctx=%d : Ollama a tronqué le prompt par "
-            "le DÉBUT, donc le message système — les règles de citation et d'abstention "
-            "n'encadraient pas cette réponse.",
+            "Prompt réel de %d tokens, à %d tokens de num_ctx=%d : Ollama tronque avant "
+            "d'évaluer, donc un décompte qui affleure la fenêtre signale une troncature "
+            "PAR LE DÉBUT — le message système, et avec lui les règles de citation et "
+            "d'abstention, a pu ne pas encadrer cette réponse.",
             prompt_eval_count,
+            settings.llm_num_ctx - prompt_eval_count,
             settings.llm_num_ctx,
+        )
+    elif prompt_eval_count > prompt_window_tokens():
+        logger.warning(
+            "Prompt réel de %d tokens pour une fenêtre de prompt de %d (num_ctx=%d − "
+            "num_predict=%d) : il ne reste que %d tokens à la génération, qui sera "
+            "rognée sans le dire. Le budget de contexte a sous-estimé le prompt.",
+            prompt_eval_count,
+            prompt_window_tokens(),
+            settings.llm_num_ctx,
+            settings.llm_max_tokens,
+            settings.llm_num_ctx - prompt_eval_count,
         )
 
 

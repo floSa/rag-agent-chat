@@ -28,6 +28,7 @@ from src.agent.llm import (
     history_budget_chars,
     log_prompt_measure,
     prompt_window_chars,
+    prompt_window_tokens,
     source_framing_chars,
 )
 from src.agent.settings import settings
@@ -524,21 +525,52 @@ def test_l_ecart_entre_estimation_et_reel_est_journalise(caplog) -> None:
     assert "-16.7 %" in caplog.text
 
 
-def test_un_prompt_hors_fenetre_leve_un_avertissement(caplog) -> None:
-    """Aujourd'hui invisible : Ollama tronque par le DÉBUT sans rien dire."""
-    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
-        log_prompt_measure(1000, settings.llm_num_ctx + 1)
+def _avertissements(caplog):
+    return [r for r in caplog.records if r.levelno >= logging.WARNING]
 
-    avertissements = [r for r in caplog.records if r.levelno >= logging.WARNING]
-    assert len(avertissements) == 1
-    assert "tronqué le prompt par le DÉBUT" in avertissements[0].getMessage()
+
+def test_un_prompt_qui_affleure_num_ctx_signale_une_troncature(caplog) -> None:
+    """Ollama tronque AVANT d'évaluer : `prompt_eval_count` est majoré par
+    num_ctx par construction.
+
+    La première version avertissait sur `> num_ctx`, condition inatteignable —
+    le détecteur du mode de panne ne pouvait pas voir le mode de panne. Un
+    décompte qui affleure la fenêtre est la seule trace observable.
+    """
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(settings.llm_num_ctx + 500, settings.llm_num_ctx)
+
+    assert len(_avertissements(caplog)) == 1
+    assert "PAR LE DÉBUT" in _avertissements(caplog)[0].getMessage()
+
+
+def test_un_prompt_qui_rogne_la_generation_est_signale(caplog) -> None:
+    """Entre la fenêtre de prompt et num_ctx, `num_predict` ne peut plus être
+    honoré : la génération est rognée, en silence."""
+    depasse = prompt_window_tokens() + 800
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(depasse, depasse)
+
+    assert len(_avertissements(caplog)) == 1
+    assert "rognée" in _avertissements(caplog)[0].getMessage()
 
 
 def test_un_prompt_dans_la_fenetre_ne_leve_pas_d_avertissement(caplog) -> None:
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
-        log_prompt_measure(1000, settings.llm_num_ctx - 1)
+        log_prompt_measure(prompt_window_tokens() - 100, prompt_window_tokens() - 100)
 
-    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    assert _avertissements(caplog) == []
+
+
+def test_une_mesure_reduite_par_le_cache_kv_ne_calibre_rien(caplog) -> None:
+    """Ollama ne réévalue que le préfixe absent de son cache KV. Au deuxième tour
+    d'une conversation, `prompt_eval_count` ne mesure plus le prompt — calibrer
+    `_CHARS_PER_TOKEN` là-dessus le ferait fondre à chaque tour."""
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(4000, 200)
+
+    assert not any("ratio mesuré" in r.getMessage() for r in caplog.records)
+    assert any("cache KV" in r.getMessage() for r in caplog.records)
 
 
 def test_sans_prompt_eval_count_rien_n_est_journalise(caplog) -> None:

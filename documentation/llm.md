@@ -145,6 +145,10 @@ INFO  Prompt : estimé 3214 tokens, réel 3480, écart -7.6 % — ratio mesuré
       3.23 caractères/token (retenu : 3.50).
 ```
 
+**Exemple de forme, pas une mesure** : aucun `prompt_eval_count` réel n'a encore
+été observé — cela demande la stack démarrée. Les chiffres ci-dessus illustrent la
+lecture du log, ils ne mesurent rien.
+
 Comment la lire :
 
 - **écart négatif** : l'estimation sous-estime le prompt. Le budget est trop
@@ -155,9 +159,29 @@ Comment la lire :
   pour que l'estimation soit exacte. C'est de là que viendra sa calibration —
   sur la distribution observée en campagne, pas sur une valeur posée au jugé.
 
-Un prompt réel au-delà de `num_ctx` lève en plus un `WARNING` qui nomme la
-conséquence : les règles de citation et d'abstention n'encadraient pas cette
-réponse.
+Deux `WARNING` encadrent la zone dangereuse. Ils ne portent PAS sur
+`prompt_eval_count > num_ctx` : Ollama tronque le prompt **avant** de l'évaluer,
+donc ce décompte est majoré par `num_ctx` par construction, et une première
+version guettait ainsi une condition inatteignable — le détecteur ne pouvait pas
+voir ce qu'il cherchait.
+
+| Zone | Signal |
+|---|---|
+| `prompt_eval_count` à moins de 8 tokens de `num_ctx` | Troncature très probable, **par le début** : le message système, donc les règles de citation et d'abstention, a pu ne pas encadrer la réponse. C'est la seule trace observable de l'événement |
+| `prompt_eval_count` au-delà de la fenêtre de prompt (`num_ctx − num_predict`) | La génération n'a plus ses `num_predict` tokens et sera rognée sans le dire. Le budget a sous-estimé le prompt |
+
+### Le cache KV fausse la mesure
+
+Ollama ne réévalue que le préfixe **absent de son cache KV**. Au deuxième tour
+d'une conversation, `prompt_eval_count` ne mesure donc plus le prompt mais son
+suffixe non caché — il peut valoir quelques dizaines de tokens pour un prompt de
+plusieurs milliers.
+
+Une telle mesure est écartée de la calibration : en deçà de 60 % de l'estimation,
+le log dit que la valeur est ignorée et pourquoi. **Ne recalibrez jamais
+`_CHARS_PER_TOKEN` sur ces échantillons** — le ratio fondrait à chaque tour de
+conversation. Pour calibrer, ne retenez que les mesures publiées avec un « ratio
+mesuré », ou ne prenez que le premier appel d'une conversation.
 
 ```bash
 docker compose logs -f agent-api | grep "Prompt :"

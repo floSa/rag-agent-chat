@@ -219,9 +219,19 @@ prompt qui dépassait `num_ctx` ne laissait **aucune trace** — Ollama le tronq
 en silence.
 
 Chaque génération journalise maintenant l'estimation, le décompte réel, l'écart
-et le ratio qui aurait rendu l'estimation exacte. Un prompt réel au-delà de
-`num_ctx` lève un `WARNING` qui nomme la conséquence. C'est ce qui permettra de
+et le ratio qui aurait rendu l'estimation exacte. C'est ce qui permettra de
 calibrer `_CHARS_PER_TOKEN` sur des campagnes réelles au lieu de le poser au jugé.
+
+Deux pièges dans la façon dont Ollama compte, tous deux traités. Un premier
+correctif avertissait sur `prompt_eval_count > num_ctx` : condition
+structurellement inatteignable, Ollama tronquant le prompt **avant** de
+l'évaluer — le détecteur du mode de panne ne pouvait pas voir le mode de panne.
+Les `WARNING` portent désormais sur les deux zones qui parlent : un décompte qui
+affleure `num_ctx` (troncature très probable) et un décompte au-delà de la
+fenêtre de prompt (la génération perd ses `num_predict` en silence). Et le cache
+KV d'Ollama ne fait réévaluer que le préfixe non caché : au deuxième tour d'une
+conversation, la mesure ne décrit plus le prompt, elle est donc écartée de la
+calibration — sans quoi le ratio fondrait à chaque tour.
 
 ### 1.16 La surface d'entrée n'était pas bornée — `api/schemas.py`, `frontend/app.py`
 
