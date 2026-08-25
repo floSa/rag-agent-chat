@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 225 tests, aucune dépendance
+## Unitaire — 261 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -28,6 +28,8 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_coherence_depot.py` | Deux endroits qui doivent s'accorder et que rien ne forçait à s'accorder : la borne d'historique dupliquée dans le frontend (son image ne contient pas les schémas), et les versions épinglées par `Dockerfile.frontend` face à `requirements.txt`. Les deux ont réellement divergé. |
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
 | `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 250 budgets). La chaîne `on_fit` → état du graphe → `/answer` y est exercée sur le vrai `node_generate`, seule la couche HTTP étant simulée : deux mutations la cassaient en gardant la suite verte. |
+| `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |
+| `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. |
 
 **`--strict-markers` et `asyncio_mode = "strict"` ne sont pas décoratifs.** Sans
 eux, un test asynchrone mal marqué n'échoue pas : il *passe sans rien
@@ -93,4 +95,14 @@ Trois règles apprises en se trompant :
   sont testées ; le parcours dans un navigateur ne l'est qu'à la main. Les deux
   derniers défauts de citation ont été trouvés à l'œil, pas par la suite.
 - **Ni charge, ni concurrence.** Rien ne dit ce qui se passe à dix questions
-  simultanées.
+  simultanées. Seule exception : les écritures de la capture d'usage sont
+  testées à dix interactions concurrentes — c'est là qu'un défaut de
+  transaction SQLite en faisait perdre jusqu'à six.
+- **Les deux boutons d'appréciation ne sont pas testés.** L'endpoint `/feedback`
+  l'est ; le clic dans Streamlit ne l'est qu'à la main, comme le reste du
+  frontend.
+- **L'écriture après le dernier événement SSE n'est vérifiée que de
+  l'intérieur.** Le client de test tamponne la réponse : l'ordre est observé par
+  un espion dans l'application, ce qui interdit d'écrire avant d'avoir répondu
+  mais ne distingue pas « juste avant » de « juste après » le dernier
+  événement. Cette position-là tient au point d'appel, relu, pas à un test.
