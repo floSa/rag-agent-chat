@@ -59,6 +59,11 @@ _CHARS_PER_TOKEN = 3.5
 # Marge pour le prompt système, le gabarit et l'historique.
 _PROMPT_OVERHEAD_TOKENS = 512
 
+# Marque laissée dans une source coupée. Le modèle doit pouvoir distinguer une
+# section qui s'achève d'une section amputée : sans marque, il conclut sur un
+# texte tronqué comme s'il était complet.
+_TRUNCATION_MARKER = "\n\n[…] Section tronquée : elle dépasse à elle seule la fenêtre."
+
 
 def context_budget_chars() -> int:
     """Nombre de caractères de contexte que la fenêtre du modèle peut absorber.
@@ -70,25 +75,62 @@ def context_budget_chars() -> int:
     return max(0, int(available * _CHARS_PER_TOKEN))
 
 
+def _truncate(ctx: SectionContext, budget_chars: int) -> SectionContext:
+    """Coupe une source par la FIN pour la faire tenir dans le budget."""
+    # La marque compte dans le budget : sinon la troncature déplace la borne au
+    # lieu de la respecter.
+    garde = max(0, budget_chars - len(_TRUNCATION_MARKER))
+    logger.warning(
+        "Source %s tronquée : %d caractères conservés sur %d — elle dépasse à elle "
+        "seule le budget de %d. La coupe se fait ici, par la FIN ; laissée entière, "
+        "c'est Ollama qui coupait, par le DÉBUT du prompt.",
+        ctx.element_id,
+        garde,
+        len(ctx.markdown),
+        budget_chars,
+    )
+    return ctx.model_copy(
+        update={"markdown": (ctx.markdown[:garde] + _TRUNCATION_MARKER)[:budget_chars]}
+    )
+
+
 def fit_contexts(
     contexts: list[SectionContext], budget_chars: int
 ) -> tuple[list[SectionContext], int]:
     """Écarte les sources qui ne tiennent pas dans la fenêtre de contexte.
 
     Sans cette borne, Ollama tronque le prompt lui-même — silencieusement, et
-    par le DÉBUT, donc en jetant les premières sources. Le système pouvait
-    répondre « je n'ai pas trouvé » sur une information qu'il avait reçue.
+    par le DÉBUT, donc en jetant le message système puis les premières sources.
+    Le système pouvait répondre « je n'ai pas trouvé » sur une information
+    qu'il avait reçue.
 
-    Les sources sont conservées dans leur ordre (le meilleur classement
-    d'abord) : c'est la queue de la liste qui saute.
+    L'ordre du classement est conservé, mais le remplissage se fait **au
+    mieux** : une petite source qui suit une grosse écartée est retenue. Ce
+    n'est pas « la queue de la liste qui saute » — le docstring l'affirmait,
+    le code ne l'a jamais fait.
+
+    La première source est retenue même si elle dépasse seule le budget, mais
+    **tronquée** : la transmettre entière rendait la main à Ollama, c'est-à-dire
+    exactement au mode de panne que cette fonction existe pour éviter. Une
+    section sans `SectionHeader` — fenêtre de 13 éléments, textes intégraux
+    relus dans l'index — y arrive.
 
     Returns:
         (sources retenues, nombre de sources écartées).
     """
+    if budget_chars <= 0:
+        # Plus rien ne tient : ni garder ni tronquer n'a de sens. Mieux vaut une
+        # abstention qu'un prompt dont Ollama ampute le message système.
+        return [], len(contexts)
+
     kept: list[SectionContext] = []
     used = 0
     for ctx in contexts:
         cost = len(ctx.markdown)
+        if not kept and cost > budget_chars:
+            kept.append(_truncate(ctx, budget_chars))
+            used = budget_chars
+            continue
         if kept and used + cost > budget_chars:
             continue
         kept.append(ctx)
