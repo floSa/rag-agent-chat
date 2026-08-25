@@ -17,6 +17,7 @@ import pytest
 from src.agent import llm
 from src.agent.llm import (
     _TRUNCATION_MARKER,
+    _build_context_message,
     _build_messages,
     _load_system_prompt,
     context_budget_chars,
@@ -27,9 +28,10 @@ from src.agent.llm import (
     history_budget_chars,
     log_prompt_measure,
     prompt_window_chars,
+    source_framing_chars,
 )
 from src.agent.settings import settings
-from src.api.schemas import MAX_MESSAGE_CHARS, Message, SectionContext
+from src.api.schemas import MAX_MESSAGE_CHARS, BreadcrumbEntry, Message, SectionContext
 
 
 def _context(element_id: str, taille: int) -> SectionContext:
@@ -37,6 +39,28 @@ def _context(element_id: str, taille: int) -> SectionContext:
         element_id=element_id,
         section_id=element_id,
         breadcrumbs=[],
+        elements=[],
+        markdown="x" * taille,
+    )
+
+
+QUESTION = "Quelle est la difference entre un pipeline de features et un feature store ?"
+
+
+def _source(rang: int, taille: int, niveaux: int = 2) -> SectionContext:
+    """Un contexte tel que la production en produit : `breadcrumbs` peuplé.
+
+    C'est le résultat de la remontée `PARENT_OF` — un contexte sans fil des
+    titres est un artefact de fixture, et c'est sur lui qu'un encadrement
+    forfaitaire paraissait généreux.
+    """
+    return SectionContext(
+        element_id=f"abcdef01{rang:02d}",
+        section_id=f"abcdef01{rang:02d}",
+        breadcrumbs=[
+            BreadcrumbEntry(node_id=f"n{i}", label="SectionHeader", text="T" * 44)
+            for i in range(niveaux)
+        ],
         elements=[],
         markdown="x" * taille,
     )
@@ -53,7 +77,7 @@ def _historique(nb: int, taille: int) -> list[Message]:
 
 def test_budget_deduit_la_generation_de_la_fenetre() -> None:
     """num_ctx est partagé : ce qui est réservé à num_predict n'est pas du contexte."""
-    assert context_budget_chars("question", [], source_count=1) > 0
+    assert context_budget_chars("question", []) > 0
     assert prompt_window_chars() < settings.llm_num_ctx * 3.5
 
 
@@ -64,35 +88,105 @@ def test_un_historique_long_reduit_le_budget_des_sources() -> None:
     et chaque réponse assistante peut atteindre LLM_MAX_TOKENS : le forfait
     était dépassé d'un ordre de grandeur.
     """
-    sans = context_budget_chars("question", [], source_count=3)
-    avec = context_budget_chars("question", _historique(4, 800), source_count=3)
+    sans = context_budget_chars("question", [])
+    avec = context_budget_chars("question", _historique(4, 800))
 
     assert avec < sans
     # Ce que l'historique occupe est retiré caractère pour caractère.
     assert sans - avec >= 4 * 800
 
 
-def test_le_prompt_systeme_est_compte_dans_le_budget() -> None:
-    """Le message système est le premier que tronque Ollama : il doit être compté."""
-    budget = context_budget_chars("question", [], source_count=0)
+def test_le_prompt_systeme_est_compte_dans_le_budget(monkeypatch) -> None:
+    """Le message système est le premier que tronque Ollama : il doit être compté.
 
-    assert budget <= prompt_window_chars() - len(_load_system_prompt())
+    L'assertion porte sur le TERME, pas sur une inégalité : `budget <= fenêtre −
+    len(système)` était satisfaite par l'ancien forfait, qui ne comptait pas du
+    tout le prompt système — vert des deux côtés du correctif, donc muet.
+    """
+    reel = _load_system_prompt()
+    avec = context_budget_chars("question", [])
+    monkeypatch.setattr(llm, "_load_system_prompt", lambda: "")
+    sans = context_budget_chars("question", [])
+
+    assert sans - avec == len(reel) > 0
 
 
 def test_le_gabarit_rendu_est_compte_dans_le_budget() -> None:
     """Le gabarit est mesuré, pas forfaitisé : une retouche s'y répercute."""
-    question_courte = context_budget_chars("q", [], source_count=0)
-    question_longue = context_budget_chars("q" * 2000, [], source_count=0)
+    question_courte = context_budget_chars("q", [])
+    question_longue = context_budget_chars("q" * 2000, [])
 
     assert question_longue < question_courte
     assert question_courte - question_longue >= 1999  # noqa: PLR2004
 
 
-def test_l_encadrement_des_sources_est_compte() -> None:
-    """Séparateurs, numéro, identifiant et fil des titres entrent dans le prompt."""
-    assert context_budget_chars("q", [], source_count=10) < context_budget_chars(
-        "q", [], source_count=1
+def test_l_encadrement_est_mesure_source_par_source() -> None:
+    """34 caractères sans fil des titres, 275 avec cinq niveaux : un forfait
+    unique est faux dans les deux sens selon le document.
+
+    L'encadrement était un forfait de 200, documenté sous un tableau intitulé
+    « Mesuré ». Sur les fixtures sans breadcrumbs il paraissait six fois trop
+    haut ; en production `breadcrumbs` est toujours peuplé et le gabarit imprime
+    « Chemin : » en clair.
+    """
+    base = len(_build_context_message(QUESTION, []))
+
+    for niveaux in (0, 1, 3, 5):
+        source = _source(0, 1000, niveaux)
+        attendu = len(_build_context_message(QUESTION, [source])) - base - 1000
+        assert source_framing_chars(QUESTION, [source]) == [attendu]
+
+    profondeurs = [source_framing_chars(QUESTION, [_source(0, 100, n)])[0] for n in (0, 2, 5)]
+    assert profondeurs[0] < profondeurs[1] < profondeurs[2]
+
+
+def test_l_encadrement_ne_porte_que_sur_les_sources_retenues() -> None:
+    """Sept candidates en gardaient sept, dix n'en gardaient plus que six : la
+    provision réservait la place de sources jamais rendues."""
+    sept = len(fit_prompt(QUESTION, [_source(i, 1500) for i in range(7)], []).contexts)
+
+    for candidates in (8, 10, 12):
+        retenues = len(
+            fit_prompt(QUESTION, [_source(i, 1500) for i in range(candidates)], []).contexts
+        )
+        assert retenues >= sept, (
+            f"7 candidates -> {sept} retenues, {candidates} candidates -> {retenues}"
+        )
+
+
+def test_aucune_source_ecartee_n_aurait_tenu() -> None:
+    """Le budget doit être serré autant qu'honnête : la place laissée libre dans
+    la fenêtre doit être plus petite que le coût de la moins chère des écartées.
+
+    C'est la seule vérification qui attrape une sur-provision. Mesuré avant
+    correctif : 3 125 caractères libres pour une source écartée qui en coûtait
+    1 634.
+    """
+    candidates = [_source(i, 1500) for i in range(10)]
+    fit = fit_prompt(QUESTION, candidates, [])
+    ecartees = [c for c in candidates if c not in fit.contexts]
+    assert ecartees, "le cas de test ne provoque aucune mise à l'écart"
+
+    rendu = len(_load_system_prompt()) + len(_build_context_message(QUESTION, fit.contexts))
+    libre = prompt_window_chars() - rendu
+    base = len(_build_context_message(QUESTION, []))
+    cout_minimal = min(len(_build_context_message(QUESTION, [c])) - base for c in ecartees)
+
+    assert libre < cout_minimal, (
+        f"{libre} caracteres libres alors qu'une source ecartee en coute {cout_minimal}"
     )
+
+
+def test_le_prompt_rendu_ne_depasse_jamais_la_fenetre() -> None:
+    """L'encadrement mesuré doit l'être exactement : le message rendu est la
+    seule vérité, et il doit tenir quelle que soit la profondeur du fil des
+    titres."""
+    for niveaux in (0, 2, 4, 6):
+        candidates = [_source(i, 1500, niveaux) for i in range(10)]
+        fit = fit_prompt(QUESTION, candidates, [])
+        rendu = len(_load_system_prompt()) + len(_build_context_message(QUESTION, fit.contexts))
+
+        assert rendu <= prompt_window_chars(), f"{niveaux} niveaux : {rendu} caracteres"
 
 
 def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
@@ -103,10 +197,10 @@ def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
     """
     from src.agent import llm
 
-    avec = context_budget_chars("q", [], source_count=1)
+    avec = context_budget_chars("q", [])
     cout = llm.tools_overhead_chars()
     monkeypatch.setattr(llm.settings, "native_tool_calling", False)
-    sans = context_budget_chars("q", [], source_count=1)
+    sans = context_budget_chars("q", [])
 
     assert llm.tools_overhead_chars() == 0
     assert sans - avec == cout > 0
@@ -119,7 +213,7 @@ def test_le_budget_ne_devient_jamais_negatif() -> None:
     """
     pire_cas = _historique(6, MAX_MESSAGE_CHARS)
 
-    assert context_budget_chars("q", pire_cas, source_count=5) == 0
+    assert context_budget_chars("q", pire_cas) == 0
 
 
 # ─── Le prompt construit tient dans la fenêtre ────────────────────────────────
@@ -324,7 +418,7 @@ def test_fit_prompt_borne_historique_et_sources_ensemble() -> None:
 
     assert fit.dropped_history > 0
     assert sum(len(c.markdown) for c in fit.contexts) <= fit.budget_chars
-    assert fit.budget_chars == context_budget_chars("q", fit.history, source_count=1)
+    assert fit.budget_chars == context_budget_chars("q", fit.history)
 
 
 def test_fit_prompt_sans_historique() -> None:

@@ -67,12 +67,6 @@ _CHARS_PER_TOKEN = 3.5
 # de fois qu'il y a de messages.
 _MESSAGE_FRAMING_CHARS = 24
 
-# Encadrement d'une source dans answer_with_context.j2 : séparateurs, numéro,
-# identifiant, fil des titres. Le budget se compte sur `ctx.markdown` seul ;
-# sans cette provision, dix sources glissent ~2 000 caractères dans le prompt
-# que rien ne compte.
-_SOURCE_FRAMING_CHARS = 200
-
 # Part de la fenêtre utile que l'historique peut occuper au maximum.
 # L'historique est du contexte de second rang : `node_rewrite` a déjà rendu la
 # question de suivi autonome avant l'encodage, donc les sources répondent sans
@@ -137,6 +131,30 @@ def fit_history(chat_history: Sequence[Message]) -> tuple[list[Message], int]:
     return kept, len(chat_history) - len(kept)
 
 
+def source_framing_chars(question: str, contexts: Sequence[SectionContext]) -> list[int]:
+    """Encadrement de CHAQUE source dans le gabarit, mesuré source par source.
+
+    Séparateurs, numéro de source, identifiant, et surtout le fil des titres :
+    « Chemin : … » est imprimé en clair, et en production `breadcrumbs` est
+    toujours peuplé — c'est le résultat de la remontée `PARENT_OF`. L'encadrement
+    va donc de 34 caractères sans fil des titres à 320 avec cinq niveaux : un
+    forfait unique est faux dans les deux sens selon le document.
+
+    Mesuré par décomposition : `rendu([source]) − rendu([]) − len(markdown)`.
+    Le gabarit n'a aucune dépendance entre ses sources, la décomposition est donc
+    exacte — vérifié sur douze sources, à un caractère près par source au-delà du
+    neuvième rang, que `len(str(rang))` corrige : `Source {{ loop.index }}` gagne
+    un chiffre. Le rang retenu est celui de la candidate, donc majorant : une
+    source écartée renumérote celles qui suivent, jamais dans l'autre sens.
+    """
+    base = len(_build_context_message(question, []))
+    return [
+        len(_build_context_message(question, [ctx])) - base - len(ctx.markdown)
+        + len(str(rang)) - 1
+        for rang, ctx in enumerate(contexts, start=1)
+    ]
+
+
 def tools_overhead_chars() -> int:
     """Caractères de la déclaration d'outil, quand elle est envoyée.
 
@@ -148,17 +166,20 @@ def tools_overhead_chars() -> int:
     return len(json.dumps(SEARCH_TOOL, ensure_ascii=False)) if settings.native_tool_calling else 0
 
 
-def prompt_overhead_chars(
-    question: str, chat_history: Sequence[Message], source_count: int
-) -> int:
-    """Caractères du prompt qui ne sont PAS du texte de source.
+def prompt_overhead_chars(question: str, chat_history: Sequence[Message]) -> int:
+    """Caractères du prompt qui ne sont ni du texte de source ni leur encadrement.
 
-    Prompt système, gabarit rendu sans ses sources, historique, encadrement de
-    chaque source, balises de tour. Un forfait de 512 tokens en tenait lieu et
-    ne comptait jamais l'historique : six messages sont acceptés, chaque réponse
-    assistante peut atteindre `LLM_MAX_TOKENS`, et le prompt dépassait num_ctx
-    dès le troisième tour. Mesuré avant correctif : 31 380 caractères pour une
-    fenêtre utile de 14 336.
+    Prompt système, gabarit rendu sans ses sources, historique, balises de tour,
+    déclaration d'outil. Un forfait de 512 tokens en tenait lieu et ne comptait
+    jamais l'historique : six messages sont acceptés, chaque réponse assistante
+    peut atteindre `LLM_MAX_TOKENS`, et le prompt dépassait num_ctx dès le
+    troisième tour. Mesuré avant correctif : 31 380 caractères pour une fenêtre
+    utile de 14 336.
+
+    L'encadrement des sources n'est PAS ici : il dépend de la source, et n'est dû
+    que par celles qui sont retenues. Le compter d'avance sur les candidates
+    réservait la place de sources jamais rendues — dix candidates dont six
+    retenues, et une septième qui aurait tenu se faisait écarter.
     """
     overhead = len(_load_system_prompt())
     # Le gabarit rendu sans sources : en-tête, question, consigne de citation.
@@ -168,24 +189,19 @@ def prompt_overhead_chars(
     overhead += sum(len(msg.content) for msg in chat_history)
     # Un tour par message d'historique, plus le système et les sources.
     overhead += (len(chat_history) + 2) * _MESSAGE_FRAMING_CHARS
-    overhead += source_count * _SOURCE_FRAMING_CHARS
     overhead += tools_overhead_chars()
     return overhead
 
 
-def context_budget_chars(
-    question: str, chat_history: Sequence[Message], source_count: int
-) -> int:
-    """Caractères de source que la fenêtre du modèle peut encore absorber.
+def context_budget_chars(question: str, chat_history: Sequence[Message]) -> int:
+    """Caractères que les sources — texte ET encadrement — peuvent occuper.
 
     Calculé sur ce qui est RÉELLEMENT dans le prompt : passer un historique
     long réduit le budget, jusqu'à l'annuler. L'historique attendu ici est déjà
     borné par `fit_history` — sinon le budget décrirait un prompt que
     `_build_messages` ne construit pas.
     """
-    return max(
-        0, prompt_window_chars() - prompt_overhead_chars(question, chat_history, source_count)
-    )
+    return max(0, prompt_window_chars() - prompt_overhead_chars(question, chat_history))
 
 
 def _cut_on_marker(markdown: str, limite: int) -> str:
@@ -226,7 +242,9 @@ def _truncate(ctx: SectionContext, budget_chars: int) -> SectionContext:
 
 
 def fit_contexts(
-    contexts: list[SectionContext], budget_chars: int
+    contexts: list[SectionContext],
+    budget_chars: int,
+    framing_chars: Sequence[int] | None = None,
 ) -> tuple[list[SectionContext], int]:
     """Écarte les sources qui ne tiennent pas dans la fenêtre de contexte.
 
@@ -246,6 +264,11 @@ def fit_contexts(
     section sans `SectionHeader` — fenêtre de 13 éléments, textes intégraux
     relus dans l'index — y arrive.
 
+    `framing_chars` porte l'encadrement mesuré de chaque source
+    (`source_framing_chars`). Il est facturé au moment où la source est
+    retenue — donc jamais pour une candidate écartée. Absent, il vaut zéro :
+    la fonction reste alors de l'arithmétique pure sur des longueurs.
+
     Returns:
         (sources retenues, nombre de sources écartées).
     """
@@ -254,16 +277,19 @@ def fit_contexts(
         # abstention qu'un prompt dont Ollama ampute le message système.
         return [], len(contexts)
 
+    framing = list(framing_chars) if framing_chars is not None else [0] * len(contexts)
     kept: list[SectionContext] = []
     used = 0
-    for ctx in contexts:
-        cost = len(ctx.markdown)
+    for ctx, encadrement in zip(contexts, framing, strict=True):
+        cost = len(ctx.markdown) + encadrement
         if not kept and cost > budget_chars:
-            if budget_chars <= len(_TRUNCATION_MARKER):
-                # Même vidée de son texte, la source ne tiendrait pas : seule la
-                # marque de troncature entrerait, ce qui n'apprend rien au modèle.
+            place = budget_chars - encadrement
+            if place <= len(_TRUNCATION_MARKER):
+                # Même vidée de son texte, la source ne tiendrait pas : seuls son
+                # encadrement et la marque de troncature entreraient, ce qui
+                # n'apprend rien au modèle.
                 continue
-            kept.append(_truncate(ctx, budget_chars))
+            kept.append(_truncate(ctx, place))
             used = budget_chars
             continue
         if kept and used + cost > budget_chars:
@@ -310,8 +336,8 @@ def fit_prompt(
             _HISTORY_WINDOW_SHARE * 100,
         )
 
-    budget = context_budget_chars(question, history, len(contexts))
-    kept, dropped = fit_contexts(contexts, budget)
+    budget = context_budget_chars(question, history)
+    kept, dropped = fit_contexts(contexts, budget, source_framing_chars(question, contexts))
     if dropped:
         logger.warning(
             "Contexte tronqué : %d source(s) sur %d écartée(s) — budget %d caractères "

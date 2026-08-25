@@ -42,32 +42,56 @@ Le budget ne se calcule pas sur la fenêtre nue. `num_ctx` est partagé entre le
 prompt et la génération, et le prompt ne contient pas que des sources :
 
 ```
-fenêtre utile   = (LLM_NUM_CTX − LLM_MAX_TOKENS) × 3,5 caractères/token
-budget sources  = fenêtre utile − prompt système
-                                − gabarit rendu sans ses sources
-                                − historique retenu
-                                − encadrement de chaque source
-                                − balises de tour du gabarit de chat
-                                − déclaration de l'outil search_vectors
+fenêtre utile     = (LLM_NUM_CTX − LLM_MAX_TOKENS) × 3,5 caractères/token
+budget sources    = fenêtre utile − prompt système
+                                  − gabarit rendu sans ses sources
+                                  − historique retenu
+                                  − balises de tour (une par message)
+                                  − déclaration de l'outil search_vectors
+coût d'une source = len(markdown) + son encadrement, mesuré dans le gabarit
 ```
 
-Mesuré à `8192 / 4096`, sur une question réelle (`src/agent/llm.py`) :
+L'encadrement est facturé **au moment où la source est retenue**, jamais pour une
+candidate écartée. Le compter d'avance sur les candidates réservait la place de
+sources qui ne seraient jamais rendues : dix candidates dont six retenues, et une
+septième qui aurait tenu se faisait écarter — mesuré, sept candidates en
+gardaient sept et dix n'en gardaient plus que six.
 
-| Terme | Caractères |
+À `8192 / 4096`, **mesuré à l'exécution** — chaque terme est la longueur d'une
+chaîne réellement construite, pas une provision :
+
+| Terme mesuré | Caractères |
 |---|---|
 | Fenêtre utile | 14 336 |
-| Prompt système (`prompts/system.txt`) | 935 |
+| Prompt système (`prompts/system.txt`, lu) | 935 |
 | Gabarit rendu sans sources | 472 |
-| Encadrement, par source | 200 |
-| Balise de tour, par message | 24 |
 | Déclaration de l'outil `search_vectors` (si `NATIVE_TOOL_CALLING`) | 417 |
-| Plafond de l'historique (25 % de la fenêtre utile) | 3 584 |
-| **Budget de sources** — 3 sources, premier tour | **11 864** |
-| **Budget de sources** — 5 sources, six messages de 600 caractères | **7 720** |
+| Encadrement d'une source, sans fil des titres | 34 |
+| Encadrement d'une source, fil des titres à 2 niveaux | 134 |
+| Encadrement d'une source, fil des titres à 5 niveaux | 275 |
+| **Budget de sources** — premier tour | **12 464** |
+| **Budget de sources** — six messages de 600 caractères (dont un écarté) | **9 344** |
+
+L'encadrement va de 34 caractères sans fil des titres à 275 avec cinq niveaux :
+un forfait unique serait faux dans les deux sens selon le document. Il était
+forfaitisé à 200, ce qui paraissait généreux sur des fixtures sans breadcrumbs —
+mais en production `breadcrumbs` est **toujours** peuplé, c'est le résultat de la
+remontée `PARENT_OF`, et le gabarit imprime « Chemin : » en clair. Il est
+désormais mesuré source par source, par décomposition
+(`rendu([source]) − rendu([]) − len(markdown)`) : le gabarit n'a aucune dépendance
+entre ses sources, donc la décomposition est exacte — vérifié sur douze sources.
 
 `tools` n'est pas un canal séparé pour le modèle : Ollama le rend **dans** le
 prompt via le gabarit de chat. Ne pas le compter laissait le même trou que le
 forfait, à plus petite échelle — 417 caractères, soit ~119 tokens.
+
+Ce qui reste un **forfait**, et le reste explicitement :
+
+| Forfait | Valeur | À mesurer |
+|---|---|---|
+| Ratio caractères/token | 3,5 | Le log `prompt_eval_count` donne le ratio mesuré à chaque génération |
+| Balises de tour du gabarit de chat, par message | 24 | Dépend du modèle ; se déduirait du même log |
+| Part de la fenêtre laissée à l'historique | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
 
 Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
 tokens tenait lieu de provision pour « le prompt système, le gabarit et

@@ -160,9 +160,22 @@ canal séparé pour le modèle, Ollama le rend dans le prompt via le gabarit de
 chat. 417 caractères que rien ne comptait — le même trou que le forfait, à plus
 petite échelle.
 
-Budget de sources à `8192 / 4096` : **11 864** caractères au premier tour avec 3
-sources, **7 720** avec 5 sources et six messages de 600 caractères — contre
-12 544 constants auparavant. La formule complète est dans [llm.md](llm.md).
+L'encadrement de chaque source dans le gabarit — séparateurs, numéro,
+identifiant, fil des titres — est **mesuré** source par source, et facturé au
+moment où la source est retenue. Un premier correctif le forfaitisait à 200
+caractères et le réservait sur toutes les **candidates** : dix candidates dont
+six retenues immobilisaient la place de quatre sources jamais rendues, et une
+septième qui aurait tenu se faisait écarter. Mesuré : sept candidates en gardaient
+sept, dix n'en gardaient plus que six. L'encadrement réel va de 34 caractères
+sans fil des titres à 275 avec cinq niveaux — un forfait unique est faux dans les
+deux sens selon le document.
+
+Budget de sources à `8192 / 4096` : **12 464** caractères au premier tour,
+**9 344** avec six messages de 600 caractères dont un écarté par `fit_history`.
+Contre 12 544 constants auparavant, appliqués au seul `markdown` : le budget est
+donc légèrement plus serré à un tour, et c'est correct — l'ancien ignorait 1 872
+caractères de prompt système, de gabarit et de déclaration d'outil qui y étaient
+bel et bien. La formule complète est dans [llm.md](llm.md).
 
 ### 1.14 La source unique trop grosse était transmise entière — `llm.py`
 
