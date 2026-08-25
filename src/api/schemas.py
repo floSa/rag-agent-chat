@@ -295,6 +295,26 @@ class UsageStats(BaseModel):
     failures: int = 0
 
 
+class FeedbackRequest(BaseModel):
+    """Appréciation d'une réponse par la personne qui l'a lue."""
+
+    thread_id: str = Field(..., min_length=1, max_length=64)
+    # Binaire, pas une échelle : personne ne remplit une échelle, et un 3/5 ne
+    # se lit pas. Deux valeurs se comptent.
+    rating: Literal["utile", "inutile"]
+    # Libre et facultatif. Borné comme tout texte venant d'un client : sans
+    # borne, le corps d'une requête n'a plus de taille maximale.
+    comment: str | None = Field(default=None, max_length=2000)
+
+
+class FeedbackResponse(BaseModel):
+    """`recorded` faux n'est pas une erreur du client : la capture peut être
+    désactivée, ou avoir échoué. Le détail le dit."""
+
+    recorded: bool
+    detail: str = ""
+
+
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):

@@ -37,6 +37,8 @@ def _init_session() -> None:
         "images": [],
         "chat_history": [],
         "search_count": 0,
+        # Une seule appréciation par réponse : les boutons disparaissent après.
+        "feedback_sent": False,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -63,6 +65,26 @@ def _stream_post(path: str, payload: dict[str, Any]) -> Iterator[dict[str, Any]]
         for line in resp.iter_lines():
             if line.startswith("data:"):
                 yield json.loads(line[len("data:"):].strip())
+
+
+def _envoyer_appreciation(rating: str, commentaire: str) -> None:
+    """Poste l'appréciation, et ne casse rien si elle n'arrive pas.
+
+    Un retour perdu ne doit pas ressembler à une erreur de l'application : la
+    capture est de l'observation, et l'utilisateur vient de lire sa réponse.
+    """
+    try:
+        _api_post(
+            "/feedback",
+            {
+                "thread_id": st.session_state.thread_id,
+                "rating": rating,
+                "comment": commentaire.strip() or None,
+            },
+        )
+        st.session_state.feedback_sent = True
+    except httpx.HTTPError as exc:
+        st.warning(f"Retour non enregistré : {exc}")
 
 
 def _clear_selection_state() -> None:
@@ -398,6 +420,30 @@ elif st.session_state.phase == "answer":
     if st.session_state.search_count > 1:
         st.caption(f"🔄 {st.session_state.search_count} recherche(s) effectuée(s)")
 
+    # ── Appréciation ──────────────────────────────────────────────────────────
+    # Deux boutons, pas une échelle : personne ne remplit une échelle. C'est la
+    # seule annotation humaine que le système puisse récolter sur une RÉPONSE —
+    # les décochages, eux, ne parlent que des sources.
+    st.divider()
+    if st.session_state.feedback_sent:
+        st.caption("✅ Merci, votre retour est enregistré.")
+    else:
+        st.markdown("**Cette réponse vous a-t-elle servi ?**")
+        commentaire = st.text_input(
+            "Commentaire (facultatif)",
+            key="feedback_comment",
+            placeholder="Ce qui manquait, ce qui était faux…",
+        )
+        col_utile, col_inutile, _ = st.columns([1, 1, 3])
+        with col_utile:
+            if st.button("👍 Utile", use_container_width=True):
+                _envoyer_appreciation("utile", commentaire)
+                st.rerun()
+        with col_inutile:
+            if st.button("👎 Inutile", use_container_width=True):
+                _envoyer_appreciation("inutile", commentaire)
+                st.rerun()
+
     st.divider()
     col1, col2 = st.columns([2, 1])
     with col1:
@@ -409,9 +455,13 @@ elif st.session_state.phase == "answer":
             st.session_state.images = []
             st.session_state.groups = []
             st.session_state.selected_ids = set()
+            # Sans cette remise à zéro, la question suivante afficherait le
+            # remerciement de la précédente et ne serait jamais appréciable.
+            st.session_state.feedback_sent = False
             st.rerun()
     with col2:
         if st.button("← Modifier les sources", use_container_width=True):
             st.session_state.phase = "select"
             st.session_state.answer = ""
+            st.session_state.feedback_sent = False
             st.rerun()

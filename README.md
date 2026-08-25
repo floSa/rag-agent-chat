@@ -93,6 +93,7 @@ docker compose up -d --build
 | `POST` | `/chat/start` | Démarre le flux LangGraph, suspend en attente de sélection. |
 | `POST` | `/chat/resume` | Reprend après sélection des sources (réponse en SSE). |
 | `POST` | `/chat/simple` | Génération directe sans boucle agentique. |
+| `POST` | `/feedback` | Appréciation binaire d'une réponse (`utile` / `inutile`) et commentaire libre, rattachés au `thread_id`. |
 | `GET` | `/media/{object_name}` | Proxy des images MinIO (le réseau Docker interne n'est pas visible du navigateur). |
 
 ---
@@ -118,6 +119,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | `CONTEXT_WINDOW_BEFORE/AFTER` | `6` | Éléments retenus autour du passage trouvé. |
 | `ADJACENT_SECTION_ELEMENTS` | `3` | Éléments repris des sections voisines (0 désactive). |
 | `API_KEY` / `CORS_ORIGINS` | vide / `localhost` | Vide = pas d'authentification, acceptable en local seulement. |
+| `USAGE_CAPTURE` / `USAGE_DB_PATH` | `true` / `/app/data/usage.sqlite` | Enregistre questions, sources proposées, décochages et réponses. **Actif par défaut**, aucune purge, rien ne sort du disque local — cf. [capture_usage.md](documentation/capture_usage.md). |
 | `MINIO_ROOT_PASSWORD` | — | Même valeur que le projet d'ingestion. |
 
 ---
@@ -185,6 +187,7 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | [stores.md](documentation/stores.md) | Le contrat avec l'ingestion, du point de vue du consommateur |
 | [llm.md](documentation/llm.md) | Le service d'inférence central et la fenêtre de contexte |
 | [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
+| [capture_usage.md](documentation/capture_usage.md) | Ce que le service enregistre de son usage, et les requêtes qui l'exploitent |
 | [tests.md](documentation/tests.md) | Les trois niveaux de test, et ce que rien ne couvre |
 | [axes_amelioration.md](documentation/axes_amelioration.md) | Ce qui est corrigé, ce qui reste ouvert |
 | [SECURITY.md](documentation/SECURITY.md) | Surface exposée, défenses, et ce qui n'est pas protégé |

@@ -386,3 +386,58 @@ def test_capture_desactivee_laisse_l_api_intacte_et_le_disque_vide(
     assert [e for e in evenements if e.get("done")]
     assert not base.exists(), "un fichier vide ferait croire à une capture en cours"
     assert usage._echecs == 0, "rien n'a été tenté, donc rien n'a échoué"  # noqa: SLF001
+
+
+# ─── L'appréciation ───────────────────────────────────────────────────────────
+
+def test_feedback_attache_une_note_a_l_interaction(client, base) -> None:
+    thread = client.post("/chat/start", json={"question": "q"}).json()["thread_id"]
+    _flux(
+        client,
+        "/chat/resume",
+        {"thread_id": thread, "selected_element_ids": ["abcdef0123"], "stream": True},
+    )
+
+    reponse = client.post(
+        "/feedback",
+        json={"thread_id": thread, "rating": "inutile", "comment": "Répond à côté."},
+    )
+
+    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.json()["recorded"] is True
+    ligne = _lire(base, "SELECT rating, rating_comment FROM interactions WHERE thread_id = ?",
+                  thread)[0]
+    assert (ligne["rating"], ligne["rating_comment"]) == ("inutile", "Répond à côté.")
+
+
+def test_feedback_sur_un_thread_inconnu_repond_404_et_pas_500(client) -> None:
+    """Un identifiant inventé ou périmé est une erreur du client, pas une panne.
+
+    Le distinguer d'un échec d'écriture est tout l'intérêt de faire remonter le
+    sort de l'écriture plutôt qu'un booléen.
+    """
+    reponse = client.post("/feedback", json={"thread_id": "jamais-vu", "rating": "utile"})
+
+    assert reponse.status_code == 404  # noqa: PLR2004
+    assert "thread_id" in reponse.json()["detail"]
+
+
+def test_feedback_avec_capture_desactivee_ne_blame_pas_le_client(
+    client_sans_capture,
+) -> None:
+    """200 avec `recorded: false` : ce n'est pas au client d'en porter la faute."""
+    reponse = client_sans_capture.post(
+        "/feedback", json={"thread_id": "peu-importe", "rating": "utile"}
+    )
+
+    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.json() == {"recorded": False, "detail": "Capture d'usage désactivée."}
+
+
+def test_une_note_hors_du_binaire_est_refusee_par_le_schema(client) -> None:
+    """Le rating est binaire par conception : une échelle ne se remplit pas, et
+    « 3/5 » ne se lit pas. Le schéma doit l'imposer, sinon la colonne finit par
+    contenir n'importe quoi et les comptages ne veulent plus rien dire."""
+    assert client.post(
+        "/feedback", json={"thread_id": "t", "rating": "moyen"}
+    ).status_code == 422  # noqa: PLR2004

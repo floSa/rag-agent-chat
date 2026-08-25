@@ -32,7 +32,7 @@ from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.agent.state import AgentState
 from src.agent.usage import initialiser as usage_initialiser
-from src.agent.usage import record_completion, record_start
+from src.agent.usage import record_completion, record_feedback, record_start
 from src.api.schemas import (
     MAX_HISTORY_MESSAGES,
     AnswerRequest,
@@ -40,6 +40,8 @@ from src.api.schemas import (
     ChatRequest,
     ChatResponse,
     Citation,
+    FeedbackRequest,
+    FeedbackResponse,
     HealthResponse,
     ImageRef,
     RetrievedContext,
@@ -575,6 +577,39 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         images=result.get("images", []),
         search_count=result.get("search_count", 1),
     )
+
+
+# ─── Appréciation d'une réponse ───────────────────────────────────────────────
+
+@app.post("/feedback", response_model=FeedbackResponse, dependencies=[Depends(require_api_key)])
+async def feedback(req: FeedbackRequest) -> FeedbackResponse:
+    """Attache une appréciation à une interaction déjà enregistrée.
+
+    Note binaire : personne ne remplit une échelle, et un 3/5 ne se lit pas.
+    Deux valeurs se comptent, et c'est ce qui rendra un jour un jeu doré réel
+    utilisable — une question, ses sources validées, et un humain qui dit si la
+    réponse valait quelque chose.
+
+    Un `thread_id` inconnu rend 404 : c'est une erreur du client, il a inventé
+    ou périmé son identifiant. Une capture désactivée ou en échec rend 200 avec
+    `recorded: false` — ce n'est pas au client d'en porter la faute, et un 500
+    ferait échouer une requête pour une observation perdue.
+    """
+    sort = await record_feedback(
+        thread_id=req.thread_id, rating=req.rating, comment=req.comment
+    )
+    if sort == "inconnu":
+        raise HTTPException(
+            status_code=404,
+            detail="Aucune interaction enregistrée sous ce thread_id.",
+        )
+    if sort == "desactive":
+        return FeedbackResponse(recorded=False, detail="Capture d'usage désactivée.")
+    if sort == "echec":
+        return FeedbackResponse(
+            recorded=False, detail="Enregistrement impossible, cf. journal du service."
+        )
+    return FeedbackResponse(recorded=True)
 
 
 # ─── Médias (proxy MinIO) ─────────────────────────────────────────────────────
