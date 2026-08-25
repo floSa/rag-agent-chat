@@ -245,11 +245,20 @@ projets.
 lui-même (`LLM_MAX_TOKENS` à 3,5 caractères/token) : une réponse que le modèle
 pouvait légitimement produire doit pouvoir revenir dans l'historique au tour
 suivant, sans quoi la borne casserait la conversation en 422 — pire que le défaut
-corrigé. `MAX_HISTORY_PAYLOAD` vaut 50 messages, assez pour un fil entier ; la
-borne qui compte reste `MAX_HISTORY_MESSAGES = 6`, ce que l'API soumet
-effectivement au LLM et d'où dérive le budget. Les trois `[-6:]` littéraux de
-`main.py` passent par la constante, et le frontend n'envoie plus que ces six
-messages au lieu du fil complet.
+corrigé. `MAX_HISTORY_PAYLOAD` vaut 50 messages, assez pour un fil entier.
+
+Ce que ces deux bornes protègent, exactement : la lecture et le parse de la
+requête, au pire ~700 Ko de corps contre une liste sans borne auparavant. **Pas**
+le serveur d'inférence — il ne voit jamais plus que ce que `fit_history` retient,
+soit `HISTORY_WINDOW_SHARE` de la fenêtre de prompt. Un message de 14 336
+caractères est donc accepté puis systématiquement écarté du prompt : c'est voulu,
+refuser vaudrait moins bien que tronquer.
+
+La borne qui gouverne le prompt reste `MAX_HISTORY_MESSAGES = 6`, ce que l'API
+soumet effectivement au LLM et d'où dérive le budget. Les trois `[-6:]` littéraux
+de `main.py` passent par la constante, et le frontend n'envoie plus que ces six
+messages au lieu du fil complet — il duplique la constante, faute de pouvoir
+importer le schéma, et un test échoue si les deux divergent.
 
 ### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
 

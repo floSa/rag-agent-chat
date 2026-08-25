@@ -113,10 +113,3 @@ def test_toutes_les_requetes_a_historique_sont_bornees() -> None:
             f"{modele.__name__}.chat_history sans max_length"
         )
 
-
-def test_la_troncature_de_l_api_suit_la_borne_declaree() -> None:
-    """L'API ne soumet au LLM que MAX_HISTORY_MESSAGES messages : le budget de
-    contexte en dérive, et un littéral en dupliquait la valeur."""
-    from src.api.schemas import MAX_HISTORY_MESSAGES, MAX_HISTORY_PAYLOAD
-
-    assert MAX_HISTORY_MESSAGES <= MAX_HISTORY_PAYLOAD

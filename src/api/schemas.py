@@ -9,11 +9,18 @@ ElementId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{10}$")]
 
 # ─── Conversation ─────────────────────────────────────────────────────────────
 
-# Taille maximale d'un message d'historique. C'est le plafond de génération
-# lui-même : LLM_MAX_TOKENS (4096) à ~3,5 caractères/token. Une réponse que le
-# modèle pouvait légitimement produire doit pouvoir revenir dans l'historique au
-# tour suivant — la rejeter en 422 casserait la conversation, ce qui serait pire
-# que le défaut corrigé. Au-delà, le contenu ne sort pas de ce service.
+# Taille maximale d'un message d'historique : le plafond de génération lui-même,
+# LLM_MAX_TOKENS (4096) à ~3,5 caractères/token. Ce dimensionnement sert le
+# round-trip et rien d'autre — une réponse que le modèle pouvait légitimement
+# produire doit pouvoir revenir dans l'historique au tour suivant, sinon la borne
+# casserait la conversation en 422, ce qui serait pire que le défaut corrigé.
+#
+# Ce que cette borne protège, exactement : la lecture et le parse de la requête.
+# PAS le serveur d'inférence — il ne voit jamais plus que ce que `fit_history`
+# retient, soit HISTORY_WINDOW_SHARE de la fenêtre de prompt, ~3 600 caractères
+# aujourd'hui. Un message de 14 336 caractères est donc accepté puis
+# systématiquement écarté du prompt : c'est voulu, refuser vaudrait moins bien
+# que tronquer.
 MAX_MESSAGE_CHARS = 14_336
 
 # Messages d'historique réellement soumis au LLM. C'est la borne qui compte : le
@@ -21,11 +28,10 @@ MAX_MESSAGE_CHARS = 14_336
 MAX_HISTORY_MESSAGES = 6
 
 # Messages acceptés dans une requête. L'API n'en garde que les
-# MAX_HISTORY_MESSAGES derniers, mais une liste sans borne laissait n'importe
-# quel appelant faire grossir la charge utile indéfiniment — et le serveur
-# d'inférence est PARTAGÉ avec d'autres projets. Assez large pour une
-# conversation entière, pour qu'un client qui envoie tout son fil ne soit pas
-# rejeté.
+# MAX_HISTORY_MESSAGES derniers ; cette borne-ci ne protège donc, elle aussi, que
+# la taille de la requête : au pire MAX_HISTORY_PAYLOAD × MAX_MESSAGE_CHARS, soit
+# ~700 Ko de corps, contre une liste sans borne auparavant. Assez large pour
+# qu'un client qui envoie tout son fil de conversation ne soit pas rejeté.
 MAX_HISTORY_PAYLOAD = 50
 
 

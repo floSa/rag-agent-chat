@@ -101,3 +101,15 @@ def test_un_historique_hors_borne_est_rejete(soumis) -> None:
     )
 
     assert reponse.status_code == 422  # noqa: PLR2004
+
+
+def test_le_frontend_ne_derive_pas_de_la_borne_du_schema() -> None:
+    """`src/frontend/app.py` duplique la constante : l'image du frontend ne
+    contient que `src/frontend` et ne peut pas importer les schémas.
+
+    Sans ce garde-fou, les deux valeurs divergent en silence — et le frontend
+    enverrait soit plus que ce que l'API lit, soit moins que ce qu'elle accepte.
+    """
+    from src.frontend import app
+
+    assert app.MAX_HISTORY_MESSAGES == MAX_HISTORY_MESSAGES
