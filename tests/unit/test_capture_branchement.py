@@ -302,8 +302,10 @@ def test_answer_est_capture_avec_son_classement_et_ses_latences(client, base) ->
     ligne = _lire(base, "SELECT * FROM interactions WHERE endpoint = 'answer'")[0]
     assert ligne["completed_at"] is not None
     assert json.loads(ligne["ranked_element_ids"]) == [c.element_id for c in _CLASSEMENT]
-    # Ici le nombre de sources écartées est calculé par l'endpoint : c'est un
-    # chiffre, pas un NULL.
+    # Depuis le lot 1, /answer ne calcule plus ce nombre : il le lit dans l'état
+    # du graphe, où node_generate l'a publié. Zéro parce que la section tient,
+    # pas parce que personne n'a mesuré — le cas où elle ne tient pas est couvert
+    # plus bas, sur le flux interactif.
     assert ligne["dropped_contexts"] == 0
     assert _lire(base, "SELECT COUNT(*) n FROM sources_proposees")[0]["n"] == 3  # noqa: PLR2004
 
