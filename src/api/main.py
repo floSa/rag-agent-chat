@@ -32,6 +32,7 @@ from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.agent.state import AgentState
 from src.api.schemas import (
+    MAX_HISTORY_MESSAGES,
     AnswerRequest,
     AnswerResponse,
     ChatRequest,
@@ -250,7 +251,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     """
     initial_state: AgentState = {
         "question": req.question,
-        "chat_history": req.chat_history[-6:],
+        "chat_history": req.chat_history[-MAX_HISTORY_MESSAGES:],
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "search_query": None,
@@ -281,7 +282,9 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     # un budget calculé ici sans l'historique rapportait à la campagne
     # d'évaluation un autre nombre de sources écartées que celui qui avait
     # réellement atteint le LLM.
-    dropped = fit_prompt(req.question, enriched, req.chat_history[-6:]).dropped_contexts
+    dropped = fit_prompt(
+        req.question, enriched, req.chat_history[-MAX_HISTORY_MESSAGES:]
+    ).dropped_contexts
     by_element = {c.element_id: c for c in ranked}
 
     contexts = [
@@ -366,7 +369,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
     initial_state: AgentState = {
         "question": req.question,
         # Multi-turn : derniers échanges seulement, pour borner le contexte
-        "chat_history": req.chat_history[-6:],
+        "chat_history": req.chat_history[-MAX_HISTORY_MESSAGES:],
         "search_query": None,
         "search_translation": None,
         "retrieved_chunks": [],

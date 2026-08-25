@@ -28,7 +28,7 @@ from src.agent.llm import (
     prompt_window_chars,
 )
 from src.agent.settings import settings
-from src.api.schemas import Message, SectionContext
+from src.api.schemas import MAX_MESSAGE_CHARS, Message, SectionContext
 
 
 def _context(element_id: str, taille: int) -> SectionContext:
@@ -95,8 +95,13 @@ def test_l_encadrement_des_sources_est_compte() -> None:
 
 
 def test_le_budget_ne_devient_jamais_negatif() -> None:
-    """Un historique qui dépasse la fenêtre donne 0, pas un budget négatif."""
-    assert context_budget_chars("q", _historique(6, 100_000), source_count=5) == 0
+    """Un historique qui dépasse la fenêtre donne 0, pas un budget négatif.
+
+    Le pire cas que l'API accepte : six messages à la borne de Message.content.
+    """
+    pire_cas = _historique(6, MAX_MESSAGE_CHARS)
+
+    assert context_budget_chars("q", pire_cas, source_count=5) == 0
 
 
 # ─── Le prompt construit tient dans la fenêtre ────────────────────────────────
@@ -119,7 +124,7 @@ def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
 
 def test_le_prompt_garde_toujours_le_message_systeme() -> None:
     """Même sous un historique démesuré, c'est le système qui reste."""
-    msgs = _build_messages("q", [_context("a", 50_000)], _historique(6, 50_000))
+    msgs = _build_messages("q", [_context("a", 50_000)], _historique(6, MAX_MESSAGE_CHARS))
 
     assert msgs[0]["role"] == "system"
     assert estimate_prompt_tokens(msgs) <= settings.llm_num_ctx
@@ -152,7 +157,7 @@ def test_un_historique_court_passe_entier() -> None:
 def test_un_message_trop_gros_est_ecarte_pas_tronque() -> None:
     """Un demi-tour de conversation n'apporte rien ; node_rewrite a déjà rendu
     la question autonome, donc l'historique est du confort, pas un prérequis."""
-    kept, dropped = fit_history([Message(role="user", content="m" * 100_000)])
+    kept, dropped = fit_history([Message(role="user", content="m" * MAX_MESSAGE_CHARS)])
 
     assert kept == []
     assert dropped == 1

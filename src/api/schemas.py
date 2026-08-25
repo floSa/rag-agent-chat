@@ -9,9 +9,31 @@ ElementId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{10}$")]
 
 # ─── Conversation ─────────────────────────────────────────────────────────────
 
+# Taille maximale d'un message d'historique. C'est le plafond de génération
+# lui-même : LLM_MAX_TOKENS (4096) à ~3,5 caractères/token. Une réponse que le
+# modèle pouvait légitimement produire doit pouvoir revenir dans l'historique au
+# tour suivant — la rejeter en 422 casserait la conversation, ce qui serait pire
+# que le défaut corrigé. Au-delà, le contenu ne sort pas de ce service.
+MAX_MESSAGE_CHARS = 14_336
+
+# Messages d'historique réellement soumis au LLM. C'est la borne qui compte : le
+# budget de contexte en dérive, et l'API ne lit que les derniers.
+MAX_HISTORY_MESSAGES = 6
+
+# Messages acceptés dans une requête. L'API n'en garde que les
+# MAX_HISTORY_MESSAGES derniers, mais une liste sans borne laissait n'importe
+# quel appelant faire grossir la charge utile indéfiniment — et le serveur
+# d'inférence est PARTAGÉ avec d'autres projets. Assez large pour une
+# conversation entière, pour qu'un client qui envoie tout son fil ne soit pas
+# rejeté.
+MAX_HISTORY_PAYLOAD = 50
+
+
 class Message(BaseModel):
     role: str    # "user" | "assistant"
-    content: str
+    # « question » était plafonnée, l'historique non : c'était le vecteur par
+    # lequel un prompt dépassait num_ctx, et Ollama le tronquait par le début.
+    content: str = Field(..., max_length=MAX_MESSAGE_CHARS)
 
 
 # ─── Retrieval ────────────────────────────────────────────────────────────────
@@ -63,7 +85,9 @@ class SearchRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=200)
     # Historique de conversation (multi-turn) — utilisé par /chat/start,
     # ignoré par /search et /sources.
-    chat_history: list[Message] = Field(default_factory=list)
+    chat_history: list[Message] = Field(
+        default_factory=list, max_length=MAX_HISTORY_PAYLOAD
+    )
 
 
 class SearchResponse(BaseModel):
@@ -150,7 +174,9 @@ class SectionContext(BaseModel):
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     selected_element_ids: list[ElementId] = Field(default_factory=list)
-    chat_history: list[Message] = Field(default_factory=list)
+    chat_history: list[Message] = Field(
+        default_factory=list, max_length=MAX_HISTORY_PAYLOAD
+    )
     stream: bool = True
 
 
@@ -191,7 +217,9 @@ class AnswerRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
     # None = la valeur configurée (RETRIEVAL_TOP_K).
     top_k: int | None = Field(default=None, ge=1, le=200)
-    chat_history: list[Message] = Field(default_factory=list)
+    chat_history: list[Message] = Field(
+        default_factory=list, max_length=MAX_HISTORY_PAYLOAD
+    )
     # Nombre de sources reconstruites. Laissé à None, AUTO_SELECT_TOP_K s'applique.
     max_sources: int | None = Field(default=None, ge=1, le=20)
 

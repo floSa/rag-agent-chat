@@ -9,6 +9,13 @@ import streamlit as st
 
 API_URL = os.environ.get("API_URL", "http://localhost:8000")
 
+# Doit suivre MAX_HISTORY_MESSAGES de src/api/schemas.py, que ce module ne peut
+# pas importer : l'image du frontend ne contient que src/frontend. L'API n'a
+# jamais lu que les derniers messages ; envoyer le fil entier grossissait la
+# charge utile pour rien, et depuis que la liste est bornee cote schema, une
+# conversation assez longue se ferait rejeter en 422.
+MAX_HISTORY_MESSAGES = 6
+
 st.set_page_config(
     page_title="RAG Agent Chat",
     page_icon="🔍",
@@ -177,7 +184,9 @@ if st.session_state.phase == "search":
                     {
                         "question": question.strip(),
                         # Multi-turn : les questions suivantes bénéficient du contexte
-                        "chat_history": st.session_state.chat_history,
+                        "chat_history": st.session_state.chat_history[
+                            -MAX_HISTORY_MESSAGES:
+                        ],
                     },
                 )
                 st.session_state.thread_id = data["thread_id"]

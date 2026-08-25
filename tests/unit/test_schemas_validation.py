@@ -70,3 +70,53 @@ def test_top_k_explicite_est_respecte() -> None:
     from src.api.schemas import AnswerRequest
 
     assert AnswerRequest(question="q", top_k=80).top_k == 80  # noqa: PLR2004
+
+
+# ─── Bornes de l'historique de conversation ───────────────────────────────────
+
+def test_message_trop_long_rejete() -> None:
+    """« question » était plafonnée à 2000 caractères, l'historique ne l'était pas.
+
+    C'était le vecteur par lequel un prompt dépassait num_ctx — et une
+    consommation non bornée sur un serveur d'inférence partagé avec d'autres
+    projets.
+    """
+    from src.api.schemas import MAX_MESSAGE_CHARS, Message
+
+    with pytest.raises(ValidationError):
+        Message(role="user", content="x" * (MAX_MESSAGE_CHARS + 1))
+
+
+def test_message_a_la_borne_accepte() -> None:
+    """La borne vaut le plafond de génération : une réponse que le modèle
+    pouvait produire doit pouvoir revenir dans l'historique au tour suivant."""
+    from src.api.schemas import MAX_MESSAGE_CHARS, Message
+
+    assert len(Message(role="user", content="x" * MAX_MESSAGE_CHARS).content) == MAX_MESSAGE_CHARS
+
+
+def test_historique_trop_long_rejete() -> None:
+    from src.api.schemas import MAX_HISTORY_PAYLOAD, SearchRequest
+
+    trop = [{"role": "user", "content": "bonjour"}] * (MAX_HISTORY_PAYLOAD + 1)
+    with pytest.raises(ValidationError):
+        SearchRequest(question="q", chat_history=trop)
+
+
+def test_toutes_les_requetes_a_historique_sont_bornees() -> None:
+    """Trois schémas exposent chat_history : aucun ne doit rester sans borne."""
+    from src.api.schemas import MAX_HISTORY_PAYLOAD, AnswerRequest, ChatRequest, SearchRequest
+
+    for modele in (SearchRequest, ChatRequest, AnswerRequest):
+        contrainte = modele.model_fields["chat_history"].metadata
+        assert any(getattr(m, "max_length", None) == MAX_HISTORY_PAYLOAD for m in contrainte), (
+            f"{modele.__name__}.chat_history sans max_length"
+        )
+
+
+def test_la_troncature_de_l_api_suit_la_borne_declaree() -> None:
+    """L'API ne soumet au LLM que MAX_HISTORY_MESSAGES messages : le budget de
+    contexte en dérive, et un littéral en dupliquait la valeur."""
+    from src.api.schemas import MAX_HISTORY_MESSAGES, MAX_HISTORY_PAYLOAD
+
+    assert MAX_HISTORY_MESSAGES <= MAX_HISTORY_PAYLOAD
