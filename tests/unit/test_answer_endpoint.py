@@ -49,10 +49,10 @@ def client(monkeypatch):
             ],
             "images": [],
             "search_count": 1,
-            # Chiffré par node_generate sur le prompt réellement envoyé. /answer
-            # le recalculait de son côté : deux calculs séparés dérivent, et
-            # c'est ce nombre que la campagne d'évaluation publie.
-            "dropped_contexts": 2,
+            # `dropped_contexts` n'est PAS fourni ici : c'est node_generate qui le
+            # chiffre, et le lui souffler ferait de l'assertion un passe-plat sur
+            # une constante de ce stub. Absent de l'état, l'endpoint doit rendre 0
+            # — et le cas non trivial est couvert plus bas, sur la vraie chaîne.
         }
 
     monkeypatch.setattr(main.answer_graph, "ainvoke", fake_ainvoke)
@@ -106,7 +106,7 @@ def test_answer_chronometre_les_deux_etages(client) -> None:
 
     assert body["retrieval_ms"] == 200  # noqa: PLR2004  120 + 80
     assert body["generation_ms"] == 900  # noqa: PLR2004
-    assert body["dropped_contexts"] == 2  # noqa: PLR2004
+    assert body["dropped_contexts"] == 0
 
 
 def test_answer_refuse_une_question_vide(client) -> None:
@@ -117,3 +117,85 @@ def test_answer_borne_le_nombre_de_sources(client) -> None:
     assert client.post(
         "/answer", json={"question": "q", "max_sources": 99}
     ).status_code == 422  # noqa: PLR2004
+
+
+def test_answer_publie_le_chiffre_calcule_par_le_graphe(monkeypatch) -> None:
+    """`dropped_contexts` doit venir de node_generate, pas d'un recalcul ni d'une
+    valeur en dur.
+
+    L'endpoint le recalculait de son côté ; le refactor `on_fit` a supprimé ce
+    doublon mais laissé la chaîne sans test, et deux mutations passaient — `0` en
+    dur dans node_generate, et `on_fit` jamais appelé. C'est le nombre que la
+    campagne publie sous `contextes_ecartes`.
+
+    Seule la couche HTTP est simulée : le budget est calculé par le vrai
+    `fit_prompt`, à travers le vrai `generate_stream` et le vrai `node_generate`.
+    """
+    from src.agent import graph as graph_module
+    from src.agent import llm
+    from src.agent.llm import fit_prompt
+    from src.api import main
+
+    question = "Comment mesurer la dispersion ?"
+    contextes = [
+        SectionContext(
+            element_id=f"abcdef01{i:02d}",
+            section_id=f"sssssssss{i}",
+            breadcrumbs=[],
+            elements=[],
+            markdown="x" * 4000,
+        )
+        for i in range(6)
+    ]
+    attendu = fit_prompt(question, contextes, []).dropped_contexts
+    assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
+
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_ollama_minimal())
+
+    async def fake_ainvoke(state, _config=None):
+        # Le vrai nœud de génération, pour que le chiffre soit calculé et non
+        # fourni : c'est toute la chaîne on_fit → état → endpoint qui est en jeu.
+        etat = {**state, "enriched_contexts": contextes, "search_count": 0, "_metadata": {}}
+        return {
+            "reranked_chunks": [],
+            "enriched_contexts": contextes,
+            "citations": [],
+            "images": [],
+            **await graph_module.node_generate(etat),
+        }
+
+    monkeypatch.setattr(main.answer_graph, "ainvoke", fake_ainvoke)
+    body = TestClient(main.app).post("/answer", json={"question": question}).json()
+
+    assert body["dropped_contexts"] == attendu
+
+
+def _flux_ollama_minimal():
+    """Client httpx simulé : un flux Ollama de deux événements."""
+    import json as _json
+
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        async def aiter_lines(self):
+            yield _json.dumps({"message": {"content": "Une réponse."}})
+            yield _json.dumps({"message": {"content": ""}, "done": True})
+
+    class Stream:
+        async def __aenter__(self):
+            return Resp()
+
+        async def __aexit__(self, *_):
+            return False
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        def stream(self, *_args, **_kwargs):
+            return Stream()
+
+    return lambda **_kwargs: Client()

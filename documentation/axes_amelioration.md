@@ -167,6 +167,14 @@ L'endpoint le recalculait — chaque troncature journalisée deux fois, le gabar
 rendu une fois de plus par candidate, et surtout un chiffre publié à la campagne
 d'évaluation qui pouvait dériver de celui qui avait atteint le LLM.
 
+Le refactor avait laissé cette chaîne sans test : renvoyer `0` en dur depuis
+`node_generate`, ou ne jamais appeler `on_fit`, gardait la suite entièrement
+verte. Elle est désormais exercée sur le vrai `node_generate` et le vrai
+`generate_stream`, seule la couche HTTP étant simulée, au niveau du nœud comme au
+niveau de l'endpoint. C'est le nombre que la campagne publie sous
+`contextes_ecartes`, et `runs/README.md` annonce qu'il doit monter : cassé, il se
+lirait « aucune source écartée ».
+
 La déclaration de l'outil `search_vectors` y entre aussi : `tools` n'est pas un
 canal séparé pour le modèle, Ollama le rend dans le prompt via le gabarit de
 chat. 417 caractères que rien ne comptait — le même trou que le forfait, à plus

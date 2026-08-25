@@ -642,3 +642,73 @@ async def test_le_prompt_eval_count_est_lu_dans_l_evenement_final(monkeypatch, c
 
     assert tokens == ["Réponse."]
     assert "réel 4321" in caplog.text
+
+
+# ─── Le chiffre publié à la campagne ──────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_node_generate_publie_le_budget_reellement_applique(monkeypatch) -> None:
+    """`dropped_contexts` traverse `on_fit` → l'état du graphe → `/answer`.
+
+    Rien ne couvrait cette chaîne : deux mutations la cassaient en gardant la
+    suite verte — renvoyer `0` en dur depuis `node_generate`, et ne jamais
+    appeler `on_fit`. Or c'est le nombre que la campagne publie sous
+    `contextes_ecartes`, et `runs/README.md` annonce désormais qu'il doit
+    monter : cassé, il se lit « aucune source écartée ».
+
+    Seule la couche HTTP est simulée. Le budget est calculé par le vrai
+    `fit_prompt`, à travers le vrai `generate_stream`.
+    """
+    from src.agent import graph as graph_module
+
+    monkeypatch.setattr(
+        llm.httpx,
+        "AsyncClient",
+        _flux_ollama(
+            [
+                {"message": {"content": "Une réponse."}},
+                {"message": {"content": ""}, "done": True, "prompt_eval_count": 4000},
+            ]
+        ),
+    )
+
+    # Six sources de 4 000 caractères : le budget en écarte forcément.
+    contextes = [_source(i, 4000) for i in range(6)]
+    attendu = fit_prompt(QUESTION, contextes, []).dropped_contexts
+    assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
+
+    resultat = await graph_module.node_generate(
+        {
+            "question": QUESTION,
+            "chat_history": [],
+            "enriched_contexts": contextes,
+            "search_count": 0,
+            "_metadata": {},
+        }
+    )
+
+    assert resultat["dropped_contexts"] == attendu
+
+
+@pytest.mark.asyncio
+async def test_node_generate_ne_publie_zero_que_si_tout_tient(monkeypatch) -> None:
+    """Le pendant du test précédent : un zéro doit être un zéro mérité."""
+    from src.agent import graph as graph_module
+
+    monkeypatch.setattr(
+        llm.httpx,
+        "AsyncClient",
+        _flux_ollama([{"message": {"content": "Une réponse."}, "done": True}]),
+    )
+
+    resultat = await graph_module.node_generate(
+        {
+            "question": QUESTION,
+            "chat_history": [],
+            "enriched_contexts": [_source(0, 200)],
+            "search_count": 0,
+            "_metadata": {},
+        }
+    )
+
+    assert resultat["dropped_contexts"] == 0
