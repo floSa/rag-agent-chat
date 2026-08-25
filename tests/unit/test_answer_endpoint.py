@@ -49,6 +49,10 @@ def client(monkeypatch):
             ],
             "images": [],
             "search_count": 1,
+            # Chiffré par node_generate sur le prompt réellement envoyé. /answer
+            # le recalculait de son côté : deux calculs séparés dérivent, et
+            # c'est ce nombre que la campagne d'évaluation publie.
+            "dropped_contexts": 2,
         }
 
     monkeypatch.setattr(main.answer_graph, "ainvoke", fake_ainvoke)
@@ -102,7 +106,7 @@ def test_answer_chronometre_les_deux_etages(client) -> None:
 
     assert body["retrieval_ms"] == 200  # noqa: PLR2004  120 + 80
     assert body["generation_ms"] == 900  # noqa: PLR2004
-    assert body["dropped_contexts"] == 0
+    assert body["dropped_contexts"] == 2  # noqa: PLR2004
 
 
 def test_answer_refuse_une_question_vide(client) -> None:

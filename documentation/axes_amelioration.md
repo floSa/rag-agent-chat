@@ -155,9 +155,12 @@ garde les **tours** les plus récents : sens inverse des sources, c'est le derni
 couper par message laissait passer une réponse sans la question à laquelle elle
 répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit de chat
 strict sur l'alternance refuse. Le partage est un **forfait** : arbitrer entre
-historique et sources demanderait une mesure de la qualité multi-tour (§2). `fit_prompt` devient le point d'entrée unique — `/answer`
-chiffrait ses `dropped_contexts` avec un budget calculé à part, et rapportait à
-la campagne d'évaluation un autre nombre que ce qui avait atteint le LLM.
+historique et sources demanderait une mesure de la qualité multi-tour (§2). `fit_prompt` devient le point d'entrée unique, appelé une seule fois par
+génération : `node_generate` récupère le budget appliqué par le rappel `on_fit`
+et le publie dans l'état du graphe, d'où `/answer` lit ses `dropped_contexts`.
+L'endpoint le recalculait — chaque troncature journalisée deux fois, le gabarit
+rendu une fois de plus par candidate, et surtout un chiffre publié à la campagne
+d'évaluation qui pouvait dériver de celui qui avait atteint le LLM.
 
 La déclaration de l'outil `search_vectors` y entre aussi : `tools` n'est pas un
 canal séparé pour le modèle, Ollama le rend dans le prompt via le gabarit de

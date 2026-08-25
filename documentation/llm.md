@@ -121,10 +121,14 @@ n'était pas le ratio qui trompait, c'était son application partielle.
 | Historique | Les **tours** les plus anciens, entiers | C'est le dernier échange qui situe la question. La coupe porte sur des tours et non des messages : couper par message laissait passer une réponse sans la question à laquelle elle répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit strict sur l'alternance refuse |
 | Tour trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
 
-`fit_prompt` est le point d'entrée unique : `_build_messages` construit le prompt
-avec, `/answer` chiffre ses `dropped_contexts` avec. Deux calculs séparés
-dériveraient, et la campagne d'évaluation rapporterait un autre nombre de
-sources écartées que ce qui a réellement atteint le LLM.
+`fit_prompt` est le point d'entrée unique, et il est appelé **une seule fois par
+génération** : `_build_messages` construit le prompt avec, et rend le budget
+appliqué. `node_generate` le récupère par le rappel `on_fit` et le publie dans
+l'état du graphe, d'où `/answer` lit ses `dropped_contexts`. Recalculer le budget
+côté endpoint journalisait chaque troncature deux fois et rendait le gabarit une
+fois de plus par candidate — et surtout, deux calculs séparés dérivent : la
+campagne d'évaluation aurait rapporté un autre nombre de sources écartées que ce
+qui a réellement atteint le LLM.
 
 Les bornes d'entrée correspondantes sont dans `src/api/schemas.py` :
 `MAX_MESSAGE_CHARS` (14 336, soit le plafond de génération lui-même),

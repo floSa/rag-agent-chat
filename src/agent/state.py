@@ -49,6 +49,11 @@ class AgentState(TypedDict):
     needs_more_info: bool       # le LLM a-t-il demandé une recherche supplémentaire ?
     next_query: str | None      # sous-question pour la prochaine itération
 
+    # Sources écartées par le budget de fenêtre, renseigné par node_generate.
+    # Porté par l'état plutôt que recalculé par /answer : deux calculs séparés
+    # dérivent, et c'est ce chiffre que la campagne d'évaluation publie.
+    dropped_contexts: int
+
     # Chronométrage par étage, renseigné par les nœuds. Une latence globale ne
     # dit pas quoi optimiser ; c'est ce que /answer expose à l'évaluation.
     _metadata: dict[str, Any]

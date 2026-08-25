@@ -25,7 +25,7 @@ from src.agent.graph import (
 )
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import fit_prompt, generate_stream
+from src.agent.llm import generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, lexical_ready, rerank, retrieve
 from src.agent.retriever import ping as chroma_ping
@@ -271,6 +271,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "search_count": 0,
         "needs_more_info": False,
         "next_query": None,
+        "dropped_contexts": 0,
         "_metadata": {},
     }
 
@@ -283,13 +284,11 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     ranked = result.get("reranked_chunks", [])
 
     enriched = result.get("enriched_contexts", [])
-    # Le même calcul que celui qui a construit le prompt, historique compris :
-    # un budget calculé ici sans l'historique rapportait à la campagne
-    # d'évaluation un autre nombre de sources écartées que celui qui avait
-    # réellement atteint le LLM.
-    dropped = fit_prompt(
-        req.question, enriched, req.chat_history[-MAX_HISTORY_MESSAGES:]
-    ).dropped_contexts
+    # Le chiffre que node_generate a réellement appliqué, remonté par l'état.
+    # Le recalculer ici journalisait chaque troncature deux fois et rendait le
+    # gabarit une fois de plus par candidate — et deux calculs séparés dérivent,
+    # ce que ce champ sert précisément à publier.
+    dropped = result.get("dropped_contexts", 0)
     by_element = {c.element_id: c for c in ranked}
 
     contexts = [
@@ -389,6 +388,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
         "search_count": 0,
         "needs_more_info": False,
         "next_query": None,
+        "dropped_contexts": 0,
         "_metadata": {},
     }
 

@@ -11,7 +11,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate_stream, rewrite_question, translate_question
+from src.agent.llm import PromptFit, generate_stream, rewrite_question, translate_question
 from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
@@ -172,12 +172,15 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     parts: list[str] = []
     # Rempli par le callback si le modèle émet un appel d'outil natif.
     tool_queries: list[str] = []
+    # Budget de fenêtre tel qu'il a été appliqué au prompt réellement envoyé.
+    budget: list[PromptFit] = []
 
     async for token in generate_stream(
         question=state["question"],
         contexts=state["enriched_contexts"],
         chat_history=state.get("chat_history"),
         on_tool_call=tool_queries.append,
+        on_fit=budget.append,
     ):
         parts.append(token)
         if writer:
@@ -222,6 +225,7 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
         "response": response,
         "needs_more_info": needs_more,
         "next_query": next_query,
+        "dropped_contexts": budget[-1].dropped_contexts if budget else 0,
         "_metadata": metadata,
     }
 

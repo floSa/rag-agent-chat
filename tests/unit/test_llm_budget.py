@@ -225,7 +225,7 @@ def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
     Avant correctif : 31 380 caractères de prompt pour une fenêtre utile de
     14 336 — Ollama tronquait par le DÉBUT, donc jetait le message système.
     """
-    msgs = _build_messages(
+    msgs, _ = _build_messages(
         "Quelle est la question ?",
         [_context("a", 12_000), _context("b", 12_000)],
         _historique(6, 3000),
@@ -237,7 +237,7 @@ def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
 
 def test_le_prompt_garde_toujours_le_message_systeme() -> None:
     """Même sous un historique démesuré, c'est le système qui reste."""
-    msgs = _build_messages("q", [_context("a", 50_000)], _historique(6, MAX_MESSAGE_CHARS))
+    msgs, _ = _build_messages("q", [_context("a", 50_000)], _historique(6, MAX_MESSAGE_CHARS))
 
     assert msgs[0]["role"] == "system"
     assert estimate_prompt_tokens(msgs) <= settings.llm_num_ctx
@@ -272,7 +272,7 @@ def test_une_reponse_ne_part_jamais_sans_sa_question() -> None:
 def test_le_prompt_alterne_les_roles() -> None:
     """Un gabarit de chat strict sur l'alternance recevait un tour « model »
     directement après le système."""
-    msgs = _build_messages("Et pour les femmes ?", [], _conversation(3, 2000))
+    msgs, _ = _build_messages("Et pour les femmes ?", [], _conversation(3, 2000))
     roles = [m["role"] for m in msgs]
 
     assert roles == ["system", *["user", "assistant"] * ((len(roles) - 2) // 2), "user"], roles

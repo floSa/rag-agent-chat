@@ -474,14 +474,15 @@ def _build_messages(
     question: str,
     contexts: list[SectionContext],
     chat_history: list[Message],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], PromptFit]:
+    """Construit le prompt, et rend avec lui le budget tel qu'il a été appliqué."""
     fit = fit_prompt(question, contexts, chat_history)
 
     msgs: list[dict[str, Any]] = [{"role": "system", "content": _load_system_prompt()}]
     for msg in fit.history:
         msgs.append({"role": msg.role, "content": msg.content})
     msgs.append({"role": "user", "content": _build_context_message(question, fit.contexts)})
-    return msgs
+    return msgs, fit
 
 
 # Une question de suivi est courte : au-delà, le modèle a paraphrasé ou répondu
@@ -648,6 +649,7 @@ async def generate_stream(
     contexts: list[SectionContext],
     chat_history: list[Message] | None = None,
     on_tool_call: Callable[[str], None] | None = None,
+    on_fit: Callable[[PromptFit], None] | None = None,
 ) -> AsyncIterator[str]:
     """Génère la réponse en streaming via l'API native Ollama.
 
@@ -655,8 +657,15 @@ async def generate_stream(
     `think` : Gemma 4 est un modèle à raisonnement et, sans ce flag, il peut
     consommer tout le budget num_predict en réflexion avant le premier token
     de réponse — prohibitif en CPU.
+
+    `on_fit` reçoit le budget tel qu'il a été appliqué. Sans ce rappel, /answer
+    devait refaire `fit_prompt` pour chiffrer ses `dropped_contexts` : chaque
+    troncature était journalisée deux fois, et le gabarit rendu une fois de plus
+    par source candidate.
     """
-    messages = _build_messages(question, contexts, chat_history or [])
+    messages, fit = _build_messages(question, contexts, chat_history or [])
+    if on_fit:
+        on_fit(fit)
     estimated_tokens = estimate_prompt_tokens(messages)
 
     logger.debug(
