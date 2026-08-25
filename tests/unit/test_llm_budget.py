@@ -8,15 +8,23 @@ que les sources : l'historique de conversation n'entrait dans aucun calcul, et
 six messages suffisaient à faire dépasser num_ctx — 31 380 caractères mesurés
 pour une fenêtre utile de 14 336."""
 
+import json
+import logging
+
+import pytest
+
+from src.agent import llm
 from src.agent.llm import (
     _TRUNCATION_MARKER,
     _build_messages,
     _load_system_prompt,
     context_budget_chars,
+    estimate_prompt_tokens,
     fit_contexts,
     fit_history,
     fit_prompt,
     history_budget_chars,
+    log_prompt_measure,
     prompt_window_chars,
 )
 from src.agent.settings import settings
@@ -114,7 +122,7 @@ def test_le_prompt_garde_toujours_le_message_systeme() -> None:
     msgs = _build_messages("q", [_context("a", 50_000)], _historique(6, 50_000))
 
     assert msgs[0]["role"] == "system"
-    assert sum(len(str(m["content"])) for m in msgs) <= prompt_window_chars()
+    assert estimate_prompt_tokens(msgs) <= settings.llm_num_ctx
 
 
 # ─── Historique : les plus récents survivent ──────────────────────────────────
@@ -233,3 +241,98 @@ def test_fit_prompt_sans_historique() -> None:
     assert fit.dropped_history == 0
     assert fit.dropped_contexts == 0
 
+
+# ─── L'estimation confrontée à la mesure ──────────────────────────────────────
+
+def test_estimate_prompt_tokens_compte_les_balises_de_tour() -> None:
+    """Le gabarit de chat encadre chaque message : trois messages, trois tours."""
+    un = estimate_prompt_tokens([{"role": "system", "content": "abc"}])
+    trois = estimate_prompt_tokens([{"role": "system", "content": "abc"}] * 3)
+
+    assert trois > un * 2
+
+
+def test_l_ecart_entre_estimation_et_reel_est_journalise(caplog) -> None:
+    """`prompt_eval_count` était rendu par Ollama et lu par personne : le ratio
+    caractères/token restait une devinette qu'aucune mesure ne corrigeait."""
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(1000, 1200)
+
+    assert "estimé 1000" in caplog.text
+    assert "réel 1200" in caplog.text
+    assert "-16.7 %" in caplog.text
+
+
+def test_un_prompt_hors_fenetre_leve_un_avertissement(caplog) -> None:
+    """Aujourd'hui invisible : Ollama tronque par le DÉBUT sans rien dire."""
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(1000, settings.llm_num_ctx + 1)
+
+    avertissements = [r for r in caplog.records if r.levelno >= logging.WARNING]
+    assert len(avertissements) == 1
+    assert "tronqué le prompt par le DÉBUT" in avertissements[0].getMessage()
+
+
+def test_un_prompt_dans_la_fenetre_ne_leve_pas_d_avertissement(caplog) -> None:
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(1000, settings.llm_num_ctx - 1)
+
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+
+
+def test_sans_prompt_eval_count_rien_n_est_journalise(caplog) -> None:
+    """Une version d'Ollama qui ne rend pas le champ ne doit pas faire de bruit."""
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        log_prompt_measure(1000, None)
+
+    assert caplog.records == []
+
+
+def _flux_ollama(lignes: list[dict]):
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        async def aiter_lines(self):
+            for ligne in lignes:
+                yield json.dumps(ligne)
+
+    class Stream:
+        async def __aenter__(self):
+            return Resp()
+
+        async def __aexit__(self, *_):
+            return False
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        def stream(self, *_args, **_kwargs):
+            return Stream()
+
+    return lambda **_kwargs: Client()
+
+
+@pytest.mark.asyncio
+async def test_le_prompt_eval_count_est_lu_dans_l_evenement_final(monkeypatch, caplog) -> None:
+    """Il n'arrive que sur l'événement `done: true` — celui dont la boucle
+    sortait sans le lire."""
+    monkeypatch.setattr(
+        llm.httpx,
+        "AsyncClient",
+        _flux_ollama(
+            [
+                {"message": {"content": "Réponse."}},
+                {"message": {"content": ""}, "done": True, "prompt_eval_count": 4321},
+            ]
+        ),
+    )
+
+    with caplog.at_level(logging.INFO, logger="src.agent.llm"):
+        tokens = [t async for t in llm.generate_stream("q", [_context("a", 100)])]
+
+    assert tokens == ["Réponse."]
+    assert "réel 4321" in caplog.text

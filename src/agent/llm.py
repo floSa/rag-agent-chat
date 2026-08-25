@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import re
 from collections.abc import AsyncIterator, Callable, Sequence
 from pathlib import Path
@@ -56,7 +57,8 @@ def _build_context_message(
 # Estimation grossière du ratio caractères/token. Le tokenizer réel dépend du
 # modèle ; ~3.5 est prudent pour du français, plus dense en tokens que l'anglais.
 # C'est une estimation, mais elle s'applique à TOUTES les parties du prompt :
-# l'appliquer aux seules sources était le défaut.
+# l'appliquer aux seules sources était le défaut. `log_prompt_measure` la
+# confronte au décompte réel d'Ollama à chaque génération, de quoi la calibrer.
 _CHARS_PER_TOKEN = 3.5
 
 # Balises de tour que le gabarit de chat du modèle ajoute autour de CHAQUE
@@ -285,6 +287,51 @@ def fit_prompt(
     return PromptFit(history, kept, dropped, dropped_history, budget)
 
 
+def estimate_prompt_tokens(messages: Sequence[dict[str, Any]]) -> int:
+    """Tokens estimés du prompt, avec le ratio sur lequel le budget a tranché.
+
+    Sert de terme de comparaison à `prompt_eval_count` : comparer autre chose
+    que l'estimation qui a décidé de la coupe ne calibrerait rien.
+    """
+    chars = sum(len(str(msg.get("content", ""))) + _MESSAGE_FRAMING_CHARS for msg in messages)
+    return math.ceil(chars / _CHARS_PER_TOKEN)
+
+
+def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> None:
+    """Confronte l'estimation du prompt au décompte réel rendu par Ollama.
+
+    `prompt_eval_count` arrive dans le dernier événement du flux (celui qui
+    porte `done: true`) : c'est le nombre RÉEL de tokens du prompt. Personne ne
+    le lisait — le ratio caractères/token restait une devinette, et un prompt
+    qui dépassait num_ctx ne laissait aucune trace, Ollama le tronquant sans
+    rien dire. Le ratio mesuré journalisé ici est ce qui permettra de le
+    calibrer sur des campagnes réelles au lieu de le poser au jugé.
+    """
+    if not prompt_eval_count or estimated_tokens <= 0:
+        return
+
+    ecart = (estimated_tokens - prompt_eval_count) / prompt_eval_count * 100
+    logger.info(
+        "Prompt : estimé %d tokens, réel %d, écart %+.1f %% — ratio mesuré "
+        "%.2f caractères/token (retenu : %.2f). Écart négatif = estimation trop "
+        "optimiste, le budget laisse passer plus que la fenêtre n'absorbe.",
+        estimated_tokens,
+        prompt_eval_count,
+        ecart,
+        _CHARS_PER_TOKEN * estimated_tokens / prompt_eval_count,
+        _CHARS_PER_TOKEN,
+    )
+
+    if prompt_eval_count > settings.llm_num_ctx:
+        logger.warning(
+            "Prompt réel de %d tokens pour num_ctx=%d : Ollama a tronqué le prompt par "
+            "le DÉBUT, donc le message système — les règles de citation et d'abstention "
+            "n'encadraient pas cette réponse.",
+            prompt_eval_count,
+            settings.llm_num_ctx,
+        )
+
+
 def _build_messages(
     question: str,
     contexts: list[SectionContext],
@@ -472,6 +519,7 @@ async def generate_stream(
     de réponse — prohibitif en CPU.
     """
     messages = _build_messages(question, contexts, chat_history or [])
+    estimated_tokens = estimate_prompt_tokens(messages)
 
     logger.debug(
         "LLM generate : model=%s, messages=%d, contexte=%d sections, think=%s",
@@ -499,6 +547,7 @@ async def generate_stream(
         payload["tools"] = [SEARCH_TOOL]
 
     timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
+    prompt_eval_count: int | None = None
     async with (
         httpx.AsyncClient(timeout=timeout) as client,
         client.stream("POST", f"{settings.ollama_host}/api/chat", json=payload) as resp,
@@ -521,7 +570,13 @@ async def generate_stream(
             if delta:
                 yield delta
             if data.get("done"):
+                # Le dernier événement du flux porte le décompte réel des
+                # tokens du prompt : la seule mesure disponible face à une
+                # estimation qui, sans elle, ne se vérifie jamais.
+                prompt_eval_count = data.get("prompt_eval_count")
                 break
+
+    log_prompt_measure(estimated_tokens, prompt_eval_count)
 
 
 async def generate(
