@@ -206,7 +206,9 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             morceaux: list[str] = []
-            async for token in generate_stream(req.question, contexts, req.chat_history):
+            async for token in generate_stream(
+                req.question, contexts, req.chat_history[-MAX_HISTORY_MESSAGES:]
+            ):
                 morceaux.append(token)
                 yield {"data": json.dumps({"token": token})}
             reponse = "".join(morceaux)
@@ -229,7 +231,10 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     # Cet endpoint rendait `citations: []` en dur : il generait des reponses
     # truffees de marqueurs [src:...] que personne ne resolvait, dans un projet
     # dont c'est precisement l'objet.
-    response = await generate(req.question, contexts, req.chat_history)
+    # Même profondeur d'historique que /chat/start et /answer : cet endpoint
+    # soumettait tout ce que le client envoyait, donc un autre prompt pour la
+    # même conversation selon la route empruntée.
+    response = await generate(req.question, contexts, req.chat_history[-MAX_HISTORY_MESSAGES:])
     citations, images = resolve_citations(response, contexts, [])
     return ChatResponse(answer=response, citations=citations, images=images, search_count=1)
 
