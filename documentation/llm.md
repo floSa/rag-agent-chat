@@ -86,13 +86,16 @@ entre ses sources, donc la décomposition est exacte — vérifié sur douze sou
 prompt via le gabarit de chat. Ne pas le compter laissait le même trou que le
 forfait, à plus petite échelle — 417 caractères, soit ~119 tokens.
 
-Ce qui reste un **forfait**, et le reste explicitement :
+Ce qui reste un **forfait** — la liste est complète, tout ce qui n'y figure pas
+est mesuré à l'exécution :
 
 | Forfait | Valeur | À mesurer |
 |---|---|---|
 | Ratio caractères/token | 3,5 | Le log `prompt_eval_count` donne le ratio mesuré à chaque génération |
 | Balises de tour du gabarit de chat, par message | 34 | Dépend du modèle. C'est le décompte du gabarit Gemma — `<start_of_turn>user\n` 20 caractères, `<end_of_turn>\n` 14 — appliqué à tous |
 | Part de la fenêtre laissée à l'historique (`HISTORY_WINDOW_SHARE`) | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
+| Marge sous `num_ctx` au-delà de laquelle on suspecte une troncature d'Ollama | 8 tokens | Dépend du gabarit de chat, qui ne retombe pas pile sur la borne. Se resserrerait sur des `prompt_eval_count` réels |
+| Fraction de l'estimation sous laquelle une mesure est imputée au cache KV | 0,6 | Choisi assez bas pour ne pas écarter une simple erreur d'estimation, assez haut pour attraper un préfixe caché. Se réglerait sur la distribution observée |
 
 Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
 tokens tenait lieu de provision pour « le prompt système, le gabarit et

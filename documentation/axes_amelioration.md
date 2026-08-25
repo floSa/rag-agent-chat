@@ -193,10 +193,20 @@ chaque source.
 
 Vérifié sur un cas que l'ancien budget acceptait : cinq sources de 2 500
 caractères, soit 12 500 ≤ 12 544. Le prompt réellement envoyé faisait **15 062
-caractères pour une fenêtre utile de 14 336** — 726 de trop, ~207 tokens
-qu'Ollama tronquait par le début. La reprise n'en retient que quatre, pour
-12 428 caractères. Écarter cette cinquième source n'est pas une perte : c'est le
-défaut qui disparaît.
+caractères pour une fenêtre utile de 14 336** — 726 de trop, soit **208 tokens qui
+rognaient la génération sans le dire**. À 4 304 tokens estimés, on dépasse la
+fenêtre de prompt (4 096) mais pas `num_ctx` (8 192) : Ollama ne tronque pas, il
+n'accorde plus que 3 888 tokens à la génération au lieu des 4 096 demandés. C'est
+la seconde zone d'avertissement de `log_prompt_measure` (§1.15) ; la troncature par
+le début est le régime au-delà de `num_ctx`, celui des 31 380 caractères
+ci-dessus.
+
+La comptabilité, parce que `sum(len(content))` donne 14 577 et non 15 062 : les
+contenus des messages font 14 577, la déclaration de l'outil `search_vectors` 417,
+et les balises de tour des deux messages 68.
+
+La reprise n'en retient que quatre, pour 12 428 caractères. Écarter cette
+cinquième source n'est pas une perte : c'est le défaut qui disparaît.
 
 La formule complète est dans [llm.md](llm.md).
 
@@ -278,6 +288,16 @@ de `main.py` passent par la constante, et le frontend n'envoie plus que ces six
 messages au lieu du fil complet — il duplique la constante, faute de pouvoir
 importer le schéma, et un test échoue si les deux divergent.
 
+### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
+
+`README.md` et `documentation/llm.md` annonçaient `32768`, `.env.example` et
+`settings.py` valaient `8192` : un facteur quatre sur la capacité annoncée, dont
+le budget de sources dérive directement. La doc est alignée sur **8192**, la
+valeur qui s'exécute. Monter à 32768 quadruple le cache KV et le coût de
+préremplissage sur un déploiement dont la latence de génération est déjà à 12,4 s
+au p95 : c'est un changement qui se mesure par une campagne, pas qui se décrète
+dans une table.
+
 ### 1.18 `Message.role` non contraint — `api/schemas.py`
 
 `role` était un `str` libre, et `_build_messages` le recopie tel quel dans le
@@ -306,16 +326,6 @@ C'est le vieillissement silencieux décrit dans
 [SECURITY.md](SECURITY.md#dépendances) — « aucun outil ne signale une version qui
 vieillit ». Les versions sont alignées, et un test échoue si les deux fichiers
 divergent à nouveau.
-
-### 1.17 `LLM_NUM_CTX` déclaré à deux valeurs — `README.md`, `llm.md`
-
-`README.md` et `documentation/llm.md` annonçaient `32768`, `.env.example` et
-`settings.py` valaient `8192` : un facteur quatre sur la capacité annoncée, dont
-le budget de sources dérive directement. La doc est alignée sur **8192**, la
-valeur qui s'exécute. Monter à 32768 quadruple le cache KV et le coût de
-préremplissage sur un déploiement dont la latence de génération est déjà à 12,4 s
-au p95 : c'est un changement qui se mesure par une campagne, pas qui se décrète
-dans une table.
 
 ---
 

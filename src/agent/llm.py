@@ -169,8 +169,9 @@ def source_framing_chars(question: str, contexts: Sequence[SectionContext]) -> l
     Séparateurs, numéro de source, identifiant, et surtout le fil des titres :
     « Chemin : … » est imprimé en clair, et en production `breadcrumbs` est
     toujours peuplé — c'est le résultat de la remontée `PARENT_OF`. L'encadrement
-    va donc de 34 caractères sans fil des titres à 320 avec cinq niveaux : un
-    forfait unique est faux dans les deux sens selon le document.
+    va donc de 34 caractères sans fil des titres à 275 avec cinq niveaux (mesuré,
+    cf. `test_l_encadrement_est_mesure_source_par_source`) : un forfait unique est
+    faux dans les deux sens selon le document.
 
     Mesuré par décomposition : `rendu([source]) − rendu([]) − len(markdown)`.
     Le gabarit n'a aucune dépendance entre ses sources, la décomposition est donc

@@ -151,10 +151,11 @@ L'épinglage `aiosqlite<0.21` a sauté avec : il existait parce que
 `langgraph-checkpoint-sqlite` 2.x appelait `conn.is_alive()`, ce que la 3.x ne
 fait plus.
 
-Validé après montée : `mypy` + `ruff`, 173 tests unitaires, 10 tests
-d'intégration contre la stack, et le flux SSE vérifié à la main — le streaming
-et l'interruption `interrupt_before` étaient les deux points de rupture
-plausibles.
+Validé après montée, **le 3 août 2026** : `mypy` + `ruff`, les 173 tests
+unitaires d'alors, 10 tests d'intégration contre la stack, et le flux SSE vérifié
+à la main — le streaming et l'interruption `interrupt_before` étaient les deux
+points de rupture plausibles. Le décompte courant vit dans
+[tests.md](tests.md) ; celui-ci date la validation, il ne la remplace pas.
 
 `mypy` était épinglé en 1.15.0 avec cette justification : « une version plus
 récente est plus permissive sur les valeurs `Any` traversant une frontière

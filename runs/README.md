@@ -42,10 +42,48 @@ première fera bouger, et dans quel sens :
 Démonstration sur un cas que l'ancien budget acceptait : cinq sources de 2 500
 caractères, soit 12 500 ≤ 12 544, le plafond d'alors. Le prompt réellement émis
 faisait **15 062 caractères pour une fenêtre utile de 14 336** — 726 de trop, soit
-~207 tokens qu'Ollama tronquait **par le début**, donc en jetant le message
-système et ses règles de citation. La cinquième source ne tenait pas. Le budget
-corrigé n'en retient que quatre, pour 12 428 caractères : la métrique baisse parce
-que le dépassement disparaît.
+**208 tokens qui rognaient la génération sans le dire**. La cinquième source ne
+tenait pas. Le budget corrigé n'en retient que quatre, pour 12 428 caractères : la
+métrique baisse parce que le dépassement disparaît.
+
+Le régime de panne, précisément, parce qu'il y en a deux et que ce cas relève du
+second : 15 062 caractères font 4 304 tokens estimés. C'est au-delà de la fenêtre
+de prompt (`num_ctx − num_predict` = 4 096) mais **en deçà de `num_ctx` (8 192)**,
+donc Ollama ne tronque rien ici — il n'accorde plus que 3 888 tokens à la
+génération au lieu des 4 096 demandés, en silence. C'est exactement la seconde
+zone que `log_prompt_measure` avertit désormais (« il ne reste que N tokens à la
+génération, qui sera rognée sans le dire »). La troncature par le début, elle,
+suppose de dépasser `num_ctx` : c'est le régime des 31 380 caractères mesurés sur
+six messages d'historique, pas celui-ci.
+
+Corroboration : si le message système avait été jeté sur ces campagnes,
+`final.json` ne donnerait pas `taux_citation_complete` = 1,000 et
+`abstention_correcte` = 1,000.
+
+La comptabilité des 15 062, pour qui voudrait la refaire — `sum(len(content))`
+donne 14 577 et non 15 062, parce que deux termes ne sont pas dans les contenus :
+
+| Terme | Caractères |
+|---|---|
+| Contenus des messages (système + message utilisateur rendu) | 14 577 |
+| Déclaration de l'outil `search_vectors`, rendue dans le prompt par Ollama | 417 |
+| Balises de tour du gabarit de chat, deux messages × 34 | 68 |
+| **Total réellement soumis** | **15 062** |
+
+### L'écart n'est pas un cas favorable
+
+Balayé sur 144 configurations à comptabilité identique — 3 profondeurs de fil des
+titres × 8 tailles de source × 6 nombres de candidates :
+
+- l'ancien budget dépasse la fenêtre utile dans **43** cas, le nouveau dans **0** ;
+- l'ensemble des 43 dépassements est **exactement** l'ensemble des 43
+  configurations où le nouveau retient une source de moins. Différence symétrique
+  nulle.
+
+Autrement dit : le nouveau budget n'écarte jamais une source que l'ancien
+transmettait sans déborder. C'est ce qui autorise à ne pas annuler un recul de
+`rappel_elements` — mais à vérifier, campagne en main, qu'il porte bien sur des
+questions de ce régime.
 
 ### Ce que cette campagne ne verra pas
 
@@ -75,8 +113,8 @@ régler `LLM_MAX_TOKENS`, qui réserve aujourd'hui la moitié de la fenêtre.
 | `abstention_correcte` | **1,000** |
 | translinguistique (36 q.) | **1,000** |
 | même langue (102 q.) | 0,979 |
-| latence recherche p50 / p95 | 959 ms / 1 185 ms |
-| latence génération p50 / p95 | 4 397 ms / 12 831 ms |
+| latence recherche p50 / p95 | 954 ms / 1 200 ms |
+| latence génération p50 / p95 | 4 449 ms / 12 378 ms |
 
 Deux questions seulement voient leur passage attendu jamais remonter, trois le
 voient remonter puis écarter avant le LLM.
