@@ -111,6 +111,7 @@ persistance ne ferait que déplacer la fuite sur le disque.
 | `minio_client.py`   | Lecture des objets MinIO servis par le proxy `/media`           |
 | `state.py`          | `AgentState` — TypedDict LangGraph (question, chunks, contextes, réponse, chronométrage) |
 | `settings.py`       | Configuration via `pydantic-settings` (lecture `.env`)          |
+| `usage.py`          | Capture d'usage : questions posées, sources proposées et décochées, réponses, appréciations ([capture_usage.md](capture_usage.md)) |
 
 ### `src/api/`
 
@@ -357,6 +358,7 @@ frontend (attend agent-api healthy)
 | POST    | `/chat/simple`           | Génération directe sans LangGraph (SSE optionnel)   |
 | POST    | `/chat/start`            | Démarre session agentique → interrupt source selection |
 | POST    | `/chat/resume`           | Reprend après sélection sources → génération        |
+| POST    | `/feedback`              | Appréciation binaire d'une réponse + commentaire libre |
 
 Documentation interactive : `http://localhost:8001/docs`
 
