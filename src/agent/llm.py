@@ -1,9 +1,9 @@
 import json
 import logging
 import re
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -55,9 +55,31 @@ def _build_context_message(
 
 # Estimation grossière du ratio caractères/token. Le tokenizer réel dépend du
 # modèle ; ~3.5 est prudent pour du français, plus dense en tokens que l'anglais.
+# C'est une estimation, mais elle s'applique à TOUTES les parties du prompt :
+# l'appliquer aux seules sources était le défaut.
 _CHARS_PER_TOKEN = 3.5
-# Marge pour le prompt système, le gabarit et l'historique.
-_PROMPT_OVERHEAD_TOKENS = 512
+
+# Balises de tour que le gabarit de chat du modèle ajoute autour de CHAQUE
+# message (« <start_of_turn>user … <end_of_turn> » chez Gemma). Le gabarit exact
+# dépend du modèle, d'où une provision ; l'ignorer sous-estime le prompt autant
+# de fois qu'il y a de messages.
+_MESSAGE_FRAMING_CHARS = 24
+
+# Encadrement d'une source dans answer_with_context.j2 : séparateurs, numéro,
+# identifiant, fil des titres. Le budget se compte sur `ctx.markdown` seul ;
+# sans cette provision, dix sources glissent ~2 000 caractères dans le prompt
+# que rien ne compte.
+_SOURCE_FRAMING_CHARS = 200
+
+# Part de la fenêtre utile que l'historique peut occuper au maximum.
+# L'historique est du contexte de second rang : `node_rewrite` a déjà rendu la
+# question de suivi autonome avant l'encodage, donc les sources répondent sans
+# lui. Sans ce plafond, six messages à la borne de `Message.content` dépassent à
+# eux seuls num_ctx — et c'est alors Ollama qui tranche, par le DÉBUT du prompt,
+# donc en jetant le message système : les règles de citation et d'abstention
+# disparaissent exactement quand la conversation devient assez longue pour en
+# avoir besoin.
+_HISTORY_WINDOW_SHARE = 0.25
 
 # Marque laissée dans une source coupée. Le modèle doit pouvoir distinguer une
 # section qui s'achève d'une section amputée : sans marque, il conclut sur un
@@ -65,14 +87,84 @@ _PROMPT_OVERHEAD_TOKENS = 512
 _TRUNCATION_MARKER = "\n\n[…] Section tronquée : elle dépasse à elle seule la fenêtre."
 
 
-def context_budget_chars() -> int:
-    """Nombre de caractères de contexte que la fenêtre du modèle peut absorber.
+def prompt_window_chars() -> int:
+    """Caractères que la fenêtre laisse au prompt, génération déduite.
 
     `num_ctx` est partagé entre le prompt et la génération : ce qui est réservé
-    à `num_predict` n'est pas disponible pour les sources.
+    à `num_predict` n'est pas disponible pour le prompt.
     """
-    available = settings.llm_num_ctx - settings.llm_max_tokens - _PROMPT_OVERHEAD_TOKENS
-    return max(0, int(available * _CHARS_PER_TOKEN))
+    return max(0, int((settings.llm_num_ctx - settings.llm_max_tokens) * _CHARS_PER_TOKEN))
+
+
+def history_budget_chars() -> int:
+    """Caractères que l'historique de conversation peut occuper au maximum."""
+    return int(prompt_window_chars() * _HISTORY_WINDOW_SHARE)
+
+
+def fit_history(chat_history: Sequence[Message]) -> tuple[list[Message], int]:
+    """Ne garde de l'historique que les derniers messages qui tiennent au budget.
+
+    Sens inverse des sources : là on garde la tête du classement, ici la fin de
+    la conversation — c'est le dernier échange qui situe la question. La coupe
+    s'arrête au premier message qui ne tient plus, au lieu de continuer à
+    remplir : sauter un message du milieu rendrait une réponse sans sa question.
+
+    Un message trop gros à lui seul est écarté, pas tronqué : un demi-tour de
+    conversation n'apporte rien, alors qu'une demi-section reste lisible.
+
+    Returns:
+        (messages retenus, dans l'ordre ; nombre de messages écartés).
+    """
+    budget = history_budget_chars()
+    kept: list[Message] = []
+    used = 0
+    for msg in reversed(chat_history):
+        cost = len(msg.content) + _MESSAGE_FRAMING_CHARS
+        if used + cost > budget:
+            break
+        kept.append(msg)
+        used += cost
+    kept.reverse()
+    return kept, len(chat_history) - len(kept)
+
+
+def prompt_overhead_chars(
+    question: str, chat_history: Sequence[Message], source_count: int
+) -> int:
+    """Caractères du prompt qui ne sont PAS du texte de source.
+
+    Prompt système, gabarit rendu sans ses sources, historique, encadrement de
+    chaque source, balises de tour. Un forfait de 512 tokens en tenait lieu et
+    ne comptait jamais l'historique : six messages sont acceptés, chaque réponse
+    assistante peut atteindre `LLM_MAX_TOKENS`, et le prompt dépassait num_ctx
+    dès le troisième tour. Mesuré avant correctif : 31 380 caractères pour une
+    fenêtre utile de 14 336.
+    """
+    overhead = len(_load_system_prompt())
+    # Le gabarit rendu sans sources : en-tête, question, consigne de citation.
+    # Mesuré plutôt que forfaitisé — c'est le seul moyen qu'une retouche de
+    # answer_with_context.j2 se répercute sur le budget.
+    overhead += len(_build_context_message(question, []))
+    overhead += sum(len(msg.content) for msg in chat_history)
+    # Un tour par message d'historique, plus le système et les sources.
+    overhead += (len(chat_history) + 2) * _MESSAGE_FRAMING_CHARS
+    overhead += source_count * _SOURCE_FRAMING_CHARS
+    return overhead
+
+
+def context_budget_chars(
+    question: str, chat_history: Sequence[Message], source_count: int
+) -> int:
+    """Caractères de source que la fenêtre du modèle peut encore absorber.
+
+    Calculé sur ce qui est RÉELLEMENT dans le prompt : passer un historique
+    long réduit le budget, jusqu'à l'annuler. L'historique attendu ici est déjà
+    borné par `fit_history` — sinon le budget décrirait un prompt que
+    `_build_messages` ne construit pas.
+    """
+    return max(
+        0, prompt_window_chars() - prompt_overhead_chars(question, chat_history, source_count)
+    )
 
 
 def _truncate(ctx: SectionContext, budget_chars: int) -> SectionContext:
@@ -138,30 +230,72 @@ def fit_contexts(
     return kept, len(contexts) - len(kept)
 
 
-def _build_messages(
+class PromptFit(NamedTuple):
+    """Ce qui entre réellement dans le prompt, une fois le budget appliqué."""
+
+    history: list[Message]
+    contexts: list[SectionContext]
+    dropped_contexts: int
+    dropped_history: int
+    budget_chars: int
+
+
+def fit_prompt(
     question: str,
     contexts: list[SectionContext],
-    chat_history: list[Message],
-) -> list[dict[str, Any]]:
-    msgs: list[dict[str, Any]] = [{"role": "system", "content": _load_system_prompt()}]
+    chat_history: Sequence[Message] | None = None,
+) -> PromptFit:
+    """Applique le budget de fenêtre à l'historique PUIS aux sources.
 
-    for msg in chat_history:
-        msgs.append({"role": msg.role, "content": msg.content})
+    Dans cet ordre, parce que ce que l'historique occupe n'est plus disponible
+    pour les sources — et que l'inverse laissait les sources remplir la fenêtre
+    avant que l'historique ne la fasse déborder.
 
-    budget = context_budget_chars()
+    Point d'entrée unique : `_build_messages` construit le prompt avec, et
+    `/answer` chiffre ses `dropped_contexts` avec. Deux calculs séparés
+    dériveraient, et la campagne d'évaluation rapporterait un autre nombre que
+    ce qui a réellement atteint le LLM.
+    """
+    history, dropped_history = fit_history(chat_history or [])
+    if dropped_history:
+        logger.warning(
+            "Historique tronqué : %d message(s) sur %d écarté(s) — budget %d caractères "
+            "(%.0f %% de la fenêtre utile). Les plus anciens sautent.",
+            dropped_history,
+            len(chat_history or []),
+            history_budget_chars(),
+            _HISTORY_WINDOW_SHARE * 100,
+        )
+
+    budget = context_budget_chars(question, history, len(contexts))
     kept, dropped = fit_contexts(contexts, budget)
     if dropped:
         logger.warning(
             "Contexte tronqué : %d source(s) sur %d écartée(s) — budget %d caractères "
-            "(num_ctx=%d, num_predict=%d). Réduire RERANK_TOP_K ou augmenter LLM_NUM_CTX.",
+            "(num_ctx=%d, num_predict=%d, historique %d message(s)). Réduire "
+            "RERANK_TOP_K ou augmenter LLM_NUM_CTX.",
             dropped,
             len(contexts),
             budget,
             settings.llm_num_ctx,
             settings.llm_max_tokens,
+            len(history),
         )
 
-    msgs.append({"role": "user", "content": _build_context_message(question, kept)})
+    return PromptFit(history, kept, dropped, dropped_history, budget)
+
+
+def _build_messages(
+    question: str,
+    contexts: list[SectionContext],
+    chat_history: list[Message],
+) -> list[dict[str, Any]]:
+    fit = fit_prompt(question, contexts, chat_history)
+
+    msgs: list[dict[str, Any]] = [{"role": "system", "content": _load_system_prompt()}]
+    for msg in fit.history:
+        msgs.append({"role": msg.role, "content": msg.content})
+    msgs.append({"role": "user", "content": _build_context_message(question, fit.contexts)})
     return msgs
 
 

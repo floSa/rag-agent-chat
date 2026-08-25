@@ -1,9 +1,26 @@
 """Budget de contexte : ce qui ne tient pas dans la fenêtre du modèle doit être
 écarté ici, explicitement — sinon Ollama tronque en silence, et par le DÉBUT du
-prompt, donc en jetant les sources les mieux classées."""
+prompt, donc en jetant le message système (les règles de citation et
+d'abstention) puis les sources les mieux classées.
 
-from src.agent.llm import _TRUNCATION_MARKER, context_budget_chars, fit_contexts
-from src.api.schemas import SectionContext
+Le budget se calcule sur ce qui est RÉELLEMENT dans le prompt. Il ne comptait
+que les sources : l'historique de conversation n'entrait dans aucun calcul, et
+six messages suffisaient à faire dépasser num_ctx — 31 380 caractères mesurés
+pour une fenêtre utile de 14 336."""
+
+from src.agent.llm import (
+    _TRUNCATION_MARKER,
+    _build_messages,
+    _load_system_prompt,
+    context_budget_chars,
+    fit_contexts,
+    fit_history,
+    fit_prompt,
+    history_budget_chars,
+    prompt_window_chars,
+)
+from src.agent.settings import settings
+from src.api.schemas import Message, SectionContext
 
 
 def _context(element_id: str, taille: int) -> SectionContext:
@@ -16,10 +33,124 @@ def _context(element_id: str, taille: int) -> SectionContext:
     )
 
 
+def _historique(nb: int, taille: int) -> list[Message]:
+    return [
+        Message(role="user" if i % 2 == 0 else "assistant", content="m" * taille)
+        for i in range(nb)
+    ]
+
+
+# ─── Le budget compte ce qui est réellement dans le prompt ────────────────────
+
 def test_budget_deduit_la_generation_de_la_fenetre() -> None:
     """num_ctx est partagé : ce qui est réservé à num_predict n'est pas du contexte."""
-    assert context_budget_chars() > 0
+    assert context_budget_chars("question", [], source_count=1) > 0
+    assert prompt_window_chars() < settings.llm_num_ctx * 3.5
 
+
+def test_un_historique_long_reduit_le_budget_des_sources() -> None:
+    """Le trou d'ALG-2 : l'historique n'entrait dans aucun calcul.
+
+    Un forfait de 512 tokens était censé le couvrir. Six messages sont acceptés
+    et chaque réponse assistante peut atteindre LLM_MAX_TOKENS : le forfait
+    était dépassé d'un ordre de grandeur.
+    """
+    sans = context_budget_chars("question", [], source_count=3)
+    avec = context_budget_chars("question", _historique(4, 800), source_count=3)
+
+    assert avec < sans
+    # Ce que l'historique occupe est retiré caractère pour caractère.
+    assert sans - avec >= 4 * 800
+
+
+def test_le_prompt_systeme_est_compte_dans_le_budget() -> None:
+    """Le message système est le premier que tronque Ollama : il doit être compté."""
+    budget = context_budget_chars("question", [], source_count=0)
+
+    assert budget <= prompt_window_chars() - len(_load_system_prompt())
+
+
+def test_le_gabarit_rendu_est_compte_dans_le_budget() -> None:
+    """Le gabarit est mesuré, pas forfaitisé : une retouche s'y répercute."""
+    question_courte = context_budget_chars("q", [], source_count=0)
+    question_longue = context_budget_chars("q" * 2000, [], source_count=0)
+
+    assert question_longue < question_courte
+    assert question_courte - question_longue >= 1999  # noqa: PLR2004
+
+
+def test_l_encadrement_des_sources_est_compte() -> None:
+    """Séparateurs, numéro, identifiant et fil des titres entrent dans le prompt."""
+    assert context_budget_chars("q", [], source_count=10) < context_budget_chars(
+        "q", [], source_count=1
+    )
+
+
+def test_le_budget_ne_devient_jamais_negatif() -> None:
+    """Un historique qui dépasse la fenêtre donne 0, pas un budget négatif."""
+    assert context_budget_chars("q", _historique(6, 100_000), source_count=5) == 0
+
+
+# ─── Le prompt construit tient dans la fenêtre ────────────────────────────────
+
+def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
+    """Le mode de panne d'ALG-2, de bout en bout.
+
+    Avant correctif : 31 380 caractères de prompt pour une fenêtre utile de
+    14 336 — Ollama tronquait par le DÉBUT, donc jetait le message système.
+    """
+    msgs = _build_messages(
+        "Quelle est la question ?",
+        [_context("a", 12_000), _context("b", 12_000)],
+        _historique(6, 3000),
+    )
+    total = sum(len(str(m["content"])) for m in msgs)
+
+    assert total <= prompt_window_chars()
+
+
+def test_le_prompt_garde_toujours_le_message_systeme() -> None:
+    """Même sous un historique démesuré, c'est le système qui reste."""
+    msgs = _build_messages("q", [_context("a", 50_000)], _historique(6, 50_000))
+
+    assert msgs[0]["role"] == "system"
+    assert sum(len(str(m["content"])) for m in msgs) <= prompt_window_chars()
+
+
+# ─── Historique : les plus récents survivent ──────────────────────────────────
+
+def test_l_historique_garde_les_messages_les_plus_recents() -> None:
+    """Sens inverse des sources : c'est le dernier échange qui situe la question."""
+    historique = [Message(role="user", content=f"{i}" * 2000) for i in range(6)]
+    kept, dropped = fit_history(historique)
+
+    assert kept == historique[-len(kept) :]
+    assert dropped == 6 - len(kept)
+
+
+def test_l_historique_est_borne_a_une_part_de_la_fenetre() -> None:
+    kept, _ = fit_history(_historique(6, 4000))
+
+    assert sum(len(m.content) for m in kept) <= history_budget_chars()
+    assert history_budget_chars() < prompt_window_chars()
+
+
+def test_un_historique_court_passe_entier() -> None:
+    historique = _historique(4, 100)
+
+    assert fit_history(historique) == (historique, 0)
+
+
+def test_un_message_trop_gros_est_ecarte_pas_tronque() -> None:
+    """Un demi-tour de conversation n'apporte rien ; node_rewrite a déjà rendu
+    la question autonome, donc l'historique est du confort, pas un prérequis."""
+    kept, dropped = fit_history([Message(role="user", content="m" * 100_000)])
+
+    assert kept == []
+    assert dropped == 1
+
+
+# ─── Sources : ordre, remplissage au mieux, troncature ────────────────────────
 
 def test_toutes_les_sources_passent_si_le_budget_suffit() -> None:
     contexts = [_context("a", 100), _context("b", 100)]
@@ -55,13 +186,7 @@ def test_le_remplissage_est_au_mieux_pas_une_coupe_de_la_queue() -> None:
 
 
 def test_la_source_unique_trop_grosse_est_tronquee() -> None:
-    """IMP-6 : elle était transmise entière, et Ollama coupait — par le DÉBUT.
-
-    Le choix de garder la meilleure source coûte que coûte est assumé : mieux
-    vaut une source amputée que zéro source. Mais la transmettre entière rendait
-    la main à Ollama, c'est-à-dire au mode de panne que `fit_contexts` existe
-    pour éviter. La coupe se fait ici, par la fin, et elle se voit.
-    """
+    """IMP-6 : elle était transmise entière, et Ollama coupait — par le DÉBUT."""
     kept, dropped = fit_contexts([_context("a", 10_000)], budget_chars=1000)
 
     assert [c.element_id for c in kept] == ["a"]
@@ -88,3 +213,23 @@ def test_un_budget_epuise_ecarte_tout() -> None:
 
 def test_sans_source() -> None:
     assert fit_contexts([], budget_chars=1000) == ([], 0)
+
+
+# ─── Point d'entrée unique ────────────────────────────────────────────────────
+
+def test_fit_prompt_borne_historique_et_sources_ensemble() -> None:
+    """/answer et _build_messages doivent compter la même chose."""
+    fit = fit_prompt("q", [_context("a", 20_000)], _historique(6, 4000))
+
+    assert fit.dropped_history > 0
+    assert sum(len(c.markdown) for c in fit.contexts) <= fit.budget_chars
+    assert fit.budget_chars == context_budget_chars("q", fit.history, source_count=1)
+
+
+def test_fit_prompt_sans_historique() -> None:
+    fit = fit_prompt("q", [_context("a", 100)], None)
+
+    assert fit.history == []
+    assert fit.dropped_history == 0
+    assert fit.dropped_contexts == 0
+

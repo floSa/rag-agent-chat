@@ -25,7 +25,7 @@ from src.agent.graph import (
 )
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import context_budget_chars, fit_contexts, generate_stream
+from src.agent.llm import fit_prompt, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import group_by_document, lexical_ready, rerank, retrieve
 from src.agent.retriever import ping as chroma_ping
@@ -277,7 +277,11 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     ranked = result.get("reranked_chunks", [])
 
     enriched = result.get("enriched_contexts", [])
-    _, dropped = fit_contexts(enriched, context_budget_chars())
+    # Le même calcul que celui qui a construit le prompt, historique compris :
+    # un budget calculé ici sans l'historique rapportait à la campagne
+    # d'évaluation un autre nombre de sources écartées que celui qui avait
+    # réellement atteint le LLM.
+    dropped = fit_prompt(req.question, enriched, req.chat_history[-6:]).dropped_contexts
     by_element = {c.element_id: c for c in ranked}
 
     contexts = [
