@@ -10,6 +10,7 @@ pour une fenêtre utile de 14 336."""
 
 import json
 import logging
+import re
 
 import pytest
 
@@ -231,6 +232,76 @@ def test_la_troncature_conserve_le_debut_et_se_signale() -> None:
 
     assert kept[0].markdown.endswith(_TRUNCATION_MARKER)
     assert source.markdown.startswith(kept[0].markdown[: -len(_TRUNCATION_MARKER)])
+
+
+def _source_avec_marqueurs(nb_elements: int) -> SectionContext:
+    """Un markdown tel que `_render_element` le produit : un [src:ID] par élément."""
+    parties = [
+        f"Paragraphe numero {i} de la section, avec un peu de texte. [src:{i:010d}]"
+        for i in range(nb_elements)
+    ]
+    return SectionContext(
+        element_id="abcdef0123",
+        section_id="abcdef0123",
+        breadcrumbs=[],
+        elements=[],
+        markdown="\n\n".join(parties),
+    )
+
+
+def test_la_troncature_n_ampute_jamais_un_marqueur() -> None:
+    """Un identifiant coupé en deux n'est pas résolu par le post-processing — ou,
+    pire, correspond à un AUTRE élément.
+
+    C'était le mode de panne d'IMP-6, déplacé d'Ollama vers `_truncate` : la
+    coupe se faisait à un index de caractère brut. Balayé sur une plage de
+    budgets, parce qu'un seul cas tombe rarement au milieu d'un marqueur.
+    """
+    source = _source_avec_marqueurs(20)
+    vrais_ids = {f"{i:010d}" for i in range(20)}
+    marqueur = re.compile(r"\[src:([^\]]*)\]")
+    tronquees = 0
+
+    for budget in range(150, 1400):
+        kept, _ = fit_contexts([source], budget_chars=budget)
+        if not kept:
+            continue
+        markdown = kept[0].markdown
+        corps = (
+            markdown[: -len(_TRUNCATION_MARKER)]
+            if markdown.endswith(_TRUNCATION_MARKER)
+            else markdown
+        )
+        tronquees += 1
+
+        assert corps.count("[src:") == len(marqueur.findall(corps)), (
+            f"budget {budget} : marqueur ouvert non refermé — {corps[-40:]!r}"
+        )
+        assert set(marqueur.findall(corps)) <= vrais_ids, (
+            f"budget {budget} : identifiant inconnu — {corps[-40:]!r}"
+        )
+        assert len(markdown) <= budget, f"budget {budget} : {len(markdown)} caractères rendus"
+
+    assert tronquees > 1000, "la plage balayée ne tronque presque rien"
+
+
+def test_la_coupe_tombe_sur_une_frontiere_d_element() -> None:
+    """Le texte conservé porte toujours son identifiant : un fragment sans
+    marqueur ne serait pas attribuable, et le prompt système exige de citer."""
+    kept, _ = fit_contexts([_source_avec_marqueurs(20)], budget_chars=400)
+    corps = kept[0].markdown[: -len(_TRUNCATION_MARKER)]
+
+    assert corps.endswith("]")
+
+
+def test_une_fenetre_trop_etroite_pour_la_marque_ecarte_la_source() -> None:
+    """Seule la marque de troncature entrerait : cela n'apprend rien au modèle."""
+    kept, dropped = fit_contexts(
+        [_source_avec_marqueurs(5)], budget_chars=len(_TRUNCATION_MARKER)
+    )
+
+    assert kept == []
+    assert dropped == 1
 
 
 def test_un_budget_epuise_ecarte_tout() -> None:

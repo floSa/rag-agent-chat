@@ -92,7 +92,7 @@ n'était pas le ratio qui trompait, c'était son application partielle.
 | Élément | Coupe | Sens |
 |---|---|---|
 | Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
-| Source unique trop grosse | Tronquée par la **fin**, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début |
+| Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un identifiant amputé n'est plus résolu par le post-processing, ou correspond à un **autre** élément, et un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
 | Historique | Les messages les plus **anciens** | C'est le dernier échange qui situe la question. La coupe s'arrête au premier message qui ne tient plus : sauter un message du milieu rendrait une réponse sans sa question |
 | Message trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
 

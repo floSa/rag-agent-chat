@@ -178,6 +178,13 @@ La coupe se fait désormais dans la fonction, par la **fin**, avec un log qui di
 de combien et une marque dans le markdown — sans elle, le modèle conclut sur un
 texte tronqué comme s'il était complet.
 
+Elle recule jusqu'à la fin du dernier marqueur `[src:ID]` complet. Trancher à un
+index de caractère brut amputait l'identifiant — `[src:00000000` — que le
+post-processing ne résout plus, ou qui correspond à un **autre** élément : le
+mode de panne d'IMP-6 déplacé d'Ollama vers `_truncate`, dans un dépôt dont les
+citations sont l'objet même. Un fragment d'élément privé de son marqueur ne
+serait de toute façon pas attribuable.
+
 Le docstring annonçait par ailleurs « c'est la queue de la liste qui saute »,
 alors que le `continue` implémente un remplissage **au mieux** : une petite
 source après une grosse écartée est conservée. Le docstring est aligné sur le

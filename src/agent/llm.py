@@ -88,6 +88,13 @@ _HISTORY_WINDOW_SHARE = 0.25
 # texte tronqué comme s'il était complet.
 _TRUNCATION_MARKER = "\n\n[…] Section tronquée : elle dépasse à elle seule la fenêtre."
 
+# Marqueurs que `_render_element` intercale dans le markdown, un par élément.
+# Couper à un index de caractère brut les ampute : `[src:00000000` n'est plus
+# résolu par le post-processing — ou, pire, correspond à un AUTRE élément. Le
+# prompt système ordonne de reprendre ces identifiants tels quels, et les
+# citations sont l'objet même de ce dépôt.
+_MARKER_RE = re.compile(r"\[(?:src|img):[^\]\s]*\]")
+
 
 def prompt_window_chars() -> int:
     """Caractères que la fenêtre laisse au prompt, génération déduite.
@@ -181,23 +188,41 @@ def context_budget_chars(
     )
 
 
+def _cut_on_marker(markdown: str, limite: int) -> str:
+    """Coupe `markdown` au plus tard à `limite`, sur une frontière d'élément.
+
+    La coupe recule jusqu'à la fin du dernier marqueur COMPLET : le texte
+    conservé porte alors toujours son identifiant de citation. Un fragment
+    d'élément privé de son marqueur ne serait pas attribuable, alors que le
+    prompt système exige de citer chaque affirmation — le modèle le rattacherait
+    au marqueur précédent, donc au mauvais passage.
+    """
+    tete = markdown[:limite]
+    complets = list(_MARKER_RE.finditer(tete))
+    if complets:
+        return tete[: complets[-1].end()]
+
+    # Aucun marqueur complet dans la tête : on écarte au moins un crochet resté
+    # ouvert à la coupe ([src:, [img:, [Tableau], [Figure]).
+    ouvert = tete.rfind("[")
+    return tete[:ouvert] if ouvert != -1 and "]" not in tete[ouvert:] else tete
+
+
 def _truncate(ctx: SectionContext, budget_chars: int) -> SectionContext:
     """Coupe une source par la FIN pour la faire tenir dans le budget."""
     # La marque compte dans le budget : sinon la troncature déplace la borne au
     # lieu de la respecter.
-    garde = max(0, budget_chars - len(_TRUNCATION_MARKER))
+    garde = _cut_on_marker(ctx.markdown, max(0, budget_chars - len(_TRUNCATION_MARKER)))
     logger.warning(
         "Source %s tronquée : %d caractères conservés sur %d — elle dépasse à elle "
-        "seule le budget de %d. La coupe se fait ici, par la FIN ; laissée entière, "
-        "c'est Ollama qui coupait, par le DÉBUT du prompt.",
+        "seule le budget de %d. La coupe se fait ici, par la FIN et sur une frontière "
+        "d'élément ; laissée entière, c'est Ollama qui coupait, par le DÉBUT du prompt.",
         ctx.element_id,
-        garde,
+        len(garde),
         len(ctx.markdown),
         budget_chars,
     )
-    return ctx.model_copy(
-        update={"markdown": (ctx.markdown[:garde] + _TRUNCATION_MARKER)[:budget_chars]}
-    )
+    return ctx.model_copy(update={"markdown": garde + _TRUNCATION_MARKER})
 
 
 def fit_contexts(
@@ -234,6 +259,10 @@ def fit_contexts(
     for ctx in contexts:
         cost = len(ctx.markdown)
         if not kept and cost > budget_chars:
+            if budget_chars <= len(_TRUNCATION_MARKER):
+                # Même vidée de son texte, la source ne tiendrait pas : seule la
+                # marque de troncature entrerait, ce qui n'apprend rien au modèle.
+                continue
             kept.append(_truncate(ctx, budget_chars))
             used = budget_chars
             continue
