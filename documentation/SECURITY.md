@@ -115,12 +115,30 @@ semaines d'usage sont les plus instructives — elles ne se rattrapent pas.
 Ce qui rend la décision tenable est que **l'exposition n'est pas nouvelle**. Le
 checkpointer LangGraph persiste **déjà** l'état complet du graphe — question,
 historique, chunks, contextes reconstruits, réponse — dans le même volume, sous
-`/app/data/checkpoints.sqlite`. Sa purge existe, mais elle ne porte que sur les
-sessions que le processus connaît encore : le registre `_live_threads` est en
-mémoire, donc toute session antérieure à un redémarrage reste sur le disque
-indéfiniment. La capture ne crée donc pas une classe de données durables : elle
-rend **interrogeable** ce qui l'était déjà, et sous une forme dont on connaît la
-taille.
+`/app/data/checkpoints.sqlite`.
+
+Une purge est bien écrite : `_register_thread` appelle `delete_thread` sur les
+sessions périmées par l'âge ou par le nombre. **Elle n'aboutit jamais.**
+`delete_thread` est la méthode SYNCHRONE d'`AsyncSqliteSaver`, appelée depuis
+`chat_start`, donc depuis le fil de la boucle d'événements ; la bibliothèque
+refuse explicitement ce cas et lève `asyncio.InvalidStateError` — « *Synchronous
+calls to AsyncSqliteSaver are only allowed from a different thread* ». Cette
+exception hérite d'`Exception`, donc le `except Exception: logger.debug(…)` qui
+entoure l'appel l'absorbe, et `LOG_LEVEL` vaut `INFO` par défaut : rien ne
+paraît. Pire, la ligne `INFO « Sessions purgées : N »` est journalisée juste
+après, et affirme une purge qui n'a pas eu lieu.
+
+Vérifié : après deux passages de `_register_thread` sur une session périmée, la
+table `checkpoints` porte toujours sa ligne et la question s'y relit en clair.
+**Aucune ligne n'est jamais supprimée de `checkpoints.sqlite`** — l'état complet
+de toutes les sessions y persiste indéfiniment, pas seulement celles antérieures
+à un redémarrage.
+
+Ce défaut appartient à un lot ultérieur, avec les autres fuites silencieuses ;
+il est ouvert dans [axes_amelioration.md](axes_amelioration.md). Il ne change
+pas la posture de la capture, il la renforce : la capture ne crée **aucune**
+classe d'exposition nouvelle. Elle rend **interrogeable et mesurable** ce qui
+est déjà durable et invisible.
 
 ### Ce que la capture ne protège pas
 
