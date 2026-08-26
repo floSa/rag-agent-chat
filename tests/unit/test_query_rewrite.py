@@ -6,6 +6,7 @@ le sujet avant l'encodage — mais elle passe par un LLM, donc elle doit échoue
 proprement : une recherche non réécrite vaut mieux qu'une recherche sur du bruit.
 """
 
+import httpx
 import pytest
 
 from src.agent import llm
@@ -80,8 +81,17 @@ async def test_seule_la_premiere_ligne_est_retenue(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_repli_sur_la_question_si_le_llm_echoue(monkeypatch) -> None:
+    """La panne simulée est celle qu'httpx lève RÉELLEMENT.
+
+    Ce test lançait un `ConnectionError` intégré, qu'httpx ne produit jamais : il
+    enveloppe les erreurs de transport dans `httpx.TransportError`. Il restait
+    donc vert sur un `except Exception` — c'est-à-dire sur n'importe quelle
+    absorption — et rouge sur l'absorption resserrée qui décrit la vraie panne.
+    Un faux qui ne ressemble pas à la bibliothèque ne prouve rien de la
+    bibliothèque.
+    """
     def boom(**_kwargs):
-        raise ConnectionError("Ollama injoignable")
+        raise httpx.ConnectError("Ollama injoignable")
 
     monkeypatch.setattr(llm.httpx, "AsyncClient", boom)
 
@@ -159,7 +169,7 @@ async def test_repli_si_le_llm_echoue(monkeypatch) -> None:
     monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
 
     def boom(**_kwargs):
-        raise ConnectionError("Ollama injoignable")
+        raise httpx.ConnectError("Ollama injoignable")
 
     monkeypatch.setattr(llm.httpx, "AsyncClient", boom)
 

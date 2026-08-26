@@ -143,7 +143,17 @@ def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
                 contexts.append(ctx)
                 seen_sections.add(ctx.section_id)
         except Exception:
-            logger.exception("Erreur reconstruction section pour %s", eid)
+            # Absorption LARGE et assumée : une source illisible ne doit pas
+            # emporter la réponse entière. Mais elle DISPARAÎT de la réponse, et
+            # le message doit le dire — la version précédente laissait croire à
+            # un incident sans conséquence, alors que l'utilisateur reçoit une
+            # réponse construite sur moins de sources qu'il n'en a coché.
+            logger.exception(
+                "Reconstruction impossible pour %s : cette source est écartée "
+                "de la réponse (%d retenue(s) jusqu'ici).",
+                eid,
+                len(contexts),
+            )
 
     logger.info(
         "reconstruct_context: %d sections uniques (itération=%s)", len(contexts), is_iteration
@@ -160,7 +170,12 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     """
     try:
         writer = get_stream_writer()
-    except Exception:
+    except RuntimeError:
+        # « Called get_config outside of a runnable context » : le nœud tourne
+        # hors d'un `astream`, donc personne n'écoute les tokens. RuntimeError
+        # et non Exception — un `except Exception` ici avalerait aussi une panne
+        # réelle de LangGraph et la génération continuerait, muette, sans que
+        # rien ne le dise.
         writer = None
 
     if writer:
@@ -452,6 +467,11 @@ async def build_checkpointer() -> BaseCheckpointSaver[Any]:
         logger.info("Checkpointer SQLite asynchrone : %s", path)
         return saver
     except Exception:
+        # Absorption LARGE et assumée : volume non monté, disque en lecture
+        # seule, aiosqlite en défaut — aucune de ces pannes n'a d'ancêtre commun,
+        # et mieux vaut un service dégradé qu'un service mort. Elle est tracée
+        # au niveau ERROR : le repli change le comportement du service (les
+        # sessions ne survivent plus au redémarrage), ce n'est pas un détail.
         logger.exception("Checkpointer SQLite indisponible (%s), repli en mémoire.", path)
         return MemorySaver()
 
@@ -463,7 +483,15 @@ async def close_checkpointers() -> None:
         try:
             await gestionnaire.__aexit__(None, None, None)
         except Exception:
-            logger.debug("Fermeture du checkpointer impossible", exc_info=True)
+            # WARNING et non debug : une fermeture qui échoue laisse une
+            # connexion SQLite ouverte sur le fichier des sessions, donc un
+            # journal WAL non replié et un verrou possible au prochain
+            # démarrage. `LOG_LEVEL=INFO` effaçait la seule trace de ce cas.
+            logger.warning(
+                "Fermeture du checkpointer impossible : le fichier des sessions "
+                "peut rester verrouillé.",
+                exc_info=True,
+            )
 
 
 def compile_interactive(checkpointer: BaseCheckpointSaver[Any]) -> Any:

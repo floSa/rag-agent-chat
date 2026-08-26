@@ -99,6 +99,9 @@ def get_object_bytes(object_name: str) -> bytes | None:
             # Le client est mis en cache : si MinIO a redémarré, il pointe vers
             # une connexion morte. On le recrée et on retente une fois avant
             # de conclure que l'objet est introuvable.
+            # Absorption LARGE parce que le SDK minio mêle ses `S3Error` aux
+            # erreurs urllib3 d'un socket mort, sans ancêtre commun. Jamais
+            # muette : WARNING au premier essai, pile complète au second.
             if attempt == 1:
                 logger.warning("MinIO injoignable, recréation du client et nouvel essai.")
                 reset_connection()

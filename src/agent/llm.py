@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 import httpx
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, TemplateError, select_autoescape
 
 from src.agent.settings import settings
 from src.api.schemas import Message, SectionContext
@@ -513,7 +513,11 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
     try:
         template = _get_jinja_env().get_template("rewrite_query.j2")
         prompt = template.render(question=question, chat_history=chat_history)
-    except Exception:
+    except (TemplateError, OSError):
+        # Gabarit absent, illisible, ou syntaxe Jinja fautive. Resserré depuis
+        # `Exception` : celui-ci avalait aussi une erreur de programmation dans
+        # ce bloc, et la réécriture se serait déclarée « indisponible » à chaque
+        # question sans que rien ne dise pourquoi.
         logger.warning("Gabarit de réécriture introuvable, question d'origine conservée.")
         return question
 
@@ -530,7 +534,11 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
             rewritten = str(resp.json().get("message", {}).get("content", "")).strip()
-    except Exception:
+    except (httpx.HTTPError, ValueError):
+        # Les deux façons dont l'appel peut échouer sans que le code soit en
+        # cause : le transport (HTTPError couvre le statut, le délai et la
+        # connexion) et un corps qui n'est pas du JSON (JSONDecodeError hérite
+        # de ValueError). Resserré depuis `Exception`, qui masquait le reste.
         logger.warning("Réécriture de requête indisponible, question d'origine conservée.")
         return question
 
@@ -617,7 +625,9 @@ async def translate_question(question: str) -> str | None:
     try:
         template = _get_jinja_env().get_template("translate_query.j2")
         prompt = template.render(question=question)
-    except Exception:
+    except (TemplateError, OSError):
+        # Même raisonnement que pour la réécriture : seules les pannes du
+        # gabarit justifient le repli, pas une erreur de programmation.
         logger.warning("Gabarit de traduction introuvable, recherche monolingue.")
         return None
 
@@ -634,7 +644,8 @@ async def translate_question(question: str) -> str | None:
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
             traduction = str(resp.json().get("message", {}).get("content", "")).strip()
-    except Exception:
+    except (httpx.HTTPError, ValueError):
+        # Transport ou corps non-JSON, comme pour la réécriture.
         logger.warning("Traduction indisponible, recherche monolingue.")
         return None
 

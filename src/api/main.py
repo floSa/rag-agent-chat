@@ -253,6 +253,11 @@ def context(element_id: str = Path(pattern=r"^[a-f0-9]{10}$")) -> dict[str, Any]
         ctx = reconstruct_section(element_id)
         return ctx.model_dump()
     except Exception as exc:
+        # Absorption LARGE et assumée — la reconstruction traverse Nebula, Chroma
+        # et le parsing de leurs réponses — mais elle était MUETTE : FastAPI ne
+        # journalise pas une HTTPException, donc un 500 sur cette route ne
+        # laissait aucune trace serveur. La cause est tracée avant de répondre.
+        logger.exception("Reconstruction impossible pour %s, réponse en 500.", element_id)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -302,7 +307,15 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
             ctx = await to_thread.run_sync(reconstruct_section, eid)
             contexts.append(ctx)
         except Exception:
-            logger.exception("Erreur reconstruction pour %s", eid)
+            # Même absorption assumée que dans `node_reconstruct_context` : une
+            # source illisible ne doit pas emporter la requête. Le message dit ce
+            # qui est perdu — cette source ne sera pas soumise au LLM.
+            logger.exception(
+                "Reconstruction impossible pour %s : cette source est écartée du "
+                "prompt (%d retenue(s) jusqu'ici).",
+                eid,
+                len(contexts),
+            )
 
     if not contexts:
         raise HTTPException(

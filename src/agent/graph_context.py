@@ -195,6 +195,12 @@ def _get_node_properties(node_id: str) -> dict[str, Any]:
         try:
             return {k: _to_primitive(v) for k, v in node.properties(tag).items()}
         except Exception:
+            # Absorption LARGE et MUETTE, délibérément : un nœud sans propriétés
+            # pour ce tag est le cas NORMAL, pas une panne — le tag Document n'a
+            # ni `label` ni `text`. Cette fonction est appelée plusieurs fois par
+            # élément reconstruit ; y journaliser quoi que ce soit inonderait le
+            # journal en régime nominal. L'appelant traite un dict vide comme
+            # « pas de propriétés », ce qui est exactement l'information.
             return {}
 
     # Le tag Document n'a pas de propriétés label/text : cas particulier.
@@ -376,7 +382,13 @@ def media_object_names() -> set[str]:
 
 
 def ping() -> bool:
-    """Vérifie que NebulaGraph répond (utilisé par /health)."""
+    """Vérifie que NebulaGraph répond (utilisé par /health).
+
+    Absorption LARGE et assumée : une sonde ne doit jamais lever, sans quoi
+    /health tomberait au lieu de rapporter. Elle n'est pas muette pour autant —
+    `_execute` a déjà journalisé la panne en WARNING avant de la laisser passer,
+    et le faux rendu ici est publié par /health.
+    """
     try:
         return bool(_execute("YIELD 1 AS ok;"))
     except Exception:
