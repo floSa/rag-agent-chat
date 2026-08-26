@@ -109,6 +109,50 @@ def test_answer_chronometre_les_deux_etages(client) -> None:
     assert body["dropped_contexts"] == 0
 
 
+def test_answer_publie_la_partition_du_temps(client) -> None:
+    """Sept étages, dont un jamais chronométré. Deux exigences ici : que la
+    partition soit publiée, et que son invariant tienne — somme des étages plus
+    résidu égale le temps mural. Le stub ne renseigne que trois étages ; tout le
+    reste doit tomber au résidu et non disparaître.
+    """
+    body = client.post("/answer", json={"question": "Comment mesurer la dispersion ?"}).json()
+    etapes = body["timings"]
+
+    assert etapes["dense_ms"] == 0  # non renseigné par le stub, donc zéro
+    assert etapes["rerank_ms"] == 80  # noqa: PLR2004
+    assert etapes["generation_ms"] == 900  # noqa: PLR2004
+    assert etapes["reconstruction_ms"] == 0
+
+    etages = [c for c in etapes if c not in ("residual_ms", "total_ms")]
+    assert sum(etapes[c] for c in etages) + etapes["residual_ms"] == etapes["total_ms"]
+
+
+def test_le_total_mesure_est_le_temps_mural_pas_une_somme(monkeypatch) -> None:
+    """**Le test qui fait régresser la mesure.**
+
+    `total_ms` doit venir d'un chronomètre posé autour de la traversée, pas de
+    l'addition des étages. Le graphe simulé dort ici sans rien déclarer : un
+    `total_ms` calculé par somme rendrait zéro, et le résidu — donc le temps que
+    personne ne sait expliquer — serait invisible par construction.
+    """
+    import time
+
+    from src.api import main
+
+    async def ainvoke_lent(_state, _config=None):
+        time.sleep(0.05)
+        return {"reranked_chunks": [], "enriched_contexts": [], "citations": [],
+                "images": [], "response": "r", "_metadata": {}}
+
+    monkeypatch.setattr(main.answer_graph, "ainvoke", ainvoke_lent)
+    etapes = TestClient(main.app).post("/answer", json={"question": "q"}).json()["timings"]
+
+    assert etapes["total_ms"] >= 50  # noqa: PLR2004
+    # Aucun étage déclaré : tout le temps est du résidu, et c'est le seul
+    # affichage honnête d'une instrumentation débranchée.
+    assert etapes["residual_ms"] == etapes["total_ms"]
+
+
 def test_answer_refuse_une_question_vide(client) -> None:
     assert client.post("/answer", json={"question": ""}).status_code == 422  # noqa: PLR2004
 

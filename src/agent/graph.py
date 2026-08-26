@@ -10,6 +10,7 @@ from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.config import get_stream_writer
 from langgraph.graph import END, StateGraph
 
+from src.agent.chronometrie import Chrono, cumuler
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import PromptFit, generate_stream, rewrite_question, translate_question
 from src.agent.minio_client import to_media_path
@@ -49,11 +50,18 @@ async def node_rewrite(state: AgentState) -> dict[str, Any]:
     """
     if state.get("search_query"):
         return {}
-    rewritten = await rewrite_question(state["question"], state.get("chat_history"))
+    chrono = Chrono()
+    with chrono.mesurer("rewrite_ms"):
+        rewritten = await rewrite_question(state["question"], state.get("chat_history"))
     # La traduction porte sur la question REÉCRITE : traduire « et pour les
     # femmes ? » ne donnerait rien de plus utile en anglais qu'en français.
-    translation = await translate_question(rewritten)
-    return {"search_query": rewritten, "search_translation": translation}
+    with chrono.mesurer("translation_ms"):
+        translation = await translate_question(rewritten)
+    return {
+        "search_query": rewritten,
+        "search_translation": translation,
+        "_metadata": cumuler(state.get("_metadata"), chrono.etages),
+    }
 
 
 def _search_query(state: AgentState) -> str:
@@ -68,15 +76,20 @@ def _search_query(state: AgentState) -> str:
 def node_retrieve(state: AgentState) -> dict[str, Any]:
     """Encode la question et récupère les chunks ChromaDB."""
     question = _search_query(state)
+    chrono = Chrono()
     started = time.monotonic()
     # La boucle agentique cherche une sous-question précise fournie par le
     # modèle : elle n'a pas de traduction, et n'en a pas besoin.
     translation = None if state.get("next_query") else state.get("search_translation")
-    chunks = retrieve(question, top_k=state.get("top_k"), translation=translation)
+    chunks = retrieve(question, top_k=state.get("top_k"), translation=translation, chrono=chrono)
     elapsed = int((time.monotonic() - started) * 1000)
     logger.info("retrieve: %d chunks en %d ms pour '%s'", len(chunks), elapsed, question[:60])
-    metadata = dict(state.get("_metadata") or {})
-    metadata["retrieval_ms"] = metadata.get("retrieval_ms", 0) + elapsed
+    # `retrieval_ms` est le temps mural du nœud : il CONTIENT les trois étages
+    # que `retrieve` vient de mesurer. Ce n'est donc pas un étage — cf.
+    # `chronometrie.AGREGATS`. Il survit parce que la capture d'usage a une
+    # colonne de ce nom et qu'`AnswerResponse` le publie depuis l'origine.
+    metadata = cumuler(state.get("_metadata"), chrono.etages)
+    metadata["retrieval_ms"] = int(metadata.get("retrieval_ms") or 0) + elapsed
     return {
         "retrieved_chunks": chunks,
         "search_count": state.get("search_count", 0) + 1,
@@ -87,13 +100,16 @@ def node_retrieve(state: AgentState) -> dict[str, Any]:
 def node_rerank(state: AgentState) -> dict[str, Any]:
     """Applique le cross-encoder et retourne les top-K chunks."""
     question = _search_query(state)
-    started = time.monotonic()
-    ranked = rerank(question, state["retrieved_chunks"])
-    elapsed = int((time.monotonic() - started) * 1000)
-    logger.info("rerank: %d chunks sélectionnés en %d ms", len(ranked), elapsed)
-    metadata = dict(state.get("_metadata") or {})
-    metadata["rerank_ms"] = metadata.get("rerank_ms", 0) + elapsed
-    return {"reranked_chunks": ranked, "_metadata": metadata}
+    chrono = Chrono()
+    with chrono.mesurer("rerank_ms"):
+        ranked = rerank(question, state["retrieved_chunks"])
+    logger.info(
+        "rerank: %d chunks sélectionnés en %d ms", len(ranked), chrono.etages["rerank_ms"]
+    )
+    return {
+        "reranked_chunks": ranked,
+        "_metadata": cumuler(state.get("_metadata"), chrono.etages),
+    }
 
 
 def node_await_source_selection(state: AgentState) -> dict[str, Any]:
@@ -136,9 +152,15 @@ def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
 
     seen_sections: set[str] = {c.section_id for c in contexts}
 
+    # Le pari central du projet, et le seul étage qui n'avait jamais été
+    # chronométré. On ne peut pas arbitrer la suppression d'une étape dont on
+    # ignore le prix — c'est exactement ce que l'ablation « avec / sans graphe »
+    # doit pouvoir lire.
+    chrono = Chrono()
     for eid in element_ids:
         try:
-            ctx = reconstruct_section(eid)
+            with chrono.mesurer("reconstruction_ms"):
+                ctx = reconstruct_section(eid)
             if ctx.section_id not in seen_sections:
                 contexts.append(ctx)
                 seen_sections.add(ctx.section_id)
@@ -156,9 +178,15 @@ def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
             )
 
     logger.info(
-        "reconstruct_context: %d sections uniques (itération=%s)", len(contexts), is_iteration
+        "reconstruct_context: %d sections uniques en %d ms (itération=%s)",
+        len(contexts),
+        chrono.etages.get("reconstruction_ms", 0),
+        is_iteration,
     )
-    return {"enriched_contexts": contexts}
+    return {
+        "enriched_contexts": contexts,
+        "_metadata": cumuler(state.get("_metadata"), chrono.etages),
+    }
 
 
 async def node_generate(state: AgentState) -> dict[str, Any]:
@@ -183,23 +211,24 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
         # (utile quand la boucle agentique relance une génération)
         writer({"reset": True})
 
-    started = time.monotonic()
+    chrono = Chrono()
     parts: list[str] = []
     # Rempli par le callback si le modèle émet un appel d'outil natif.
     tool_queries: list[str] = []
     # Budget de fenêtre tel qu'il a été appliqué au prompt réellement envoyé.
     budget: list[PromptFit] = []
 
-    async for token in generate_stream(
-        question=state["question"],
-        contexts=state["enriched_contexts"],
-        chat_history=state.get("chat_history"),
-        on_tool_call=tool_queries.append,
-        on_fit=budget.append,
-    ):
-        parts.append(token)
-        if writer:
-            writer({"token": token})
+    with chrono.mesurer("generation_ms"):
+        async for token in generate_stream(
+            question=state["question"],
+            contexts=state["enriched_contexts"],
+            chat_history=state.get("chat_history"),
+            on_tool_call=tool_queries.append,
+            on_fit=budget.append,
+        ):
+            parts.append(token)
+            if writer:
+                writer({"token": token})
 
     response = "".join(parts)
     logger.info("generate: réponse de %d caractères", len(response))
@@ -231,17 +260,12 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     # La syntaxe d'appel d'outil ne doit jamais apparaître dans la réponse finale
     response = re.sub(r"search_vectors\([\"'].+?[\"']\)", "", response).strip()
 
-    metadata = dict(state.get("_metadata") or {})
-    metadata["generation_ms"] = metadata.get("generation_ms", 0) + int(
-        (time.monotonic() - started) * 1000
-    )
-
     return {
         "response": response,
         "needs_more_info": needs_more,
         "next_query": next_query,
         "dropped_contexts": budget[-1].dropped_contexts if budget else 0,
-        "_metadata": metadata,
+        "_metadata": cumuler(state.get("_metadata"), chrono.etages),
     }
 
 

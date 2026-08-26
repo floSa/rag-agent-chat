@@ -348,8 +348,10 @@ def client_avec_reecriture_reelle(monkeypatch):
             page_no=88, label="paragraph", distance=0.2, rerank_score=3.0, relevance=0.95,
         )
 
-    monkeypatch.setattr(graph_module, "retrieve",
-                        lambda _q, top_k=None, translation=None: [_chunk("abcdef0123")])
+    monkeypatch.setattr(
+        graph_module, "retrieve",
+        lambda _q, top_k=None, translation=None, chrono=None: [_chunk("abcdef0123")],
+    )
     monkeypatch.setattr(graph_module, "rerank", lambda _q, chunks: chunks)
     monkeypatch.setattr(graph_module, "reconstruct_section", lambda eid: SectionContext(
         element_id=eid, section_id="sssssssss1", breadcrumbs=[], elements=[],

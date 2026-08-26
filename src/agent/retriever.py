@@ -7,6 +7,7 @@ from typing import Any
 import chromadb
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
+from src.agent.chronometrie import Chrono
 from src.agent.lexical import LexicalIndex, chunk_from_record, fuse
 from src.agent.settings import settings
 from src.api.schemas import ChunkResult, SourceGroup
@@ -346,7 +347,10 @@ def ping() -> bool:
 # ─── Retrieval ────────────────────────────────────────────────────────────────
 
 def retrieve(
-    question: str, top_k: int | None = None, translation: str | None = None
+    question: str,
+    top_k: int | None = None,
+    translation: str | None = None,
+    chrono: Chrono | None = None,
 ) -> list[ChunkResult]:
     """Recherche les candidats et fusionne tout ce qui a été trouvé.
 
@@ -360,10 +364,18 @@ def retrieve(
         top_k: Candidats conservés après fusion.
         translation: La même question dans l'autre langue du corpus. Elle
             n'existe que pour la recherche : la génération ne la voit jamais.
+        chrono: Accumulateur d'étages. Renseigné, il reçoit `dense_ms`,
+            `lexical_ms` et `fusion_ms` séparément — sans quoi les trois
+            restent noyés dans le temps mural du nœud, et « dense seul vs
+            hybride » ne peut pas s'arbitrer sur le prix. Absent, la fonction
+            ne mesure rien : le banc de réglage n'en a pas besoin.
     """
+    chrono = chrono or Chrono()
     k = top_k or settings.retrieval_top_k
     if not settings.hybrid_search and not translation:
-        return _dense_search(question, k)[:k]
+        with chrono.mesurer("dense_ms"):
+            dense = _dense_search(question, k)
+        return dense[:k]
 
     requetes = [(question, 1.0)]
     if translation:
@@ -376,11 +388,13 @@ def retrieve(
     classements: list[list[ChunkResult]] = []
     poids: list[float] = []
     for requete, poids_requete in requetes:
-        classements.append(_dense_search(requete, settings.fetch_k))
+        with chrono.mesurer("dense_ms"):
+            classements.append(_dense_search(requete, settings.fetch_k))
         poids.append(poids_requete)
     if settings.hybrid_search:
         for requete, poids_requete in requetes:
-            classements.append(_lexical_search(requete, settings.fetch_k))
+            with chrono.mesurer("lexical_ms"):
+                classements.append(_lexical_search(requete, settings.fetch_k))
             poids.append(poids_requete)
 
     retenus = [(c, p) for c, p in zip(classements, poids, strict=True) if c]
@@ -388,7 +402,8 @@ def retrieve(
         return []
     non_vides = [c for c, _ in retenus]
 
-    fusionnes = fuse(non_vides, k, poids=[p for _, p in retenus])
+    with chrono.mesurer("fusion_ms"):
+        fusionnes = fuse(non_vides, k, poids=[p for _, p in retenus])
     logger.info(
         "Recherche : %s → %d fusionnés pour %r%s",
         " + ".join(str(len(c)) for c in non_vides),

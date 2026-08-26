@@ -1,6 +1,7 @@
 import json
 import logging
 import secrets
+import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -14,6 +15,7 @@ from langchain_core.runnables import RunnableConfig
 from sse_starlette.sse import EventSourceResponse
 
 from src.agent import sessions
+from src.agent.chronometrie import decomposer
 from src.agent.graph import (
     answer_graph,
     build_checkpointer,
@@ -58,6 +60,7 @@ from src.api.schemas import (
     SessionStats,
     SourceSelectionRequest,
     SourcesResponse,
+    StageTimings,
 )
 
 logging.basicConfig(
@@ -421,8 +424,15 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     # retrieval et reranking ici PUIS relançait le graphe depuis son point
     # d'entrée, qui les refaisait. Les nœuds se chronomètrent eux-mêmes.
     limite: RunnableConfig = {"recursion_limit": 50}
+    # Temps mural de la traversée entière : le seul chiffre qui ne dépend
+    # d'aucune instrumentation interne, donc le seul contre lequel la partition
+    # des étages puisse être confrontée. Ce que les nœuds n'ont pas réclamé
+    # devient le résidu.
+    debut = time.monotonic()
     result = await answer_graph.ainvoke(initial_state, limite)
+    total_ms = int((time.monotonic() - debut) * 1000)
     timings = result.get("_metadata") or {}
+    etapes = StageTimings(**decomposer(timings, total_ms))
     ranked = result.get("reranked_chunks", [])
 
     enriched = result.get("enriched_contexts", [])
@@ -488,6 +498,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         retrieval_ms=timings.get("retrieval_ms", 0) + timings.get("rerank_ms", 0),
         generation_ms=timings.get("generation_ms", 0),
         dropped_contexts=dropped,
+        timings=etapes,
     )
 
 

@@ -55,9 +55,13 @@ def client(monkeypatch):
 
     # Checkpointer en mémoire : le test porte sur le flux, pas sur le stockage.
     monkeypatch.setattr(main.settings, "checkpoint_db_path", "")
-    monkeypatch.setattr(graph_module, "retrieve", lambda _q, top_k=None, translation=None: [
-        _chunk("abcdef0123"), _chunk("bbbbbbbbbb"),
-    ])
+    monkeypatch.setattr(
+        graph_module,
+        "retrieve",
+        lambda _q, top_k=None, translation=None, chrono=None: [
+            _chunk("abcdef0123"), _chunk("bbbbbbbbbb"),
+        ],
+    )
     monkeypatch.setattr(graph_module, "rerank", lambda _q, chunks: chunks)
     monkeypatch.setattr(graph_module, "reconstruct_section", _section)
 

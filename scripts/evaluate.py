@@ -34,6 +34,29 @@ GOLDEN = ROOT / "tests" / "fixtures" / "golden_qa.json"
 # pas. Une abstention est une bonne réponse quand le corpus est muet.
 REFUS = ("je n'ai pas trouvé", "i could not find", "i did not find", "aucune information")
 
+# Étages de latence publiés par `/answer` sous `timings`, plus le résidu et le
+# total. Recopiés ici plutôt qu'importés : ce script tourne contre un service
+# distant, dont la version peut différer de celle du dépôt — un étage absent de
+# la réponse vaut zéro, il ne casse pas la campagne.
+#
+# `residu_ms` porte le temps qu'aucun étage ne réclame. Il est publié parce qu'un
+# résidu large est en soi un résultat : c'est du temps que personne ne sait
+# expliquer. `retrieval_ms` et `generation_ms` restent lus à part — ils sont dans
+# tous les fichiers de `runs/` et les campagnes passées ne portent pas la
+# partition.
+ETAGES = (
+    "rewrite_ms",
+    "translation_ms",
+    "dense_ms",
+    "lexical_ms",
+    "fusion_ms",
+    "rerank_ms",
+    "reconstruction_ms",
+    "generation_ms",
+    "residual_ms",
+    "total_ms",
+)
+
 
 def charger_questions(chemin: Path) -> list[dict]:
     data = json.loads(chemin.read_text(encoding="utf-8"))
@@ -104,6 +127,20 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
     # Une question posée dans une autre langue que son document est le cas
     # difficile : c'est celui qu'un modèle monolingue rate systématiquement.
     doc_langue = question.get("doc_language") or question.get("language", "")
+
+    # La partition du temps, étage par étage. Un service plus ancien ne la rend
+    # pas : les étages valent alors zéro, et le résumé le dira en affichant un
+    # total nul plutôt qu'en omettant les lignes.
+    etapes = reponse.get("timings") or {}
+    chronos = {cle: int(etapes.get(cle) or 0) for cle in ETAGES}
+    # `generation_ms` existe des deux côtés : la partition fait foi quand elle est
+    # là, le champ historique sert de repli. Sans ce repli, brancher la campagne
+    # sur un service sans partition remplacerait en silence une latence de
+    # génération réelle par un zéro.
+    chronos["generation_ms"] = chronos["generation_ms"] or int(
+        reponse.get("generation_ms") or 0
+    )
+
     return {
         "id": question["id"],
         "langue": question.get("language", ""),
@@ -121,8 +158,12 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         "contextes": len(contexts),
         "contextes_ecartes": reponse.get("dropped_contexts", 0),
         "langues_sources": sorted({c.get("language", "") for c in contexts if c.get("language")}),
+        # Agrégat historique — recherche + reranking — présent dans tous les
+        # fichiers de `runs/`. Ce n'est PAS un étage : il contient `dense_ms`,
+        # `lexical_ms`, `fusion_ms` et `rerank_ms`, et l'additionner à la
+        # partition doublerait le comptage de toute la recherche.
         "retrieval_ms": reponse.get("retrieval_ms", 0),
-        "generation_ms": reponse.get("generation_ms", 0),
+        **chronos,
     }
 
 
@@ -141,7 +182,6 @@ def _centile(valeurs: list[int], part: float) -> int:
 def resumer(lignes: list[dict]) -> dict[str, Any]:
     sans_reponse = [r for r in lignes if r["abstention_correcte"] is not None]
     retrieval = [r["retrieval_ms"] for r in lignes]
-    generation = [r["generation_ms"] for r in lignes]
 
     return {
         "questions": len(lignes),
@@ -159,8 +199,13 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
         "contextes_ecartes_total": sum(r["contextes_ecartes"] for r in lignes),
         "retrieval_ms_p50": _centile(retrieval, 0.5),
         "retrieval_ms_p95": _centile(retrieval, 0.95),
-        "generation_ms_p50": _centile(generation, 0.5),
-        "generation_ms_p95": _centile(generation, 0.95),
+        # p50 ET p95 par étage : une moyenne de latence cache la queue, et c'est
+        # la queue qui décide de l'expérience.
+        **{
+            f"{cle}_{nom}": _centile([r.get(cle, 0) for r in lignes], part)
+            for cle in ETAGES
+            for nom, part in (("p50", 0.5), ("p95", 0.95))
+        },
     }
 
 

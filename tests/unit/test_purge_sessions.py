@@ -75,9 +75,11 @@ def base(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "checkpoint_db_path", str(chemin))
     monkeypatch.setattr(settings, "usage_capture", False)
 
-    monkeypatch.setattr(graph_module, "retrieve", lambda _q, top_k=None, translation=None: [
-        _chunk("abcdef0123"),
-    ])
+    monkeypatch.setattr(
+        graph_module,
+        "retrieve",
+        lambda _q, top_k=None, translation=None, chrono=None: [_chunk("abcdef0123")],
+    )
     monkeypatch.setattr(graph_module, "rerank", lambda _q, chunks: chunks)
     monkeypatch.setattr(graph_module, "reconstruct_section", _section)
 

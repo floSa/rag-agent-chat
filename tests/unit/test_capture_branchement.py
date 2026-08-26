@@ -84,7 +84,9 @@ def _client(tmp_path, monkeypatch, capture: bool):
     monkeypatch.setattr(usage, "_echecs", 0)
 
     monkeypatch.setattr(
-        graph_module, "retrieve", lambda _q, top_k=None, translation=None: list(_CLASSEMENT)
+        graph_module,
+        "retrieve",
+        lambda _q, top_k=None, translation=None, chrono=None: list(_CLASSEMENT),
     )
     monkeypatch.setattr(graph_module, "rerank", lambda _q, chunks: chunks)
     monkeypatch.setattr(graph_module, "reconstruct_section", _section)
@@ -589,7 +591,9 @@ def client_hors_budget(tmp_path, monkeypatch):
 
     with _client(tmp_path, monkeypatch, capture=True) as testclient:
         monkeypatch.setattr(
-            graph_module, "retrieve", lambda _q, top_k=None, translation=None: list(_GROSSES)
+            graph_module,
+            "retrieve",
+            lambda _q, top_k=None, translation=None, chrono=None: list(_GROSSES),
         )
         monkeypatch.setattr(graph_module, "reconstruct_section", _grosse_section)
         monkeypatch.setattr(main, "reconstruct_section", _grosse_section)

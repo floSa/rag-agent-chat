@@ -257,6 +257,73 @@ class RetrievedContext(BaseModel):
     text: str
 
 
+class StageTimings(BaseModel):
+    """Décomposition du temps d'une réponse, étage par étage.
+
+    **C'est une partition, et l'invariant se lit ici :** la somme des huit
+    étages plus `residual_ms` vaut exactement `total_ms`. Sans le résidu, un
+    étage non instrumenté disparaîtrait du tableau tout en étant payé ; avec
+    lui, le temps que personne ne réclame reste visible — et un résidu large est
+    en soi un résultat.
+
+    `total_ms` est mesuré autour de la traversée entière du graphe : c'est le
+    seul chiffre qui ne dépend d'aucune instrumentation interne, donc le seul
+    contre lequel les étages puissent être confrontés.
+
+    Ne pas confondre avec `AnswerResponse.retrieval_ms`, qui AGRÈGE
+    `dense_ms + lexical_ms + fusion_ms + rerank_ms` : l'ajouter à la somme
+    doublerait le comptage de toute la recherche.
+    """
+
+    # Deux appels LLM distincts : la traduction est un coût de la recherche
+    # translingue, la réécriture un coût des questions de suivi.
+    rewrite_ms: int = 0
+    translation_ms: int = 0
+    # Ce que `retrieve` fait, découpé : jusqu'à quatre classements puis la
+    # fusion RRF. C'est ce qui rend « dense seul vs hybride » arbitrable au prix.
+    dense_ms: int = 0
+    lexical_ms: int = 0
+    fusion_ms: int = 0
+    rerank_ms: int = 0
+    # La reconstruction par le graphe — le pari central du projet, et le seul
+    # étage qui n'avait jamais été chronométré.
+    reconstruction_ms: int = 0
+    generation_ms: int = 0
+    # Temps mural moins la somme des étages. Peut être NÉGATIF : c'est alors la
+    # seule trace observable d'un double comptage, et le borner à zéro
+    # effacerait précisément ce qu'on cherche à voir.
+    residual_ms: int = 0
+    total_ms: int = 0
+
+
+class GenerationMeasure(BaseModel):
+    """Ce que le serveur d'inférence a réellement compté, face à nos estimations.
+
+    `LLM_MAX_TOKENS=4096` confisque la moitié de la fenêtre de 8192 à la
+    génération, et rien ne disait qu'elle en avait besoin : `runs/*.json`
+    n'enregistrait que `generation_ms`. Ces champs transforment la présomption
+    en mesure dès qu'une campagne tourne.
+    """
+
+    # Longueur de la réponse APRÈS retrait de la syntaxe d'appel d'outil, donc
+    # ce que l'utilisateur lit.
+    answer_chars: int = 0
+    # Tokens générés, décompte d'Ollama. `None` = le serveur ne l'a pas rendu ;
+    # ce n'est pas zéro, et une moyenne qui les confondrait serait fausse.
+    eval_count: int | None = None
+    # Tokens du prompt, décompte d'Ollama.
+    prompt_eval_count: int | None = None
+    # Notre estimation du même prompt, avec le ratio qui a décidé de la coupe.
+    # C'est le seul terme de comparaison qui calibre quelque chose.
+    prompt_tokens_estimated: int = 0
+    # Faux = `prompt_eval_count` est inexploitable, et le plus souvent parce
+    # qu'Ollama n'a réévalué que le préfixe absent de son cache KV. La décision
+    # d'écarter ces échantillons appartient à `llm.mesure_prompt_exploitable` ;
+    # ce champ ne fait que la publier, pour qu'une campagne l'applique au lieu
+    # de moyenner à l'aveugle.
+    prompt_tokens_reliable: bool = False
+
+
 class AnswerResponse(BaseModel):
     """Réponse complète et traçable : ce qui a été lu, ce qui a été cité, à quel coût.
 
@@ -276,9 +343,16 @@ class AnswerResponse(BaseModel):
     citations: list[Citation]
     images: list[ImageRef]
     search_count: int
+    # Agrégat historique : recherche + reranking. Conservé tel quel — la capture
+    # d'usage a une colonne de ce nom et les campagnes passées le portent — mais
+    # ce n'est PAS un étage : `timings` porte la partition.
     retrieval_ms: int
     generation_ms: int
     dropped_contexts: int = 0     # sources écartées faute de place dans la fenêtre
+    # Partition exacte du temps, résidu compris.
+    timings: StageTimings = Field(default_factory=StageTimings)
+    # Ce qu'a coûté la génération en tokens, décompte du serveur d'inférence.
+    generation: GenerationMeasure = Field(default_factory=GenerationMeasure)
 
 
 # ─── Capture d'usage ──────────────────────────────────────────────────────────

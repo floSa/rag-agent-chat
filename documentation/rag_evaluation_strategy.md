@@ -46,11 +46,57 @@ Le script interroge `POST /answer` sur le jeu doré et calcule :
 | `rappel_documents` | Le bon document remonte-t-il ? Plus permissif. | oui |
 | `taux_citation_complete` | Chaque citation nomme-t-elle son document et situe-t-elle le passage ? | oui |
 | `abstention_correcte` | Le système admet-il son ignorance quand le corpus est muet ? | oui |
-| `retrieval_ms` / `generation_ms` | Quel étage coûte le temps ? | oui |
+| `timings` | Quel étage coûte le temps ? Huit étages, plus le résidu — cf. § La décomposition du temps | oui |
 | `contextes_ecartes` | Combien de sources n'ont pas tenu dans la fenêtre ? | oui |
 
 Les résultats sont **stratifiés par langue**. Le corpus mêle français et
 anglais : une moyenne globale masquerait un écart entre les deux.
+
+## La décomposition du temps
+
+`AnswerResponse` ne portait que `retrieval_ms` et `generation_ms` : deux chiffres
+pour sept étages, dont celui qui n'avait **jamais** été chronométré — la
+reconstruction par le graphe, c'est-à-dire le pari central du projet. On ne peut
+pas arbitrer la suppression d'une étape dont on ignore le prix.
+
+`timings` porte une **partition** : chaque milliseconde appartient à un seul
+étage, et ce qu'aucun étage ne réclame va au résidu.
+
+| Étage | Ce qu'il mesure |
+|---|---|
+| `rewrite_ms` | Réécriture de la question de suivi (un appel LLM) |
+| `translation_ms` | Traduction de la question réécrite (un appel LLM) |
+| `dense_ms` | Recherche vectorielle — cumulée sur les classements de la question et de sa traduction |
+| `lexical_ms` | Recherche BM25, idem |
+| `fusion_ms` | Fusion RRF des classements |
+| `rerank_ms` | Cross-encoder |
+| `reconstruction_ms` | Remontée du graphe, fenêtrage, relecture des textes intégraux |
+| `generation_ms` | Génération, du premier au dernier token |
+| `residual_ms` | **Le temps que personne ne réclame** : ordonnancement LangGraph, post-traitement des citations, assemblage de la réponse |
+| `total_ms` | Temps mural mesuré autour de la traversée entière |
+
+Trois décisions valent d'être écrites, parce que ce sont elles qui rendent le
+tableau lisible plutôt que vraisemblable.
+
+**L'invariant est testé.** Somme des huit étages plus `residual_ms` égale
+`total_ms`, exactement. Sans ce test, la partition dérive au premier refactor :
+un étage mesuré à l'intérieur d'un autre fait dépasser la somme du total, et rien
+ne le signale.
+
+**`retrieval_ms` n'est pas un étage.** C'est le temps mural du nœud de
+recherche : il CONTIENT `dense_ms`, `lexical_ms` et `fusion_ms`. Il survit —
+la capture d'usage a une colonne de ce nom et tous les fichiers de `runs/` le
+portent — mais l'ajouter à la partition doublerait le comptage de toute la
+recherche. `chronometrie.AGREGATS` le nomme, et un test tombe si quelqu'un le
+promeut en étage « pour compléter le tableau ».
+
+**Le résidu peut être négatif, et on ne le borne pas.** Un résidu négatif est la
+seule trace observable d'un double comptage ; le ramener à zéro effacerait
+précisément ce qu'on cherche à voir. Un résidu large, lui, est en soi un
+résultat : c'est du temps que personne ne sait expliquer.
+
+Le résumé donne **p50 et p95** par étage. Une moyenne de latence cache la queue,
+et c'est la queue qui décide de l'expérience.
 
 ## Le jeu doré
 
@@ -145,7 +191,9 @@ question d'origine avait bien trouvés. À 50 candidats, le compromis disparaît
 ## Les ablations qui restent à faire
 
 1. avec / sans reconstruction de section, et taille de fenêtre — c'est le pari
-   central du projet, et il n'est **pas encore vérifié** ;
+   central du projet, et il n'est **pas encore vérifié**. Son prix est désormais
+   lisible (`reconstruction_ms`) ; ce qu'elle change au contexte l'est aussi
+   (cf. § La précision du contexte) ;
 2. dense seul vs hybride BM25 + RRF, maintenant que le vivier est large ;
 3. `AUTO_SELECT_TOP_K` et `RERANK_TOP_K` — plus de sources n'est pas
    nécessairement mieux : au-delà du budget de fenêtre, elles sont écartées ;
