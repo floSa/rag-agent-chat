@@ -24,7 +24,10 @@ Trois contraintes de conception, qui expliquent la forme du code :
   l'observation, pas une fonctionnalité.
 - **Rien n'est écrit dans le chemin de diffusion.** Les écritures ont lieu
   après le dernier événement SSE, via aiosqlite — donc hors de la boucle
-  d'événements pour la partie bloquante.
+  d'événements pour la partie bloquante. Deux exceptions, à connaître plutôt
+  qu'à taire : le condensat des prompts et le `mkdir` du dossier sont des E/S
+  **synchrones sur la boucle**. Mesuré : 0,114 ms de médiane, 0,327 ms au p95,
+  contre 5 ms pour l'écriture elle-même — immatériel, mais ce n'est pas « rien ».
 - **Aucune purge.** C'est un jeu de données, pas un cache : le vider serait
   détruire l'actif. En échange, sa taille est visible (démarrage et /health).
 
@@ -405,9 +408,13 @@ async def record_completion(
     sélection automatique pour /answer. C'est `endpoint` qui distingue les deux,
     et c'est pourquoi toute lecture des décochages doit filtrer dessus.
 
-    `dropped_contexts` reste NULL quand l'état du graphe ne le porte pas :
-    stocker 0 affirmerait qu'aucune source n'a été écartée, ce que personne n'a
-    mesuré.
+    `dropped_contexts` reste NULL quand l'appelant ne le porte pas : stocker 0
+    affirmerait qu'aucune source n'a été écartée, ce que personne n'a mesuré.
+    Cette garde est **notionnelle sur le flux interactif** : `node_generate`
+    publie `budget[-1].dropped_contexts if budget else 0`, donc « pas de
+    mesure » y est déjà devenu 0 avant d'arriver ici. Elle protège les
+    appelants qui n'ont pas d'état de graphe — et le jour où ce repli du graphe
+    deviendra un NULL, elle sera déjà en place.
     """
     if not capture_active():
         return

@@ -313,17 +313,31 @@ et de la réponse de `/chat/simple` sur la génération directe. Un `thread_id` 
 Mesuré sur le module seul, la stack étant absente (100 interactions
 séquentielles de 10 sources chacune, réponse d'environ 1 000 caractères) :
 
+**Le support de stockage domine ces chiffres**, et c'est la première chose à
+lire. Cent interactions séquentielles de dix sources, réponse d'environ mille
+caractères, même code, même machine :
+
+| Support | `record_start` | `record_completion` |
+|---|---|---|
+| ext4, disque virtuel WSL2 | médiane **5,2 ms**, p95 6,8 ms | médiane **4,6 ms**, p95 6,6 ms |
+| tmpfs (`/dev/shm`) | médiane **1,3 ms**, p95 1,8 ms | médiane **1,1 ms**, p95 1,4 ms |
+
+Un facteur quatre entre les deux, sur la même machine. L'audit du lot relève
+17,6 / 16,4 ms sur un support plus lent encore : **citer une durée sans nommer
+le support ne veut rien dire**, et c'est le seul chiffre du lot qui n'ait pas
+été reproduit d'emblée. Retenir l'ordre de grandeur — quelques millisecondes
+par écriture — et remesurer sur le support de déploiement.
+
 | | |
 |---|---|
-| `record_start` | médiane **5,3 ms**, p95 **6,3 à 6,9 ms** |
-| `record_completion` | médiane **4,8 ms**, p95 **5,9 ms** |
-| Poids d'un enregistrement | **4 710 octets** (11 lignes : 1 interaction + 10 sources) |
+| Poids d'un enregistrement | environ **4,6 ko** (11 lignes : 1 interaction + 10 sources) — granulaire à la page SQLite, donc peu sensible à la longueur de la réponse |
 | 20 interactions simultanées | 91 à 370 ms au total selon le tirage, aucune écriture perdue |
+| Part synchrone sur la boucle d'événements | médiane **0,114 ms**, p95 0,327 ms — le condensat des prompts et le `mkdir`, seules E/S non déportées |
 
 Ce sont les chiffres du module, pas ceux du service : **la stack n'est pas
 disponible**, donc la latence réellement ajoutée à `/chat/resume` n'a pas été
-mesurée de bout en bout. Elle vaut ces 4,8 ms, payés après le dernier événement
-SSE — contre une génération qui dure de 3 à 10 secondes.
+mesurée de bout en bout. Elle vaut ces quelques millisecondes, payées après le
+dernier événement SSE — contre une génération qui dure de 3 à 10 secondes.
 
 Rien de tout cela n'est dans le chemin de diffusion : l'écriture de
 `/chat/resume` a lieu **après** le dernier événement SSE. Les 5 ms de
