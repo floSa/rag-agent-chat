@@ -502,7 +502,10 @@ async def stats() -> UsageStats:
         # l'ancienne valeur et une base illisible passe pour saine.
         return UsageStats(
             enabled=capture_active(),
-            path=str(chemin),
+            # Le réglage tel qu'il est, pas `str(Path(...))` : `Path("")` vaut
+            # `Path(".")`, et la sonde annonçait alors une capture dans le
+            # dossier courant là où aucun chemin n'est configuré.
+            path=settings.usage_db_path,
             interactions=0,
             sources=0,
             size_bytes=0,
@@ -526,7 +529,7 @@ async def stats() -> UsageStats:
                 poids += annexe.stat().st_size
         return UsageStats(
             enabled=capture_active(),
-            path=str(chemin),
+            path=settings.usage_db_path,
             interactions=interactions,
             sources=sources,
             size_bytes=poids,

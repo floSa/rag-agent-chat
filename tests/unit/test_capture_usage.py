@@ -530,6 +530,22 @@ async def test_l_appreciation_sur_un_thread_inconnu_se_distingue_d_un_echec(base
 # ─── La taille de l'actif ─────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
+async def test_un_chemin_vide_ne_devient_pas_le_dossier_courant(base, monkeypatch) -> None:
+    """`Path("")` vaut `Path(".")`, et la sonde annonçait « . » comme base.
+
+    C'est cosmétique, mais c'est une sonde : elle doit dire qu'aucun chemin
+    n'est configuré, pas désigner un dossier où rien n'est écrit.
+    """
+    monkeypatch.setattr(usage.settings, "usage_db_path", "")
+
+    etat = await usage.stats()
+
+    assert etat.path == ""
+    assert etat.enabled is False
+    assert (etat.interactions, etat.size_bytes) == (0, 0)
+
+
+@pytest.mark.asyncio
 async def test_la_taille_est_mesurable_sans_creer_le_fichier(base) -> None:
     """Aucune purge n'existe : la taille doit être visible, et /health n'écrit pas."""
     vide = await usage.stats()
