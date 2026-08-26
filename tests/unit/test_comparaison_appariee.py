@@ -133,6 +133,23 @@ def test_une_metrique_absente_de_la_reference_ne_se_lit_pas_zero_ameliorees() ->
     assert apparie["ic95"] is None
 
 
+def test_aucune_latence_n_entre_dans_l_appariement() -> None:
+    """Asserté depuis `METRIQUES_APPARIEES`, qui décide de ce qui s'apparie.
+
+    Une latence dépend de la charge de la machine : un écart apparié y mesurerait
+    le voisinage, pas le changement — et le test des signes lui donnerait une
+    p-value, donc un air de résultat. Les latences se lisent sur le diff des
+    résumés, en p50 et p95.
+
+    La décision est documentée ; rien ne l'empêchait d'être défaite au premier
+    « il manque les temps dans le tableau ».
+    """
+    appariees = set(_evaluate().METRIQUES_APPARIEES)
+
+    assert not {m for m in appariees if m.endswith("_ms")}
+    assert "total_ms" not in appariees
+
+
 # ─── Le test des signes ───────────────────────────────────────────────────────
 
 def test_le_test_de_signe_ignore_les_inchangees() -> None:
@@ -320,14 +337,21 @@ def test_la_nouvelle_cible_de_make_eval_s_apparie() -> None:
 
 # ─── Le script comme commande ────────────────────────────────────────────────
 
-def _lancer(*arguments):
+def _lancer(*arguments, pythonpath: str | None = None):
     """Exécute le script comme le ferait un humain, dans un sous-processus.
 
     Un script n'est pas testé tant qu'il n'a pas été lancé comme une commande :
     en processus, l'import réussit parce que pytest tourne depuis la racine.
     PYTHONPATH retiré, seul un sous-processus reproduit la vraie invocation.
+
+    `pythonpath` sert au seul cas qui a besoin d'un agent : il y place le faux
+    `httpx` ci-dessous, à la place du vrai. C'est la seule façon d'atteindre le
+    CODE DE SORTIE sans réseau — et le code de sortie est ce qu'un `make eval`
+    lit, donc il ne s'observe que d'ici.
     """
     environnement = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    if pythonpath is not None:
+        environnement["PYTHONPATH"] = pythonpath
     return subprocess.run(
         [sys.executable, str(_SCRIPT), *arguments],
         capture_output=True,
@@ -336,6 +360,65 @@ def _lancer(*arguments):
         env=environnement,
         check=False,
     )
+
+
+# Faux `httpx`, réduit à EXACTEMENT ce que `evaluate.interroger` utilise :
+# `httpx.post(...)`, puis `.raise_for_status()` et `.json()` sur la réponse. Un
+# faux qui ne ressemble pas à la bibliothèque ne prouve rien d'elle — celui-ci
+# ne prétend rien d'autre que ce contrat-là, qui est tout ce que le script
+# touche. Il rend une réponse `/answer` minimale mais VALIDE : la campagne doit
+# aboutir, sinon c'est le code 1 qu'on mesurerait, pas le code 2.
+_FAUX_HTTPX = '''"""Faux httpx, posé sur PYTHONPATH pour un test de code de sortie."""
+
+
+class _Reponse:
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return {
+            "answer": "La dispersion se mesure par l'écart-type [src:aaaaaaaaa1].",
+            "contexts": [],
+            "citations": [],
+            "retrieved_element_ids": ["aaaaaaaaa1"],
+            "retrieval_ms": 0,
+            "generation_ms": 0,
+            "dropped_contexts": 0,
+        }
+
+
+def post(url, json=None, timeout=None):
+    return _Reponse()
+'''
+
+
+def _agent_simule(racine: pathlib.Path) -> str:
+    """Installe le faux `httpx` et retourne le PYTHONPATH qui le sert."""
+    (racine / "httpx.py").write_text(_FAUX_HTTPX, encoding="utf-8")
+    return str(racine)
+
+
+def _jeu_dore(chemin: pathlib.Path, *ids: str) -> pathlib.Path:
+    chemin.write_text(
+        json.dumps(
+            {
+                "questions": [
+                    {"id": i, "question": "q", "gold_element_ids": ["aaaaaaaaa1"]} for i in ids
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return chemin
+
+
+def _campagne_fichier(chemin: pathlib.Path, *ids: str) -> pathlib.Path:
+    lignes = [{"id": i, "rang_reciproque": 1.0} for i in ids]
+    chemin.write_text(
+        json.dumps({"resume": {"questions": len(lignes)}, "questions": lignes}),
+        encoding="utf-8",
+    )
+    return chemin
 
 
 def test_le_script_s_invoque(tmp_path) -> None:
@@ -366,3 +449,56 @@ def test_sans_agent_joignable_le_script_sort_en_un(tmp_path) -> None:
 
     assert resultat.returncode == 1
     assert "Aucune question n'a abouti" in resultat.stdout
+
+
+def test_une_comparaison_refusee_sort_en_deux(tmp_path) -> None:
+    """**Le code de sortie 2, asserté depuis le côté qui le PRODUIT.**
+
+    C'est l'unique mécanisme qui fait qu'un `make eval` rouge signale un refus,
+    et c'est la justification même de ce code. Vérifié par mutation : remplacer
+    `return 0 if appariement_possible else 2` par `return 0` laissait toute la
+    suite verte — une comparaison refusée serait passée en vert, c'est-à-dire
+    exactement la panne que ce code existe pour empêcher.
+
+    Le refus était gardé par cinq tests, mais tous du côté de la LOGIQUE
+    (`desaccord_de_jeu`, `comparer_apparie`). Aucun ne descendait jusqu'au code
+    rendu au shell. Un garde-fou qui ne joue que d'un côté est le défaut de
+    l'espèce que ce dépôt corrige lot après lot.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    # La référence porte deux questions, le jeu une seule : les jeux diffèrent.
+    reference = _campagne_fichier(tmp_path / "reference.json", "G-001", "G-002")
+    sortie = tmp_path / "campagne.json"
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), "--out", str(sortie),
+        pythonpath=pythonpath,
+    )
+
+    assert resultat.returncode == 2
+    assert "REFUSÉE" in resultat.stdout
+    # Et la campagne est écrite QUAND MÊME : elle coûte une demi-heure de
+    # génération, et c'est la comparaison qui n'a pas eu lieu, pas la mesure.
+    assert sortie.exists()
+    assert json.loads(sortie.read_text(encoding="utf-8"))["resume"]["questions"] == 1
+
+
+def test_une_comparaison_qui_aboutit_sort_en_zero(tmp_path) -> None:
+    """Le pendant, sur le même chemin : sans lui, un `return 2` en dur serait
+    vert au test précédent.
+
+    `--help` sort aussi en 0, mais par `argparse`, qui s'arrête avant `main()` :
+    il ne dit rien du code que rend la campagne elle-même.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    reference = _campagne_fichier(tmp_path / "reference.json", "G-001")
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), pythonpath=pythonpath
+    )
+
+    assert resultat.returncode == 0
+    assert "REFUSÉE" not in resultat.stdout
+    assert "1 questions communes" in resultat.stdout

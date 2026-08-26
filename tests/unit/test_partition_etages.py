@@ -11,6 +11,8 @@ d'exiger le SENS de l'attribution : si `reconstruction_ms` recevait le temps de
 la génération, les durées ne correspondraient plus.
 """
 
+import importlib.util
+import pathlib
 import time
 
 import pytest
@@ -19,6 +21,8 @@ from src.agent import graph as graph_module
 from src.agent import retriever as retriever_module
 from src.agent.chronometrie import ETAGES, Chrono, decomposer
 from src.api.schemas import BreadcrumbEntry, ChunkResult, SectionContext, StageTimings
+
+_RACINE_SCRIPTS = pathlib.Path(__file__).resolve().parents[2] / "scripts"
 
 QUESTION = "Comment se mesure la dispersion ?"
 
@@ -258,6 +262,39 @@ def test_le_schema_publie_exactement_les_etages_de_la_partition() -> None:
     publies = set(StageTimings.model_fields) - {"residual_ms", "total_ms"}
 
     assert publies == set(ETAGES)
+
+
+def test_le_resume_de_campagne_porte_les_deux_centiles_de_chaque_etage() -> None:
+    """Asserté depuis `resumer`, qui les PRODUIT — pas depuis la liste des étages.
+
+    `test_coherence_depot` vérifie que la campagne connaît les bons noms d'étages ;
+    il resterait vert si `resumer` cessait de publier la table de latence. Une
+    moyenne de latence cache la queue, et c'est la queue qui décide de
+    l'expérience : les deux centiles sont le contrat, pas un confort.
+    """
+    chemin = _RACINE_SCRIPTS / "evaluate.py"
+    spec = importlib.util.spec_from_file_location("evaluate", chemin)
+    assert spec and spec.loader
+    evaluate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(evaluate)
+
+    ligne = evaluate.evaluer(
+        {"id": "G-001", "gold_element_ids": ["aaaaaaaaa1"], "language": "fr"},
+        {
+            "contexts": [],
+            "citations": [],
+            "answer": "r",
+            "timings": {"dense_ms": 90, "generation_ms": 4400, "residual_ms": 30,
+                        "total_ms": 4520},
+        },
+    )
+    resume = evaluate.resumer([ligne])
+
+    for etage in StageTimings.model_fields:
+        assert f"{etage}_p50" in resume, etage
+        assert f"{etage}_p95" in resume, etage
+    assert resume["dense_ms_p50"] == 90  # noqa: PLR2004
+    assert resume["residual_ms_p95"] == 30  # noqa: PLR2004
 
 
 def test_l_invariant_tient_sur_une_traversee_complete() -> None:

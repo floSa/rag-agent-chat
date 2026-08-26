@@ -401,6 +401,58 @@ def test_le_texte_publie_est_celui_qui_est_parti_troncature_comprise(monkeypatch
     assert len(ctx["text"]) < len(contextes[0].markdown)
 
 
+def test_une_incoherence_du_budget_est_annoncee(monkeypatch, caplog) -> None:
+    """Asserté depuis `/answer`, qui PRODUIT l'avertissement.
+
+    Le nombre d'écartées et le marquage des retenues viennent du MÊME
+    `PromptFit` : ils ne peuvent pas se contredire tant que la chaîne tient. Cet
+    avertissement dit qu'elle a cédé — et sans lui, une campagne calculerait la
+    précision du contexte sur un dénominateur muet et la publierait comme une
+    mesure.
+
+    Le montage force la contradiction à la main, ce qui est le seul moyen de
+    l'obtenir : deux candidates, aucune retenue, et `dropped_contexts` à zéro.
+    """
+    import logging
+
+    from src.api import main
+
+    contextes = _grosses_sections(2, 100)
+
+    async def ainvoke_incoherent(_state, _config=None):
+        return {
+            "reranked_chunks": [],
+            "enriched_contexts": contextes,
+            # Rien de retenu, mais rien d'écarté non plus : impossible.
+            "submitted_contexts": [],
+            "dropped_contexts": 0,
+            "citations": [],
+            "images": [],
+            "response": "r",
+            "_metadata": {},
+        }
+
+    monkeypatch.setattr(main.answer_graph, "ainvoke", ainvoke_incoherent)
+    with caplog.at_level(logging.WARNING, logger="src.api.main"):
+        body = TestClient(main.app).post("/answer", json={"question": QUESTION}).json()
+
+    assert "Incohérence du budget" in caplog.text
+    assert [c["retained"] for c in body["contexts"]] == [False, False]
+
+
+def test_un_budget_coherent_n_avertit_de_rien(monkeypatch, caplog) -> None:
+    """Le pendant : un avertissement qui se déclencherait toujours ne
+    signalerait rien, il ferait du bruit à chaque réponse."""
+    import logging
+
+    contextes = _grosses_sections(2, 100)
+
+    with caplog.at_level(logging.WARNING, logger="src.api.main"):
+        _client_sur(contextes, monkeypatch).post("/answer", json={"question": QUESTION})
+
+    assert "Incohérence du budget" not in caplog.text
+
+
 def test_les_element_ids_publies_sont_ceux_du_texte_soumis(monkeypatch) -> None:
     """Les marqueurs du texte réellement envoyé, pas les éléments de la section.
 
