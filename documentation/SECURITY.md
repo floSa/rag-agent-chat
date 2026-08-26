@@ -117,28 +117,37 @@ checkpointer LangGraph persiste **déjà** l'état complet du graphe — questio
 historique, chunks, contextes reconstruits, réponse — dans le même volume, sous
 `/app/data/checkpoints.sqlite`.
 
-Une purge est bien écrite : `_register_thread` appelle `delete_thread` sur les
-sessions périmées par l'âge ou par le nombre. **Elle n'aboutit jamais.**
-`delete_thread` est la méthode SYNCHRONE d'`AsyncSqliteSaver`, appelée depuis
-`chat_start`, donc depuis le fil de la boucle d'événements ; la bibliothèque
-refuse explicitement ce cas et lève `asyncio.InvalidStateError` — « *Synchronous
-calls to AsyncSqliteSaver are only allowed from a different thread* ». Cette
-exception hérite d'`Exception`, donc le `except Exception: logger.debug(…)` qui
-entoure l'appel l'absorbe, et `LOG_LEVEL` vaut `INFO` par défaut : rien ne
-paraît. Pire, la ligne `INFO « Sessions purgées : N »` est journalisée juste
-après, et affirme une purge qui n'a pas eu lieu.
+Cette persistance **est** purgée, et elle ne l'était pas. Une purge par âge et
+par nombre existait, elle n'aboutissait jamais : `_register_thread` appelait
+`delete_thread`, la méthode SYNCHRONE d'`AsyncSqliteSaver`, depuis `chat_start`
+qui est `async def`. La bibliothèque refuse explicitement ce cas et lève
+`asyncio.InvalidStateError` — « *Synchronous calls to AsyncSqliteSaver are only
+allowed from a different thread* » ; l'exception hérite d'`Exception`, un
+`except Exception: logger.debug(…)` l'absorbait, et `LOG_LEVEL=INFO` l'effaçait.
+La ligne `INFO « Sessions purgées : N »` journalisée juste après affirmait une
+purge qui n'avait pas eu lieu. **Aucune ligne n'a jamais été supprimée de
+`checkpoints.sqlite`** : l'état complet de toutes les sessions y persistait
+indéfiniment — question, historique, chunks, contextes reconstruits, réponse, en
+clair (msgpack non compressé).
 
-Vérifié : après deux passages de `_register_thread` sur une session périmée, la
-table `checkpoints` porte toujours sa ligne et la question s'y relit en clair.
-**Aucune ligne n'est jamais supprimée de `checkpoints.sqlite`** — l'état complet
-de toutes les sessions y persiste indéfiniment, pas seulement celles antérieures
-à un redémarrage.
+Corrigé, et sur les trois plans à la fois. L'appel attend `adelete_thread`. Le
+journal ne compte que les suppressions abouties, et un échec sort en WARNING.
+Le registre de la purge vit désormais dans la base du checkpointer, donc il
+survit au redémarrage : le registre en mémoire précédent n'atteignait que les
+sessions créées par le processus courant, ce qui laissait sur le disque tout ce
+qui précédait le dernier redémarrage. Détail en
+[axes_amelioration.md](axes_amelioration.md) §1.20.
 
-Ce défaut appartient à un lot ultérieur, avec les autres fuites silencieuses ;
-il est ouvert dans [axes_amelioration.md](axes_amelioration.md). Il ne change
-pas la posture de la capture, il la renforce : la capture ne crée **aucune**
-classe d'exposition nouvelle. Elle rend **interrogeable et mesurable** ce qui
-est déjà durable et invisible.
+**Ce qui reste vrai du point de vue de l'exposition.** Le contenu d'une session
+est en clair sur le disque tant qu'elle n'est pas purgée, soit
+`SESSION_TTL_SECONDS` (une heure par défaut) après sa création. La purge borne
+la fenêtre, elle ne chiffre rien. `GET /health` publie `sessions.purged` et
+`sessions.failures` : un `purged` qui reste à zéro alors que le fichier grossit
+signale que la fenêtre ne se referme plus.
+
+Cela ne change pas la posture de la capture, cela la renforce : la capture ne
+crée **aucune** classe d'exposition nouvelle. Elle rend **interrogeable et
+mesurable** ce qui était déjà durable et invisible.
 
 ### Ce que la capture ne protège pas
 

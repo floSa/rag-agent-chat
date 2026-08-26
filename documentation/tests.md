@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 270 tests, aucune dépendance
+## Unitaire — 294 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -29,7 +29,25 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
 | `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 250 budgets). La chaîne `on_fit` → état du graphe → `/answer` y est exercée sur le vrai `node_generate`, seule la couche HTTP étant simulée : deux mutations la cassaient en gardant la suite verte. |
 | `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |
+| `test_purge_sessions.py` | La purge des sessions LangGraph : ce qu'elle supprime, et ce qu'elle annonce. Le checkpointer y est **réel** — un vrai `AsyncSqliteSaver` sur un fichier temporaire — et les assertions sont lues en SQL brut dans `checkpoints`. Un faux checkpointer ne lève pas `asyncio.InvalidStateError`, donc il ne prouve rien du défaut : c'est exactement ce montage-là qui l'a laissé vivre. Cinq des six tests sont rouges sur le code d'origine, dont celui qui confronte le nombre de suppressions ANNONCÉ au nombre RÉEL — « le journal annonce [1] suppression(s) alors qu'aucune n'a eu lieu ». Le sixième est un garde-fou, vert des deux côtés et c'est ce qu'on lui demande : une session en attente de sélection doit survivre à un redémarrage. |
+| `test_index_lexical.py` | L'index BM25 face à un corpus qui bouge et à des requêtes concurrentes. Deux pièges de montage y sont évités. Le premier : un test « l'index finit construit » est vert des deux côtés d'un défaut de dimensionnement — ce qui voit la panne, c'est un test de **serrage**, qui compte les lectures du corpus (`assert 8 == 1` sur le code d'origine). Le second : les corpus de test comptent au moins **trois** documents, parce que l'IDF de BM25 vaut exactement zéro pour un terme présent dans 1 document sur 2, ce qui rend la recherche lexicale intestable à deux documents. |
+| `test_absorptions.py` | Les absorptions d'exceptions resserrées par le lot 3, et le garde-fou qui les empêche de s'élargir. Cinq tests tombent si un `except` resserré redevient `except Exception`, ou si un journal redescend en `debug` ; trois gardent les cas que les resserrements doivent continuer de couvrir — un transport mort et un corps non-JSON restent des replis, pas des 500. |
 | `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. La colonne `dropped_contexts` y est exercée sur des sections qui dépassent réellement la fenêtre — seule la couche HTTP est simulée, le budget est celui du vrai `fit_prompt` : trois mutations la cassent, une par maillon de la chaîne `on_fit` → état → colonne. |
+
+Deux leçons du lot 3, du même ordre que celles du lot 2 :
+
+- **Un faux qui ne ressemble pas à la bibliothèque ne prouve rien de la
+  bibliothèque.** Deux tests simulaient la panne d'Ollama en levant un
+  `ConnectionError` intégré, qu'httpx ne lève jamais — il enveloppe le transport
+  dans `httpx.TransportError`. Ils restaient donc verts sur n'importe quelle
+  absorption, y compris la plus large, et devenaient rouges dès qu'on resserrait
+  sur la vraie panne. Le resserrement les a révélés ; sans lui, ils auraient
+  gardé pour toujours un `except Exception` qu'ils ne testaient pas.
+- **Ce qui doit être asserté, c'est le disque, pas le compteur du code.** La
+  purge des sessions journalisait « Sessions purgées : 1 » sans supprimer une
+  ligne. Tout test qui aurait cru ce compteur aurait été vert. Les tests de
+  `test_purge_sessions.py` ouvrent le fichier SQLite en lecture directe, et
+  confrontent le nombre annoncé au nombre réellement supprimé.
 
 Deux leçons de la revue du lot 2, qui valent au-delà de ses fichiers :
 
@@ -108,12 +126,21 @@ Trois règles apprises en se trompant :
   sont testées ; le parcours dans un navigateur ne l'est qu'à la main. Les deux
   derniers défauts de citation ont été trouvés à l'œil, pas par la suite.
 - **Ni charge, ni concurrence.** Rien ne dit ce qui se passe à dix questions
-  simultanées. Seule exception : les écritures de la capture d'usage sont
+  simultanées. Deux exceptions : les écritures de la capture d'usage sont
   testées à dix interactions concurrentes — c'est là qu'un défaut de
-  transaction SQLite en faisait perdre jusqu'à six.
+  transaction SQLite en faisait perdre jusqu'à six — et la construction de
+  l'index lexical est testée à huit requêtes concurrentes, où elle se faisait
+  huit fois. Ce sont deux points, pas une couverture de charge : aucun test ne
+  fait passer une **question entière** en parallèle d'une autre.
 - **Les deux boutons d'appréciation ne sont pas testés.** L'endpoint `/feedback`
   l'est ; le clic dans Streamlit ne l'est qu'à la main, comme le reste du
   frontend.
+- **La reconstruction de l'index lexical est attendue, pas observée en
+  situation.** `test_index_lexical.py` programme la reconstruction puis attend
+  son fil (`join`). Cela prouve qu'elle a lieu et qu'elle n'a lieu qu'une fois ;
+  cela ne prouve pas que les requêtes servies **pendant** qu'elle tourne
+  répondent correctement. Ce point-là tient au remplacement atomique de l'état
+  de l'index, relu, pas à un test.
 - **L'écriture après le dernier événement SSE n'est vérifiée que de
   l'intérieur.** Le client de test tamponne la réponse : l'ordre est observé par
   un espion dans l'application, ce qui interdit d'écrire avant d'avoir répondu

@@ -25,6 +25,30 @@ L'agent y fait trois choses : la recherche dense, la **relecture du texte
 intégral** quand celui du graphe est tronqué, et la construction de l'index
 BM25 au premier appel.
 
+### L'index BM25 vit dans le processus de l'agent, le corpus non
+
+C'est l'asymétrie à connaître de ce store. La recherche dense interroge Chroma à
+chaque requête : elle suit le corpus sans rien faire. L'index BM25, lui, est une
+copie en mémoire — et l'ingestion écrit pendant que l'agent tourne.
+
+Un document ingéré après la construction de l'index était donc trouvable en
+dense et **invisible en lexical** jusqu'au prochain redémarrage. La recherche
+devenait silencieusement asymétrique.
+
+**Ce que l'ingestion doit faire :** appeler `POST /reindex` en fin de pipeline.
+C'est un contrat, et la réponse porte le nombre de chunks indexés — confrontable
+à ce qui vient d'être écrit.
+
+**Ce que l'agent fait si elle ne le fait pas :** il compare `collection.count()`
+au nombre de chunks de son index et reconstruit en tâche de fond quand les deux
+divergent. C'est un filet, pas une garantie — **un corpus dont on a retiré
+autant de chunks qu'on en a ajouté affiche le même compte**, et l'index reste
+alors périmé sans que rien ne le signale.
+
+`GET /health` rend `index_lexical: false` dans les deux états dégradés : pas
+encore construit, et construit sur un corpus qui n'existe plus. La distinction
+n'intéresse pas l'utilisateur — la recherche est amputée dans les deux cas.
+
 ### Métadonnées lues
 
 | Clé | Ce que l'agent en fait |
@@ -112,3 +136,15 @@ prix d'une requête perdue.
 `GET /health` sonde les trois, plus l'état de l'index BM25 — ce dernier
 n'entrant pas dans le calcul du statut, puisque son absence dégrade la recherche
 sans l'empêcher.
+
+Un compte de collection **illisible** n'est pas traité comme un index périmé :
+Chroma injoignable est déjà rapporté par `services.chromadb` dans la même
+réponse, et le déduire une seconde fois transformerait une panne de store en
+reconstructions inutiles. Le doute est rendu tel quel.
+
+Le seul store que l'agent **écrit** est le sien : `checkpoints.sqlite`, dans le
+volume `rag_agent_state`. Il y ajoute une table `sessions_agent`, le registre
+qui rend la purge des sessions durable — voir
+[architecture.md](architecture.md#purge-durable-des-sessions). `GET /health`
+publie `sessions.purged` et `sessions.failures` : un `purged` qui reste à zéro
+alors que le fichier grossit est le symptôme à surveiller.

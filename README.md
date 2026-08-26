@@ -17,7 +17,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 ## Architecture & Technologies
 
 - **Agent (LangGraph)** : machine à états `retrieve → rerank → sélection user → reconstruction graphe → génération → post-processing`, avec boucle agentique (le LLM peut relancer une recherche via `search_vectors(query)`, max 3 itérations).
-- **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`) et des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`), avec réponses en streaming SSE.
+- **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`), des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`, `/answer`) et un `/reindex` que l'ingestion appelle en fin de pipeline, avec réponses en streaming SSE.
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
 - **Recherche** : hybride — dense (`paraphrase-multilingual-MiniLM-L12-v2`, le **même modèle** que l'ingestion, obligatoire) et lexicale BM25, sur la question **et sa traduction**, fusionnées par Reciprocal Rank Fusion. Reranking par cross-encoder multilingue `mmarco-mMiniLMv2-L12-H384-v1`, local.
 - **Évaluation** : jeu doré de 138 questions généré depuis le corpus, campagne déterministe sans juge LLM (`make eval`), banc de réglage rapide pour les paramètres de recherche.
@@ -94,6 +94,7 @@ docker compose up -d --build
 | `POST` | `/chat/resume` | Reprend après sélection des sources (réponse en SSE). |
 | `POST` | `/chat/simple` | Génération directe sans boucle agentique. |
 | `POST` | `/feedback` | Appréciation binaire d'une réponse (`utile` / `inutile`) et commentaire libre, rattachés au `thread_id`. |
+| `POST` | `/reindex` | Reconstruit l'index lexical BM25 sur le corpus courant. **À appeler par le pipeline d'ingestion en fin de traitement** : sans lui, un document ingéré après le démarrage de l'agent reste invisible en recherche lexicale (cf. [stores.md](documentation/stores.md)). |
 | `GET` | `/media/{object_name}` | Proxy des images MinIO (le réseau Docker interne n'est pas visible du navigateur). |
 
 ---
@@ -119,6 +120,8 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | `CONTEXT_WINDOW_BEFORE/AFTER` | `6` | Éléments retenus autour du passage trouvé. |
 | `ADJACENT_SECTION_ELEMENTS` | `3` | Éléments repris des sections voisines (0 désactive). |
 | `API_KEY` / `CORS_ORIGINS` | vide / `localhost` | Vide = pas d'authentification, acceptable en local seulement. |
+| `CHECKPOINT_DB_PATH` | `/app/data/checkpoints.sqlite` | Sessions LangGraph **et** registre de leur purge, dans le même fichier. Vide = checkpointer en mémoire : les sessions ne survivent pas au redémarrage. |
+| `SESSION_TTL_SECONDS` / `MAX_LIVE_SESSIONS` | `3600` / `200` | Bornes de la purge des sessions, en âge et en nombre. La purge est **durable** : elle atteint une session antérieure à un redémarrage, et `/health` publie sous `sessions` ce qu'elle a réellement supprimé. |
 | `USAGE_CAPTURE` / `USAGE_DB_PATH` | `true` / `/app/data/usage.sqlite` | Enregistre questions, sources proposées, décochages et réponses. **Actif par défaut**, aucune purge, rien ne sort du disque local — cf. [capture_usage.md](documentation/capture_usage.md). |
 | `MINIO_ROOT_PASSWORD` | — | Même valeur que le projet d'ingestion. |
 
@@ -156,6 +159,7 @@ rag-agent-chat/
 │   │   ├── retriever.py        # ChromaDB + reranking cross-encoder
 │   │   ├── graph_context.py    # Reconstruction de section via NebulaGraph
 │   │   ├── minio_client.py     # URLs présignées des images
+│   │   ├── sessions.py         # Registre durable des sessions et purge du checkpointer
 │   │   ├── llm.py              # Client Ollama (génération streaming)
 │   │   └── settings.py         # Configuration pydantic-settings
 │   ├── api/                    # Backend FastAPI (main.py, schemas.py)

@@ -95,6 +95,15 @@ mémoire si le fichier est inaccessible. Les sessions sont purgées par âge
 (`SESSION_TTL_SECONDS`) et par nombre (`MAX_LIVE_SESSIONS`) : sans purge, la
 persistance ne ferait que déplacer la fuite sur le disque.
 
+Le registre de cette purge vit **dans la base du checkpointer** (table
+`sessions_agent`), et non en mémoire : un registre de processus n'atteint que
+les sessions qu'il a lui-même créées, et tout ce qui précédait le dernier
+redémarrage restait sur le disque indéfiniment. Aucune purge n'a lieu au
+démarrage — ce serait détruire la raison d'être du fichier — mais les sessions
+qu'il porte sans registre y sont adoptées, donc redeviennent purgeables. Détail
+dans [architecture.md](architecture.md#purge-durable-des-sessions), état publié
+par `GET /health` sous `sessions`.
+
 ---
 
 ## Vue applicative : composants
@@ -117,7 +126,7 @@ persistance ne ferait que déplacer la fuite sur le disque.
 
 | Module       | Responsabilité                               |
 |--------------|----------------------------------------------|
-| `main.py`    | Endpoints FastAPI (8 routes), purge des sessions, middleware CORS |
+| `main.py`    | Endpoints FastAPI (11 routes), middleware CORS, branchement de la capture d'usage |
 | `schemas.py` | Modèles Pydantic v2 (requêtes et réponses)   |
 
 ### `src/frontend/`
@@ -136,7 +145,7 @@ persistance ne ferait que déplacer la fuite sur le disque.
 - Embedding : `all-MiniLM-L6-v2` (384 dimensions) — **doit être identique à l'ingestion**
 - Métadonnées disponibles par chunk : `element_id`, `filename`, `page_no`, `minio_url`
 - Paramètres de retrieval : `RETRIEVAL_TOP_K=20` (brut) → `RERANK_TOP_K=10` (après reranking)
-- Filtre de pertinence : `RERANK_MIN_SCORE=0.0` — les chunks sous ce score sont écartés (au moins 1 toujours conservé)
+- **Aucun filtre de pertinence.** `rerank` rend les `RERANK_TOP_K` mieux classées quel que soit leur score : le système n'a pas de seuil, et une question hors corpus reçoit dix sources comme les autres. Ce document a décrit un `RERANK_MIN_SCORE=0.0` qui n'a jamais existé dans `settings.py` — l'affirmation est retirée, le manque est ouvert dans [axes_amelioration.md](axes_amelioration.md) avec les deux autres manifestations du même problème (badge de pertinence purement relatif, `min_length=1` sur la sélection)
 - Enrichissement d'affichage : après reranking, chaque chunk est enrichi via NebulaGraph (`get_section_text`) pour obtenir le texte du SectionHeader parent (`section_header_text`), affiché dans l'interface de sélection des sources
 
 ### Contrat de lecture NebulaGraph
@@ -291,6 +300,22 @@ l'estimation au décompte réel. Formule, chiffres et lecture des logs dans
 | `MAX_IMAGES`               | `4`    | Illustrations affichées au maximum dans une réponse |
 | `FULL_TEXT_FROM_VECTORS`   | `true` | Texte intégral relu dans l'index                  |
 | `MAX_SEARCH_ITERATIONS`    | `3`    | Plafond de la boucle agentique                    |
+| `GRAPH_TEXT_TRUNCATION`    | `2000` | Doit suivre le `graph_text_max_chars` de l'ingestion |
+| `HISTORY_WINDOW_SHARE`     | `0.25` | Part de la fenêtre de prompt laissée à l'historique — forfait, cf. [llm.md](llm.md) |
+| `CHECKPOINT_DB_PATH`       | `/app/data/checkpoints.sqlite` | Sessions LangGraph **et** registre de leur purge. Vide = checkpointer en mémoire, sessions perdues au redémarrage |
+| `SESSION_TTL_SECONDS`      | `3600` | Âge au-delà duquel une session est purgée du checkpointer |
+| `MAX_LIVE_SESSIONS`        | `200`  | Nombre de sessions gardées ; l'excédent le plus ancien est purgé |
+| `USAGE_CAPTURE`            | `true` | Capture d'usage, cf. [capture_usage.md](capture_usage.md). **Sans effet sur la purge des sessions**, qui ne s'appuie pas sur cette base |
+| `USAGE_DB_PATH`            | `/app/data/usage.sqlite` | Même volume que le checkpointer |
+| `RESTRICT_MEDIA_TO_GRAPH`  | `true` | Le proxy `/media` ne sert que les objets référencés par le graphe |
+| `NEBULA_TIMEOUT_MS`        | `15000`| Sans lui, une requête lente du graphd fige la requête FastAPI qui l'attend |
+| `API_KEY` / `CORS_ORIGINS` | vide / `localhost` | Vide = aucune authentification, acceptable en local seulement |
+| `LOG_LEVEL`                | `INFO` | Attention : un `logger.debug` est invisible à ce niveau, et c'est ainsi qu'une purge en panne est restée cachée |
+
+La table n'est pas exhaustive et ne prétend pas l'être : `.env.example` est la
+liste complète, et `settings.py` la seule source de vérité. Aucun paramètre
+n'existe ici qui ne s'y trouve — c'est la règle qu'un `RERANK_MIN_SCORE`
+fantôme avait enfreinte.
 
 ---
 
@@ -355,10 +380,16 @@ frontend (attend agent-api healthy)
 | POST    | `/search`                | Retrieval brut ChromaDB (sans reranking)             |
 | POST    | `/sources`               | Retrieval + reranking + groupement par document      |
 | GET     | `/context/{element_id}`  | Contexte enrichi NebulaGraph (breadcrumbs + section) |
+| POST    | `/answer`                | Question → réponse sans sélection humaine. Expose le classement, les passages soumis et les temps par étage : c'est le point d'entrée de la campagne d'évaluation |
 | POST    | `/chat/simple`           | Génération directe sans LangGraph (SSE optionnel)   |
 | POST    | `/chat/start`            | Démarre session agentique → interrupt source selection |
 | POST    | `/chat/resume`           | Reprend après sélection sources → génération        |
 | POST    | `/feedback`              | Appréciation binaire d'une réponse + commentaire libre |
+| POST    | `/reindex`               | Reconstruit l'index lexical BM25 sur le corpus courant. **Appelé par l'ingestion en fin de pipeline** : sans lui, un document ingéré après le démarrage reste invisible en recherche lexicale |
+| GET     | `/media/{object_name}`   | Proxy des objets MinIO — les URLs internes ne sont pas résolvables par le navigateur. Borné aux objets référencés par le graphe |
+
+Onze routes. `/health` est la seule qui n'exige pas `X-API-Key` quand une clé
+est configurée : une sonde doit rester interrogeable sans secret.
 
 Documentation interactive : `http://localhost:8001/docs`
 
@@ -371,9 +402,9 @@ Documentation interactive : `http://localhost:8001/docs`
 | Granularité de la mesure | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. |
 | Taille du jeu doré      | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. |
 | Latence de génération   | ~10 s en médiane contre 0,4 s de retrieval. Le levier est le LLM, pas la recherche. |
-| Index BM25              | Construit en mémoire au premier appel : la première requête après un démarrage paie ~9 s. `/health` expose son état. Un corpus nettement plus gros demanderait un moteur dédié. |
+| Index BM25              | Construit en mémoire au premier appel : la **première** requête après un démarrage paie ~9 s, et c'est la seule qui paie encore. Un corpus qui grandit sous l'index déclenche une reconstruction en tâche de fond, et `POST /reindex` la force ; `/health` rend `index_lexical: false` sur un index périmé. Un corpus nettement plus gros demanderait un moteur dédié. |
 | Coût de la traduction   | Un appel LLM par question s'ajoute à la recherche. Un cache, ou un modèle plus petit dédié, l'amortirait. |
-| Multi-workers           | Les sessions sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire. |
+| Multi-workers           | Les sessions et leur purge sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire, et **`POST /reindex` ne reconstruit que l'index du worker qui reçoit la requête**. Le contrat de réindexation suppose aujourd'hui un worker unique. |
 | Authentification        | Absente. CORS `*` et `/media` ouvert : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |
 | Streaming E2E           | SSE implémenté, non couvert par un test de bout en bout.       |
 | Observabilité           | Logs console uniquement, pas de tracing distribué.             |
