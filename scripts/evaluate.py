@@ -157,9 +157,15 @@ def precision_contexte(
     # tombe à zéro : la campagne exclut ces questions et le dit, au lieu de
     # calculer sur les candidates en croyant mesurer ce qui a été payé.
     retenus = [c for c in contexts if c.get("retained")]
-    caracteres = {c["section_id"]: len(c.get("text") or "") for c in retenus}
     utiles = [c for c in retenus if attendus_ids & set(c.get("element_ids") or [])]
-    total_caracteres = sum(caracteres.values())
+    # Somme sur la LISTE, pas sur un dictionnaire indexé par section : les
+    # sections reconstruites sont dédupliquées en amont, mais indexer ici ferait
+    # disparaître un doublon du total des caractères tout en le laissant compter
+    # dans le nombre de sections — donc deux dénominateurs incohérents.
+    def caracteres(sections: list[dict[str, Any]]) -> int:
+        return sum(len(c.get("text") or "") for c in sections)
+
+    total_caracteres = caracteres(retenus)
 
     presents = {eid for c in retenus for eid in (c.get("element_ids") or [])}
     return {
@@ -167,7 +173,7 @@ def precision_contexte(
         "caracteres_retenus": total_caracteres,
         "taux_contexte_utile": len(utiles) / len(retenus) if attendus_ids and retenus else None,
         "part_utile_caracteres": (
-            sum(caracteres[c["section_id"]] for c in utiles) / total_caracteres
+            caracteres(utiles) / total_caracteres
             if attendus_ids and total_caracteres
             else None
         ),
@@ -374,7 +380,9 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
         "eval_count_p95": _centile(tokens_generes, 0.95),
         "eval_count_max": max(tokens_generes, default=0),
         # Le plafond appliqué, publié pour que les trois chiffres ci-dessus se
-        # lisent sans aller chercher la configuration du serveur.
+        # lisent sans aller chercher la configuration du serveur. Une campagne
+        # interroge un service unique, donc une seule valeur : le premier
+        # non nul fait foi.
         "num_predict": next((r["num_predict"] for r in lignes if r["num_predict"]), 0),
         # LE chiffre qui tranche `LLM_MAX_TOKENS` : combien de générations ont
         # buté sur leur plafond. Zéro sur tout le jeu = le plafond ne sert
