@@ -231,6 +231,30 @@ async def test_l_enregistrement_couvre_les_deux_phases_jointes_par_thread_id(bas
 
 
 @pytest.mark.asyncio
+async def test_le_completement_n_efface_pas_les_latences_deja_mesurees(base) -> None:
+    """Un complètement sans latences de recherche ne doit rien effacer.
+
+    `record_start` mesure la recherche et le reranking ; le complètement
+    repassait ces deux colonnes par `etages.get(...)`, donc un dictionnaire qui
+    ne les porte pas les remettait à NULL. Latent tant que les appelants
+    passent le `_metadata` complet — et muet le jour où l'un d'eux ne le passe
+    plus, puisque la donnée perdue est une donnée qu'on ne cherchait pas.
+    """
+    await usage.record_start(
+        thread_id="t-latences", endpoint="chat", question="q",
+        timings={"retrieval_ms": 480, "rerank_ms": 340},
+    )
+    await usage.record_completion(
+        thread_id="t-latences", response="r", timings={"generation_ms": 8400}
+    )
+
+    ligne = _lire(base, "SELECT retrieval_ms, rerank_ms, generation_ms FROM interactions")[0]
+
+    assert (ligne["retrieval_ms"], ligne["rerank_ms"]) == (480, 340)
+    assert ligne["generation_ms"] == 8400  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
 async def test_dropped_contexts_inconnu_reste_null(base) -> None:
     """NULL, jamais 0 : 0 affirmerait qu'aucune source n'a été écartée."""
     await usage.record_start(thread_id="t-null", endpoint="chat", question="q")

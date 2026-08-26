@@ -404,10 +404,17 @@ async def record_completion(
         etages = timings or {}
         async with _connexion() as conn:
             curseur = await conn.execute(
+                # COALESCE sur les trois latences : un dictionnaire de
+                # complètement dépourvu d'une clé ne doit pas EFFACER ce que
+                # `record_start` avait déjà mesuré. Aujourd'hui les appelants
+                # passent le `_metadata` complet, donc le défaut est latent —
+                # et silencieux le jour où l'un d'eux ne le passera plus.
                 "UPDATE interactions SET completed_at = ?, response = ?, citations = ?,"
                 " images = ?, search_count = ?, submitted_element_ids = ?,"
-                " submitted_section_ids = ?, dropped_contexts = ?, retrieval_ms = ?,"
-                " rerank_ms = ?, generation_ms = ? WHERE thread_id = ?",
+                " submitted_section_ids = ?, dropped_contexts = ?,"
+                " retrieval_ms = COALESCE(?, retrieval_ms),"
+                " rerank_ms = COALESCE(?, rerank_ms),"
+                " generation_ms = COALESCE(?, generation_ms) WHERE thread_id = ?",
                 (
                     _maintenant(),
                     response,
