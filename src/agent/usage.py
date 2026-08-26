@@ -194,11 +194,22 @@ def _condensat_prompts() -> str:
     une requête qui dure des secondes. Un cache exigerait une invalidation sur
     mtime, et une empreinte périmée est précisément le défaut que ce champ
     existe pour empêcher.
+
+    Parcours RÉCURSIF, et le chemin relatif entre dans le condensat plutôt que
+    le seul nom de fichier. `prompts/` est plat aujourd'hui : un simple
+    `iterdir` marche, jusqu'au jour où quelqu'un y range un gabarit dans un
+    sous-dossier — l'empreinte affirmerait alors « prompt inchangé » sur un
+    prompt modifié, c'est-à-dire exactement ce que ce champ existe pour
+    empêcher. Le chemin, et non le nom, pour que déplacer un gabarit d'un
+    dossier à l'autre se voie.
     """
     hacheur = hashlib.sha256()
     dossier = _prompts_dir()
-    for fichier in sorted(p for p in dossier.iterdir() if p.is_file()):
-        hacheur.update(fichier.name.encode("utf-8"))
+    fichiers = sorted(
+        (p.relative_to(dossier).as_posix(), p) for p in dossier.rglob("*") if p.is_file()
+    )
+    for chemin_relatif, fichier in fichiers:
+        hacheur.update(chemin_relatif.encode("utf-8"))
         hacheur.update(fichier.read_bytes())
     return hacheur.hexdigest()[:12]
 

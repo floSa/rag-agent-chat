@@ -104,6 +104,24 @@ def test_l_empreinte_suit_le_contenu_des_prompts(tmp_path, monkeypatch) -> None:
     }
 
 
+def test_l_empreinte_voit_un_gabarit_range_dans_un_sous_dossier(tmp_path, monkeypatch) -> None:
+    """`prompts/` est plat aujourd'hui. Le jour où il ne l'est plus, l'empreinte
+    ne doit pas affirmer « prompt inchangé » sur un prompt modifié."""
+    dossier = tmp_path / "prompts"
+    (dossier / "partiels").mkdir(parents=True)
+    (dossier / "system.txt").write_text("Tu réponds.", encoding="utf-8")
+    monkeypatch.setattr(usage.settings, "prompts_dir", str(dossier))
+
+    avant = usage._condensat_prompts()  # noqa: SLF001
+    (dossier / "partiels" / "citations.j2").write_text("{{ ctx }}", encoding="utf-8")
+    ajoute = usage._condensat_prompts()  # noqa: SLF001
+    (dossier / "partiels" / "citations.j2").write_text("{{ autre }}", encoding="utf-8")
+    modifie = usage._condensat_prompts()  # noqa: SLF001
+
+    assert ajoute != avant, "un gabarit ajouté en sous-dossier doit compter"
+    assert modifie != ajoute, "et sa modification aussi"
+
+
 def test_l_empreinte_suit_les_reglages_de_recherche(tmp_path, monkeypatch) -> None:
     dossier = tmp_path / "prompts"
     dossier.mkdir()
