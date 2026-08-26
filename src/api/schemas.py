@@ -243,7 +243,15 @@ class AnswerRequest(BaseModel):
 
 
 class RetrievedContext(BaseModel):
-    """Un passage effectivement soumis au LLM, tel qu'un évaluateur le lit."""
+    """Une section reconstruite, telle qu'un évaluateur la lit.
+
+    **Toutes ne sont pas parties au LLM.** La liste porte les sections
+    CANDIDATES ; `retained` dit lesquelles le budget de fenêtre a effectivement
+    retenues. La distinction est la seule qui rende la précision du contexte
+    calculable : une section écartée faute de place n'est pas un contexte
+    inutile, c'est un contexte NON PAYÉ, et elle ne doit entrer ni au numérateur
+    ni au dénominateur.
+    """
 
     element_id: str
     section_id: str
@@ -254,6 +262,18 @@ class RetrievedContext(BaseModel):
     language: str = ""
     page_no: int = 0
     relevance: float | None = None
+    # Faux = la section a été reconstruite puis écartée par le budget de
+    # fenêtre. Le nombre d'écartées est aussi publié à part
+    # (`dropped_contexts`), et les deux doivent s'accorder.
+    retained: bool = True
+    # Éléments présents dans `text`, marqueurs `[src:ID]` et `[img:ID]` lus dans
+    # le texte lui-même. C'est ce qui permet de dire si un élément d'or a atteint
+    # le LLM : `element_id` ne nomme que la GRAINE du retrieval, alors que la
+    # fenêtre du graphe en ramène jusqu'à treize, plus les voisines.
+    element_ids: list[str] = Field(default_factory=list)
+    # Retenue, la section telle qu'elle est PARTIE — tronquée si elle l'a été,
+    # donc les caractères réellement payés en tokens. Écartée, le contexte
+    # reconstruit qui n'a pas été envoyé.
     text: str
 
 

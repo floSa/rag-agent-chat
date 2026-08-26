@@ -36,8 +36,14 @@ class AgentState(TypedDict):
     # Candidats demandés à ChromaDB. None = RETRIEVAL_TOP_K.
     top_k: int | None
 
-    # Contexte enrichi via NebulaGraph
+    # Contexte enrichi via NebulaGraph — les sections CANDIDATES.
     enriched_contexts: list[SectionContext]
+    # Les sections que le budget de fenêtre a réellement retenues, telles
+    # qu'elles sont parties au LLM : tronquées si elles l'ont été. Renseigné par
+    # node_generate depuis `on_fit`, comme `dropped_contexts`, et pour la même
+    # raison — une métrique de précision du contexte calculée sur les candidates
+    # mesure une intention, pas ce qui a été payé en tokens.
+    submitted_contexts: list[SectionContext]
 
     # Réponse générée
     response: str

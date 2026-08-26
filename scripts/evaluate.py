@@ -80,6 +80,69 @@ def interroger(api: str, question: dict, timeout: float) -> dict[str, Any]:
     return response.json()
 
 
+def precision_contexte(
+    attendus_ids: set[str], contexts: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Précision du contexte réellement remis au LLM.
+
+    Le rappel et le MRR mesurent le CLASSEMENT. La reconstruction par le graphe
+    ne le change pas : elle change la COMPOSITION du contexte — une fenêtre de
+    ±6 éléments dans la section, ±3 dans les voisines, plus la relecture du texte
+    intégral. Les deux métriques ci-dessous sont donc les seules qu'une ablation
+    du graphe déplace, et `part_utile_caracteres` la seule qui exposerait une
+    fenêtre trop large.
+
+    Trois décisions gouvernent le calcul, et chacune ferme un piège.
+
+    **Le dénominateur, ce sont les sections RETENUES.** Après la troncature de
+    `fit_prompt`, pas avant. Une métrique calculée sur les candidates mesure une
+    intention ; celle qui compte mesure ce qui a été payé en tokens.
+
+    **Une section écartée n'entre ni au numérateur ni au dénominateur.** Faute de
+    place dans la fenêtre, elle n'est pas un contexte inutile : c'est un contexte
+    NON PAYÉ. La compter comme du bruit ferait baisser la métrique au moment
+    précis où le budget fait son travail.
+
+    **Une question sans élément d'or est exclue.** Sur une `unanswerable`, la
+    part utile vaut 0/N par construction : la moyenner avec les autres ferait
+    baisser le chiffre sans qu'aucune dégradation ait eu lieu. Les huit exclues
+    sont comptées dans le résumé — une métrique dont on ne sait pas sur combien
+    de questions elle porte n'est pas lisible.
+
+    Returns:
+        Les trois métriques, `None` quand elles ne s'appliquent pas, et le
+        dénominateur qui a servi.
+    """
+    # `retained` faux = reconstruite puis écartée par le budget. Un service qui
+    # ne publie pas le champ ne retient donc RIEN ici, et `contextes_retenus`
+    # tombe à zéro : la campagne exclut ces questions et le dit, au lieu de
+    # calculer sur les candidates en croyant mesurer ce qui a été payé.
+    retenus = [c for c in contexts if c.get("retained")]
+    caracteres = {c["section_id"]: len(c.get("text") or "") for c in retenus}
+    utiles = [c for c in retenus if attendus_ids & set(c.get("element_ids") or [])]
+    total_caracteres = sum(caracteres.values())
+
+    presents = {eid for c in retenus for eid in (c.get("element_ids") or [])}
+    return {
+        "contextes_retenus": len(retenus),
+        "caracteres_retenus": total_caracteres,
+        "taux_contexte_utile": len(utiles) / len(retenus) if attendus_ids and retenus else None,
+        "part_utile_caracteres": (
+            sum(caracteres[c["section_id"]] for c in utiles) / total_caracteres
+            if attendus_ids and total_caracteres
+            else None
+        ),
+        # Le rappel au niveau du contexte PAYÉ, à ne pas confondre avec
+        # `rappel_elements`, qui se mesure sur la graine du retrieval. C'est la
+        # fenêtre du graphe qui les sépare : un élément d'or ramené par la
+        # fenêtre sans avoir été trouvé par la recherche a bel et bien atteint le
+        # LLM, et seul celui-ci le voit.
+        "rappel_contexte": (
+            len(presents & attendus_ids) / len(attendus_ids) if attendus_ids else None
+        ),
+    }
+
+
 def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
     """Confronte une réponse à la vérité terrain de sa question."""
     contexts = reponse.get("contexts", [])
@@ -158,6 +221,7 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         "contextes": len(contexts),
         "contextes_ecartes": reponse.get("dropped_contexts", 0),
         "langues_sources": sorted({c.get("language", "") for c in contexts if c.get("language")}),
+        **precision_contexte(attendus_ids, contexts),
         # Agrégat historique — recherche + reranking — présent dans tous les
         # fichiers de `runs/`. Ce n'est PAS un étage : il contient `dense_ms`,
         # `lexical_ms`, `fusion_ms` et `rerank_ms`, et l'additionner à la
@@ -197,6 +261,28 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
             else None
         ),
         "contextes_ecartes_total": sum(r["contextes_ecartes"] for r in lignes),
+        # ─── Précision du contexte ────────────────────────────────────────────
+        "taux_contexte_utile": _moyenne([r["taux_contexte_utile"] for r in lignes]),
+        "part_utile_caracteres": _moyenne([r["part_utile_caracteres"] for r in lignes]),
+        "rappel_contexte": _moyenne([r["rappel_contexte"] for r in lignes]),
+        # Sur combien de questions les trois lignes ci-dessus portent, et
+        # combien sont écartées et pourquoi. Une métrique dont on ne sait pas sur
+        # combien de questions elle porte n'est pas lisible — et une moyenne qui
+        # a silencieusement perdu la moitié du jeu ne se distingue pas d'une
+        # moyenne saine.
+        "precision_contexte_sur": sum(
+            1 for r in lignes if r["taux_contexte_utile"] is not None
+        ),
+        "precision_contexte_exclues_sans_or": sum(
+            1 for r in lignes if r["rappel_contexte"] is None
+        ),
+        "precision_contexte_exclues_sans_retenue": sum(
+            1
+            for r in lignes
+            if r["rappel_contexte"] is not None and r["taux_contexte_utile"] is None
+        ),
+        "caracteres_retenus_p50": _centile([r["caracteres_retenus"] for r in lignes], 0.5),
+        "caracteres_retenus_p95": _centile([r["caracteres_retenus"] for r in lignes], 0.95),
         "retrieval_ms_p50": _centile(retrieval, 0.5),
         "retrieval_ms_p95": _centile(retrieval, 0.95),
         # p50 ET p95 par étage : une moyenne de latence cache la queue, et c'est
@@ -217,6 +303,7 @@ def _tranche(sous_ensemble: list[dict]) -> dict[str, Any]:
         "mrr": _moyenne([r["rang_reciproque"] for r in sous_ensemble]),
         "rappel_documents": _moyenne([r["rappel_documents"] for r in sous_ensemble]),
         "taux_citation_complete": _moyenne([r["taux_citation_complete"] for r in sous_ensemble]),
+        "part_utile_caracteres": _moyenne([r["part_utile_caracteres"] for r in sous_ensemble]),
     }
 
 

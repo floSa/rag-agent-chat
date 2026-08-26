@@ -32,7 +32,7 @@ première fera bouger, et dans quel sens :
 | Métrique | Sens attendu | Pourquoi |
 |---|---|---|
 | `contextes_ecartes_total` | **En hausse**, depuis 0 | Le budget ne prétend plus qu'un forfait de 512 tokens couvre le prompt système, le gabarit et l'historique. Il compte ce qui est réellement envoyé, donc il écarte plus tôt |
-| `rappel_elements` | **Peut reculer** — et c'est correct | Il se mesure sur ce qui atteint le LLM. Une source écartée en moins le fait baisser, même quand l'écarter est le correctif |
+| `rappel_elements` | **Inchangé** — et l'affirmation d'origine était fausse | Elle annonçait « il se mesure sur ce qui atteint le LLM, une source écartée en moins le fait baisser ». Vérifié au lot 4 : la métrique se calcule sur `contexts`, qui contient les sections ÉCARTÉES par le budget, et sur la seule GRAINE de chaque section. Elle ne bouge donc ni quand une source est écartée, ni quand la fenêtre du graphe ramène l'or. C'est `rappel_contexte`, ajouté au lot 4, qui recule dans ce cas |
 | `citations_par_reponse` | En légère baisse | Moins de texte en entrée, donc moins de sources citables |
 | `taux_citation_complete`, `abstention_correcte` | Stables | Rien ne change dans la résolution des citations |
 | `rappel_recherche`, `mrr`, `rappel_documents` | Inchangés | Rien n'est touché en amont du reranking |

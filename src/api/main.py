@@ -21,6 +21,7 @@ from src.agent.graph import (
     build_checkpointer,
     close_checkpointers,
     compile_interactive,
+    element_ids_presents,
     resolve_citations,
 )
 from src.agent.graph_context import ping as nebula_ping
@@ -410,6 +411,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "max_sources": req.max_sources,
         "top_k": req.top_k,
         "enriched_contexts": [],
+        "submitted_contexts": [],
         "response": "",
         "citations": [],
         "images": [],
@@ -442,6 +444,10 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
     # ce que ce champ sert précisément à publier.
     dropped = result.get("dropped_contexts", 0)
     by_element = {c.element_id: c for c in ranked}
+    # Les sections que le budget a RETENUES, indexées par section : c'est ce qui
+    # a été payé en tokens. Une métrique de précision du contexte calculée sur
+    # les candidates mesurerait une intention.
+    soumises = {c.section_id: c for c in result.get("submitted_contexts") or []}
 
     contexts = [
         RetrievedContext(
@@ -454,10 +460,29 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
             language=getattr(by_element.get(ctx.element_id), "language", ""),
             page_no=getattr(by_element.get(ctx.element_id), "page_no", 0),
             relevance=getattr(by_element.get(ctx.element_id), "relevance", None),
-            text=ctx.markdown,
+            retained=ctx.section_id in soumises,
+            # Le texte tel qu'il est PARTI quand la section a été retenue : la
+            # troncature du budget en fait partie, et c'est elle qui décide des
+            # caractères réellement payés.
+            element_ids=element_ids_presents(soumises.get(ctx.section_id, ctx).markdown),
+            text=soumises.get(ctx.section_id, ctx).markdown,
         )
         for ctx in enriched
     ]
+    retenues = sum(1 for c in contexts if c.retained)
+    if retenues + dropped != len(contexts):
+        # La chaîne `on_fit` → `submitted_contexts` → endpoint est cassée : le
+        # nombre d'écartées et le marquage des retenues viennent du MÊME
+        # `PromptFit` et ne peuvent pas se contredire. Sans cet avertissement,
+        # une campagne calculerait la précision du contexte sur un dénominateur
+        # muet et la publierait comme une mesure.
+        logger.warning(
+            "Incohérence du budget : %d section(s) retenue(s) + %d écartée(s) pour %d "
+            "candidate(s). La précision du contexte est incalculable sur cette réponse.",
+            retenues,
+            dropped,
+            len(contexts),
+        )
 
     # Capturé comme le flux interactif, mais sous `endpoint='answer'` : la
     # sélection est automatique ici, aucune décision humaine n'y figure. C'est
@@ -547,6 +572,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
         "max_sources": None,
         "top_k": req.top_k,
         "enriched_contexts": [],
+        "submitted_contexts": [],
         "response": "",
         "citations": [],
         "images": [],

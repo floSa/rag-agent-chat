@@ -40,6 +40,28 @@ def element_ids_cites(response: str, bloc: re.Pattern[str]) -> list[str]:
     return list(vus)
 
 
+def element_ids_presents(markdown: str) -> list[str]:
+    """Identifiants des éléments PRÉSENTS dans un texte soumis au LLM.
+
+    Le pendant amont d'`element_ids_cites` : celle-là lit ce que le modèle a
+    cité, celle-ci ce qu'il avait sous les yeux. Les deux lisent les MÊMES
+    marqueurs — `_render_element` en intercale un par élément — et c'est ce qui
+    rend « l'élément d'or est-il dans le contexte réellement payé ? » calculable
+    depuis la réponse de `/answer`, sans redemander la section au graphe.
+
+    Les deux familles sont réunies : `[src:ID]` pour tout élément textuel,
+    `[img:ID]` pour une illustration, qui n'a pas d'autre marqueur. Lire les
+    `element_ids` du modèle `SectionContext` à la place serait faux d'un cran :
+    la troncature du budget coupe le markdown à une frontière de marqueur, donc
+    des éléments de la section restent listés sans être dans le texte envoyé.
+    C'est le texte qui a été payé en tokens, pas la section.
+    """
+    vus: dict[str, None] = dict.fromkeys(element_ids_cites(markdown, _BLOC_SRC))
+    for eid in element_ids_cites(markdown, _BLOC_IMG):
+        vus.setdefault(eid, None)
+    return list(vus)
+
+
 # ─── Nœuds du graphe ─────────────────────────────────────────────────────────
 
 async def node_rewrite(state: AgentState) -> dict[str, Any]:
@@ -265,6 +287,11 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
         "needs_more_info": needs_more,
         "next_query": next_query,
         "dropped_contexts": budget[-1].dropped_contexts if budget else 0,
+        # Les sections RETENUES par le budget, telles qu'elles sont parties —
+        # tronquées si elles l'ont été. `enriched_contexts` porte les
+        # CANDIDATES : une métrique calculée dessus mesure une intention, celle
+        # qui compte mesure ce qui a été payé en tokens.
+        "submitted_contexts": budget[-1].contexts if budget else [],
         "_metadata": cumuler(state.get("_metadata"), chrono.etages),
     }
 

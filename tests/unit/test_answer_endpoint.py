@@ -18,6 +18,15 @@ def client(monkeypatch):
     from src.api import main
 
     chunk = _chunk()
+    section = SectionContext(
+        element_id="abcdef0123",
+        section_id="sssssssss1",
+        breadcrumbs=[],
+        elements=[],
+        markdown="Le texte de la section. [src:abcdef0123]",
+        filename="3. Python's Statistical Toolbox",
+        section_title="Dispersion",
+    )
 
     async def fake_ainvoke(_state, _config=None):
         # Le graphe rend lui-même les chunks reranqués : /answer n'exécute plus
@@ -26,17 +35,12 @@ def client(monkeypatch):
             "reranked_chunks": [chunk],
             "_metadata": {"retrieval_ms": 120, "rerank_ms": 80, "generation_ms": 900},
             "response": "La dispersion se mesure par l'écart-type [src:abcdef0123].",
-            "enriched_contexts": [
-                SectionContext(
-                    element_id="abcdef0123",
-                    section_id="sssssssss1",
-                    breadcrumbs=[],
-                    elements=[],
-                    markdown="Le texte de la section.",
-                    filename="3. Python's Statistical Toolbox",
-                    section_title="Dispersion",
-                )
-            ],
+            "enriched_contexts": [section],
+            # La même section, retenue par le budget : c'est ce que node_generate
+            # publie depuis `on_fit`. La souffler ici est légitime — ce fichier
+            # simule le graphe entier — et la chaîne réelle est exercée sur le
+            # vrai node_generate dans test_precision_contexte.py.
+            "submitted_contexts": [section],
             "citations": [
                 Citation(
                     element_id="abcdef0123",
@@ -94,7 +98,11 @@ def test_answer_expose_les_passages_soumis_au_llm(client) -> None:
     ctx = body["contexts"][0]
 
     assert ctx["element_id"] == "abcdef0123"
-    assert ctx["text"] == "Le texte de la section."
+    assert ctx["text"] == "Le texte de la section. [src:abcdef0123]"
+    # Retenue par le budget, donc payée en tokens : c'est cette distinction qui
+    # rend la précision du contexte calculable.
+    assert ctx["retained"] is True
+    assert ctx["element_ids"] == ["abcdef0123"]
     assert ctx["language"] == "en"
     assert ctx["source_path"].endswith("3. Python's Statistical Toolbox.html")
     assert ctx["relevance"] == pytest.approx(0.95)

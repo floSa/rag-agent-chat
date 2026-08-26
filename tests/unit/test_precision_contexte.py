@@ -1,0 +1,421 @@
+"""La précision du contexte remis au LLM.
+
+Le rappel et le MRR mesurent le CLASSEMENT. La reconstruction par le graphe ne le
+change pas : elle change la COMPOSITION du contexte. Mesurer « avec / sans
+graphe » sur le rappel afficherait donc « aucun changement » sur le pari central
+du projet, et cette conclusion serait un artefact de l'instrument.
+
+Chaque métrique ajoutée a ici un test qui la fait **RÉGRESSER** sur une entrée
+construite pour la dégrader. Un test qui vérifie qu'un chiffre se calcule est
+vert des deux côtés du défaut ; seul un test qui le fait baisser montre qu'il
+mesure quelque chose.
+
+Les trois pièges du dénominateur — candidates au lieu de retenues, sections
+écartées comptées comme du bruit, questions sans or moyennées avec les autres —
+ont chacun leur test, parce que chacun rendrait la métrique verte sur un
+instrument cassé.
+"""
+
+import importlib.util
+import pathlib
+
+import pytest
+from fastapi.testclient import TestClient
+
+from src.api.schemas import SectionContext
+
+_RACINE = pathlib.Path(__file__).resolve().parents[2]
+_SCRIPT = _RACINE / "scripts" / "evaluate.py"
+
+OR = "aaaaaaaaa1"
+AUTRE_OR = "aaaaaaaaa2"
+
+
+def _evaluate():
+    """Charge scripts/evaluate.py sans faire de `scripts/` un paquet."""
+    spec = importlib.util.spec_from_file_location("evaluate", _SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _contexte(
+    section: str,
+    element_ids: list[str],
+    caracteres: int = 100,
+    retained: bool = True,
+) -> dict:
+    """Une section telle que `/answer` la rend, réduite à ce qui est mesuré."""
+    return {
+        "section_id": section,
+        "element_id": element_ids[0],
+        "element_ids": element_ids,
+        "retained": retained,
+        "text": "x" * caracteres,
+    }
+
+
+# ─── taux_contexte_utile : la part des sections payées qui servent ───────────
+
+def test_le_taux_vaut_un_sur_un_contexte_net() -> None:
+    """Le point de départ : une seule section, et elle porte l'or."""
+    mesure = _evaluate().precision_contexte({OR}, [_contexte("s1", [OR])])
+
+    assert mesure["taux_contexte_utile"] == 1.0
+    assert mesure["rappel_contexte"] == 1.0
+
+
+def test_un_or_noye_dans_neuf_sections_inutiles_fait_chuter_le_taux() -> None:
+    """**Le test qui fait régresser la métrique.**
+
+    Ces deux réponses ont le MÊME rappel : l'or a atteint le LLM dans les deux
+    cas. Aujourd'hui elles rendent le même chiffre, et c'est précisément le
+    défaut — une question dont l'or est trouvé mais noyé dans neuf sections
+    inutiles n'est pas le même succès qu'une question dont le contexte est net.
+    """
+    evaluate = _evaluate()
+    net = evaluate.precision_contexte({OR}, [_contexte("s1", [OR])])
+    noye = evaluate.precision_contexte(
+        {OR},
+        [_contexte("s1", [OR]), *(_contexte(f"s{i}", [f"bbbbbbbbb{i}"]) for i in range(2, 11))],
+    )
+
+    assert net["rappel_contexte"] == noye["rappel_contexte"] == 1.0
+    assert noye["taux_contexte_utile"] == pytest.approx(0.1)
+    assert noye["taux_contexte_utile"] < net["taux_contexte_utile"]
+
+
+# ─── part_utile_caracteres : la part des tokens payés qui servent ────────────
+
+def test_la_part_utile_chute_quand_le_contexte_inutile_grossit() -> None:
+    """**Le test qui fait régresser la métrique qui porte le lot.**
+
+    Même nombre de sections, même rappel, même or : seule la TAILLE du contexte
+    inutile change. `taux_contexte_utile` ne bouge pas — il compte des sections —
+    là où la part de caractères s'effondre. C'est ce qui coûte des tokens.
+    """
+    evaluate = _evaluate()
+    serre = evaluate.precision_contexte(
+        {OR}, [_contexte("s1", [OR], 100), _contexte("s2", ["bbbbbbbbb2"], 100)]
+    )
+    large = evaluate.precision_contexte(
+        {OR}, [_contexte("s1", [OR], 100), _contexte("s2", ["bbbbbbbbb2"], 900)]
+    )
+
+    assert serre["taux_contexte_utile"] == large["taux_contexte_utile"] == 0.5
+    assert serre["part_utile_caracteres"] == pytest.approx(0.5)
+    assert large["part_utile_caracteres"] == pytest.approx(0.1)
+    assert large["part_utile_caracteres"] < serre["part_utile_caracteres"]
+
+
+def test_une_fenetre_qui_double_le_contexte_pour_le_meme_or_double_le_cout() -> None:
+    """La borne de `part_utile_caracteres`, écrite parce qu'elle compte.
+
+    La métrique raisonne à la SECTION : élargir la fenêtre **à l'intérieur** de
+    la section qui porte l'or ne la fait pas bouger — tous ces caractères
+    appartiennent à une section utile. Elle expose « trop de sections », pas
+    « fenêtre trop large ».
+
+    Ce que l'ablation de la taille de fenêtre lit, c'est donc le COUPLE :
+    `caracteres_retenus` double pendant que `rappel_contexte` reste plat. Même
+    or, deux fois le prix. Sans ce test, quelqu'un lirait un
+    `part_utile_caracteres` stable comme « la fenêtre ne coûte rien ».
+    """
+    evaluate = _evaluate()
+    etroite = evaluate.precision_contexte({OR}, [_contexte("s1", [OR, "bbbbbbbbb1"], 500)])
+    large = evaluate.precision_contexte(
+        {OR}, [_contexte("s1", [OR, "bbbbbbbbb1", "bbbbbbbbb2"], 1000)]
+    )
+
+    assert etroite["part_utile_caracteres"] == large["part_utile_caracteres"] == 1.0
+    assert etroite["rappel_contexte"] == large["rappel_contexte"] == 1.0
+    assert large["caracteres_retenus"] == 2 * etroite["caracteres_retenus"]
+
+
+# ─── Le dénominateur : ce qui a été PAYÉ ─────────────────────────────────────
+
+def test_une_section_ecartee_n_entre_ni_au_numerateur_ni_au_denominateur() -> None:
+    """**Le piège du dénominateur, et le test qui l'attrape.**
+
+    Une section écartée faute de place dans la fenêtre n'est pas un contexte
+    inutile : c'est un contexte NON PAYÉ. La compter ferait chuter la métrique au
+    moment précis où le budget fait son travail — soit l'inverse de ce qu'on
+    veut lire.
+
+    Sur ce montage, un dénominateur pris sur les candidates rendrait 0,25.
+    """
+    mesure = _evaluate().precision_contexte(
+        {OR},
+        [
+            _contexte("s1", [OR]),
+            *(_contexte(f"s{i}", [f"bbbbbbbbb{i}"], retained=False) for i in range(2, 5)),
+        ],
+    )
+
+    assert mesure["contextes_retenus"] == 1
+    assert mesure["taux_contexte_utile"] == 1.0
+    assert mesure["part_utile_caracteres"] == 1.0
+
+
+def test_une_section_ecartee_qui_portait_l_or_ne_compte_pas_comme_arrivee() -> None:
+    """Le pendant : écartée, elle n'a pas atteint le LLM. Le rappel au contexte
+    doit valoir zéro — c'est exactement l'échec « trouvé puis écarté », qui
+    n'est pas le même que « jamais trouvé »."""
+    mesure = _evaluate().precision_contexte(
+        {OR}, [_contexte("s1", [OR], retained=False), _contexte("s2", ["bbbbbbbbb2"])]
+    )
+
+    assert mesure["rappel_contexte"] == 0.0
+    assert mesure["taux_contexte_utile"] == 0.0
+
+
+def test_un_service_qui_ne_publie_pas_les_retenues_ne_rend_aucune_precision() -> None:
+    """Sans le champ, on ne sait pas ce qui a été payé. Rendre la métrique
+    calculée sur les candidates serait pire que ne rien rendre : le chiffre
+    s'afficherait, plausible, et mesurerait une intention."""
+    sans_champ = [{"section_id": "s1", "element_id": OR, "element_ids": [OR], "text": "x" * 100}]
+
+    mesure = _evaluate().precision_contexte({OR}, sans_champ)
+
+    assert mesure["contextes_retenus"] == 0
+    assert mesure["taux_contexte_utile"] is None
+    assert mesure["part_utile_caracteres"] is None
+
+
+# ─── Les questions sans or ────────────────────────────────────────────────────
+
+def test_une_question_sans_or_est_exclue_des_trois_metriques() -> None:
+    """Sur une `unanswerable`, la part utile vaut 0/N par construction. La
+    moyenner avec les autres ferait baisser le chiffre sans qu'aucune dégradation
+    n'ait eu lieu — les huit questions du jeu doré en relèvent."""
+    mesure = _evaluate().precision_contexte(set(), [_contexte("s1", ["bbbbbbbbb1"])])
+
+    assert mesure["taux_contexte_utile"] is None
+    assert mesure["part_utile_caracteres"] is None
+    assert mesure["rappel_contexte"] is None
+    # Le dénominateur reste publié : c'est le coût en caractères d'une réponse
+    # que le corpus ne portait pas, et il n'y a aucune raison de le perdre.
+    assert mesure["contextes_retenus"] == 1
+
+
+def test_le_resume_dit_sur_combien_de_questions_la_precision_porte() -> None:
+    """Une métrique dont on ne sait pas sur combien de questions elle porte n'est
+    pas lisible, et une moyenne qui a perdu la moitié du jeu ne se distingue pas
+    d'une moyenne saine."""
+    evaluate = _evaluate()
+    lignes = [
+        evaluate.evaluer(
+            {"id": "G-001", "gold_element_ids": [OR], "language": "fr", "doc_language": "fr"},
+            {"contexts": [_contexte("s1", [OR])], "citations": [], "answer": "r"},
+        ),
+        evaluate.evaluer(
+            {"id": "N-001", "unanswerable": True, "language": "fr", "doc_language": "fr"},
+            {"contexts": [_contexte("s2", ["bbbbbbbbb2"])], "citations": [], "answer": "r"},
+        ),
+        evaluate.evaluer(
+            {"id": "G-002", "gold_element_ids": [OR], "language": "fr", "doc_language": "fr"},
+            {"contexts": [_contexte("s3", [OR], retained=False)], "citations": [], "answer": "r"},
+        ),
+    ]
+
+    resume = evaluate.resumer(lignes)
+
+    assert resume["precision_contexte_sur"] == 1
+    assert resume["precision_contexte_exclues_sans_or"] == 1
+    assert resume["precision_contexte_exclues_sans_retenue"] == 1
+    # Les trois buckets couvrent le jeu : aucune question ne disparaît en
+    # silence entre « comptée » et « exclue ».
+    assert (
+        resume["precision_contexte_sur"]
+        + resume["precision_contexte_exclues_sans_or"]
+        + resume["precision_contexte_exclues_sans_retenue"]
+        == resume["questions"]
+    )
+
+
+# ─── Le rappel au contexte, là où la fenêtre du graphe se voit ───────────────
+
+def test_l_or_ramene_par_la_fenetre_sans_avoir_ete_trouve_compte() -> None:
+    """C'est la valeur que le graphe prétend apporter, et elle était invisible.
+
+    `rappel_elements` se mesure sur la GRAINE du retrieval : un élément d'or
+    ramené par la fenêtre de la section — sans avoir été classé — y compte pour
+    zéro alors qu'il a bel et bien atteint le LLM. `rappel_contexte` lit les
+    marqueurs du texte payé, donc il le voit.
+    """
+    mesure = _evaluate().precision_contexte(
+        # La graine est `bbbbbbbbb1` ; l'or est un voisin dans la même section.
+        {OR}, [_contexte("s1", ["bbbbbbbbb1", OR])]
+    )
+
+    assert mesure["rappel_contexte"] == 1.0
+    assert mesure["taux_contexte_utile"] == 1.0
+
+
+def test_un_or_sur_deux_dans_le_contexte_rend_un_demi() -> None:
+    """Le rappel est une part, pas un booléen : deux éléments d'or attendus dont
+    un seul arrive n'est pas un succès entier."""
+    mesure = _evaluate().precision_contexte({OR, AUTRE_OR}, [_contexte("s1", [OR])])
+
+    assert mesure["rappel_contexte"] == pytest.approx(0.5)
+    assert mesure["taux_contexte_utile"] == 1.0
+
+
+def test_sans_aucune_section_retenue_le_rappel_est_zero_et_la_precision_indefinie() -> None:
+    """Un budget qui a tout écarté : l'or n'a rien atteint (rappel nul), mais
+    aucune précision n'est définissable — il n'y a pas de dénominateur. Rendre
+    zéro serait affirmer qu'un contexte inutile a été payé."""
+    mesure = _evaluate().precision_contexte({OR}, [_contexte("s1", [OR], retained=False)])
+
+    assert mesure["rappel_contexte"] == 0.0
+    assert mesure["taux_contexte_utile"] is None
+    assert mesure["part_utile_caracteres"] is None
+    assert mesure["caracteres_retenus"] == 0
+
+
+# ─── La chaîne réelle : ce que /answer rend vraiment ─────────────────────────
+
+QUESTION = "Comment mesurer la dispersion ?"
+
+
+def _flux_ollama_minimal():
+    import json as _json
+
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        async def aiter_lines(self):
+            yield _json.dumps({"message": {"content": "Une réponse."}})
+            yield _json.dumps({"message": {"content": ""}, "done": True})
+
+    class Stream:
+        async def __aenter__(self):
+            return Resp()
+
+        async def __aexit__(self, *_):
+            return False
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        def stream(self, *_args, **_kwargs):
+            return Stream()
+
+    return lambda **_kwargs: Client()
+
+
+def _grosses_sections(nombre: int, taille: int) -> list[SectionContext]:
+    return [
+        SectionContext(
+            element_id=f"abcdef01{i:02d}",
+            section_id=f"sssssssss{i}",
+            breadcrumbs=[],
+            elements=[],
+            markdown=f"Section {i}. " + "x" * taille + f" [src:abcdef01{i:02d}]",
+        )
+        for i in range(nombre)
+    ]
+
+
+def _client_sur(contextes: list[SectionContext], monkeypatch) -> TestClient:
+    """`/answer` avec le VRAI node_generate : seule la couche HTTP est simulée.
+
+    Le budget est celui du vrai `fit_prompt`, donc c'est bien lui qui décide de
+    ce qui est retenu — un stub qui souffle la réponse ne prouverait rien de la
+    chaîne `on_fit` → état → endpoint.
+    """
+    from src.agent import graph as graph_module
+    from src.agent import llm
+    from src.api import main
+
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_ollama_minimal())
+
+    async def fake_ainvoke(state, _config=None):
+        etat = {**state, "enriched_contexts": contextes, "search_count": 0, "_metadata": {}}
+        return {
+            "reranked_chunks": [],
+            "enriched_contexts": contextes,
+            "citations": [],
+            "images": [],
+            **await graph_module.node_generate(etat),
+        }
+
+    monkeypatch.setattr(main.answer_graph, "ainvoke", fake_ainvoke)
+    return TestClient(main.app)
+
+
+def test_answer_rend_les_candidates_ecartees_et_les_marque(monkeypatch) -> None:
+    """**Ce que `/answer` rend réellement dans `contexts`, vérifié.**
+
+    Il rend TOUTES les sections reconstruites, y compris celles que le budget a
+    écartées — et jusqu'à ce lot, sans rien qui les distingue et avec leur texte
+    ENTIER, jamais celui qui est parti. Une campagne qui comptait `contexts`
+    comptait donc des sections non payées.
+
+    Elles restent dans la réponse — savoir ce qui a été reconstruit pour rien a
+    de la valeur — mais `retained` les nomme, et le compte doit s'accorder avec
+    `dropped_contexts`, qui vient du même `PromptFit`.
+    """
+    from src.agent.llm import fit_prompt
+
+    contextes = _grosses_sections(6, 4000)
+    attendu = fit_prompt(QUESTION, contextes, []).dropped_contexts
+    assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
+
+    body = _client_sur(contextes, monkeypatch).post(
+        "/answer", json={"question": QUESTION}
+    ).json()
+
+    assert len(body["contexts"]) == 6
+    assert body["dropped_contexts"] == attendu
+    retenues = [c for c in body["contexts"] if c["retained"]]
+    assert len(retenues) == 6 - attendu
+    # L'invariant : les deux chiffres viennent du même budget et ne peuvent pas
+    # se contredire.
+    assert len(retenues) + body["dropped_contexts"] == len(body["contexts"])
+
+
+def test_le_texte_publie_est_celui_qui_est_parti_troncature_comprise(monkeypatch) -> None:
+    """Une source unique trop grosse est retenue mais TRONQUÉE. Publier son
+    markdown entier surestimerait les caractères payés — et `part_utile_
+    caracteres` est un rapport de caractères."""
+    from src.agent.llm import _TRUNCATION_MARKER, fit_prompt
+
+    contextes = _grosses_sections(1, 40_000)
+    fit = fit_prompt(QUESTION, contextes, [])
+    assert len(fit.contexts[0].markdown) < len(contextes[0].markdown)
+
+    body = _client_sur(contextes, monkeypatch).post(
+        "/answer", json={"question": QUESTION}
+    ).json()
+    ctx = body["contexts"][0]
+
+    assert ctx["retained"] is True
+    assert ctx["text"] == fit.contexts[0].markdown
+    assert ctx["text"].endswith(_TRUNCATION_MARKER)
+    assert len(ctx["text"]) < len(contextes[0].markdown)
+
+
+def test_les_element_ids_publies_sont_ceux_du_texte_soumis(monkeypatch) -> None:
+    """Les marqueurs du texte réellement envoyé, pas les éléments de la section.
+
+    La troncature coupe à une frontière de marqueur : des éléments de la section
+    restent donc listés par le modèle `SectionContext` sans être dans le texte
+    parti. Lire le texte est la seule lecture qui ne surestime pas ce qui a
+    atteint le LLM.
+    """
+    contextes = _grosses_sections(2, 200)
+
+    body = _client_sur(contextes, monkeypatch).post(
+        "/answer", json={"question": QUESTION}
+    ).json()
+
+    assert [c["element_ids"] for c in body["contexts"]] == [
+        ["abcdef0100"],
+        ["abcdef0101"],
+    ]

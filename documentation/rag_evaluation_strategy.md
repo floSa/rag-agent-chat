@@ -46,11 +46,77 @@ Le script interroge `POST /answer` sur le jeu doré et calcule :
 | `rappel_documents` | Le bon document remonte-t-il ? Plus permissif. | oui |
 | `taux_citation_complete` | Chaque citation nomme-t-elle son document et situe-t-elle le passage ? | oui |
 | `abstention_correcte` | Le système admet-il son ignorance quand le corpus est muet ? | oui |
+| `taux_contexte_utile` | Parmi les sections PAYÉES, quelle part porte un élément d'or ? | oui |
+| `part_utile_caracteres` | Parmi les caractères PAYÉS, quelle part appartient à une section qui porte un élément d'or ? | oui |
+| `rappel_contexte` | L'élément d'or est-il dans le contexte réellement soumis, fenêtre du graphe comprise ? | oui |
 | `timings` | Quel étage coûte le temps ? Huit étages, plus le résidu — cf. § La décomposition du temps | oui |
 | `contextes_ecartes` | Combien de sources n'ont pas tenu dans la fenêtre ? | oui |
 
 Les résultats sont **stratifiés par langue**. Le corpus mêle français et
 anglais : une moyenne globale masquerait un écart entre les deux.
+
+## La précision du contexte
+
+**Le rappel et le MRR mesurent le CLASSEMENT, et la reconstruction par le graphe
+ne le change pas.** Elle change la COMPOSITION du contexte remis au LLM : une
+fenêtre de ±6 éléments dans la section, ±3 dans les sections voisines, plus la
+relecture du texte intégral depuis ChromaDB. Le rappel et le MRR sont donc
+insensibles à une ablation du graphe **par construction** — mesurer « avec / sans
+graphe » sur eux afficherait « aucun changement » sur le pari central du projet,
+et cette conclusion serait un artefact de l'instrument, pas un résultat.
+
+Trois métriques comblent le trou. Leur dénominateur est ce qui les rend justes,
+et il vaut d'être écrit en entier.
+
+| Métrique | Définition exacte |
+|---|---|
+| `taux_contexte_utile` | Sections retenues portant un élément d'or ÷ sections retenues |
+| `part_utile_caracteres` | Caractères des sections retenues portant un élément d'or ÷ caractères des sections retenues |
+| `rappel_contexte` | Éléments d'or présents dans les sections retenues ÷ éléments d'or attendus |
+
+**Le dénominateur, ce sont les sources RETENUES**, après la troncature de
+`fit_prompt` — pas les candidates. Une métrique calculée sur ce qui a été
+*proposé* mesure une intention ; celle qui compte mesure ce qui a été **payé en
+tokens**. `/answer` rend les deux : `contexts` liste toutes les sections
+reconstruites, et `retained` dit lesquelles sont parties. Le texte publié est
+celui qui est parti, troncature comprise.
+
+**Une section écartée n'entre ni au numérateur ni au dénominateur.** Faute de
+place dans la fenêtre, elle n'est pas un contexte inutile : c'est un contexte
+**non payé**. La compter comme du bruit ferait chuter la métrique au moment
+précis où le budget fait son travail.
+
+**Les huit questions sans or sont exclues.** Sur une `unanswerable`, la part
+utile vaut 0/N par construction ; la moyenner ferait baisser le chiffre sans
+qu'aucune dégradation n'ait eu lieu. Le résumé publie trois compteurs —
+`precision_contexte_sur`, `..._exclues_sans_or`, `..._exclues_sans_retenue` —
+dont la somme égale le nombre de questions. Une métrique dont on ne sait pas sur
+combien de questions elle porte n'est pas lisible.
+
+### Ce que `rappel_contexte` voit et que `rappel_elements` ne voit pas
+
+`rappel_elements` se mesure sur la **graine** du retrieval : les `element_id` que
+la recherche a classés. Un élément d'or ramené par la fenêtre de la section —
+sans avoir jamais été classé — y compte pour zéro, alors qu'il a bel et bien
+atteint le LLM. C'est exactement la valeur que le graphe prétend apporter, et
+elle était invisible.
+
+`rappel_contexte` lit les marqueurs `[src:ID]` et `[img:ID]` du texte payé, donc
+il la voit. Les deux ne se remplacent pas : l'écart entre eux **est** l'apport de
+la reconstruction.
+
+### La borne de `part_utile_caracteres`, et comment lire la taille de fenêtre
+
+La métrique raisonne à la SECTION. Élargir la fenêtre *à l'intérieur* de la
+section qui porte l'or ne la fait donc pas bouger — tous ces caractères
+appartiennent à une section utile. Elle expose « trop de **sections** »
+(`AUTO_SELECT_TOP_K`, `RERANK_TOP_K`), pas « fenêtre trop **large** »
+(`CONTEXT_WINDOW_*`, `ADJACENT_SECTION_ELEMENTS`).
+
+Ce que l'ablation de la taille de fenêtre lit, c'est le **couple** :
+`caracteres_retenus` (p50 et p95) qui double pendant que `rappel_contexte` reste
+plat. Même or, deux fois le prix. Un test épingle cette borne, pour que personne
+ne lise un `part_utile_caracteres` stable comme « la fenêtre ne coûte rien ».
 
 ## La décomposition du temps
 
