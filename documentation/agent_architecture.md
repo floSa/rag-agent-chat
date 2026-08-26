@@ -169,22 +169,41 @@ par `GET /health` sous `sessions`.
 
 ### État de l'agent (`AgentState`)
 
+Recopié de `src/agent/state.py`, qui fait foi. L'extrait avait divergé : il
+omettait la question réécrite, sa traduction, les deux bornes de sélection et le
+nombre de sources écartées.
+
 ```python
 class AgentState(TypedDict):
     question: str
     chat_history: list[Message]
-    retrieved_chunks: list[RetrievedChunk]
-    reranked_chunks: list[RetrievedChunk]
-    selected_element_ids: list[str]
-    enriched_contexts: list[SectionContext]
+    search_query: str | None            # question rendue autonome
+    search_translation: str | None      # la même dans l'autre langue du corpus
+    retrieved_chunks: list[ChunkResult]
+    reranked_chunks: list[ChunkResult]
+    selected_element_ids: list[str]     # sélection humaine, vide pour /answer
+    max_sources: int | None             # None = AUTO_SELECT_TOP_K
+    top_k: int | None                   # None = RETRIEVAL_TOP_K
+    enriched_contexts: list[SectionContext]   # sections CANDIDATES
+    submitted_contexts: list[SectionContext]  # celles que le budget a retenues
     response: str
     citations: list[Citation]
     images: list[ImageRef]
     search_count: int
     needs_more_info: bool
     next_query: str | None
-    _metadata: dict
+    dropped_contexts: int               # écartées par le budget de fenêtre
+    generation_measure: PromptMeasure | None  # décomptes réels d'Ollama
+    _metadata: dict                     # chronométrage par étage
 ```
+
+Deux champs demandent un mot, parce qu'ils existent pour la MESURE et non pour la
+réponse. `enriched_contexts` porte les sections reconstruites, `submitted_contexts`
+celles que `fit_prompt` a réellement retenues — tronquées si elles l'ont été. Une
+métrique de précision du contexte calculée sur les premières mesure une intention ;
+celle qui compte mesure ce qui a été payé en tokens. `generation_measure` porte les
+décomptes de tokens rendus par le serveur d'inférence : ils ne sortaient qu'en
+journal, donc personne ne les avait jamais observés.
 
 ---
 
@@ -380,7 +399,7 @@ frontend (attend agent-api healthy)
 | POST    | `/search`                | Retrieval brut ChromaDB (sans reranking)             |
 | POST    | `/sources`               | Retrieval + reranking + groupement par document      |
 | GET     | `/context/{element_id}`  | Contexte enrichi NebulaGraph (breadcrumbs + section) |
-| POST    | `/answer`                | Question → réponse sans sélection humaine. Expose le classement, les passages soumis et les temps par étage : c'est le point d'entrée de la campagne d'évaluation |
+| POST    | `/answer`                | Question → réponse sans sélection humaine. Expose le classement, les sections reconstruites — `retained` distinguant celles qui sont réellement parties au LLM —, la partition du temps par étage (résidu compris) et les décomptes de tokens du serveur d'inférence : c'est le point d'entrée de la campagne d'évaluation |
 | POST    | `/chat/simple`           | Génération directe sans LangGraph (SSE optionnel)   |
 | POST    | `/chat/start`            | Démarre session agentique → interrupt source selection |
 | POST    | `/chat/resume`           | Reprend après sélection sources → génération        |

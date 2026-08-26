@@ -89,7 +89,7 @@ docker compose up -d --build
 | `POST` | `/search` | Retrieval brut ChromaDB, sans reranking. |
 | `POST` | `/sources` | Retrieval + reranking + groupement par document. |
 | `GET` | `/context/{element_id}` | Reconstruction du contexte enrichi d'un élément. |
-| `POST` | `/answer` | Question → réponse, sans sélection humaine. Retourne aussi les passages soumis au LLM et les temps par étage : c'est le point d'entrée évaluable. |
+| `POST` | `/answer` | Question → réponse, sans sélection humaine. Retourne aussi les sections reconstruites — en distinguant celles qui sont réellement parties au LLM de celles que le budget a écartées —, la partition du temps par étage et les décomptes de tokens du serveur : c'est le point d'entrée évaluable. |
 | `POST` | `/chat/start` | Démarre le flux LangGraph, suspend en attente de sélection. |
 | `POST` | `/chat/resume` | Reprend après sélection des sources (réponse en SSE). |
 | `POST` | `/chat/simple` | Génération directe sans boucle agentique. |
