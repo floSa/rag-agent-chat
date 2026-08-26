@@ -66,6 +66,13 @@ pas cosmétique, **toute lecture des décochages doit filtrer dessus** :
 | `answer` | `/answer` | automatique (`AUTO_SELECT_TOP_K`) | oui |
 | `chat_simple` | `/chat/simple` | faite par le client en amont | non — rien n'a été proposé |
 
+`/chat/simple` **rend son `thread_id`** — dans l'événement final en SSE, dans
+`ChatResponse` sinon. C'est la seule route qui en crée un que l'appelant ne
+connaît pas : sans lui, ses interactions seraient enregistrées puis muettes,
+jamais notables par `/feedback`, et l'usage « jeu doré réel » les exclurait en
+silence. `/answer` n'en rend pas, et c'est différent : personne n'est là pour
+noter une question de campagne.
+
 `/answer` est capturé parce qu'il permet de comparer une campagne à l'usage
 réel. Conséquence à connaître : **une campagne `make eval` écrit 138
 interactions**, toutes en `endpoint = 'answer'`. Sans le filtre, elles noient
@@ -297,7 +304,8 @@ curl -X POST http://localhost:8011/feedback \
 
 Le rating est **binaire** et pas une échelle : personne ne remplit une échelle,
 et un 3/5 ne se lit pas. Deux boutons dans la phase de réponse du frontend
-écrivent dessus. Un `thread_id` inconnu rend 404 ; la capture désactivée rend
+écrivent dessus. Le `thread_id` vient de `/chat/start` sur le flux interactif,
+et de la réponse de `/chat/simple` sur la génération directe. Un `thread_id` inconnu rend 404 ; la capture désactivée rend
 200 avec `recorded: false` — ce n'est pas une erreur du client.
 
 ## Le coût

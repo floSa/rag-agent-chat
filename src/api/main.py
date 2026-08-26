@@ -281,6 +281,9 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
                     {
                         "done": True,
                         "answer": reponse,
+                        # Rendu au client pour qu'il puisse noter la réponse :
+                        # c'est le seul endroit où il apprend ce thread_id.
+                        "thread_id": thread_id,
                         "citations": [c.model_dump() for c in citations],
                         "images": [i.model_dump() for i in images],
                     }
@@ -305,7 +308,13 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     await _capturer_generation_directe(
         thread_id, req.question, response, citations, images, contexts
     )
-    return ChatResponse(answer=response, citations=citations, images=images, search_count=1)
+    return ChatResponse(
+        answer=response,
+        citations=citations,
+        images=images,
+        search_count=1,
+        thread_id=thread_id,
+    )
 
 
 # ─── Réponse directe, sans sélection humaine ──────────────────────────────────

@@ -221,6 +221,12 @@ class ChatResponse(BaseModel):
     citations: list[Citation]
     images: list[ImageRef]
     search_count: int
+    # Renseigné par /chat/simple, seule route qui crée un thread_id que
+    # l'appelant ne connaît pas. Sans lui, une génération directe ne peut
+    # jamais être notée par /feedback : l'interaction est enregistrée, et
+    # l'usage « jeu doré réel » l'exclut en silence. /chat/resume le laisse
+    # vide — son appelant vient de le fournir.
+    thread_id: str = ""
 
 
 class AnswerRequest(BaseModel):

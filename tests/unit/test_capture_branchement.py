@@ -333,6 +333,51 @@ def test_chat_simple_est_capture_sans_source_proposee(client, base) -> None:
     assert _lire(base, "SELECT COUNT(*) n FROM sources_proposees")[0]["n"] == 0
 
 
+def test_chat_simple_rend_son_thread_id_pour_qu_on_puisse_le_noter(client, base) -> None:
+    """Sans cet identifiant, une génération directe est enregistrée puis muette.
+
+    C'est la seule route qui crée un thread_id que l'appelant ne connaît pas :
+    ne pas le rendre excluait ses interactions de l'usage « jeu doré réel »,
+    sans que rien ne le signale.
+    """
+    evenements = _flux(
+        client,
+        "/chat/simple",
+        {"question": "Et pour les femmes ?", "selected_element_ids": ["abcdef0123"]},
+    )
+    final = [e for e in evenements if e.get("done")][-1]
+
+    assert final["thread_id"], "le client ne peut pas noter ce qu'il ne peut pas nommer"
+    assert client.post(
+        "/feedback", json={"thread_id": final["thread_id"], "rating": "utile"}
+    ).json() == {"recorded": True, "detail": ""}
+    assert _lire(base, "SELECT rating FROM interactions WHERE thread_id = ?",
+                 final["thread_id"])[0]["rating"] == "utile"
+
+
+def test_chat_simple_hors_flux_rend_aussi_son_thread_id(client, base, monkeypatch) -> None:
+    """Même route, réponse non diffusée : le champ doit y être aussi."""
+    from src.agent import llm as llm_module
+
+    async def generation(*_args, **_kwargs):
+        return "La dispersion se mesure [src:abcdef0123]."
+
+    monkeypatch.setattr(llm_module, "generate", generation)
+
+    corps = client.post(
+        "/chat/simple",
+        json={
+            "question": "q",
+            "selected_element_ids": ["abcdef0123"],
+            "stream": False,
+        },
+    ).json()
+
+    assert corps["thread_id"]
+    assert _lire(base, "SELECT question FROM interactions WHERE thread_id = ?",
+                 corps["thread_id"])[0]["question"] == "q"
+
+
 # ─── La panne ─────────────────────────────────────────────────────────────────
 
 def test_une_base_en_echec_ne_casse_ni_start_ni_resume(client, base, monkeypatch) -> None:
