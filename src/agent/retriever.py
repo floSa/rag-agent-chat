@@ -63,6 +63,12 @@ _lexical_index = LexicalIndex()
 # constatent la même dérive ne doivent pas lancer deux parcours du corpus.
 _reconstruction: threading.Thread | None = None
 _verrou_reconstruction = threading.Lock()
+# Une reconstruction à la fois, tous appelants confondus. Distinct du verrou de
+# `LexicalIndex` : celui-ci sérialise les constructions, celui-là les FUSIONNE.
+# Sans lui, N appels à POST /reindex produisaient N parcours du corpus
+# sérialisés, chacun occupant un fil du threadpool FastAPI pendant ~9 secondes —
+# donc affamant les endpoints de recherche, qui vivent dans le même threadpool.
+_verrou_reindexation = threading.Lock()
 
 
 def _charger_corpus() -> tuple[list[str], list[str]]:
@@ -142,12 +148,25 @@ def rebuild_lexical_index() -> int:
     """Reconstruit l'index de force sur le corpus courant, et rend sa taille.
 
     Sert `POST /reindex` et la reconstruction de fond. `force` traverse le test
-    « déjà prêt » d'`ensure` sans contourner son verrou : deux réindexations
-    simultanées restent sérialisées, et une recherche concurrente continue de
-    lire l'ancien index jusqu'à ce que le nouveau le remplace d'un bloc.
+    « déjà prêt » d'`ensure` sans contourner son verrou : une recherche
+    concurrente continue de lire l'ancien index jusqu'à ce que le nouveau le
+    remplace d'un bloc.
+
+    Les appels concurrents sont **fusionnés** et non sérialisés : celui qui
+    arrive pendant une reconstruction attend son issue et rend sa taille, au lieu
+    d'en enchaîner une seconde sur le même corpus. C'est ce qui distingue ce
+    verrou de celui de `LexicalIndex` — sans lui, un appelant qui répète
+    `POST /reindex` mobilise un fil du threadpool FastAPI par appel, pendant
+    ~9 secondes chacun, et les endpoints de recherche partagent ce threadpool.
     """
-    _lexical_index.ensure(_charger_corpus, force=True)
-    return _lexical_index.size
+    if not _verrou_reindexation.acquire(blocking=False):
+        with _verrou_reindexation:
+            return _lexical_index.size
+    try:
+        _lexical_index.ensure(_charger_corpus, force=True)
+        return _lexical_index.size
+    finally:
+        _verrou_reindexation.release()
 
 
 def _planifier_reconstruction() -> None:

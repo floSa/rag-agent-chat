@@ -250,3 +250,30 @@ def test_un_index_reconstruit_ne_rend_jamais_un_identifiant_de_l_ancien(collecti
     retriever.rebuild_lexical_index()
 
     assert [c for c, _ in retriever._lexical_index.search("ISO 27001", 5)] == ["z9"]
+
+
+def test_des_reindexations_concurrentes_sont_fusionnees(collection) -> None:
+    """Répéter `POST /reindex` ne doit pas enchaîner N parcours du corpus.
+
+    Le verrou de `LexicalIndex` sérialise les constructions ; il ne les fusionne
+    pas. Six appels simultanés produisaient donc six parcours à la queue leu leu,
+    chacun mobilisant un fil du threadpool FastAPI pendant ~9 secondes — et les
+    endpoints de recherche vivent dans ce même threadpool.
+    """
+    retriever._lexical_search("ISO 27001", 5)
+    lectures_apres_construction = collection.lectures
+    collection.latence = 0.05
+    tailles: list[int] = []
+
+    fils = [
+        threading.Thread(target=lambda: tailles.append(retriever.rebuild_lexical_index()))
+        for _ in range(6)
+    ]
+    for fil in fils:
+        fil.start()
+    for fil in fils:
+        fil.join(timeout=20)
+
+    assert len(tailles) == 6, "les six appels doivent aboutir"  # noqa: PLR2004
+    assert set(tailles) == {len(CORPUS_INITIAL)}, "tous rendent la taille de l'index"
+    assert collection.lectures == lectures_apres_construction + 1

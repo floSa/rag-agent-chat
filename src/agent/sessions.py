@@ -194,7 +194,10 @@ def _candidats_memoire(maintenant: float) -> list[str]:
     """Sessions à purger dans le registre en mémoire (âge, puis nombre)."""
     limite = maintenant - settings.session_ttl_seconds
     perimees = [tid for tid, debut in _memoire.items() if debut < limite]
-    vivantes = [tid for tid in _memoire if tid not in set(perimees)]
+    deja_vues = set(perimees)
+    # `_memoire` est ordonné du plus ancien au plus récent : l'excédent est en
+    # tête, ce sont les plus vieilles qui sautent.
+    vivantes = [tid for tid in _memoire if tid not in deja_vues]
     excedent = vivantes[: max(0, len(vivantes) - settings.max_live_sessions)]
     return perimees + excedent
 

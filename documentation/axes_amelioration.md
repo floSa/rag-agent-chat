@@ -433,6 +433,14 @@ Deux réponses, qui ne font pas double emploi :
   affiche le même compte.** C'est écrit dans le docstring de la fonction, parce
   que c'est la limite qui justifie l'existence de `/reindex`.
 
+Les appels concurrents à `/reindex` sont **fusionnés** et non sérialisés : celui
+qui arrive pendant une reconstruction attend son issue et rend sa taille. Le
+verrou de `LexicalIndex` sérialise, il ne fusionne pas — six appels simultanés
+faisaient six parcours du corpus à la queue leu leu, chacun mobilisant un fil du
+threadpool FastAPI pendant ~9 secondes, et les endpoints de recherche partagent
+ce threadpool. Trouvé en relisant l'endpoint, mesuré par le test (`assert 7 ==
+2` sur les lectures du corpus avant correctif).
+
 La reconstruction déclenchée par le filet tourne dans un fil démon : ses
 ~9 secondes ne doivent pas être payées par la requête qui découvre la dérive, qui
 n'a pas participé à l'ingestion. L'index périmé continue de servir pendant ce
