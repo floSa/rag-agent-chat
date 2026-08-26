@@ -174,10 +174,13 @@ def test_start_et_resume_forment_un_seul_enregistrement(client, base) -> None:
     assert json.loads(complet["submitted_section_ids"]) == ["ssssssssaa"]
     assert complet["generation_ms"] is not None
     assert complet["config_hash"]
-    # Zéro mérité, pas zéro par défaut : la section reconstruite tient dans la
-    # fenêtre, `node_generate` l'a mesuré et l'état le porte. Avant le lot 1
-    # cette colonne restait NULL sur ce chemin, faute que l'état la porte.
-    assert complet["dropped_contexts"] == 0
+    # Ce montage remplace `generate_stream` en entier : `on_fit` n'est jamais
+    # appelé, et le zéro vient du repli de `node_generate`, pas d'une mesure.
+    # L'assertion ne dit donc qu'une chose — la colonne est ALIMENTÉE sur ce
+    # chemin, elle ne reste pas NULL. La valeur, elle, est vérifiée par
+    # `test_le_budget_ecarte_des_sources_et_la_colonne_le_porte`, seul test dont
+    # le montage fait tourner le vrai `fit_prompt`.
+    assert complet["dropped_contexts"] is not None
 
 
 def test_le_decochage_est_derivable_apres_le_flux_complet(client, base) -> None:
@@ -303,10 +306,10 @@ def test_answer_est_capture_avec_son_classement_et_ses_latences(client, base) ->
     assert ligne["completed_at"] is not None
     assert json.loads(ligne["ranked_element_ids"]) == [c.element_id for c in _CLASSEMENT]
     # Depuis le lot 1, /answer ne calcule plus ce nombre : il le lit dans l'état
-    # du graphe, où node_generate l'a publié. Zéro parce que la section tient,
-    # pas parce que personne n'a mesuré — le cas où elle ne tient pas est couvert
-    # plus bas, sur le flux interactif.
-    assert ligne["dropped_contexts"] == 0
+    # du graphe. Même réserve que sur le flux interactif : sous ce montage la
+    # valeur vient du repli de `node_generate`, donc seule sa PRÉSENCE est
+    # constatée ici. Le cas non trivial est plus bas.
+    assert ligne["dropped_contexts"] is not None
     assert _lire(base, "SELECT COUNT(*) n FROM sources_proposees")[0]["n"] == 3  # noqa: PLR2004
 
 

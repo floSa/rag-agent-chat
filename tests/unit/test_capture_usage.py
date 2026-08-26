@@ -17,6 +17,7 @@ import pathlib
 import sqlite3
 import subprocess
 import sys
+from datetime import UTC, datetime
 
 import pytest
 
@@ -187,16 +188,46 @@ async def test_l_enregistrement_couvre_les_deux_phases_jointes_par_thread_id(bas
     lignes = _lire(base, "SELECT * FROM interactions")
     assert len(lignes) == 1, "les deux phases sont un seul enregistrement"
     complet = lignes[0]
-    assert complet["completed_at"] is not None
+    # La VALEUR de l'horodatage, pas seulement sa présence : un « maintenant »
+    # cassé — chaîne vide, heure locale, format non trié — rendrait tout
+    # classement chronologique faux sans qu'aucune assertion ne bouge.
+    acheve = datetime.fromisoformat(complet["completed_at"])
+    assert acheve.tzinfo == UTC, "un horodatage sans fuseau ne se compare pas"
+    assert complet["completed_at"] >= ouverture["started_at"], (
+        "l'ordre ISO 8601 en UTC est l'ordre chronologique : c'est ce qui rend "
+        "ORDER BY started_at juste, et --since utilisable"
+    )
     assert complet["response"].startswith("La dispersion")
     assert json.loads(complet["citations"]) == ["aaaaaaaaa1"]
     assert json.loads(complet["images"]) == ["aaaaaaaaa9"]
     assert json.loads(complet["submitted_element_ids"]) == ["aaaaaaaaa1", "aaaaaaaaa2"]
     assert json.loads(complet["submitted_section_ids"]) == ["sssssssss1", "sssssssss2"]
     assert complet["dropped_contexts"] == 1
+    assert complet["search_count"] == 1
     assert (complet["retrieval_ms"], complet["rerank_ms"], complet["generation_ms"]) == (
         120, 340, 8400,
     )
+
+    # La ligne de source ENTIÈRE, comparée d'un bloc. Colonne par colonne, sept
+    # d'entre elles n'étaient gardées par rien : `rerank_score`, `page_no`,
+    # `language`, `collection`, `source_path` pouvaient cesser d'être écrites
+    # sans qu'un test bronche. Deux de ces sept cassent une requête documentée
+    # si elles régressent — `collection` et `source_path` portent le GROUP BY de
+    # la requête des décochages, qui s'effondrerait sur une seule ligne.
+    assert _lire(base, "SELECT * FROM sources_proposees WHERE rang = 1")[0] == {
+        "thread_id": "t-2phases",
+        "rang": 1,
+        "element_id": "aaaaaaaaa1",
+        "filename": "3. Statistical Toolbox",
+        "collection": "The Statistics Workshop",
+        "source_path": "htms/The Statistics Workshop/3. Statistical Toolbox.html",
+        "section_title": "Dispersion",
+        "language": "en",
+        "page_no": 88,
+        "relevance": 0.91,
+        "rerank_score": 3.0,
+        "retenue": 1,
+    }
 
 
 @pytest.mark.asyncio
