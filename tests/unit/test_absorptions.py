@@ -203,3 +203,206 @@ def test_une_source_illisible_est_annoncee_comme_ecartee(monkeypatch, caplog) ->
     assert resultat["enriched_contexts"] == []
     messages = [e.getMessage() for e in caplog.records if e.levelno >= logging.ERROR]
     assert any("écartée" in m and "abcdef0123" in m for m in messages)
+
+
+# ─── Un corps JSON VALIDE mais mal formé : la troisième classe de panne ───────
+
+# Quatre formes, quatre chemins distincts dans le parsing défensif — pas quatre
+# habillages du même. `{"message": null}` et `{"message": "…"}` échouent sur le
+# type de `message` ; `{"message": []}` aussi, mais par une branche différente du
+# `isinstance` ; un corps qui n'est pas un objet échoue avant d'avoir lu
+# `message`. Chacune est ce qu'un changement de version d'Ollama, un proxy, ou un
+# backend « compatible » peut produire.
+_CORPS_MAL_FORMES = [
+    pytest.param({"message": None}, id="message-null"),
+    pytest.param({"message": "une chaîne"}, id="message-chaine"),
+    pytest.param({"message": []}, id="message-liste"),
+    pytest.param(["pas", "un", "objet"], id="corps-non-objet"),
+]
+
+
+def _client_ollama(corps):
+    """Faux client httpx qui rend `corps` tel quel — JSON valide, forme libre."""
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        def json(self):
+            return corps
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        async def post(self, *_args, **_kwargs):
+            return Resp()
+
+    return lambda **_kwargs: Client()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("corps", _CORPS_MAL_FORMES)
+async def test_un_corps_json_mal_forme_rend_la_question_d_origine(monkeypatch, corps) -> None:
+    """`(httpx.HTTPError, ValueError)` ne couvrait pas ce cas, et il atteignait l'utilisateur.
+
+    Un corps qui EST du JSON valide sans avoir la forme attendue faisait lever
+    `AttributeError` à `.get("message", {}).get("content", "")`. `node_rewrite`
+    n'a aucun try/except : l'exception traversait le graphe jusqu'à la route.
+
+    Le correctif ne réélargit PAS l'absorption — cela ramènerait les erreurs de
+    programmation que le resserrement sert à faire remonter. Il nomme la forme
+    acceptée, et tout le reste devient une chaîne vide, que le garde-fou aval
+    convertit en « on garde la question d'origine ».
+    """
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _client_ollama(corps))
+
+    assert await llm.rewrite_question("Et pour les femmes ?", HISTORIQUE) == "Et pour les femmes ?"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("corps", _CORPS_MAL_FORMES)
+async def test_un_corps_json_mal_forme_ne_donne_aucune_traduction(monkeypatch, corps) -> None:
+    """Et surtout PAS une traduction vide.
+
+    À `TRANSLATION_WEIGHT=1.0`, une chaîne vide entrée dans la fusion RRF serait
+    strictement pire que le 500 : la recherche translinguistique ramènerait du
+    bruit sans que rien ne le signale. C'est le garde-fou aval qui l'empêche, et
+    c'est pour cela que le test asserte `None` et non « pas d'exception ».
+    """
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _client_ollama(corps))
+
+    assert await llm.translate_question("Question ?") is None
+
+
+@pytest.mark.asyncio
+async def test_un_content_non_textuel_ne_devient_pas_une_requete(monkeypatch) -> None:
+    """`{"message": {"content": null}}` : la forme est bonne jusqu'à la feuille.
+
+    Aucune exception ici, et c'est pire : `str(None)` rend la chaîne « None »,
+    longue de quatre caractères, qui passe le garde-fou aval et part en requête
+    de recherche. Un 500 se voit ; une recherche sur « None » ne se voit pas. La
+    forme acceptée est donc nommée jusqu'à la feuille — `content` doit être une
+    chaîne.
+    """
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _client_ollama({"message": {"content": None}}))
+
+    assert await llm.rewrite_question("Et pour les femmes ?", HISTORIQUE) == "Et pour les femmes ?"
+    assert await llm.translate_question("Question ?") is None
+
+
+@pytest.mark.asyncio
+async def test_une_url_ollama_invalide_remonte(monkeypatch) -> None:
+    """`httpx.InvalidURL` n'est PAS attrapée, et c'est une décision.
+
+    `InvalidURL` hérite directement d'`Exception`, pas de `HTTPError` : elle
+    n'entre donc pas dans le tuple. Elle ne doit pas y entrer. Un `OLLAMA_HOST`
+    mal formé est une erreur de CONFIGURATION, et elle casse aussi
+    `generate_stream` : la rattraper ici dégraderait la recherche en monolingue
+    en laissant croire que le service fonctionne, au lieu de dire qu'il est mal
+    configuré.
+    """
+    def url_invalide(**_kwargs):
+        raise httpx.InvalidURL("URL sans schéma : 'ollama-central:11434'")
+
+    monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
+    monkeypatch.setattr(llm.httpx, "AsyncClient", url_invalide)
+
+    with pytest.raises(httpx.InvalidURL):
+        await llm.rewrite_question("Et pour les femmes ?", HISTORIQUE)
+    with pytest.raises(httpx.InvalidURL):
+        await llm.translate_question("Question ?")
+
+
+# ─── Le même défaut, vu de la route : c'est là qu'il atteignait l'utilisateur ──
+
+@pytest.fixture
+def client_avec_reecriture_reelle(monkeypatch):
+    """L'application, avec `rewrite_question` et `translate_question` RÉELLES.
+
+    Seul le transport HTTP vers Ollama est simulé. C'est ce qui distingue ce
+    garde des tests unitaires ci-dessus : la régression n'atteignait
+    l'utilisateur que parce que `node_rewrite` n'a aucun try/except, et un test
+    unitaire seul resterait vert le jour où quelqu'un en ajoute un autour du
+    nœud.
+    """
+    from fastapi.testclient import TestClient
+
+    from src.agent import graph as graph_module
+    from src.agent.settings import settings
+    from src.api import main
+    from src.api.schemas import ChunkResult, SectionContext
+
+    monkeypatch.setattr(settings, "checkpoint_db_path", "")
+    monkeypatch.setattr(settings, "usage_capture", False)
+    monkeypatch.setattr(settings, "query_rewrite", True)
+    monkeypatch.setattr(settings, "cross_lingual_search", True)
+
+    def _chunk(eid: str) -> ChunkResult:
+        return ChunkResult(
+            chunk_id=eid, element_id=eid, graph_node_id=eid,
+            document="Le texte du passage.", filename="3. Statistical Toolbox",
+            page_no=88, label="paragraph", distance=0.2, rerank_score=3.0, relevance=0.95,
+        )
+
+    monkeypatch.setattr(graph_module, "retrieve",
+                        lambda _q, top_k=None, translation=None: [_chunk("abcdef0123")])
+    monkeypatch.setattr(graph_module, "rerank", lambda _q, chunks: chunks)
+    monkeypatch.setattr(graph_module, "reconstruct_section", lambda eid: SectionContext(
+        element_id=eid, section_id="sssssssss1", breadcrumbs=[], elements=[],
+        markdown="Le contexte reconstruit.", filename="3. Statistical Toolbox",
+    ))
+
+    async def generation(**_kwargs):
+        yield "La dispersion se mesure [src:abcdef0123]."
+
+    monkeypatch.setattr(graph_module, "generate_stream", generation)
+
+    with TestClient(main.app) as testclient:
+        yield testclient
+
+
+@pytest.mark.parametrize("corps", _CORPS_MAL_FORMES)
+def test_chat_start_ne_rend_pas_500_sur_un_corps_ollama_mal_forme(
+    client_avec_reecriture_reelle, monkeypatch, corps
+) -> None:
+    """La preuve au niveau HTTP : c'est ce que l'utilisateur voyait.
+
+    `node_rewrite` n'a aucun try/except, donc l'`AttributeError` traversait le
+    graphe jusqu'à la route. Un historique non vide est nécessaire : sans lui,
+    `rewrite_question` rend la question telle quelle sans appeler le LLM.
+    """
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _client_ollama(corps))
+
+    reponse = client_avec_reecriture_reelle.post("/chat/start", json={
+        "question": "Et pour les femmes ?",
+        "chat_history": [
+            {"role": "user", "content": "Quel est l'écart-type des salaires des hommes ?"},
+            {"role": "assistant", "content": "Il est de 12 000 euros."},
+        ],
+    })
+
+    assert reponse.status_code == 200, reponse.text  # noqa: PLR2004
+    assert reponse.json()["thread_id"]
+
+
+@pytest.mark.parametrize("corps", _CORPS_MAL_FORMES)
+def test_answer_ne_rend_pas_500_sur_un_corps_ollama_mal_forme(
+    client_avec_reecriture_reelle, monkeypatch, corps
+) -> None:
+    """Même chose sur la route d'évaluation, qui traverse le graphe entier."""
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _client_ollama(corps))
+
+    reponse = client_avec_reecriture_reelle.post("/answer", json={
+        "question": "Et pour les femmes ?",
+        "chat_history": [
+            {"role": "user", "content": "Quel est l'écart-type des salaires des hommes ?"},
+            {"role": "assistant", "content": "Il est de 12 000 euros."},
+        ],
+        "stream": False,
+    })
+
+    assert reponse.status_code == 200, reponse.text  # noqa: PLR2004

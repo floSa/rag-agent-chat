@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 295 tests, aucune dépendance
+## Unitaire — 313 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -31,7 +31,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |
 | `test_purge_sessions.py` | La purge des sessions LangGraph : ce qu'elle supprime, et ce qu'elle annonce. Le checkpointer y est **réel** — un vrai `AsyncSqliteSaver` sur un fichier temporaire — et les assertions sont lues en SQL brut dans `checkpoints`. Un faux checkpointer ne lève pas `asyncio.InvalidStateError`, donc il ne prouve rien du défaut : c'est exactement ce montage-là qui l'a laissé vivre. Cinq des six tests sont rouges sur le code d'origine, dont celui qui confronte le nombre de suppressions ANNONCÉ au nombre RÉEL — « le journal annonce [1] suppression(s) alors qu'aucune n'a eu lieu ». Le sixième est un garde-fou, vert des deux côtés et c'est ce qu'on lui demande : une session en attente de sélection doit survivre à un redémarrage. |
 | `test_index_lexical.py` | L'index BM25 face à un corpus qui bouge et à des requêtes concurrentes. Deux pièges de montage y sont évités. Le premier : un test « l'index finit construit » est vert des deux côtés d'un défaut de dimensionnement — ce qui voit la panne, c'est un test de **serrage**, qui compte les lectures du corpus (`assert 8 == 1` sur le code d'origine). Le second : les corpus de test comptent au moins **trois** documents, parce que l'IDF de BM25 vaut exactement zéro pour un terme présent dans 1 document sur 2, ce qui rend la recherche lexicale intestable à deux documents. |
-| `test_absorptions.py` | Les absorptions d'exceptions resserrées par le lot 3, et le garde-fou qui les empêche de s'élargir. Cinq tests tombent si un `except` resserré redevient `except Exception`, ou si un journal redescend en `debug` ; trois gardent les cas que les resserrements doivent continuer de couvrir — un transport mort et un corps non-JSON restent des replis, pas des 500. |
+| `test_absorptions.py` | Les absorptions d'exceptions resserrées par le lot 3, et le garde-fou qui les empêche de s'élargir. Cinq tests tombent si un `except` resserré redevient `except Exception`, ou si un journal redescend en `debug` ; d'autres gardent les cas que les resserrements doivent continuer de couvrir — un transport mort et un corps non-JSON restent des replis, pas des 500. **Le resserrement a lui-même introduit une régression, et son garde-fou est ici** : un corps qui est du JSON valide sans avoir la forme attendue faisait rendre 500 à /chat/start et /answer. Le garde couvre les quatre formes — `message` nul, chaîne, liste, et corps qui n'est pas un objet — et le fait **au niveau HTTP en plus du niveau unitaire** : c'est l'absence de try/except dans `node_rewrite` qui rendait la panne visible à l'utilisateur, et un test unitaire seul resterait vert le jour où quelqu'un en ajoute un autour du nœud. Il asserte le comportement, pas l'absence d'exception : la question d'origine est conservée et la traduction reste `None`, parce qu'une traduction VIDE entrée dans la fusion RRF serait pire que le 500. |
 | `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. La colonne `dropped_contexts` y est exercée sur des sections qui dépassent réellement la fenêtre — seule la couche HTTP est simulée, le budget est celui du vrai `fit_prompt` : trois mutations la cassent, une par maillon de la chaîne `on_fit` → état → colonne. |
 
 Deux leçons du lot 3, du même ordre que celles du lot 2 :
@@ -43,6 +43,12 @@ Deux leçons du lot 3, du même ordre que celles du lot 2 :
   absorption, y compris la plus large, et devenaient rouges dès qu'on resserrait
   sur la vraie panne. Le resserrement les a révélés ; sans lui, ils auraient
   gardé pour toujours un `except Exception` qu'ils ne testaient pas.
+- **Une phrase d'exhaustivité dans un document est un défaut en attente.** La
+  table du balayage écrivait « les deux **seules** façons dont l'appel échoue
+  sans que le code soit en cause ». Il y en avait trois, et la troisième — un
+  corps JSON valide de forme inattendue — a fait rendre 500 à deux routes. La
+  phrase n'a pas seulement décrit le défaut : elle l'a autorisé, en clôturant
+  l'énumération que personne n'a plus rouverte.
 - **Ce qui doit être asserté, c'est le disque, pas le compteur du code.** La
   purge des sessions journalisait « Sessions purgées : 1 » sans supprimer une
   ligne. Tout test qui aurait cru ce compteur aurait été vert. Les tests de

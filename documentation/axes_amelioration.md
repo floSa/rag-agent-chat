@@ -549,9 +549,9 @@ nouvelle et documentée comme muette au site.
 | Site | Type retenu | Ce que `Exception` masquait |
 |---|---|---|
 | `llm.py` `rewrite_question`, gabarit | `(TemplateError, OSError)` | Une faute dans le bloc journalisait « Gabarit introuvable » : le message accusait le gabarit, la réécriture était désactivée à chaque question, et rien ne pointait vers la cause. |
-| `llm.py` `rewrite_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Les deux seules façons dont l'appel échoue sans que le code soit en cause : transport, et corps qui n'est pas du JSON. |
-| `llm.py` `translate_question`, gabarit | `(TemplateError, OSError)` | Idem §516. |
-| `llm.py` `translate_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Idem §537. |
+| `llm.py` `rewrite_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Deux des **trois** façons dont l'appel échoue sans que le code soit en cause : transport, et corps qui n'est pas du JSON. La troisième — un corps qui **est** du JSON valide sans avoir la forme attendue — est traitée par `_contenu_message`, qui nomme la forme acceptée, et non par le tuple. Cf. §1.26. |
+| `llm.py` `translate_question`, gabarit | `(TemplateError, OSError)` | Idem la réécriture. |
+| `llm.py` `translate_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Idem la réécriture, forme du corps comprise. |
 | `graph.py` `node_generate`, `get_stream_writer` | `RuntimeError` | Toute autre panne de LangGraph faisait `writer = None` : la génération continuait, **muette**, et le frontend ne recevait aucun token sans qu'une ligne existe pour le dire. |
 
 **Niveau de journal remonté :**
@@ -602,6 +602,55 @@ n'importe quelle absorption, y compris la plus large, et devenaient rouges sur
 celle qui décrit la vraie panne. Un faux qui ne ressemble pas à la bibliothèque
 ne prouve rien de la bibliothèque. Les deux lèvent désormais
 `httpx.ConnectError`.
+
+### 1.26 Le resserrement de `llm.py` rendait un HTTP 500 — `llm.py`
+
+**Régression introduite par ce lot, trouvée à l'audit.** Le tuple
+`(httpx.HTTPError, ValueError)` du §1.24 ne couvre pas une troisième classe de
+panne : un corps de réponse qui **est** du JSON valide sans avoir la forme
+attendue. Sur `{"message": null}`, `{"message": "une chaîne"}`, `{"message": []}`
+ou un corps qui n'est pas un objet,
+`.get("message", {}).get("content", "")` lève `AttributeError`.
+
+Cela atteignait l'utilisateur. `node_rewrite` n'a aucun try/except : l'exception
+traversait le graphe jusqu'à la route, et `/chat/start` comme `/answer` rendaient
+**500** sur les quatre formes. Remettre `except Exception` — le code d'avant le
+lot — rendait 200 partout : la causalité est établie, le resserrement était la
+régression.
+
+C'est aussi une affirmation fausse de ce document, dans le registre même du
+lot : la table du §1.24 écrivait « les deux **seules** façons dont l'appel échoue
+sans que le code soit en cause ». Il y en a trois, et c'est cette phrase
+d'exhaustivité qui a autorisé le défaut. Elle est corrigée.
+
+**Corrigé par un parsing défensif, pas par un tuple plus large.** Ajouter
+`AttributeError` et `TypeError` aurait éteint le 500 en ramenant exactement ce
+que le resserrement sert à empêcher : une erreur de programmation dans le bloc,
+absorbée et journalisée comme une « réécriture indisponible ».
+`_contenu_message` nomme la forme acceptée — objet, puis objet, puis chaîne — et
+rend `""` pour tout le reste. Un `AttributeError` authentique remonte encore.
+
+Trouvé en écrivant le garde-fou, et corrigé du même geste : `{"message":
+{"content": null}}` ne levait rien, mais `str(None)` rendait la chaîne
+**« None »**, quatre caractères qui passent le garde-fou aval et partent en
+requête de recherche. Un 500 se voit ; une recherche sur « None » ne se voit pas.
+La feuille est donc vérifiée aussi.
+
+**Ce qui rend le correctif sûr, et que les tests assertent :** les deux sites ont
+un garde-fou aval — « vide ou trop longue → question d'origine » pour la
+réécriture, « vide → pas de traduction » pour la traduction. Sans eux, la chaîne
+vide serait partie en requête de recherche, et à `TRANSLATION_WEIGHT=1.0` une
+traduction vide serait entrée dans la fusion RRF : strictement pire que le 500.
+Les tests n'assertent donc pas « pas d'exception » mais le comportement de bout
+en bout — `rewrite_question` rend la question d'origine, `translate_question`
+rend `None`, et les deux routes rendent 200.
+
+**`httpx.InvalidURL` n'est pas attrapée, et c'est une décision écrite au site.**
+Elle hérite directement d'`Exception`, pas de `HTTPError`, donc elle n'entre pas
+dans le tuple — et elle ne doit pas y entrer. Un `OLLAMA_HOST` mal formé est une
+erreur de **configuration** : elle casse aussi `generate_stream`, donc un repli
+silencieux ici masquerait la panne réelle en dégradant la recherche en monolingue
+au lieu de dire que le service est mal configuré. Un test l'épingle.
 
 ### 1.25 `RERANK_MIN_SCORE` documenté comme un réglage existant — `agent_architecture.md`
 

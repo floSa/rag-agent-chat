@@ -495,6 +495,42 @@ def _build_messages(
 _MAX_REWRITE_CHARS = 400
 
 
+def _contenu_message(corps: Any) -> str:
+    """Extrait `message.content` d'une réponse Ollama, "" si la forme diffère.
+
+    **Nomme la forme acceptée** — objet, puis objet, puis chaîne — au lieu
+    d'élargir l'absorption qui entoure l'appel. Un corps peut être du JSON
+    parfaitement VALIDE sans avoir cette forme : `{"message": null}`,
+    `{"message": "…"}`, `{"message": []}`, ou un corps qui n'est pas un objet.
+    C'est ce qu'un changement de version d'Ollama, un proxy en erreur, ou un
+    backend « compatible » produit — et `.get("message", {}).get("content", "")`
+    lève alors `AttributeError`. `node_rewrite` n'ayant aucun try/except,
+    l'exception traversait le graphe jusqu'à la route : /chat/start et /answer
+    rendaient 500.
+
+    Ajouter `AttributeError` et `TypeError` au tuple aurait suffi à éteindre le
+    500, et aurait ramené exactement ce que le resserrement sert à empêcher : une
+    erreur de programmation dans le bloc, absorbée et journalisée comme une
+    « réécriture indisponible ». Un `AttributeError` authentique remonte donc
+    encore ; une réponse mal formée devient une chaîne vide.
+
+    La feuille est vérifiée aussi, et ce n'est pas du zèle : `content` à `null`
+    ne lève rien, mais `str(None)` rend la chaîne « None », quatre caractères qui
+    passent le garde-fou aval et partent en requête de recherche. Un 500 se voit ;
+    une recherche sur « None » ne se voit pas.
+
+    Le "" rendu ici n'est jamais utilisé tel quel : les deux appelants ont un
+    garde-fou aval — « vide ou trop longue → question d'origine » pour la
+    réécriture, « vide → pas de traduction » pour la traduction. Sans eux, une
+    chaîne vide partirait en requête de recherche, et à `TRANSLATION_WEIGHT=1.0`
+    une traduction vide entrerait dans la fusion RRF : strictement pire que le
+    500 qu'on corrige.
+    """
+    message = corps.get("message") if isinstance(corps, dict) else None
+    contenu = message.get("content") if isinstance(message, dict) else None
+    return contenu.strip() if isinstance(contenu, str) else ""
+
+
 async def rewrite_question(question: str, chat_history: list[Message] | None) -> str:
     """Reformule une question de suivi en question autonome.
 
@@ -533,12 +569,21 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
-            rewritten = str(resp.json().get("message", {}).get("content", "")).strip()
+            rewritten = _contenu_message(resp.json())
     except (httpx.HTTPError, ValueError):
-        # Les deux façons dont l'appel peut échouer sans que le code soit en
-        # cause : le transport (HTTPError couvre le statut, le délai et la
-        # connexion) et un corps qui n'est pas du JSON (JSONDecodeError hérite
-        # de ValueError). Resserré depuis `Exception`, qui masquait le reste.
+        # Deux des TROIS façons dont l'appel peut échouer sans que le code soit
+        # en cause : le transport (HTTPError couvre le statut, le délai et la
+        # connexion) et un corps qui n'est pas du JSON (JSONDecodeError hérite de
+        # ValueError). La troisième — un corps qui EST du JSON valide mais n'a pas
+        # la forme attendue — n'est PAS traitée ici : elle l'est par
+        # `_contenu_message`, qui nomme la forme acceptée. Élargir ce tuple
+        # ramènerait les erreurs de programmation que le resserrement écarte.
+        #
+        # `httpx.InvalidURL` n'y entre pas non plus, et c'est délibéré : elle
+        # hérite directement d'`Exception`, et un OLLAMA_HOST mal formé est une
+        # erreur de CONFIGURATION. Elle casse aussi `generate_stream` : la
+        # rattraper ici dégraderait la recherche en monolingue en laissant croire
+        # que le service fonctionne, au lieu de dire qu'il est mal configuré.
         logger.warning("Réécriture de requête indisponible, question d'origine conservée.")
         return question
 
@@ -643,9 +688,11 @@ async def translate_question(question: str) -> str | None:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
             resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
             resp.raise_for_status()
-            traduction = str(resp.json().get("message", {}).get("content", "")).strip()
+            traduction = _contenu_message(resp.json())
     except (httpx.HTTPError, ValueError):
-        # Transport ou corps non-JSON, comme pour la réécriture.
+        # Transport ou corps non-JSON, comme pour la réécriture — et comme là-bas,
+        # la forme du corps est traitée par `_contenu_message` et non par le
+        # tuple, `httpx.InvalidURL` restant volontairement dehors.
         logger.warning("Traduction indisponible, recherche monolingue.")
         return None
 
