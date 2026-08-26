@@ -323,6 +323,28 @@ class FeedbackResponse(BaseModel):
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
+class SessionStats(BaseModel):
+    """État de la purge des sessions LangGraph, vu de l'extérieur.
+
+    Cette purge a passé toute la vie du projet à échouer en silence pendant que
+    le journal annonçait le contraire. Un exploitant doit pouvoir vérifier
+    qu'elle tourne sans lire les logs : `purged` qui reste à zéro alors que des
+    sessions s'accumulent, ou `failures` non nul, se voient d'un coup d'œil.
+    """
+
+    path: str
+    # Faux = registre en mémoire (CHECKPOINT_DB_PATH vide) : les sessions ne
+    # survivent pas au redémarrage, donc rien n'a à être purgé après lui.
+    durable: bool
+    # Sessions connues du registre, donc atteignables par la purge.
+    live: int
+    # Sessions RÉELLEMENT supprimées depuis le démarrage — pas tentées.
+    purged: int
+    # Suppressions en échec. Non nul = de l'état reste sur le disque ; le
+    # journal en porte la cause, et la purge le retentera.
+    failures: int = 0
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
@@ -330,3 +352,6 @@ class HealthResponse(BaseModel):
     # Taille de la base de capture. Aucune purge n'existe : un actif qui
     # grossit sans qu'on le sache redevient une fuite, donc la sonde le porte.
     usage: UsageStats | None = None
+    # État de la purge des sessions. Même raison, cause inverse : ici une purge
+    # EXISTE, et c'est le fait qu'elle aboutisse qui doit être vérifiable.
+    sessions: SessionStats | None = None

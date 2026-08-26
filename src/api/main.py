@@ -1,9 +1,7 @@
 import json
 import logging
 import secrets
-import time
 import uuid
-from collections import OrderedDict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -13,9 +11,9 @@ from anyio import to_thread
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Response
 from fastapi.middleware.cors import CORSMiddleware
 from langchain_core.runnables import RunnableConfig
-from langgraph.checkpoint.base import BaseCheckpointSaver
 from sse_starlette.sse import EventSourceResponse
 
+from src.agent import sessions
 from src.agent.graph import (
     answer_graph,
     build_checkpointer,
@@ -49,6 +47,7 @@ from src.api.schemas import (
     SearchRequest,
     SearchResponse,
     SectionContext,
+    SessionStats,
     SourceSelectionRequest,
     SourcesResponse,
 )
@@ -77,6 +76,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     global _interactive
     checkpointer = await build_checkpointer()
     _interactive = compile_interactive(checkpointer)
+    # Après l'ouverture du checkpointer, jamais avant : l'adoption des sessions
+    # orphelines lit la table `checkpoints`, que `setup()` vient de créer. Cette
+    # passe n'est PAS une purge totale — le checkpointer est sur disque
+    # précisément pour qu'une session en attente de sélection survive au
+    # redémarrage. Elle rend seulement atteignables les sessions qu'aucun
+    # processus vivant n'a jamais vues.
+    await sessions.initialiser(checkpointer)
     # Avant de servir : c'est le seul moment où fixer le mode de journalisation
     # de la base de capture est sûr. Le faire dans le chemin d'écriture faisait
     # perdre des interactions simultanées (cf. usage.initialiser).
@@ -161,11 +167,19 @@ async def health() -> HealthResponse:
     # `stats` absorbe ses propres échecs et rend des zéros : une sonde qui
     # tombe parce qu'une base d'observation est illisible serait une régression,
     # pas une mesure. Le compteur `failures` dit alors ce qui s'est passé.
+    chemin, vivantes, purgees, echecs = sessions.stats()
     return HealthResponse(
         status=status,
         ollama_model=settings.ollama_model,
         services=services,
         usage=await usage_stats(),
+        sessions=SessionStats(
+            path=chemin,
+            durable=sessions.durable(),
+            live=vivantes,
+            purged=purgees,
+            failures=echecs,
+        ),
     )
 
 
@@ -429,40 +443,24 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
 
 # ─── Chat avec agentic loop (LangGraph) ───────────────────────────────────────
 
-# Sessions LangGraph vivantes, de la plus ancienne à la plus récente. Le
-# checkpointer en mémoire ne purge rien de lui-même : sans ce registre, chaque
-# question laissait indéfiniment ses chunks, ses embeddings et ses contextes
-# reconstruits en mémoire. Fuite lente mais certaine sur un service qui tourne.
-_live_threads: OrderedDict[str, float] = OrderedDict()
+async def _register_thread(thread_id: str) -> None:
+    """Inscrit la session au registre durable, puis purge les périmées.
 
+    **Asynchrone, et ce n'est pas cosmétique.** La version synchrone appelait
+    `checkpointer.delete_thread`, la méthode SYNCHRONE d'`AsyncSqliteSaver` :
+    depuis une route `async def`, donc depuis le fil de la boucle d'événements,
+    la bibliothèque lève `asyncio.InvalidStateError`. Absorbée par un
+    `except Exception: logger.debug(...)` que `LOG_LEVEL=INFO` effaçait, elle
+    laissait le journal annoncer une purge qui n'avait jamais eu lieu. Aucune
+    ligne n'a jamais été supprimée de `checkpoints.sqlite`.
 
-def _register_thread(thread_id: str) -> None:
-    """Enregistre une session et purge les périmées (âge ou nombre)."""
-    now = time.monotonic()
-    _live_threads[thread_id] = now
-
-    expired = [
-        tid
-        for tid, started in _live_threads.items()
-        if now - started > settings.session_ttl_seconds
-    ]
-    while len(_live_threads) - len(expired) > settings.max_live_sessions:
-        oldest = next(iter(_live_threads))
-        if oldest not in expired:
-            expired.append(oldest)
-        _live_threads.pop(oldest, None)
-
-    for tid in expired:
-        _live_threads.pop(tid, None)
-        try:
-            checkpointer = interactive_graph().checkpointer
-            if isinstance(checkpointer, BaseCheckpointSaver):
-                checkpointer.delete_thread(tid)
-        except Exception:
-            logger.debug("Purge du thread %s impossible", tid, exc_info=True)
-
-    if expired:
-        logger.info("Sessions purgées : %d (restantes : %d)", len(expired), len(_live_threads))
+    Le registre vit dans la base du checkpointer et non plus en mémoire : un
+    registre de processus n'atteint que ce que le processus courant a lui-même
+    créé, et toute session antérieure au dernier redémarrage restait sur le
+    disque pour toujours. Cf. `src/agent/sessions.py`.
+    """
+    await sessions.enregistrer(thread_id)
+    await sessions.purger(interactive_graph().checkpointer, epargner=thread_id)
 
 
 @app.post("/chat/start", dependencies=[Depends(require_api_key)])
@@ -473,7 +471,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
     Retourne un thread_id à passer à /chat/resume.
     """
     thread_id = str(uuid.uuid4())
-    _register_thread(thread_id)
+    await _register_thread(thread_id)
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
     initial_state: AgentState = {
