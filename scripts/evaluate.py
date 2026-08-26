@@ -653,9 +653,12 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
     document = json.loads(chemin.read_text(encoding="utf-8"))
     precedentes = document.get("questions") or []
 
-    entete = f"\n{'=' * 72}\nCOMPARAISON APPARIÉE avec {chemin.name}\n{'=' * 72}"
+    def entete(suffixe: str = "") -> str:
+        barre = "=" * 72
+        return f"\n{barre}\nCOMPARAISON APPARIÉE avec {chemin.name}{suffixe}\n{barre}"
+
     if not precedentes:
-        print(entete)
+        print(entete())
         print(
             "  REFUSÉE : la campagne de référence ne porte aucune ligne par question.\n"
             "  L'appariement est impossible, et comparer les seuls résumés reviendrait\n"
@@ -665,7 +668,7 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
 
     desaccord = desaccord_de_jeu(lignes, precedentes)
     if desaccord:
-        print(entete)
+        print(entete())
         print(
             f"  REFUSÉE : les deux jeux de questions diffèrent.\n  {desaccord}\n"
             "  Un écart entre deux mesures n'est jamais du bruit. Intersecter en\n"
@@ -673,7 +676,7 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
         )
         return False
 
-    print(f"{entete[:-1]}— {len(lignes)} questions communes\n{'=' * 72}")
+    print(entete(f" — {len(lignes)} questions communes"))
     print(f"  {'métrique':24s} {'n':>4} {'▲':>4} {'▼':>4} {'=':>4} "
           f"{'Δ moyen':>9}  {'IC 95 %':>20}  signe")
     resultats = [apparier(lignes, precedentes, m) for m in METRIQUES_APPARIEES]

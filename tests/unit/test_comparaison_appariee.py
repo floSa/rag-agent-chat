@@ -17,7 +17,10 @@ graine fixe.
 
 import importlib.util
 import json
+import os
 import pathlib
+import subprocess
+import sys
 
 import pytest
 
@@ -313,3 +316,53 @@ def test_la_nouvelle_cible_de_make_eval_s_apparie() -> None:
 
     assert {q["id"] for q in dore} == {r["id"] for r in final["questions"]}
     assert evaluate.desaccord_de_jeu(final["questions"], final["questions"]) is None
+
+
+# ─── Le script comme commande ────────────────────────────────────────────────
+
+def _lancer(*arguments):
+    """Exécute le script comme le ferait un humain, dans un sous-processus.
+
+    Un script n'est pas testé tant qu'il n'a pas été lancé comme une commande :
+    en processus, l'import réussit parce que pytest tourne depuis la racine.
+    PYTHONPATH retiré, seul un sous-processus reproduit la vraie invocation.
+    """
+    environnement = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), *arguments],
+        capture_output=True,
+        text=True,
+        cwd=str(_RACINE),
+        env=environnement,
+        check=False,
+    )
+
+
+def test_le_script_s_invoque(tmp_path) -> None:
+    """`--help` suffit à attraper une erreur d'import ou d'`argparse` — le mode
+    de panne qui a déjà tué un script de ce dépôt dès sa première ligne."""
+    resultat = _lancer("--help")
+
+    assert resultat.returncode == 0
+    assert "--compare" in resultat.stdout
+
+
+def test_sans_agent_joignable_le_script_sort_en_un(tmp_path) -> None:
+    """Code 1 : aucune question n'a abouti. Il doit se distinguer du code 2 —
+    « la comparaison a été refusée » — sans quoi un `make eval` rouge ne dit pas
+    lequel des deux s'est produit.
+
+    Le port 1 refuse la connexion sans attendre : aucun réseau n'est sollicité.
+    """
+    dore = tmp_path / "dore.json"
+    dore.write_text(
+        json.dumps(
+            {"questions": [{"id": "G-001", "question": "q", "gold_element_ids": ["aaaaaaaaa1"]}]}
+        ),
+        encoding="utf-8",
+    )
+
+    resultat = _lancer("--api", "http://127.0.0.1:1", "--golden", str(dore), "--timeout", "2")
+
+    assert resultat.returncode == 1
+    assert "Aucune question n'a abouti" in resultat.stdout
