@@ -5,9 +5,11 @@ silencieuse entre deux fichiers dont un seul est lu à l'exécution. Les deux ca
 présents ont réellement divergé.
 """
 
+import importlib.util
 from pathlib import Path
 
-from src.api.schemas import MAX_HISTORY_MESSAGES
+from src.agent.chronometrie import ETAGES
+from src.api.schemas import MAX_HISTORY_MESSAGES, StageTimings
 
 _RACINE = Path(__file__).resolve().parents[2]
 
@@ -43,3 +45,26 @@ def test_l_image_du_frontend_suit_les_versions_declarees() -> None:
         assert f"{paquet}=={declarees[paquet]}" in dockerfile, (
             f"Dockerfile.frontend n'epingle pas {paquet}=={declarees[paquet]}"
         )
+
+
+def test_la_campagne_connait_exactement_les_etages_de_la_partition() -> None:
+    """`scripts/evaluate.py` recopie la liste des étages au lieu de l'importer.
+
+    Le choix est délibéré et documenté au site : le script interroge un service
+    DISTANT, dont la version peut différer de celle du dépôt — un étage absent de
+    la réponse doit valoir zéro, pas casser la campagne. Mais recopier crée
+    exactement la divergence que ce fichier existe pour empêcher : un étage
+    ajouté à `chronometrie.ETAGES` et oublié dans le script serait mesuré sans
+    être jamais publié, et la table de latence s'afficherait complète.
+
+    L'accord porte sur les étages plus `residual_ms` et `total_ms`, que le script
+    enregistre au même titre — sans le résidu, la partition ne se vérifie pas.
+    """
+    chemin = _RACINE / "scripts" / "evaluate.py"
+    spec = importlib.util.spec_from_file_location("evaluate", chemin)
+    assert spec and spec.loader
+    evaluate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(evaluate)
+
+    assert set(evaluate.ETAGES) == set(StageTimings.model_fields)
+    assert set(evaluate.ETAGES) == set(ETAGES) | {"residual_ms", "total_ms"}

@@ -49,7 +49,10 @@ REFUS = ("je n'ai pas trouvé", "i could not find", "i did not find", "aucune in
 # Étages de latence publiés par `/answer` sous `timings`, plus le résidu et le
 # total. Recopiés ici plutôt qu'importés : ce script tourne contre un service
 # distant, dont la version peut différer de celle du dépôt — un étage absent de
-# la réponse vaut zéro, il ne casse pas la campagne.
+# la réponse vaut zéro, il ne casse pas la campagne. La contrepartie d'une copie
+# est la divergence, et elle est tenue :
+# `test_coherence_depot.test_la_campagne_connait_exactement_les_etages_de_la_partition`
+# confronte cette liste à `chronometrie.ETAGES`.
 #
 # `residu_ms` porte le temps qu'aucun étage ne réclame. Il est publié parce qu'un
 # résidu large est en soi un résultat : c'est du temps que personne ne sait
