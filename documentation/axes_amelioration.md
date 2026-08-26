@@ -532,9 +532,13 @@ for f in ("src/agent/graph.py","src/agent/graph_context.py","src/agent/llm.py",
 EOF
 ```
 
+Les sites sont désignés par fichier et fonction, pas par numéro de ligne : un
+numéro se périme au premier commit suivant, et ce document promet des lignes
+vérifiables.
+
 Répartition : **5 resserrées**, **4 dont le journal a changé de niveau ou de
 message**, **14 conservées** avec justification écrite au site, et **1
-supprimée** — `main.py:461`, l'absorption du §1.20, remplacée par la gestion
+supprimée** — celle de `_register_thread` dans `main.py`, l'absorption du §1.20, remplacée par la gestion
 d'échec de `sessions.purger`. L'arbre courant en compte 24 aussi : les six
 resserrements sont compensés par les cinq de `sessions.py` — qui passent par
 `_echec`, la forme de référence — et par `retriever._taille_collection`,
@@ -544,47 +548,47 @@ nouvelle et documentée comme muette au site.
 
 | Site | Type retenu | Ce que `Exception` masquait |
 |---|---|---|
-| `llm.py:516` `rewrite_question`, gabarit | `(TemplateError, OSError)` | Une faute dans le bloc journalisait « Gabarit introuvable » : le message accusait le gabarit, la réécriture était désactivée à chaque question, et rien ne pointait vers la cause. |
-| `llm.py:537` `rewrite_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Les deux seules façons dont l'appel échoue sans que le code soit en cause : transport, et corps qui n'est pas du JSON. |
-| `llm.py:628` `translate_question`, gabarit | `(TemplateError, OSError)` | Idem §516. |
-| `llm.py:647` `translate_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Idem §537. |
-| `graph.py:173` `node_generate`, `get_stream_writer` | `RuntimeError` | Toute autre panne de LangGraph faisait `writer = None` : la génération continuait, **muette**, et le frontend ne recevait aucun token sans qu'une ligne existe pour le dire. |
+| `llm.py` `rewrite_question`, gabarit | `(TemplateError, OSError)` | Une faute dans le bloc journalisait « Gabarit introuvable » : le message accusait le gabarit, la réécriture était désactivée à chaque question, et rien ne pointait vers la cause. |
+| `llm.py` `rewrite_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Les deux seules façons dont l'appel échoue sans que le code soit en cause : transport, et corps qui n'est pas du JSON. |
+| `llm.py` `translate_question`, gabarit | `(TemplateError, OSError)` | Idem §516. |
+| `llm.py` `translate_question`, appel Ollama | `(httpx.HTTPError, ValueError)` | Idem §537. |
+| `graph.py` `node_generate`, `get_stream_writer` | `RuntimeError` | Toute autre panne de LangGraph faisait `writer = None` : la génération continuait, **muette**, et le frontend ne recevait aucun token sans qu'une ligne existe pour le dire. |
 
 **Niveau de journal remonté :**
 
 | Site | Avant → après | Pourquoi |
 |---|---|---|
-| `graph.py:485` `close_checkpointers` | `debug` → `WARNING` | Une fermeture en échec laisse une connexion SQLite ouverte sur le fichier des sessions, donc un WAL non replié et un verrou possible au démarrage suivant. `debug` est invisible à `LOG_LEVEL=INFO` : c'est le motif même du §1.20. |
-| `api/main.py:255` `/context` | muet → `ERROR` avec trace | FastAPI ne journalise pas une `HTTPException` : cette route rendait des 500 dont la cause n'était tracée nulle part. |
-| `graph.py:145` et `api/main.py:309`, reconstruction par élément | message recalé | « Erreur reconstruction section » laissait croire à un incident sans suite, alors que la source **disparaît de la réponse**. Le message le dit, et compte celles qui restent. |
+| `graph.py` `close_checkpointers` | `debug` → `WARNING` | Une fermeture en échec laisse une connexion SQLite ouverte sur le fichier des sessions, donc un WAL non replié et un verrou possible au démarrage suivant. `debug` est invisible à `LOG_LEVEL=INFO` : c'est le motif même du §1.20. |
+| `api/main.py` `context` (`GET /context/{id}`) | muet → `ERROR` avec trace | FastAPI ne journalise pas une `HTTPException` : cette route rendait des 500 dont la cause n'était tracée nulle part. |
+| `graph.py` `node_reconstruct_context` et `api/main.py` `chat_simple` | message recalé | « Erreur reconstruction section » laissait croire à un incident sans suite, alors que la source **disparaît de la réponse**. Le message le dit, et compte celles qui restent. |
 
 **Conservées, avec au site ce qu'elles protègent et pourquoi elles sont
 larges :**
 
 | Site | Fonction | Décision |
 |---|---|---|
-| `retriever.py:378` | `_dense_search` | Reprise de connexion. Un client Chroma mort produit transport, sérialisation et schéma sans ancêtre commun. WARNING, un second échec remonte. |
-| `retriever.py:246` | `full_texts` | Dégradation bornée : le texte tronqué du graphe reste, le LLM reçoit un tableau amputé plutôt que rien. WARNING. |
-| `retriever.py:301` | `ping` | Une sonde ne doit jamais lever. Le faux est publié par `/health`, et le cache est oublié pour que la requête suivante rouvre. |
-| `retriever.py:103` | `_taille_collection` | Large et **muette**, délibérément : Chroma injoignable est déjà rapporté par `services.chromadb` dans la même réponse. Rend `None` — « je ne sais pas » — jamais confondu avec « rien n'a changé ». |
-| `retriever.py:187` | `_lexical_search` | La recherche dense suffit à servir la requête. Tracée avec sa pile, publiée en `index_lexical: false`. |
-| `graph_context.py:140` | `_execute_raw` | Reprise de connexion. nebula3 mêle transport, authentification et session sans ancêtre commun. WARNING puis nouvel essai ; un second échec remonte. |
-| `graph_context.py:197` | `props_of` | Large et **muette** : un nœud sans propriétés pour ce tag est le cas NORMAL — le tag `Document` n'a ni `label` ni `text`. Appelée plusieurs fois par élément : y journaliser inonderait le journal en régime nominal. |
-| `graph_context.py:394` | `ping` | Une sonde ne doit jamais lever. `_execute` a déjà journalisé la panne en WARNING. |
-| `minio_client.py:98` | `get_object_bytes` | Reprise de connexion. Le SDK minio mêle ses `S3Error` aux erreurs urllib3 d'un socket mort. WARNING au premier essai, pile complète au second. |
-| `graph.py:145` | `node_reconstruct_context` | Une source illisible ne doit pas emporter la réponse entière. Message recalé (ci-dessus). |
-| `graph.py:469` | `build_checkpointer` | Volume non monté, disque en lecture seule, aiosqlite en défaut : mieux vaut un service dégradé qu'un service mort. ERROR avec trace — le repli change le comportement du service. |
-| `api/main.py:255` | `/context` | La reconstruction traverse Nebula, Chroma et le parsing de leurs réponses. Journal ajouté (ci-dessus). |
-| `api/main.py:309` | `chat_simple` | Idem `node_reconstruct_context`. Message recalé. |
+| `retriever.py` | `_dense_search` | Reprise de connexion. Un client Chroma mort produit transport, sérialisation et schéma sans ancêtre commun. WARNING, un second échec remonte. |
+| `retriever.py` | `full_texts` | Dégradation bornée : le texte tronqué du graphe reste, le LLM reçoit un tableau amputé plutôt que rien. WARNING. |
+| `retriever.py` | `ping` | Une sonde ne doit jamais lever. Le faux est publié par `/health`, et le cache est oublié pour que la requête suivante rouvre. |
+| `retriever.py` | `_taille_collection` | Large et **muette**, délibérément : Chroma injoignable est déjà rapporté par `services.chromadb` dans la même réponse. Rend `None` — « je ne sais pas » — jamais confondu avec « rien n'a changé ». |
+| `retriever.py` | `_lexical_search` | La recherche dense suffit à servir la requête. Tracée avec sa pile, publiée en `index_lexical: false`. |
+| `graph_context.py` | `_execute_raw` | Reprise de connexion. nebula3 mêle transport, authentification et session sans ancêtre commun. WARNING puis nouvel essai ; un second échec remonte. |
+| `graph_context.py` | `props_of` | Large et **muette** : un nœud sans propriétés pour ce tag est le cas NORMAL — le tag `Document` n'a ni `label` ni `text`. Appelée plusieurs fois par élément : y journaliser inonderait le journal en régime nominal. |
+| `graph_context.py` | `ping` | Une sonde ne doit jamais lever. `_execute` a déjà journalisé la panne en WARNING. |
+| `minio_client.py` | `get_object_bytes` | Reprise de connexion. Le SDK minio mêle ses `S3Error` aux erreurs urllib3 d'un socket mort. WARNING au premier essai, pile complète au second. |
+| `graph.py` | `node_reconstruct_context` | Une source illisible ne doit pas emporter la réponse entière. Message recalé (ci-dessus). |
+| `graph.py` | `build_checkpointer` | Volume non monté, disque en lecture seule, aiosqlite en défaut : mieux vaut un service dégradé qu'un service mort. ERROR avec trace — le repli change le comportement du service. |
+| `api/main.py` | `context` | La reconstruction traverse Nebula, Chroma et le parsing de leurs réponses. Journal ajouté (ci-dessus). |
+| `api/main.py` | `chat_simple` | Idem `node_reconstruct_context`. Message recalé. |
 | `sessions.py` ×5 | `initialiser`, `enregistrer`, `purger` ×3 | Une purge en échec ne doit pas casser la requête qui l'a déclenchée. Passe par `_echec` : WARNING au premier, rappels tous les 20, compteur dans `/health`. La ligne de registre est **conservée** en cas d'échec, sinon la session deviendrait inatteignable. |
 | `usage.py` ×5 | `initialiser`, `record_start`, `record_completion`, `record_feedback`, `stats` | Inchangées : elles passent déjà par `_echec`, la forme de référence posée au lot 2. La capture est de l'observation, pas une fonctionnalité. |
 
-**Supprimée :** `main.py:461`, le `except Exception: logger.debug("Purge du
+**Supprimée :** l'absorption de `_register_thread` dans `main.py`, le `except Exception: logger.debug("Purge du
 thread %s impossible")` du §1.20. C'est l'absorption qui a motivé le lot ; elle
 n'a pas été resserrée mais remplacée, par une gestion d'échec qui compte, trace
 et publie (`sessions._echec`).
 
-**Nouvelle, et assumée :** `retriever.py:103` `_taille_collection`. Le filet
+**Nouvelle, et assumée :** `retriever._taille_collection`. Le filet
 d'invalidation de l'index (§1.21) doit lire un compte qui peut être illisible ;
 elle est large parce que chromadb remonte transport, sérialisation et schéma sans
 ancêtre commun, et muette parce que la panne est déjà publiée par
