@@ -403,6 +403,48 @@ def prompt_window_tokens() -> int:
     return max(0, settings.llm_num_ctx - settings.llm_max_tokens)
 
 
+class PromptMeasure(NamedTuple):
+    """Ce que le serveur d'inférence a réellement compté sur une génération.
+
+    Publié par `generate_stream` via `on_measure`, comme `PromptFit` l'est par
+    `on_fit`, et pour la même raison : la valeur n'existait qu'en journal, donc
+    RIEN ne l'observait — `prompt_eval_count` a été instrumenté au lot 1 et
+    n'avait toujours produit aucune mesure.
+    """
+
+    estimated_tokens: int
+    prompt_eval_count: int | None
+    # Tokens générés. C'est la grandeur dont dépend le réglage de
+    # `LLM_MAX_TOKENS`, qui confisque la moitié de la fenêtre à la génération
+    # sans que rien ne dise qu'elle en ait besoin.
+    eval_count: int | None
+    # Le plafond qui s'appliquait. Sans lui, « la génération a-t-elle été
+    # coupée ? » n'est pas décidable depuis `eval_count` seul.
+    num_predict: int
+    # Faux = `prompt_eval_count` est inexploitable, cf.
+    # `mesure_prompt_exploitable`.
+    prompt_reliable: bool
+
+
+def mesure_prompt_exploitable(estimated_tokens: int, prompt_eval_count: int | None) -> bool:
+    """`prompt_eval_count` mesure-t-il bien le prompt entier ?
+
+    **Point de décision unique.** `log_prompt_measure` l'applique pour écarter la
+    mesure de la calibration ; la campagne l'applique pour ne pas moyenner des
+    échantillons pollués. Deux prédicats séparés dériveraient, et la campagne
+    publierait un ratio caractères/token que le journal aurait refusé.
+
+    Ollama ne réévalue que le préfixe absent de son cache KV : au deuxième tour
+    d'une conversation — et, pour une campagne, à chaque question, le message
+    système étant identique — le décompte ne mesure plus le prompt. En dessous de
+    `_CACHE_HIT_RATIO` fois l'estimation, l'écart est trop grand pour être une
+    erreur d'estimation.
+    """
+    if not prompt_eval_count or estimated_tokens <= 0:
+        return False
+    return prompt_eval_count >= estimated_tokens * _CACHE_HIT_RATIO
+
+
 def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> None:
     """Confronte l'estimation du prompt au décompte réel rendu par Ollama.
 
@@ -429,7 +471,7 @@ def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> 
     if not prompt_eval_count or estimated_tokens <= 0:
         return
 
-    if prompt_eval_count < estimated_tokens * _CACHE_HIT_RATIO:
+    if not mesure_prompt_exploitable(estimated_tokens, prompt_eval_count):
         logger.info(
             "Prompt : réel %d tokens pour %d estimés — écart trop grand pour être une "
             "erreur d'estimation. Ollama n'a réévalué que le préfixe absent de son "
@@ -713,6 +755,7 @@ async def generate_stream(
     chat_history: list[Message] | None = None,
     on_tool_call: Callable[[str], None] | None = None,
     on_fit: Callable[[PromptFit], None] | None = None,
+    on_measure: Callable[[PromptMeasure], None] | None = None,
 ) -> AsyncIterator[str]:
     """Génère la réponse en streaming via l'API native Ollama.
 
@@ -725,6 +768,11 @@ async def generate_stream(
     devait refaire `fit_prompt` pour chiffrer ses `dropped_contexts` : chaque
     troncature était journalisée deux fois, et le gabarit rendu une fois de plus
     par source candidate.
+
+    `on_measure` reçoit les décomptes réels du serveur d'inférence. Même motif,
+    même raison : `prompt_eval_count` ne sortait qu'en journal, donc personne ne
+    l'a jamais observé, et `eval_count` n'était même pas lu — alors que c'est la
+    seule grandeur qui puisse dire si `LLM_MAX_TOKENS` sert à quelque chose.
     """
     messages, fit = _build_messages(question, contexts, chat_history or [])
     if on_fit:
@@ -758,6 +806,7 @@ async def generate_stream(
 
     timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
     prompt_eval_count: int | None = None
+    eval_count: int | None = None
     async with (
         httpx.AsyncClient(timeout=timeout) as client,
         client.stream("POST", f"{settings.ollama_host}/api/chat", json=payload) as resp,
@@ -784,9 +833,24 @@ async def generate_stream(
                 # tokens du prompt : la seule mesure disponible face à une
                 # estimation qui, sans elle, ne se vérifie jamais.
                 prompt_eval_count = data.get("prompt_eval_count")
+                # Et le décompte des tokens GÉNÉRÉS, au même endroit. Personne ne
+                # le lisait : `runs/*.json` n'enregistrait que `generation_ms`,
+                # donc « la génération n'atteint jamais son plafond » restait une
+                # présomption.
+                eval_count = data.get("eval_count")
                 break
 
     log_prompt_measure(estimated_tokens, prompt_eval_count)
+    if on_measure:
+        on_measure(
+            PromptMeasure(
+                estimated_tokens=estimated_tokens,
+                prompt_eval_count=prompt_eval_count,
+                eval_count=eval_count,
+                num_predict=settings.llm_max_tokens,
+                prompt_reliable=mesure_prompt_exploitable(estimated_tokens, prompt_eval_count),
+            )
+        )
 
 
 async def generate(

@@ -2,6 +2,7 @@ from typing import Any
 
 from typing_extensions import TypedDict
 
+from src.agent.llm import PromptMeasure
 from src.api.schemas import (
     ChunkResult,
     Citation,
@@ -59,6 +60,11 @@ class AgentState(TypedDict):
     # Porté par l'état plutôt que recalculé par /answer : deux calculs séparés
     # dérivent, et c'est ce chiffre que la campagne d'évaluation publie.
     dropped_contexts: int
+
+    # Décomptes de tokens rendus par le serveur d'inférence sur la dernière
+    # génération, renseignés par node_generate depuis `on_measure`. `None` = la
+    # génération n'a pas eu lieu, ce qui n'est pas « zéro token ».
+    generation_measure: PromptMeasure | None
 
     # Chronométrage par étage, renseigné par les nœuds. Une latence globale ne
     # dit pas quoi optimiser ; c'est ce que /answer expose à l'évaluation.

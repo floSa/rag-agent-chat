@@ -51,6 +51,7 @@ from src.api.schemas import (
     Citation,
     FeedbackRequest,
     FeedbackResponse,
+    GenerationMeasure,
     HealthResponse,
     ImageRef,
     ReindexResponse,
@@ -385,6 +386,28 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     )
 
 
+def _mesure_generation(result: dict[str, Any]) -> GenerationMeasure:
+    """Décomptes de tokens du serveur d'inférence, tels qu'il les a rendus.
+
+    Les champs restent à `None` quand Ollama ne les a pas rendus. Ce n'est pas
+    zéro : une moyenne qui confondrait « pas de mesure » et « zéro token » serait
+    fausse, et c'est précisément ce genre de confusion que ce lot corrige
+    ailleurs.
+    """
+    mesure = result.get("generation_measure")
+    reponse = result.get("response") or ""
+    if mesure is None:
+        return GenerationMeasure(answer_chars=len(reponse))
+    return GenerationMeasure(
+        answer_chars=len(reponse),
+        eval_count=mesure.eval_count,
+        prompt_eval_count=mesure.prompt_eval_count,
+        prompt_tokens_estimated=mesure.estimated_tokens,
+        prompt_tokens_reliable=mesure.prompt_reliable,
+        num_predict=mesure.num_predict,
+    )
+
+
 # ─── Réponse directe, sans sélection humaine ──────────────────────────────────
 
 @app.post("/answer", response_model=AnswerResponse, dependencies=[Depends(require_api_key)])
@@ -412,6 +435,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         "top_k": req.top_k,
         "enriched_contexts": [],
         "submitted_contexts": [],
+        "generation_measure": None,
         "response": "",
         "citations": [],
         "images": [],
@@ -524,6 +548,7 @@ async def answer(req: AnswerRequest) -> AnswerResponse:
         generation_ms=timings.get("generation_ms", 0),
         dropped_contexts=dropped,
         timings=etapes,
+        generation=_mesure_generation(result),
     )
 
 
@@ -573,6 +598,7 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
         "top_k": req.top_k,
         "enriched_contexts": [],
         "submitted_contexts": [],
+        "generation_measure": None,
         "response": "",
         "citations": [],
         "images": [],

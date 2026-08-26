@@ -55,6 +55,7 @@ Le script interroge `POST /answer` sur le jeu doré et calcule :
 | `rappel_contexte` | L'élément d'or est-il dans le contexte réellement soumis, fenêtre du graphe comprise ? | oui |
 | `timings` | Quel étage coûte le temps ? Huit étages, plus le résidu — cf. § La décomposition du temps | oui |
 | `contextes_ecartes` | Combien de sources n'ont pas tenu dans la fenêtre ? | oui |
+| `eval_count`, `generations_au_plafond` | La génération a-t-elle besoin de son plafond ? — cf. § Ce que la génération coûte | oui |
 
 Les résultats sont **stratifiés par langue**. Le corpus mêle français et
 anglais : une moyenne globale masquerait un écart entre les deux.
@@ -167,6 +168,60 @@ résultat : c'est du temps que personne ne sait expliquer.
 
 Le résumé donne **p50 et p95** par étage. Une moyenne de latence cache la queue,
 et c'est la queue qui décide de l'expérience.
+
+## Ce que la génération coûte
+
+`LLM_MAX_TOKENS = 4096` confisque la **moitié** de la fenêtre de 8192 à la
+génération, et rien ne disait qu'elle en avait besoin : `runs/*.json`
+n'enregistrait que `generation_ms`. « Une génération qui n'arrive jamais à son
+plafond » était donc une présomption, et le gain de +86 % sur le budget de
+sources qui en découlerait est étiqueté « hypothèse de calcul, pas une mesure ».
+
+La campagne enregistre désormais, par question, ce que le serveur d'inférence a
+réellement compté : `eval_count` (tokens générés), `num_predict` (le plafond
+appliqué), `prompt_eval_count` (tokens du prompt), l'estimation en regard, et le
+verdict d'exploitabilité de cette dernière.
+
+`generations_au_plafond` est le chiffre qui tranche : Ollama s'arrête **pile** à
+`num_predict` quand il l'atteint, donc l'égalité est le signal. Zéro sur les 138
+questions signifie que le plafond ne sert jamais et que les tokens qu'il réserve
+sont pris aux sources pour rien.
+
+Trois précautions, chacune parce que son contraire produirait un chiffre faux :
+
+- **« Pas de mesure » n'est pas « zéro token ».** Un serveur qui ne rend pas
+  `eval_count` ne pèse pas zéro dans la distribution ; `eval_count_sur` dit sur
+  combien de réponses les centiles portent.
+- **Les décomptes de prompt pollués par le cache KV sont écartés**, et leur
+  nombre est publié. Ollama ne réévalue que le préfixe absent de son cache : sur
+  une campagne, le message système est identique à chaque question, donc le cas
+  est la règle et non l'exception. La décision d'écarter appartient à
+  `llm.mesure_prompt_exploitable` — **un seul point de décision**, appliqué par
+  le journal comme par la campagne. Deux prédicats dériveraient, et la campagne
+  publierait un ratio que le journal a refusé.
+- **`ratio_caracteres_par_token_mesure` reste `None` s'il n'y a aucun échantillon
+  exploitable.** Rendre 3,5 — le forfait — se lirait « mesuré, et il vaut le
+  forfait ».
+
+## Les strates, y compris vides
+
+Une strate vide qui se tait ressemble à une strate saine. Les découpes
+conditionnelles sont donc publiées avec leur effectif, même à zéro, et
+l'affichage le dit en clair :
+
+```
+  [questions de suivi] 0 question — STRATE VIDE, aucune moyenne n'est calculable
+                       sur ce découpage
+```
+
+C'est le cas aujourd'hui : `chat_history` est présent sur **0 des 138 questions**
+du jeu doré. La campagne ne peut donc rien voir du travail sur l'historique de
+conversation — dont le bénéfice principal est la survie du message système au
+troisième tour. Peupler le jeu est un chantier à part ; ce qui compte ici est que
+le trou soit **visible** plutôt qu'affiché comme un résultat.
+
+La découpe translinguistique n'apparaissait, elle, que lorsqu'elle était peuplée.
+Même défaut, un cran de moins de gravité, même correction.
 
 ## La comparaison appariée
 

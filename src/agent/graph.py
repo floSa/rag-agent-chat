@@ -12,7 +12,13 @@ from langgraph.graph import END, StateGraph
 
 from src.agent.chronometrie import Chrono, cumuler
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import PromptFit, generate_stream, rewrite_question, translate_question
+from src.agent.llm import (
+    PromptFit,
+    PromptMeasure,
+    generate_stream,
+    rewrite_question,
+    translate_question,
+)
 from src.agent.minio_client import to_media_path
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
@@ -239,6 +245,9 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     tool_queries: list[str] = []
     # Budget de fenêtre tel qu'il a été appliqué au prompt réellement envoyé.
     budget: list[PromptFit] = []
+    # Décomptes réels du serveur d'inférence, pour la même raison qu'au-dessus :
+    # tant qu'ils ne sortaient qu'en journal, personne ne les a jamais observés.
+    mesures: list[PromptMeasure] = []
 
     with chrono.mesurer("generation_ms"):
         async for token in generate_stream(
@@ -247,6 +256,7 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
             chat_history=state.get("chat_history"),
             on_tool_call=tool_queries.append,
             on_fit=budget.append,
+            on_measure=mesures.append,
         ):
             parts.append(token)
             if writer:
@@ -292,6 +302,10 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
         # CANDIDATES : une métrique calculée dessus mesure une intention, celle
         # qui compte mesure ce qui a été payé en tokens.
         "submitted_contexts": budget[-1].contexts if budget else [],
+        # La dernière génération fait foi, comme pour `dropped_contexts` : la
+        # boucle agentique peut en enchaîner plusieurs, et c'est celle qui a
+        # produit la réponse rendue qui décrit son coût.
+        "generation_measure": mesures[-1] if mesures else None,
         "_metadata": cumuler(state.get("_metadata"), chrono.etages),
     }
 

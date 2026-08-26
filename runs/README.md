@@ -45,6 +45,15 @@ première fera bouger, et dans quel sens :
 | `rappel_recherche`, `mrr`, `rappel_documents` | Inchangés | Rien n'est touché en amont du reranking |
 | latences | Quasi inchangées | Quelques rendus Jinja de plus par génération, négligeables devant 4,4 s |
 
+Le lot 4 ajoute des champs que **aucun** fichier de ce dossier ne porte, donc
+qu'aucune comparaison appariée ne pourra apparier contre eux : la précision du
+contexte (`taux_contexte_utile`, `part_utile_caracteres`, `rappel_contexte`), la
+partition du temps par étage, le coût réel de la génération (`eval_count`,
+`generations_au_plafond`) et le décompte réel du prompt. La comparaison le dira
+elle-même — « aucune paire » plutôt qu'un delta nul. La première campagne qui
+tournera devient la référence de ces métriques ; les anciennes restent la
+référence du rappel et du MRR, qui n'ont pas changé de définition.
+
 **Un recul de `rappel_elements` n'est pas à annuler sans avoir vérifié la cause.**
 Démonstration sur un cas que l'ancien budget acceptait : cinq sources de 2 500
 caractères, soit 12 500 ≤ 12 544, le plafond d'alors. Le prompt réellement émis

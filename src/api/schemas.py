@@ -342,6 +342,10 @@ class GenerationMeasure(BaseModel):
     # ce champ ne fait que la publier, pour qu'une campagne l'applique au lieu
     # de moyenner à l'aveugle.
     prompt_tokens_reliable: bool = False
+    # Le plafond de génération qui s'appliquait (`LLM_MAX_TOKENS` / num_predict).
+    # Sans lui, « la génération a-t-elle été coupée ? » n'est pas décidable
+    # depuis `eval_count` seul, et c'est toute la question que ce champ sert.
+    num_predict: int = 0
 
 
 class AnswerResponse(BaseModel):

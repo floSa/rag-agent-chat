@@ -227,6 +227,13 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
     # difficile : c'est celui qu'un modèle monolingue rate systématiquement.
     doc_langue = question.get("doc_language") or question.get("language", "")
 
+    # Décomptes rendus par le serveur d'inférence. `None` = non rendu, ce qui
+    # n'est PAS zéro : une moyenne qui confondrait les deux serait fausse, et
+    # c'est exactement le genre de confusion dont ce lot fait la chasse.
+    generation = reponse.get("generation") or {}
+    eval_count = generation.get("eval_count")
+    num_predict = generation.get("num_predict") or 0
+
     # La partition du temps, étage par étage. Un service plus ancien ne la rend
     # pas : les étages valent alors zéro, et le résumé le dira en affichant un
     # total nul plutôt qu'en omettant les lignes.
@@ -243,6 +250,10 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": question["id"],
         "langue": question.get("language", ""),
+        # Présent = question de SUIVI. Le jeu doré n'en contient aucune
+        # aujourd'hui, et le résumé doit le dire plutôt que d'afficher une
+        # moyenne vide : une strate vide qui se tait ressemble à une strate saine.
+        "suivi": bool(question.get("chat_history")),
         "translinguistique": bool(doc_langue) and doc_langue != question.get("language", ""),
         "type": question.get("type", ""),
         "rappel_elements": rappel_elements,
@@ -258,6 +269,27 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         "contextes_ecartes": reponse.get("dropped_contexts", 0),
         "langues_sources": sorted({c.get("language", "") for c in contexts if c.get("language")}),
         **precision_contexte(attendus_ids, contexts),
+        # ─── Ce que la génération a réellement coûté ──────────────────────────
+        # `LLM_MAX_TOKENS=4096` confisque la moitié de la fenêtre de 8192 à la
+        # génération, et rien ne disait qu'elle en avait besoin : `runs/*.json`
+        # n'enregistrait que `generation_ms`. Ces quatre champs transforment la
+        # présomption en mesure.
+        "reponse_caracteres": len(reponse.get("answer") or ""),
+        "eval_count": eval_count,
+        "num_predict": num_predict,
+        # La génération a-t-elle buté sur son plafond ? Ollama s'arrête PILE à
+        # num_predict quand il le atteint, donc l'égalité est le signal. `None`
+        # quand l'un des deux manque — « je ne sais pas » ne doit pas devenir
+        # « non ».
+        "generation_au_plafond": (
+            eval_count >= num_predict if eval_count and num_predict else None
+        ),
+        "prompt_eval_count": generation.get("prompt_eval_count"),
+        "prompt_tokens_estimated": generation.get("prompt_tokens_estimated") or 0,
+        # Faux = décompte pollué par le cache KV d'Ollama. La décision d'écarter
+        # ces échantillons appartient à `llm.mesure_prompt_exploitable` ; la
+        # campagne l'applique, elle ne la refait pas.
+        "prompt_tokens_reliable": bool(generation.get("prompt_tokens_reliable")),
         # Agrégat historique — recherche + reranking — présent dans tous les
         # fichiers de `runs/`. Ce n'est PAS un étage : il contient `dense_ms`,
         # `lexical_ms`, `fusion_ms` et `rerank_ms`, et l'additionner à la
@@ -282,6 +314,14 @@ def _centile(valeurs: list[int], part: float) -> int:
 def resumer(lignes: list[dict]) -> dict[str, Any]:
     sans_reponse = [r for r in lignes if r["abstention_correcte"] is not None]
     retrieval = [r["retrieval_ms"] for r in lignes]
+    tokens_generes = [r["eval_count"] for r in lignes if r["eval_count"]]
+    # (décompte réel, estimation) des seuls prompts dont la mesure est
+    # exploitable, cf. `llm.mesure_prompt_exploitable`.
+    prompts_fiables = [
+        (r["prompt_eval_count"], r["prompt_tokens_estimated"])
+        for r in lignes
+        if r["prompt_tokens_reliable"] and r["prompt_eval_count"]
+    ]
 
     return {
         "questions": len(lignes),
@@ -319,6 +359,43 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
         ),
         "caracteres_retenus_p50": _centile([r["caracteres_retenus"] for r in lignes], 0.5),
         "caracteres_retenus_p95": _centile([r["caracteres_retenus"] for r in lignes], 0.95),
+        # ─── Ce que la génération coûte réellement ────────────────────────────
+        "reponse_caracteres_p50": _centile([r["reponse_caracteres"] for r in lignes], 0.5),
+        "reponse_caracteres_p95": _centile([r["reponse_caracteres"] for r in lignes], 0.95),
+        "reponse_caracteres_max": max((r["reponse_caracteres"] for r in lignes), default=0),
+        # Sur les seules réponses dont le serveur a rendu le décompte : moyenner
+        # les autres à zéro écraserait la distribution vers le bas, et c'est
+        # justement le haut qui décide de `LLM_MAX_TOKENS`.
+        "eval_count_sur": len(tokens_generes),
+        "eval_count_p50": _centile(tokens_generes, 0.5),
+        "eval_count_p95": _centile(tokens_generes, 0.95),
+        "eval_count_max": max(tokens_generes, default=0),
+        # Le plafond appliqué, publié pour que les trois chiffres ci-dessus se
+        # lisent sans aller chercher la configuration du serveur.
+        "num_predict": next((r["num_predict"] for r in lignes if r["num_predict"]), 0),
+        # LE chiffre qui tranche `LLM_MAX_TOKENS` : combien de générations ont
+        # buté sur leur plafond. Zéro sur tout le jeu = le plafond ne sert
+        # jamais, et les tokens qu'il réserve sont pris aux sources pour rien.
+        "generations_au_plafond": sum(1 for r in lignes if r["generation_au_plafond"]),
+        # ─── Le prompt, décompte réel contre estimation ───────────────────────
+        # Les échantillons pollués par le cache KV sont écartés, et leur nombre
+        # est dit : un ratio calibré sur eux fondrait à chaque question.
+        "prompt_tokens_exploitables": len(prompts_fiables),
+        "prompt_tokens_ecartes_cache_kv": sum(
+            1 for r in lignes if r["prompt_eval_count"] and not r["prompt_tokens_reliable"]
+        ),
+        "prompt_eval_count_p50": _centile([p for p, _ in prompts_fiables], 0.5),
+        "prompt_eval_count_p95": _centile([p for p, _ in prompts_fiables], 0.95),
+        # Le ratio caractères/token qu'il aurait fallu retenir pour que
+        # l'estimation soit exacte. `_CHARS_PER_TOKEN = 3,5` est un forfait depuis
+        # l'origine du projet ; c'est ce chiffre-ci qui le calibre.
+        "ratio_caracteres_par_token_mesure": (
+            round(
+                sum(3.5 * e / p for p, e in prompts_fiables) / len(prompts_fiables), 2
+            )
+            if prompts_fiables
+            else None
+        ),
         "retrieval_ms_p50": _centile(retrieval, 0.5),
         "retrieval_ms_p95": _centile(retrieval, 0.95),
         # p50 ET p95 par étage : une moyenne de latence cache la queue, et c'est
@@ -344,17 +421,33 @@ def _tranche(sous_ensemble: list[dict]) -> dict[str, Any]:
 
 
 def par_langue(lignes: list[dict]) -> dict[str, Any]:
-    """Le corpus est mixte : une moyenne globale masquerait un écart par langue."""
+    """Stratifie les résultats. Une strate VIDE est publiée, pas omise.
+
+    Le corpus est mixte : une moyenne globale masquerait un écart par langue.
+
+    **Les strates conditionnelles sont le piège.** « Questions de suivi » est
+    vide aujourd'hui — `chat_history` est présent sur 0 des 138 questions du jeu
+    doré — donc la campagne ne peut rien voir du travail sur l'historique. Omettre
+    la ligne, ou afficher une moyenne calculée sur zéro question, se lit
+    exactement comme une strate saine. Elle est donc rendue avec son effectif à
+    zéro, et `afficher` le dit en clair.
+
+    Même règle pour la découpe translinguistique, qui n'apparaissait que
+    lorsqu'elle était peuplée : le même défaut, à un cran de moins de gravité.
+    """
     resultat = {
         langue: _tranche([r for r in lignes if r["langue"] == langue])
         for langue in sorted({r["langue"] for r in lignes if r["langue"]})
     }
     # Découpe orthogonale : la difficulté ne vient pas de la langue de la
     # question, mais de l'écart entre elle et celle du document.
-    translinguistiques = [r for r in lignes if r["translinguistique"]]
-    if translinguistiques:
-        resultat["translinguistique"] = _tranche(translinguistiques)
-        resultat["même langue"] = _tranche([r for r in lignes if not r["translinguistique"]])
+    resultat["translinguistique"] = _tranche([r for r in lignes if r["translinguistique"]])
+    resultat["même langue"] = _tranche([r for r in lignes if not r["translinguistique"]])
+    # Le travail sur l'historique de conversation ne se mesure que là, et le jeu
+    # doré n'y pose aucune question. Peupler le jeu est un chantier à part ; ce
+    # qui compte ici est que le trou soit VISIBLE.
+    resultat["questions de suivi"] = _tranche([r for r in lignes if r["suivi"]])
+    resultat["questions autonomes"] = _tranche([r for r in lignes if not r["suivi"]])
     return resultat
 
 
@@ -364,9 +457,15 @@ def afficher(resume: dict, langues: dict, lignes: list[dict]) -> None:
         if cle != "questions":
             print(f"  {cle:28s} {valeur}")
 
-    print("\nPar langue de la question")
-    for langue, valeurs in langues.items():
-        print(f"  [{langue}] {valeurs}")
+    print("\nPar strate")
+    for strate, valeurs in langues.items():
+        if not valeurs["questions"]:
+            # Une strate vide qui se tait ressemble à une strate saine. Elle est
+            # donc nommée, avec son effectif, et sans moyenne : il n'y en a pas.
+            print(f"  [{strate}] 0 question — STRATE VIDE, aucune moyenne n'est "
+                  "calculable sur ce découpage")
+            continue
+        print(f"  [{strate}] {valeurs}")
 
     # Le rappel à l'ÉLÉMENT fait foi quand il est disponible : le rappel au
     # document laisse passer une recherche qui trouve le bon livre au mauvais

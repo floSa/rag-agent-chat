@@ -194,6 +194,31 @@ mesuré », ou ne prenez que le premier appel d'une conversation.
 docker compose logs -f agent-api | grep "Prompt :"
 ```
 
+### La mesure ne sort plus seulement en journal
+
+Le lot 1 a construit cette instrumentation, et **rien ne l'avait jamais
+observée** : elle ne sortait qu'en `logger.info`, donc aucune campagne n'en
+gardait trace. Depuis le lot 4, `/answer` publie les décomptes réels sous
+`generation`, et `scripts/evaluate.py` les enregistre par question :
+
+| Champ | Ce qu'il porte |
+|---|---|
+| `prompt_eval_count` | Décompte réel du prompt, tel qu'Ollama l'a rendu |
+| `prompt_tokens_estimated` | Notre estimation du même prompt, avec le ratio qui a décidé de la coupe |
+| `prompt_tokens_reliable` | Faux = échantillon pollué par le cache KV, à écarter de la calibration |
+| `eval_count` | Tokens **générés** |
+| `num_predict` | Le plafond qui s'appliquait |
+
+La décision d'écarter un échantillon pollué reste **unique** :
+`llm.mesure_prompt_exploitable` la porte, `log_prompt_measure` l'applique, la
+campagne l'applique. Deux prédicats séparés dériveraient, et la campagne
+publierait un ratio que le journal a refusé.
+
+Le résumé de campagne en tire `ratio_caracteres_par_token_mesure` — calculé sur
+les seuls échantillons exploitables, avec le nombre d'écartés à côté. C'est ce
+chiffre qui calibrera `_CHARS_PER_TOKEN`, aujourd'hui un forfait de 3,5 posé au
+jugé.
+
 ## `LLM_MAX_TOKENS` — à mesurer
 
 `LLM_MAX_TOKENS = 4096` réserve la **moitié** de la fenêtre à la génération, et
@@ -206,36 +231,32 @@ mesure.
 
 **La valeur n'a pas été ajustée, faute de pouvoir la mesurer** : ni
 `ollama-central` ni les stores n'étaient joignables. Un chiffre inventé est pire
-que pas de chiffre — et `runs/*.json` n'enregistre que `generation_ms`, pas la
-longueur des réponses, donc les campagnes passées ne permettent pas de
-reconstituer la distribution après coup. C'est un manque du protocole
-d'évaluation autant que de ce lot.
+que pas de chiffre.
 
-Ce qu'il faut mesurer, stack démarrée :
+Les campagnes passées ne permettent pas de reconstituer la distribution après
+coup — `runs/*.json` n'enregistrait que `generation_ms`. Depuis le lot 4, la
+campagne l'enregistre, et le protocole n'est plus un script à part : c'est
+`make eval`, dont le résumé porte les quatre chiffres qui tranchent.
 
-```bash
-make up && make health          # ollama-central et les stores doivent répondre
-uv run python - <<'EOF'
-import json, httpx, statistics
-golden = json.load(open("tests/fixtures/golden_qa_generated.json"))
-longueurs = []
-for q in golden["questions"][:30]:
-    r = httpx.post("http://localhost:8011/answer",
-                   json={"question": q["question"]}, timeout=180.0)
-    longueurs.append(len(r.json()["answer"]) / 3.5)   # caractères -> tokens estimés
-longueurs.sort()
-print("n =", len(longueurs), "p50 =", statistics.median(longueurs),
-      "p95 =", longueurs[int(len(longueurs) * 0.95)], "max =", longueurs[-1])
-EOF
-```
+| Chiffre du résumé | Ce qu'il décide |
+|---|---|
+| `generations_au_plafond` | **Le chiffre qui tranche.** Zéro sur les 138 questions = le plafond n'est jamais atteint, donc les tokens qu'il réserve sont pris aux sources pour rien. Non nul = le baisser tronquerait des réponses |
+| `eval_count_p95`, `eval_count_max` | Où poser le plafond : au p95 mesuré, majoré d'une marge assumée |
+| `eval_count_sur` | Sur combien de réponses les trois précédents portent — un serveur qui ne rend pas le décompte les rendrait vides |
+| `reponse_caracteres_p95` | Le repli si le serveur ne rend pas `eval_count` : une longueur en caractères, à diviser par le ratio mesuré |
 
-Poser ensuite `LLM_MAX_TOKENS` au p95 mesuré, majoré d'une marge assumée — un
-plafond atteint tronque la réponse, ce qui est un défaut visible, alors qu'un
-plafond trop haut ne coûte « que » du budget de sources. Le `WARNING` sur
+`eval_count` est le décompte du **serveur**, pas une estimation en caractères
+divisés par 3,5 : c'est le seul qui puisse dire si la génération a buté sur son
+plafond, puisque Ollama s'arrête pile à `num_predict` quand il l'atteint.
+
+Un plafond atteint tronque la réponse, ce qui est un défaut visible ; un plafond
+trop haut ne coûte « que » du budget de sources. Le `WARNING` sur
 `prompt_eval_count` dira si la nouvelle valeur fait déborder la fenêtre.
 
 Une fois la valeur posée, relancer `make eval` : le budget de sources en dérive,
-donc `contextes_ecartes` et `citations_par_reponse` bougeront.
+donc `contextes_ecartes`, `part_utile_caracteres` et `citations_par_reponse`
+bougeront — et la comparaison appariée dira lesquelles des 138 questions
+basculent.
 
 ## Prérequis
 
