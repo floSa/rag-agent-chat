@@ -437,13 +437,21 @@ Les appels concurrents à `/reindex` sont **fusionnés** et non sérialisés : c
 qui arrive pendant une reconstruction attend son issue et rend sa taille. Le
 verrou de `LexicalIndex` sérialise, il ne fusionne pas — six appels simultanés
 faisaient six parcours du corpus à la queue leu leu, chacun mobilisant un fil du
-threadpool FastAPI pendant ~9 secondes, et les endpoints de recherche partagent
-ce threadpool. Trouvé en relisant l'endpoint, mesuré par le test (`assert 7 ==
-2` sur les lectures du corpus avant correctif).
+threadpool FastAPI pendant la durée d'un parcours complet, et les endpoints de
+recherche partagent ce threadpool.
+
+Trouvé en relisant l'endpoint. Le test asserte
+`collection.lectures == lectures_apres_construction + 1` après six fils
+concurrents : une seule lecture s'ajoute à celle de la construction initiale.
+Avant correctif il en comptait sept — 1 construction + 6 réindexations
+sérialisées — donc l'assertion échouait sur `7 == 2`. Ce `7 == 2` est le message
+d'échec de pytest, pas une assertion du code : il se lit comme une absurdité
+sortie de son contexte, et une version antérieure de ce document le citait comme
+si le test le contenait.
 
 La reconstruction déclenchée par le filet tourne dans un fil démon : ses
-~9 secondes ne doivent pas être payées par la requête qui découvre la dérive, qui
-n'a pas participé à l'ingestion. L'index périmé continue de servir pendant ce
+~9 secondes (chiffre non mesuré, cf. §2) ne doivent pas être payées par la
+requête qui découvre la dérive, qui n'a pas participé à l'ingestion. L'index périmé continue de servir pendant ce
 temps — dégradé, pas absent, et il ne décrit alors qu'un corpus plus petit que le
 vrai.
 
@@ -466,8 +474,8 @@ Les endpoints de recherche sont des `def` et non des `async def` — donc servis
 par le threadpool FastAPI. N requêtes arrivant avant que l'index soit prêt
 déclenchaient N lectures complètes du corpus et N constructions de BM25 : N fois
 le temps, N fois la mémoire, N−1 résultats jetés. La première requête coûte déjà
-~9 secondes ; deux utilisateurs qui ouvrent l'interface après un redéploiement
-n'est pas un cas exotique.
+~9 secondes (chiffre non mesuré, cf. §2) ; deux utilisateurs qui ouvrent
+l'interface après un redéploiement n'est pas un cas exotique.
 
 `LexicalIndex.ensure` prend la lecture **en rappel** et l'exécute sous son
 verrou. Mesuré par le test de serrage : huit requêtes concurrentes faisaient
@@ -539,8 +547,8 @@ vérifiables.
 Répartition : **5 resserrées**, **4 dont le journal a changé de niveau ou de
 message**, **14 conservées** avec justification écrite au site, et **1
 supprimée** — celle de `_register_thread` dans `main.py`, l'absorption du §1.20, remplacée par la gestion
-d'échec de `sessions.purger`. L'arbre courant en compte 24 aussi : les six
-resserrements sont compensés par les cinq de `sessions.py` — qui passent par
+d'échec de `sessions.purger`. L'arbre courant en compte 24 aussi : les cinq
+resserrements et l'absorption supprimée sont compensés par les cinq de `sessions.py` — qui passent par
 `_echec`, la forme de référence — et par `retriever._taille_collection`,
 nouvelle et documentée comme muette au site.
 
@@ -721,7 +729,10 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 | P3 | `test_les_balises_de_tour_valent_le_gabarit_qu_elles_citent` ne valide rien d'externe | Le test recalcule `len("<start_of_turn>user\n") + len("<end_of_turn>\n")`, soit les mêmes littéraux que le commentaire de la constante : c'est un épinglage contre la dérive — utile — mais sa docstring laisse entendre une validation contre le gabarit réel de Gemma, qui n'a pas lieu. Le vrai gabarit vit dans le modèle Ollama, pas dans ce dépôt. **Reporté au lot 1**, débloqué par : reformuler la docstring en « épinglage », ou lire le gabarit du modèle servi — ce qui demande la stack. |
 | P2 | Latence de génération | ~3 à 10 s contre 0,5 s de recherche. Le levier est le LLM — quantisation, `num_predict`, modèle plus petit — pas la recherche. |
 | P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. |
-| P2 | Index BM25 en mémoire | Construit au premier appel : la **première** requête après un démarrage paie ~9 s, et cela n'a pas changé — c'est la seule construction encore payée par une requête utilisateur. Les reconstructions ultérieures, elles, tournent en tâche de fond (§1.21), et N requêtes concurrentes n'en déclenchent plus qu'une (§1.22). Un corpus nettement plus gros demanderait un moteur dédié. Déplacer la première construction au démarrage retarderait la mise en service d'autant : l'arbitrage n'a pas été rendu. |
+| P1 | `/health` est séquentiel, et dépasse le délai du healthcheck | **Antérieur à ce lot, jamais consigné, et il casse le premier démarrage de quiconque suit le README sans avoir lancé l'ingestion.** Les quatre sondes de `/health` — Chroma, Nebula, index lexical, Ollama — s'attendent l'une l'autre. Mesuré à l'audit : ~140 s contre une adresse qui avale les paquets, ~40 s contre un port qui refuse ; le chiffre dépend du mode de panne, la conclusion non. Or `docker-compose.yml` donne `timeout: 5s` et `retries: 5` au healthcheck, et `frontend.depends_on` exige `agent-api: {condition: service_healthy}`. Sans stores : `curl` est tué à 5 s, les cinq tentatives échouent, `agent-api` passe *unhealthy*, et **le frontend ne démarre jamais** — alors que l'API répondrait `degraded` en 200, ce qu'elle est écrite pour faire (« retourne toujours 200 pour ne pas déclencher de restart en boucle »). Ce que ce lot y change, honnêtement : `lexical_ready` appelle désormais `_taille_collection`, donc un aller-retour Chroma de plus. Sans effet à froid — l'index n'étant pas construit, la sonde court-circuite en 0 s — mais un délai de plus dans le cas « index construit, Chroma tombe ensuite ». Piste : les quatre sondes en parallèle sous un `asyncio.wait_for` global de 3 s, chaque sonde non revenue publiée `false`. Débloqué par : rien, mais cela change le contrat de `/health` et mérite son propre lot. |
+| P2 | `lexical_stale` coûte un `count()` ChromaDB par appel | Un aller-retour par recherche lexicale **et** par sonde `/health`. Mesuré au compteur : 10 recherches → 10 `count()`, 5 appels à `lexical_ready` → 5 `count()`. Le docstring de la fonction a d'abord affirmé le contraire (« le compte est déjà lu au moment de la construction, donc la comparaison ne coûte rien de neuf ») : c'est faux, la lecture de la construction ne sert qu'à la construction, et la phrase est corrigée. Candidat à un cache sur fenêtre courte — mais c'est un arbitrage de performance, pas une correction : il faut savoir ce que coûte réellement un `count()` contre le vrai ChromaDB face au risque de servir un index périmé quelques secondes de plus. **Débloqué par : la stack démarrée**, absente ici. Aggravé par la ligne `/health` ci-dessus, avec laquelle il se traite bien. |
+| P3 | Deux lecteurs composites de `_etat`, hors de `LexicalIndex` | `retriever.lexical_stale` lit `ready`, puis `count()`, puis `size` en trois temps ; `rebuild_lexical_index` lit `size` dans ses deux branches. Une reconstruction concurrente peut donc s'intercaler entre deux de ces lectures. **Bénin, et il faut dire pourquoi :** `_etat` n'est jamais remis à `None` et chaque `search` capture l'état en une fois (§1.22), donc ni mauvais chunk ni `IndexError` — c'est de la comptabilité. Au pire un verdict de péremption faux, donc une reconstruction de fond superflue, ou une taille rendue par `/reindex` qui décrit l'index d'après plutôt que celui qu'il vient de construire. Mais l'affirmation « un tuple remplacé d'un seul coup referme la fenêtre » est vraie de `LexicalIndex`, **pas de tout ce qui le lit**. Un accesseur `etat()` à capture unique fermerait le sujet. Non fait : ce lot a déjà été audité, et grossir son diff après coup remet tout en cause. |
+| P2 | Index BM25 en mémoire, et le **~9 s non mesuré** | **Site canonique de la réserve sur ce chiffre : tout autre endroit qui l'écrit renvoie ici.** Le « ~9 s » de la construction de l'index circule dans ce dépôt depuis sa documentation d'origine, et **aucune exécution ne l'a produit** — ni ce lot, ni aucun message de commit, ni aucun fichier de `runs/`. C'est un ordre de grandeur hérité, pas une mesure. Il porte pourtant quatre justifications de conception : le fil démon de la reconstruction de fond, la fusion des réindexations concurrentes, le passage de la lecture du corpus sous le verrou, et le non-déplacement de la première construction au démarrage. Aucune de ces quatre ne tombe si le chiffre est faux — chacune tient dès que le parcours du corpus est *long devant une requête*, ce qui est structurellement vrai puisqu'il lit tout le corpus par lots de 2000 — mais leur dimensionnement, lui, en dépend. À mesurer : chronométrer `_charger_corpus` sur le corpus réel, ce qui **demande la stack démarrée**, absente ici (`llm-net`, `ollama-central`, stores arrêtés). En attendant, le chiffre est étiqueté « non mesuré » partout où il apparaît. Le reste de la ligne : la **première** requête après un démarrage paie cette construction, et cela n'a pas changé — c'est la seule encore payée par une requête utilisateur. Les reconstructions ultérieures tournent en tâche de fond (§1.21), et N requêtes concurrentes n'en déclenchent plus qu'une (§1.22). Déplacer la première construction au démarrage retarderait la mise en service d'autant : arbitrage non rendu, faute de la mesure ci-dessus. |
 | P3 | Multi-workers | Les sessions sont persistées — et leur purge l'est aussi désormais (§1.20), donc un worker purge ce qu'un autre a créé. Mais l'index BM25 et les modèles restent chargés par processus : N workers = N copies en mémoire, et surtout **`POST /reindex` ne reconstruit que l'index du worker qui reçoit la requête** — les autres restent périmés jusqu'à ce que leur filet de comparaison des comptes les rattrape. Non traité : le contrat de réindexation suppose aujourd'hui un worker unique. |
 | P2 | Entretien des dépendances | Le projet a démarré sur des versions déjà vieilles d'onze mois, jamais montées ensuite. Il n'existe aucun garde-fou : `make audit` ne tourne pas en CI, rien ne signale une version qui vieillit. |
 | P3 | Observabilité | Logs console uniquement, pas de tracing distribué ni de métriques exportées. |

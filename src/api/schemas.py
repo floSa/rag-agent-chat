@@ -353,8 +353,12 @@ class ReindexResponse(BaseModel):
     """
 
     chunks_indexed: int
-    # Faux attendu juste après une reconstruction. Vrai signifie que le corpus
-    # a encore bougé entre-temps, ou que le compte de la collection est illisible.
+    # Faux attendu juste après une reconstruction. Vrai signifie que le corpus a
+    # encore bougé entre-temps. Un compte de collection ILLISIBLE rend faux, lui
+    # aussi, et c'est la décision documentée partout ailleurs : « je ne sais
+    # pas » ne doit pas devenir « c'est périmé », sans quoi une panne de Chroma
+    # déclencherait des reconstructions en boucle. Ce commentaire annonçait
+    # l'inverse du code.
     stale: bool
 
 

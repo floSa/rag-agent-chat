@@ -66,7 +66,8 @@ _verrou_reconstruction = threading.Lock()
 # Une reconstruction à la fois, tous appelants confondus. Distinct du verrou de
 # `LexicalIndex` : celui-ci sérialise les constructions, celui-là les FUSIONNE.
 # Sans lui, N appels à POST /reindex produisaient N parcours du corpus
-# sérialisés, chacun occupant un fil du threadpool FastAPI pendant ~9 secondes —
+# sérialisés, chacun occupant un fil du threadpool FastAPI le temps d'un parcours
+# complet (~9 s, non mesuré — cf. `_charger_corpus`) —
 # donc affamant les endpoints de recherche, qui vivent dans le même threadpool.
 _verrou_reindexation = threading.Lock()
 
@@ -74,11 +75,19 @@ _verrou_reindexation = threading.Lock()
 def _charger_corpus() -> tuple[list[str], list[str]]:
     """Lit tous les textes de la collection, par lots.
 
-    C'est la partie coûteuse — linéaire dans la taille du corpus, mesurée à
-    ~9 secondes sur celui de ce projet (§2, axes_amelioration.md). Elle est
-    passée en rappel à `LexicalIndex.ensure` pour être exécutée SOUS SON
-    VERROU : effectuée avant de le prendre, N requêtes concurrentes la
-    payaient N fois.
+    C'est la partie coûteuse, linéaire dans la taille du corpus : tout le corpus
+    est lu par lots de `_LEXICAL_PAGE`, puis tokenisé.
+
+    **Le « ~9 s » écrit ailleurs dans ce dépôt n'est PAS une mesure** — c'est un
+    ordre de grandeur hérité de la documentation d'origine, qu'aucune exécution
+    n'a produit. La réserve et le protocole de mesure sont au site canonique,
+    axes_amelioration.md §2 « Index BM25 en mémoire ». Ce qui est
+    structurellement vrai, et qui suffit à justifier ce qui l'entoure : ce
+    parcours est long devant une requête.
+
+    Elle est passée en rappel à `LexicalIndex.ensure` pour être exécutée SOUS SON
+    VERROU : effectuée avant de le prendre, N requêtes concurrentes la payaient
+    N fois.
     """
     collection = _get_chroma_collection()
     total = collection.count()
@@ -121,12 +130,22 @@ def lexical_stale() -> bool:
     continuait d'annoncer un index prêt. Il l'était ; il décrivait simplement
     un corpus disparu.
 
-    Le compte de la collection est comparé au nombre de chunks indexés. Il est
-    déjà lu au moment de la construction, donc la comparaison ne coûte rien de
-    neuf. **Ce n'est qu'un filet** : un corpus dont on a retiré autant de chunks
-    qu'on en a ajouté affiche le même compte. C'est pourquoi `POST /reindex`
-    existe — un contrat que l'ingestion honore vaut mieux qu'une heuristique
-    qu'elle ignore.
+    Le compte de la collection est comparé au nombre de chunks indexés.
+
+    **Ce que cette comparaison coûte, et ce n'est pas rien.** Un aller-retour
+    ChromaDB par appel : mesuré au compteur, 10 recherches lexicales font 10
+    `count()`, et 5 appels à `lexical_ready` — donc 5 sondes /health — en font 5.
+    Une version antérieure de ce docstring affirmait que « le compte est déjà lu
+    au moment de la construction, donc la comparaison ne coûte rien de neuf » :
+    c'est faux, la lecture de la construction ne sert qu'à la construction. Un
+    cache sur fenêtre courte est un candidat, mais c'est un arbitrage de
+    performance qui demande une mesure contre les vrais stores — il est ouvert
+    dans axes_amelioration.md, pas décidé ici.
+
+    **Ce n'est qu'un filet** : un corpus dont on a retiré autant de chunks qu'on
+    en a ajouté affiche le même compte. C'est pourquoi `POST /reindex` existe —
+    un contrat que l'ingestion honore vaut mieux qu'une heuristique qu'elle
+    ignore.
     """
     if not _lexical_index.ready:
         return False
@@ -156,8 +175,9 @@ def rebuild_lexical_index() -> int:
     arrive pendant une reconstruction attend son issue et rend sa taille, au lieu
     d'en enchaîner une seconde sur le même corpus. C'est ce qui distingue ce
     verrou de celui de `LexicalIndex` — sans lui, un appelant qui répète
-    `POST /reindex` mobilise un fil du threadpool FastAPI par appel, pendant
-    ~9 secondes chacun, et les endpoints de recherche partagent ce threadpool.
+    `POST /reindex` mobilise un fil du threadpool FastAPI par appel, le temps d'un
+    parcours complet chacun (~9 s, non mesuré — cf. `_charger_corpus`), et les
+    endpoints de recherche partagent ce threadpool.
     """
     if not _verrou_reindexation.acquire(blocking=False):
         with _verrou_reindexation:
@@ -172,15 +192,16 @@ def rebuild_lexical_index() -> int:
 def _planifier_reconstruction() -> None:
     """Programme une reconstruction HORS du chemin de la requête.
 
-    La lecture du corpus et la tokenisation coûtent ~9 secondes : les faire
-    payer à la requête qui découvre la dérive punirait un utilisateur pour une
-    ingestion à laquelle il n'a pas participé. L'index périmé continue de servir
+    La lecture du corpus et la tokenisation coûtent ~9 secondes (chiffre non
+    mesuré, cf. `_charger_corpus`) : les faire payer à la requête qui découvre la
+    dérive punirait un utilisateur pour une ingestion à laquelle il n'a pas
+    participé. L'index périmé continue de servir
     pendant ce temps — dégradé, mais pas absent, et il ne décrit alors qu'un
     corpus plus petit que le vrai.
 
     Fil démon : une reconstruction interrompue par l'arrêt du service ne laisse
     rien derrière elle — l'index n'est pas persisté — alors qu'un fil non démon
-    retiendrait l'arrêt jusqu'à ~9 secondes.
+    retiendrait l'arrêt jusqu'à la fin du parcours.
     """
     global _reconstruction
     with _verrou_reconstruction:

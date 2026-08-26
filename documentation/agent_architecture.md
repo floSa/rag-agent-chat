@@ -142,11 +142,11 @@ par `GET /health` sous `sessions`.
 ### Contrat de lecture ChromaDB
 
 - Collection : `rag_documents`
-- Embedding : `all-MiniLM-L6-v2` (384 dimensions) — **doit être identique à l'ingestion**
-- Métadonnées disponibles par chunk : `element_id`, `filename`, `page_no`, `minio_url`
-- Paramètres de retrieval : `RETRIEVAL_TOP_K=20` (brut) → `RERANK_TOP_K=10` (après reranking)
+- Embedding : `paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions) — **doit être identique à l'ingestion**. Ce document a longtemps annoncé `all-MiniLM-L6-v2`, un modèle anglais : c'est faux depuis la réingestion multilingue, et c'est la plus coûteuse des fausses valeurs possibles — un embedder qui ne correspond pas à celui de l'ingestion rend des passages au hasard, sans exception, sans log et sans sonde. La valeur qui s'exécute est dans `settings.py`
+- Métadonnées disponibles par chunk : `element_id`, `graph_node_id`, `filename`, `collection`, `source_path`, `section_title`, `language`, `depth`, `page_no`, `minio_url`, `chunk_index`, `chunk_count`. Ce que l'agent fait de chacune est dans [stores.md](stores.md), qui fait référence — `source_path` est l'**identité** du document, et non `filename`
+- Paramètres de retrieval : `RETRIEVAL_TOP_K=50` (candidats après fusion) → `RERANK_TOP_K=10` (après reranking). La table des paramètres de ce document disait déjà 50 ; cette ligne était restée à 20, la valeur d'avant l'élargissement du vivier
 - **Aucun filtre de pertinence.** `rerank` rend les `RERANK_TOP_K` mieux classées quel que soit leur score : le système n'a pas de seuil, et une question hors corpus reçoit dix sources comme les autres. Ce document a décrit un `RERANK_MIN_SCORE=0.0` qui n'a jamais existé dans `settings.py` — l'affirmation est retirée, le manque est ouvert dans [axes_amelioration.md](axes_amelioration.md) avec les deux autres manifestations du même problème (badge de pertinence purement relatif, `min_length=1` sur la sélection)
-- Enrichissement d'affichage : après reranking, chaque chunk est enrichi via NebulaGraph (`get_section_text`) pour obtenir le texte du SectionHeader parent (`section_header_text`), affiché dans l'interface de sélection des sources
+- Situer le passage dans l'interface de sélection ne coûte **aucun** appel au graphe : le titre de section est lu dans la métadonnée `section_title` de ChromaDB, portée par `ChunkResult` et affichée telle quelle. Ce document décrivait un enrichissement par NebulaGraph via `get_section_text`, produisant un champ `section_header_text` : ces deux symboles n'existent nulle part dans `src/`. Le graphe n'est traversé qu'après la sélection, par `reconstruct_section`
 
 ### Contrat de lecture NebulaGraph
 
@@ -402,7 +402,7 @@ Documentation interactive : `http://localhost:8001/docs`
 | Granularité de la mesure | Le jeu doré n'annote qu'au **document** : un chapitre entier compte comme un succès. Cette granularité ne peut pas départager deux configurations de retrieval. |
 | Taille du jeu doré      | 15 questions. Sur cet effectif, un écart d'un dixième est du bruit. |
 | Latence de génération   | ~10 s en médiane contre 0,4 s de retrieval. Le levier est le LLM, pas la recherche. |
-| Index BM25              | Construit en mémoire au premier appel : la **première** requête après un démarrage paie ~9 s, et c'est la seule qui paie encore. Un corpus qui grandit sous l'index déclenche une reconstruction en tâche de fond, et `POST /reindex` la force ; `/health` rend `index_lexical: false` sur un index périmé. Un corpus nettement plus gros demanderait un moteur dédié. |
+| Index BM25              | Construit en mémoire au premier appel : la **première** requête après un démarrage paie ~9 s — chiffre **non mesuré**, cf. [axes_amelioration.md](axes_amelioration.md) §2 — et c'est la seule qui paie encore. Un corpus qui grandit sous l'index déclenche une reconstruction en tâche de fond, et `POST /reindex` la force ; `/health` rend `index_lexical: false` sur un index périmé. Un corpus nettement plus gros demanderait un moteur dédié. |
 | Coût de la traduction   | Un appel LLM par question s'ajoute à la recherche. Un cache, ou un modèle plus petit dédié, l'amortirait. |
 | Multi-workers           | Les sessions et leur purge sont persistées, mais l'index BM25 et les modèles sont chargés par processus : N workers = N copies en mémoire, et **`POST /reindex` ne reconstruit que l'index du worker qui reçoit la requête**. Le contrat de réindexation suppose aujourd'hui un worker unique. |
 | Authentification        | Absente. CORS `*` et `/media` ouvert : quiconque atteint l'API lit tout le bucket. Acceptable en local, bloquant dès qu'on expose. |

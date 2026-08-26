@@ -9,8 +9,9 @@ besoin, et rien ne le reconstruisait jamais.
   lexical jusqu'au prochain redémarrage. /health continuait d'annoncer
   `index_lexical: true` : il l'était, il décrivait un corpus disparu ;
 - le test « déjà prêt » se faisait HORS VERROU, et la lecture du corpus avec
-  lui. N requêtes arrivant avant que l'index soit prêt payaient N fois les
-  ~9 secondes de construction.
+  lui. N requêtes arrivant avant que l'index soit prêt payaient N fois le
+  parcours complet du corpus (« ~9 s » dans la documentation — chiffre non
+  mesuré, cf. `retriever._charger_corpus`).
 
 Le second ne se voit pas avec un test « ça tient » : compter les constructions
 est ce qui le rend visible, pas constater que l'index finit construit.
@@ -96,7 +97,7 @@ def test_un_document_ingere_apres_la_construction_devient_trouvable(collection) 
     """Le défaut : « Docker » restait introuvable en lexical jusqu'au redémarrage.
 
     La reconstruction est programmée en tâche de fond — la requête qui découvre
-    la dérive ne doit pas payer les ~9 secondes d'une ingestion à laquelle elle
+    la dérive ne doit pas payer le parcours du corpus d'une ingestion à laquelle elle
     n'a pas participé — donc le test l'attend explicitement au lieu de supposer
     qu'elle a eu lieu.
     """
@@ -195,7 +196,7 @@ def test_n_requetes_concurrentes_ne_construisent_l_index_qu_une_fois(collection)
 
     assert len(resultats) == 8, "les huit requêtes doivent aboutir"
     # Les lectures d'abord : c'est l'observable qui existe des deux côtés du
-    # correctif, et celle qui coûte les ~9 secondes.
+    # correctif, et celle qui coûte le parcours complet du corpus.
     assert collection.lectures == 1
     assert retriever._lexical_index.constructions == 1
 
@@ -257,7 +258,7 @@ def test_des_reindexations_concurrentes_sont_fusionnees(collection) -> None:
 
     Le verrou de `LexicalIndex` sérialise les constructions ; il ne les fusionne
     pas. Six appels simultanés produisaient donc six parcours à la queue leu leu,
-    chacun mobilisant un fil du threadpool FastAPI pendant ~9 secondes — et les
+    chacun mobilisant un fil du threadpool FastAPI le temps d'un parcours — et les
     endpoints de recherche vivent dans ce même threadpool.
     """
     retriever._lexical_search("ISO 27001", 5)

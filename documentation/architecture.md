@@ -159,7 +159,8 @@ l'agent. Ce qu'un lecteur doit attendre :
   filet, qui ne voit pas un corpus dont on a retiré autant de chunks qu'on en a
   ajouté ;
 - **la reconstruction n'est pas payée par une requête utilisateur.** Elle coûte
-  le parcours du corpus entier (~9 s). Déclenchée par le filet, elle tourne dans
+  le parcours du corpus entier (~9 s — chiffre **non mesuré**, réserve et protocole
+  en [axes_amelioration.md](axes_amelioration.md) §2). Déclenchée par le filet, elle tourne dans
   un fil démon et l'index périmé continue de servir pendant ce temps ;
   déclenchée par `/reindex`, elle est payée par le pipeline qui appelle ;
 - **`/health` ne déclare pas prêt un index périmé.** `index_lexical: false`
