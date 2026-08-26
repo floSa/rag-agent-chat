@@ -109,12 +109,31 @@ def _to_primitive(val: Any) -> Any:
     return str(val)
 
 
-def _execute(nql: str) -> list[dict[str, Any]]:
-    """Exécute une requête nGQL et retourne les lignes sous forme de dicts.
+def _execute_raw(nql: str) -> Any | None:
+    """Exécute une requête nGQL et rend le ResultSet NON converti, None en échec.
+
+    Seul point de passage vers le pool : il porte les deux choses qu'une requête
+    écrite à la main perd, la réouverture du pool après un redémarrage de
+    NebulaGraph et le journal de l'erreur nGQL.
 
     Le pool est mis en cache : si NebulaGraph a redémarré, il pointe vers des
     connexions mortes et toutes les requêtes échouent jusqu'au redémarrage de
-    l'agent. Un échec de transport le fait rouvrir, avec un nouvel essai.
+    l'agent. Un échec de transport le fait rouvrir, avec un nouvel essai. Si le
+    second essai échoue aussi, l'exception remonte — le graphe est réellement
+    absent, et l'appelant décide.
+
+    L'absorption est LARGE parce que nebula3 remonte des erreurs de transport,
+    d'authentification et de session sans ancêtre commun, et qu'un pool mort les
+    produit toutes. Elle est TRACÉE en WARNING et suivie d'un nouvel essai : rien
+    n'est perdu en silence.
+
+    Cette variante existe pour `_get_node_properties`, qui a besoin du
+    `ValueWrapper` de vertex brut — `_to_primitive` l'aplatirait en chaîne. Elle
+    appelait donc le pool directement, et perdait la reprise : après un
+    redémarrage du graphd, les autres chemins se rétablissaient, celui-là
+    remontait l'exception jusqu'au try/except par élément de
+    `node_reconstruct_context`, et la source disparaissait de la réponse sans
+    que rien ne le dise.
     """
     try:
         result = _get_pool().execute(nql)
@@ -124,6 +143,14 @@ def _execute(nql: str) -> list[dict[str, Any]]:
         result = _get_pool().execute(nql)
     if not result.is_succeeded():
         logger.error("nGQL échoué : %s — %s", nql, result.error_msg())
+        return None
+    return result
+
+
+def _execute(nql: str) -> list[dict[str, Any]]:
+    """Exécute une requête nGQL et retourne les lignes sous forme de dicts."""
+    result = _execute_raw(nql)
+    if result is None:
         return []
     rows = []
     for i in range(result.row_size()):
@@ -140,14 +167,22 @@ def _get_node_properties(node_id: str) -> dict[str, Any]:
     La propriété `label` contient le label Docling en minuscules
     ("section_header", "paragraph", …) ; c'est le tag Nebula ("SectionHeader",
     "Document", …) qui identifie le type de nœud lors de la remontée.
+
+    Passe par `_execute_raw` et non par le pool directement : cette fonction est
+    appelée constamment — remontée vers le Document, recherche de section voisine
+    jusqu'à cinq fois par direction, titre de chaque voisine — et sans la reprise
+    du pool elle était le seul chemin qui ne survivait pas à un redémarrage du
+    graphd. Elle a besoin du ResultSet brut, pas des lignes converties : le
+    `ValueWrapper` de vertex est ce qui porte les tags et les propriétés, et
+    `_to_primitive` l'aplatirait en chaîne.
     """
     quoted = _quote_vid(node_id)
     if quoted is None:
         logger.warning("VID Nebula rejeté : %s", node_id[:80])
         return {}
 
-    result = _get_pool().execute(f"FETCH PROP ON * {quoted} YIELD vertex AS node;")
-    if not result.is_succeeded() or result.row_size() == 0:
+    result = _execute_raw(f"FETCH PROP ON * {quoted} YIELD vertex AS node;")
+    if result is None or result.row_size() == 0:
         return {}
 
     val = result.row_values(0)[0]

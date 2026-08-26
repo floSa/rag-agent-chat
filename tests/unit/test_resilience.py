@@ -146,3 +146,111 @@ def test_minio_refuse_toujours_les_chemins_douteux(monkeypatch) -> None:
 
     assert minio_client.get_object_bytes("../../etc/passwd") is None
     assert appels == []
+
+
+def test_nebula_rouvre_le_pool_pour_les_proprietes_d_un_noeud(monkeypatch) -> None:
+    """`_get_node_properties` contournait la reprise, et c'est le chemin le plus chaud.
+
+    Elle appelait `_get_pool().execute(...)` directement, pour une raison réelle —
+    elle a besoin du `ValueWrapper` de vertex brut, que `_to_primitive` aplatit —
+    mais elle perdait les deux choses que `_execute` apporte : la réouverture du
+    pool et le journal de l'erreur nGQL.
+
+    Elle est appelée constamment : remontée vers le Document, recherche de section
+    voisine jusqu'à cinq fois par direction, titre de chaque voisine. Après un
+    redémarrage du graphd, les autres chemins se rétablissaient ; celui-là
+    remontait l'exception jusqu'au try/except par élément de
+    `node_reconstruct_context`, et la source disparaissait de la réponse.
+    """
+    class Node:
+        def tags(self) -> list[str]:
+            return ["SectionHeader"]
+
+        def properties(self, _tag):
+            return {"label": _Chaine("section_header"), "text": _Chaine("Dispersion")}
+
+    class Vertex:
+        def is_vertex(self) -> bool:
+            return True
+
+        def as_node(self):
+            return Node()
+
+    class Result:
+        def is_succeeded(self) -> bool:
+            return True
+
+        def row_size(self) -> int:
+            return 1
+
+        def row_values(self, _i):
+            return [Vertex()]
+
+    state = {"calls": 0}
+
+    class Pool:
+        def execute(self, _nql):
+            state["calls"] += 1
+            if state["calls"] == 1:
+                raise ConnectionError("graphd a redémarré")
+            return Result()
+
+    cleared = []
+    monkeypatch.setattr(graph_context, "_get_pool", Pool)
+    monkeypatch.setattr(graph_context, "reset_connection", lambda: cleared.append(True))
+
+    props = graph_context._get_node_properties("1730443c8f")
+
+    assert props["tag"] == "SectionHeader"
+    assert props["text"] == "Dispersion"
+    assert state["calls"] == 2  # noqa: PLR2004
+    assert cleared == [True]
+
+
+class _Chaine:
+    """ValueWrapper nebula3 réduit à ce que `_to_primitive` en lit."""
+
+    def __init__(self, valeur: str) -> None:
+        self.valeur = valeur
+
+    def is_string(self) -> bool:
+        return True
+
+    def as_string(self) -> str:
+        return self.valeur
+
+    def is_int(self) -> bool:
+        return False
+
+    def is_null(self) -> bool:
+        return False
+
+
+def test_une_requete_de_proprietes_en_echec_dit_pourquoi(monkeypatch, caplog) -> None:
+    """Un nGQL refusé sur ce chemin ne laissait aucune trace.
+
+    La fonction rendait `{}` sans un mot : l'appelant voyait un nœud sans
+    propriétés, exactement comme un nœud qui n'existe pas. Le message d'erreur
+    nGQL — le seul qui dise ce qui a été refusé — était jeté.
+    """
+    import logging
+
+    class Result:
+        def is_succeeded(self) -> bool:
+            return False
+
+        def error_msg(self) -> str:
+            return "SemanticError: `label' unknown"
+
+    class Pool:
+        def execute(self, _nql):
+            return Result()
+
+    monkeypatch.setattr(graph_context, "_get_pool", Pool)
+    monkeypatch.setattr(graph_context, "reset_connection", lambda: None)
+
+    with caplog.at_level(logging.ERROR):
+        assert graph_context._get_node_properties("1730443c8f") == {}
+
+    messages = [e.getMessage() for e in caplog.records if e.levelno >= logging.ERROR]
+    assert any("SemanticError" in m and "FETCH PROP" in m for m in messages)
