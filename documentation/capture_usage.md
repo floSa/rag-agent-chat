@@ -22,7 +22,11 @@ rattrapent pas.
 ## Les trois usages, qui dictent la forme du schéma
 
 Le schéma est conçu pour ces trois questions, pas pour « tout enregistrer au cas
-où ». Les requêtes sont données plus bas, et elles s'exécutent telles quelles.
+où ». Les requêtes sont données plus bas et ont toutes été exécutées contre une
+base réelle. Une version précédente de ce document s'arrêtait là : deux d'entre
+elles étaient **syntaxiquement** exécutables et **faussées**, faute du filtre
+qui écarte les interactions sans décision humaine. Elles lisent désormais des
+vues, ou portent le filtre et la raison de l'avoir.
 
 1. **Les décochages.** Quand quelqu'un décoche une source que le reranker avait
    classée deuxième avec 0,81 de pertinence, il produit gratuitement
@@ -112,6 +116,35 @@ abandon devant l'écran de sélection comme un décochage fabriquerait une
 annotation négative que personne n'a produite — précisément le biais que le jeu
 doré généré a déjà.
 
+### Les deux vues, et pourquoi elles existent
+
+| Vue | Contenu |
+|---|---|
+| `sources_humaines` | les sources d'interactions `endpoint = 'chat'`, les trois états de `retenue` conservés, augmentées de `question`, `started_at` et `rating` |
+| `decochages` | `sources_humaines` restreinte à `retenue = 0` |
+
+**Elles ne sont pas une commodité d'écriture.** `/answer` retient
+`AUTO_SELECT_TOP_K` sources — trois par défaut — et écrit `retenue = 0` sur
+toutes les autres : ce sont des zéros produits par une décision automatique que
+personne n'a prise, et **rien ne les distingue en SQL d'un décochage humain**. À
+`RERANK_TOP_K = 10`, cela fait sept faux décochages par question, près de mille
+par campagne de 138 questions, dans la table dont dépend tout l'intérêt du lot.
+
+La version précédente de ce document répondait « toute lecture DOIT filtrer sur
+`endpoint` ». C'était une convention, et une convention ne survit pas à une
+requête écrite de mémoire dans six mois — deux des requêtes de ce document même
+l'avaient déjà perdue. Les vues rendent l'erreur impossible au lieu de la
+déconseiller.
+
+Mesuré sur une base contenant une interaction interactive à trois décochages
+humains et une interaction `/answer` à trois zéros automatiques :
+`SELECT COUNT(*) FROM sources_proposees WHERE retenue = 0` rend **6**,
+`SELECT COUNT(*) FROM decochages` rend **3**.
+
+`decochages` est nommée par ce qu'elle contient, et rien d'autre : une vue
+« décochages » qui rendrait aussi les sources retenues serait un second piège de
+la même espèce.
+
 Deux limites du `rang`, à connaître avant de l'interpréter :
 
 - c'est le rang du **reranker**, pas l'ordre dans lequel l'interface a présenté
@@ -147,44 +180,52 @@ apparente.
 SELECT i.config_hash,
        json_extract(i.config_json, '$.ollama_model')   AS modele,
        json_extract(i.config_json, '$.prompts_sha256') AS prompts,
-       COUNT(*)                    AS interactions,
-       SUM(i.rating = 'utile')     AS utiles,
-       SUM(i.rating = 'inutile')   AS inutiles
+       COUNT(*)                      AS interactions,
+       -- Dénominateur des deux colonnes suivantes : une interaction de
+       -- campagne ne peut jamais être notée. Sans cette colonne, on divise les
+       -- avis par 138 questions rejouées et on lit « 2 % d'utiles ».
+       SUM(i.endpoint = 'chat')      AS interactives,
+       SUM(i.rating = 'utile')       AS utiles,
+       SUM(i.rating = 'inutile')     AS inutiles
 FROM   interactions i
 GROUP  BY i.config_hash
 ORDER  BY interactions DESC;
 ```
 
+Celle-ci ne filtre pas, délibérément : l'attribution à une configuration vaut
+pour **toutes** les interactions, campagne comprise — c'est même son intérêt.
+Ce qui manquait était le dénominateur des appréciations, pas le filtre.
+
 ## Les requêtes des trois usages
 
 ### 1. Les décochages
 
+Ces deux requêtes lisent les **vues**, jamais `sources_proposees` directement.
+Ce n'est pas un raccourci d'écriture : c'est ce qui empêche l'erreur décrite
+plus haut.
+
 ```sql
 -- Quelles sources bien classées les gens écartent-ils, et qu'ont-elles en commun ?
-SELECT s.collection, s.filename, s.section_title, s.language,
-       COUNT(*)                   AS decochages,
-       MIN(s.rang)                AS meilleur_rang,
-       ROUND(AVG(s.relevance), 3) AS pertinence_moyenne
-FROM   sources_proposees s
-JOIN   interactions      i USING (thread_id)
-WHERE  i.endpoint = 'chat'   -- seul chemin portant une décision humaine
-  AND  s.retenue  = 0        -- 0 = décochée ; NULL = sélection jamais faite
-  AND  s.relevance >= 0.5    -- « bien classée » : le reranker y croyait
-GROUP  BY s.collection, s.filename, s.section_title
+SELECT collection, filename, section_title, language,
+       COUNT(*)                 AS decochages,
+       MIN(rang)                AS meilleur_rang,
+       ROUND(AVG(relevance), 3) AS pertinence_moyenne
+FROM   decochages              -- humains uniquement, retenue = 0
+WHERE  relevance >= 0.5        -- « bien classée » : le reranker y croyait
+GROUP  BY collection, filename, section_title
 ORDER  BY decochages DESC, meilleur_rang;
 ```
 
 ```sql
 -- Le taux de retenue par rang : à partir d'où le classement cesse-t-il de convaincre ?
-SELECT s.rang,
-       COUNT(*)       AS proposees,
-       SUM(s.retenue) AS retenues,
-       ROUND(1.0 * SUM(s.retenue) / COUNT(*), 3) AS taux_de_retenue
-FROM   sources_proposees s
-JOIN   interactions      i USING (thread_id)
-WHERE  i.endpoint = 'chat' AND s.retenue IS NOT NULL
-GROUP  BY s.rang
-ORDER  BY s.rang;
+SELECT rang,
+       COUNT(*)     AS proposees,
+       SUM(retenue) AS retenues,
+       ROUND(1.0 * SUM(retenue) / COUNT(*), 3) AS taux_de_retenue
+FROM   sources_humaines        -- les trois états, mais aucun /answer
+WHERE  retenue IS NOT NULL     -- NULL = sélection jamais faite, pas un rejet
+GROUP  BY rang
+ORDER  BY rang;
 ```
 
 ### 2. Un jeu doré réel
@@ -194,9 +235,9 @@ ORDER  BY s.rang;
 -- Ajouter « AND i.rating = 'utile' » pour ne lire que ce qui a convaincu.
 SELECT i.question, i.response, i.rating, i.rating_comment,
        json_group_array(s.element_id) AS sources_validees
-FROM   interactions      i
-JOIN   sources_proposees s ON s.thread_id = i.thread_id AND s.retenue = 1
-WHERE  i.endpoint = 'chat' AND i.completed_at IS NOT NULL
+FROM   interactions     i
+JOIN   sources_humaines s ON s.thread_id = i.thread_id AND s.retenue = 1
+WHERE  i.completed_at IS NOT NULL
 GROUP  BY i.thread_id
 ORDER  BY i.started_at;
 ```
@@ -234,8 +275,15 @@ ORDER  BY questions DESC;
 SELECT i.question, i.search_count, i.dropped_contexts
 FROM   interactions i
 WHERE  i.search_count > 1
+  AND  i.endpoint = 'chat'   -- cette section porte sur ce que les GENS demandent
 ORDER  BY i.started_at;
 ```
+
+Le filtre manquait ici, et son absence n'était pas neutre : une campagne de 138
+questions rejouées chaque jour aurait dominé le comptage. Retirez-le et la
+question change de nature — elle porte alors sur le comportement du **graphe**,
+où une question de campagne est une observation aussi valable qu'une question
+humaine. Sachez seulement laquelle des deux vous lisez.
 
 ## L'appréciation
 
@@ -306,7 +354,10 @@ tourner pendant que le service écrit, et ne fabrique jamais une base vide quand
 le chemin est faux — il le dit et rend 1.
 
 Le document de sortie imbrique les sources dans leur interaction, ce qui rend
-les décochages lisibles sans jointure côté lecteur :
+les décochages lisibles sans jointure côté lecteur — et met le piège des vues
+hors d'atteinte : une source y est toujours accompagnée de l'`endpoint` de
+l'interaction qui la porte. `--endpoint chat` rend directement le sous-ensemble
+humain.
 
 ```json
 {

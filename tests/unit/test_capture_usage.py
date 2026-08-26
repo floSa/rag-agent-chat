@@ -248,6 +248,53 @@ async def test_le_decochage_se_lit_avec_son_rang_et_sa_pertinence(base) -> None:
 
 
 @pytest.mark.asyncio
+async def test_la_vue_decochages_ecarte_les_zeros_automatiques_de_answer(base) -> None:
+    """Le filtre sur `endpoint` cesse d'être une convention.
+
+    /answer retient `AUTO_SELECT_TOP_K` sources et écrit `retenue = 0` sur
+    toutes les autres : trois faux décochages par question, près de mille par
+    campagne de 138 questions, indiscernables en SQL d'un décochage humain. La
+    documentation disait « toute lecture DOIT filtrer sur endpoint » — une
+    convention ne survit pas à une requête écrite de mémoire dans six mois.
+
+    Le montage est celui du critère d'acceptation : une interaction interactive
+    qui produit trois décochages humains, une interaction /answer qui produit
+    trois zéros automatiques.
+    """
+    await usage.record_start(
+        thread_id="t-humain", endpoint="chat", question="question réellement posée",
+        ranking=[_chunk(f"hhhhhhhhh{n}", 0.9 - n / 10) for n in range(4)],
+    )
+    await usage.record_completion(
+        thread_id="t-humain", response="r", selected_element_ids=["hhhhhhhhh0"]
+    )
+    await usage.record_start(
+        thread_id="t-campagne", endpoint="answer", question="question de campagne",
+        ranking=[_chunk(f"ccccccccc{n}", 0.9 - n / 10) for n in range(6)],
+    )
+    await usage.record_completion(
+        thread_id="t-campagne", response="r",
+        selected_element_ids=[f"ccccccccc{n}" for n in range(3)],
+    )
+
+    brut = _lire(base, "SELECT COUNT(*) n FROM sources_proposees WHERE retenue = 0")[0]["n"]
+    par_la_vue = _lire(base, "SELECT COUNT(*) n FROM decochages")[0]["n"]
+
+    assert brut == 6, "la table brute mélange les deux, c'est le piège"  # noqa: PLR2004
+    assert par_la_vue == 3, "la vue ne doit rendre que les décochages humains"  # noqa: PLR2004
+    assert {ligne["element_id"] for ligne in _lire(base, "SELECT element_id FROM decochages")} == {
+        "hhhhhhhhh1", "hhhhhhhhh2", "hhhhhhhhh3",
+    }
+    # La vue porte la question, pour qu'un décochage se lise sans jointure.
+    assert _lire(base, "SELECT DISTINCT question FROM decochages")[0]["question"] == (
+        "question réellement posée"
+    )
+    # `sources_humaines` garde les trois états : c'est elle que lit le taux de
+    # retenue par rang, qui a besoin des retenues autant que des écartées.
+    assert _lire(base, "SELECT COUNT(*) n FROM sources_humaines")[0]["n"] == 4  # noqa: PLR2004
+
+
+@pytest.mark.asyncio
 async def test_une_selection_jamais_faite_reste_indeterminee(base) -> None:
     """Abandonner devant l'écran de sélection n'est pas décocher.
 

@@ -57,6 +57,9 @@ logger = logging.getLogger(__name__)
 
 # Version du schéma des deux tables. Exportée avec les données : un
 # enregistrement dont on ne sait pas quelles colonnes existaient est illisible.
+# Elle suit la forme des LIGNES, pas les vues de lecture : celles-ci sont
+# (re)créées à chaque connexion, donc une base plus ancienne les reçoit sans
+# que ses enregistrements changent de forme.
 SCHEMA_VERSION = 1
 
 # Attente avant de renoncer quand une autre connexion tient la base. SQLite
@@ -125,6 +128,27 @@ _SCHEMA = (
     """,
     "CREATE INDEX IF NOT EXISTS idx_sources_retenue ON sources_proposees (retenue, rang)",
     "CREATE INDEX IF NOT EXISTS idx_interactions_endpoint ON interactions (endpoint, started_at)",
+    # Les sources qu'un HUMAIN a vues et arbitrées. Le filtre sur `endpoint`
+    # était une convention documentée, et une convention ne survit pas à une
+    # requête écrite de mémoire dans six mois : /answer retient
+    # AUTO_SELECT_TOP_K sources et écrit `retenue = 0` sur toutes les autres,
+    # soit trois faux décochages par question, mille par campagne, indiscernables
+    # d'un décochage humain. Ces deux vues rendent l'erreur impossible plutôt
+    # que déconseillée.
+    """
+    CREATE VIEW IF NOT EXISTS sources_humaines AS
+        SELECT s.*, i.question, i.started_at, i.rating
+        FROM   sources_proposees s
+        JOIN   interactions      i USING (thread_id)
+        WHERE  i.endpoint = 'chat'
+    """,
+    # Nommée par ce qu'elle contient, et rien d'autre : une vue « décochages »
+    # qui rendrait aussi les sources retenues serait un second piège de la même
+    # espèce que celui qu'on ferme.
+    """
+    CREATE VIEW IF NOT EXISTS decochages AS
+        SELECT * FROM sources_humaines WHERE retenue = 0
+    """,
     # Version du schéma inscrite DANS le fichier : un export doit dire quelles
     # colonnes existaient, pas quelles colonnes le code d'aujourd'hui connaît.
     f"PRAGMA user_version = {SCHEMA_VERSION}",
