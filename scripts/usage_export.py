@@ -25,6 +25,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+# Sans cette ligne, `python scripts/usage_export.py` meurt sur
+# « ModuleNotFoundError: No module named 'src' » : l'interpréteur met `scripts/`
+# sur le chemin d'import, pas la racine du dépôt. Les deux autres scripts qui
+# importent `src` la portent déjà.
+sys.path.insert(0, str(ROOT))
 
 # Colonnes stockées en JSON : réhydratées à l'export, sinon le lecteur reçoit
 # des chaînes échappées dans un document déjà JSON.

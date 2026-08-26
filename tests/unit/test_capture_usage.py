@@ -12,7 +12,11 @@ une fonctionnalité.
 import asyncio
 import json
 import logging
+import os
+import pathlib
 import sqlite3
+import subprocess
+import sys
 
 import pytest
 
@@ -425,16 +429,43 @@ async def test_la_taille_est_mesurable_sans_creer_le_fichier(base) -> None:
 
 # ─── L'export ─────────────────────────────────────────────────────────────────
 
-def _usage_export():
-    """Charge scripts/usage_export.py sans faire de `scripts/` un paquet."""
-    import importlib.util
-    import pathlib
+_RACINE = pathlib.Path(__file__).resolve().parents[2]
+_SCRIPT = _RACINE / "scripts" / "usage_export.py"
 
-    chemin = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "usage_export.py"
-    spec = importlib.util.spec_from_file_location("usage_export", chemin)
+
+def _usage_export():
+    """Charge scripts/usage_export.py sans faire de `scripts/` un paquet.
+
+    Ce montage n'exerce QUE les fonctions du module. Il ne dit rien de son
+    exécution comme commande — c'est ce trou qui a laissé passer un script qui
+    mourait sur `ModuleNotFoundError` dès la première ligne de `main()`. D'où
+    les deux tests en sous-processus plus bas.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("usage_export", _SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _lancer_script(*arguments):
+    """Exécute le script comme le ferait un humain, dans un sous-processus.
+
+    En processus, `src` est déjà importable parce que pytest tourne depuis la
+    racine : un test qui appellerait `main()` directement serait vert avec ou
+    sans le `sys.path.insert` du script. Seul un sous-processus, PYTHONPATH
+    retiré, reproduit la vraie invocation.
+    """
+    environnement = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    return subprocess.run(
+        [sys.executable, str(_SCRIPT), *arguments],
+        capture_output=True,
+        text=True,
+        cwd=str(_RACINE),
+        env=environnement,
+        check=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -487,4 +518,40 @@ def test_l_export_ne_cree_pas_la_base_qu_il_lit(tmp_path) -> None:
     with pytest.raises(sqlite3.OperationalError):
         _usage_export().exporter(absente)
 
+    assert not absente.exists()
+
+
+@pytest.mark.asyncio
+async def test_le_script_s_execute_comme_une_commande(base, tmp_path) -> None:
+    """La commande de la documentation, lancée telle qu'elle est écrite.
+
+    Le script définissait `ROOT` sans l'ajouter au chemin d'import : toute
+    invocation mourait sur `ModuleNotFoundError: No module named 'src'`, y
+    compris avec `--db`. Les tests précédents ne le voyaient pas — ils
+    n'appelaient jamais `main()`.
+    """
+    await usage.record_start(
+        thread_id="t-commande", endpoint="chat", question="Question réellement posée ?",
+        ranking=[_chunk("aaaaaaaaa1", 0.9)],
+    )
+    sortie = tmp_path / "usage.json"
+
+    resultat = _lancer_script("--db", str(base), "--out", str(sortie))
+
+    assert resultat.returncode == 0, resultat.stderr
+    assert "1 interaction(s)" in resultat.stderr
+    document = json.loads(sortie.read_text(encoding="utf-8"))
+    assert document["count"] == 1
+    assert document["interactions"][0]["question"] == "Question réellement posée ?"
+    assert document["interactions"][0]["sources_proposees"][0]["rang"] == 1
+
+
+def test_le_script_rend_1_sur_une_base_absente(tmp_path) -> None:
+    """Un chemin faux doit se dire, pas se planter — et ne rien créer."""
+    absente = tmp_path / "jamais_ecrite.sqlite"
+
+    resultat = _lancer_script("--db", str(absente))
+
+    assert resultat.returncode == 1
+    assert "Aucune base de capture" in resultat.stderr
     assert not absente.exists()
