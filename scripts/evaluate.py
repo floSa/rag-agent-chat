@@ -7,19 +7,31 @@ latence décomposée. Ces chiffres sont déterministes — deux exécutions sur 
 même index donnent le même résultat, ce qu'aucune métrique jugée par un modèle
 ne garantit.
 
-Ce script ne remplace pas RAG-Eval-Bench, qui apporte les juges calibrés, la
-comparaison appariée et les intervalles de confiance. Il donne la boucle courte :
-un chiffre en deux minutes après chaque changement de retrieval ou de prompt.
+Ce script ne remplace pas RAG-Eval-Bench, qui apporte les juges calibrés. Il
+donne la boucle courte : un chiffre en deux minutes après chaque changement de
+retrieval ou de prompt — et, depuis le lot 4, une comparaison **appariée** avec
+test de signe et intervalle de confiance par bootstrap, tous deux déterministes.
 
     uv run python scripts/evaluate.py
     uv run python scripts/evaluate.py --api http://localhost:8011 --out runs/base.json
     uv run python scripts/evaluate.py --compare runs/base.json
+
+Codes de sortie :
+
+    0   la campagne a abouti
+    1   aucune question n'a abouti
+    2   la comparaison a été REFUSÉE — les deux jeux de questions diffèrent.
+        La campagne est écrite quand même ; c'est la comparaison qui n'a pas
+        eu lieu, et un code non nul est la seule façon qu'un `make eval` le
+        dise sans qu'on ait à lire la sortie.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
+import random
 import statistics
 import sys
 from pathlib import Path
@@ -56,6 +68,30 @@ ETAGES = (
     "residual_ms",
     "total_ms",
 )
+
+
+# Métriques appariables : une valeur par question, comparables d'une campagne à
+# l'autre. Les latences n'y figurent pas — elles dépendent de la charge de la
+# machine, donc un écart apparié y mesurerait le voisinage, pas le changement.
+METRIQUES_APPARIEES = (
+    "rappel_recherche",
+    "rappel_elements",
+    "rang_reciproque",
+    "rappel_documents",
+    "taux_citation_complete",
+    "taux_contexte_utile",
+    "part_utile_caracteres",
+    "rappel_contexte",
+)
+
+# Graine FIXE du bootstrap. Sans elle, deux exécutions sur les mêmes fichiers
+# rendraient deux intervalles, et personne ne saurait si l'écart vient du
+# changement mesuré ou du tirage.
+GRAINE_BOOTSTRAP = 20260826
+TIRAGES_BOOTSTRAP = 2000
+# Questions qui basculent affichées par métrique et par sens. Au-delà, le nombre
+# omis est DIT : une troncature silencieuse se lit « il n'y en avait que dix ».
+MAX_BASCULES_AFFICHEES = 12
 
 
 def charger_questions(chemin: Path) -> list[dict]:
@@ -362,8 +398,227 @@ def afficher(resume: dict, langues: dict, lignes: list[dict]) -> None:
         print(f"\nA répondu alors que le corpus est muet : {[r['id'] for r in fautives]}")
 
 
+# ─── La comparaison appariée ──────────────────────────────────────────────────
+
+def test_de_signe(ameliorees: int, degradees: int) -> float:
+    """p-value bilatérale du test des signes, exacte.
+
+    Sous l'hypothèse nulle « le changement n'a pas d'effet », chaque question qui
+    bouge a une chance sur deux de bouger dans chaque sens : les bascules suivent
+    une binomiale de paramètre 1/2. Les questions INCHANGÉES sont exclues — c'est
+    ce qui fait la puissance du test apparié, et c'est la définition du test des
+    signes.
+
+    Exact plutôt qu'approché : sur 138 questions, un changement n'en fait
+    souvent bouger qu'une poignée, et l'approximation normale est mauvaise dans
+    ce régime — précisément le régime qui compte ici.
+
+    Aucun tirage aléatoire, donc déterministe par construction.
+    """
+    total = ameliorees + degradees
+    if total == 0:
+        # Rien n'a bougé : l'hypothèse nulle est indiscernable de la vérité.
+        return 1.0
+    queue = min(ameliorees, degradees)
+    cumul = sum(math.comb(total, i) for i in range(queue + 1))
+    return min(1.0, 2 * cumul / 2**total)
+
+
+def intervalle_bootstrap(
+    differences: list[float], graine: int = GRAINE_BOOTSTRAP, tirages: int = TIRAGES_BOOTSTRAP
+) -> tuple[float, float] | None:
+    """Intervalle de confiance à 95 % de la différence appariée MOYENNE.
+
+    Rééchantillonnage avec remise sur les différences par question — pas sur les
+    campagnes séparément : c'est l'appariement qui donne sa précision à
+    l'intervalle, et le casser en tirant deux fois indépendamment reviendrait à
+    comparer deux moyennes sans lien.
+
+    La graine est fixe et passée explicitement : deux exécutions sur les mêmes
+    fichiers doivent rendre le même intervalle, sans quoi personne ne peut
+    distinguer l'effet mesuré du tirage.
+    """
+    if not differences:
+        return None
+    alea = random.Random(graine)
+    taille = len(differences)
+    moyennes = sorted(
+        sum(alea.choice(differences) for _ in range(taille)) / taille for _ in range(tirages)
+    )
+    bas = moyennes[int(0.025 * tirages)]
+    haut = moyennes[min(int(0.975 * tirages), tirages - 1)]
+    return round(bas, 4), round(haut, 4)
+
+
+def desaccord_de_jeu(actuelles: list[dict], precedentes: list[dict]) -> str | None:
+    """Message nommant l'écart entre deux jeux de questions, `None` s'ils coïncident.
+
+    **La comparaison doit refuser de tourner plutôt qu'intersecter en silence.**
+    Une intersection tacite est la façon exacte dont on compare 100 questions en
+    croyant en comparer 138 : les deux résumés s'affichent, les deltas ont l'air
+    de deltas, et rien ne dit qu'ils portent sur des populations différentes.
+
+    Ce dépôt en porte l'exemple : `runs/reference.json` annonce 138 questions et
+    n'en contient que 117, et c'était la cible de `make eval`.
+
+    Les doublons sont refusés aussi : deux lignes de même identifiant rendent
+    l'appariement ambigu, et le dictionnaire qui les indexe en perdrait une sans
+    le dire.
+    """
+    ids_actuels = [ligne["id"] for ligne in actuelles]
+    ids_precedents = [ligne["id"] for ligne in precedentes]
+    doublons = {
+        cote: sorted({i for i in ids if ids.count(i) > 1})
+        for cote, ids in (("campagne", ids_actuels), ("référence", ids_precedents))
+    }
+    for cote, repetes in doublons.items():
+        if repetes:
+            return (
+                f"{len(repetes)} identifiant(s) répété(s) dans la {cote} "
+                f"({', '.join(repetes[:8])}) : l'appariement serait ambigu."
+            )
+
+    manquants = sorted(set(ids_actuels) - set(ids_precedents))
+    en_trop = sorted(set(ids_precedents) - set(ids_actuels))
+    if not manquants and not en_trop:
+        return None
+
+    details = [
+        f"{len(ids_actuels)} question(s) dans la campagne, "
+        f"{len(ids_precedents)} dans la référence"
+    ]
+    if manquants:
+        details.append(
+            f"absentes de la référence ({len(manquants)}) : {', '.join(manquants[:10])}"
+            + (" …" if len(manquants) > 10 else "")  # noqa: PLR2004
+        )
+    if en_trop:
+        details.append(
+            f"absentes de la campagne ({len(en_trop)}) : {', '.join(en_trop[:10])}"
+            + (" …" if len(en_trop) > 10 else "")  # noqa: PLR2004
+        )
+    return " — ".join(details)
+
+
+def apparier(
+    actuelles: list[dict], precedentes: list[dict], metrique: str
+) -> dict[str, Any]:
+    """Confronte une métrique question par question entre deux campagnes.
+
+    Une question dont la métrique est `None` d'un côté n'est pas appariable :
+    elle est écartée, et le nombre d'écartées est rendu. Sans ce compte, une
+    métrique qui n'existe que dans la campagne récente afficherait « 0 amélioré,
+    0 dégradé » — c'est-à-dire « rien n'a changé », sur une comparaison qui n'a
+    jamais eu lieu.
+    """
+    precedent = {ligne["id"]: ligne for ligne in precedentes}
+    differences: list[float] = []
+    ameliorees: list[str] = []
+    degradees: list[str] = []
+    sans_paire = 0
+
+    for ligne in actuelles:
+        avant = precedent[ligne["id"]].get(metrique)
+        apres = ligne.get(metrique)
+        if avant is None or apres is None:
+            sans_paire += 1
+            continue
+        ecart = float(apres) - float(avant)
+        differences.append(ecart)
+        if ecart > 0:
+            ameliorees.append(ligne["id"])
+        elif ecart < 0:
+            degradees.append(ligne["id"])
+
+    return {
+        "metrique": metrique,
+        "appariees": len(differences),
+        "sans_paire": sans_paire,
+        "ameliorees": ameliorees,
+        "degradees": degradees,
+        "inchangees": len(differences) - len(ameliorees) - len(degradees),
+        "delta_moyen": round(statistics.mean(differences), 4) if differences else None,
+        "ic95": intervalle_bootstrap(differences),
+        "p_signe": round(test_de_signe(len(ameliorees), len(degradees)), 4),
+    }
+
+
+def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
+    """Comparaison appariée avec une campagne précédente. Rend False si refusée.
+
+    C'est le mode par défaut de `--compare`, et la raison est simple : une
+    comparaison de moyennes ne distingue pas « 30 questions améliorées, 28
+    dégradées » de « 2 améliorées, rien de cassé ». Ce sont deux résultats
+    opposés, et ils s'affichent identiques.
+    """
+    document = json.loads(chemin.read_text(encoding="utf-8"))
+    precedentes = document.get("questions") or []
+
+    entete = f"\n{'=' * 72}\nCOMPARAISON APPARIÉE avec {chemin.name}\n{'=' * 72}"
+    if not precedentes:
+        print(entete)
+        print(
+            "  REFUSÉE : la campagne de référence ne porte aucune ligne par question.\n"
+            "  L'appariement est impossible, et comparer les seuls résumés reviendrait\n"
+            "  à ce qu'on cherche à éviter. Rejouer la référence produira les lignes."
+        )
+        return False
+
+    desaccord = desaccord_de_jeu(lignes, precedentes)
+    if desaccord:
+        print(entete)
+        print(
+            f"  REFUSÉE : les deux jeux de questions diffèrent.\n  {desaccord}\n"
+            "  Un écart entre deux mesures n'est jamais du bruit. Intersecter en\n"
+            "  silence ferait comparer un sous-ensemble en croyant comparer le jeu."
+        )
+        return False
+
+    print(f"{entete[:-1]}— {len(lignes)} questions communes\n{'=' * 72}")
+    print(f"  {'métrique':24s} {'n':>4} {'▲':>4} {'▼':>4} {'=':>4} "
+          f"{'Δ moyen':>9}  {'IC 95 %':>20}  signe")
+    resultats = [apparier(lignes, precedentes, m) for m in METRIQUES_APPARIEES]
+    for r in resultats:
+        if not r["appariees"]:
+            print(f"  {r['metrique']:24s} {0:>4}   — aucune paire "
+                  f"({r['sans_paire']} question(s) sans valeur des deux côtés)")
+            continue
+        ic = r["ic95"]
+        borne = f"[{ic[0]:+.3f}, {ic[1]:+.3f}]" if ic else "—"
+        print(
+            f"  {r['metrique']:24s} {r['appariees']:>4} {len(r['ameliorees']):>4} "
+            f"{len(r['degradees']):>4} {r['inchangees']:>4} "
+            f"{r['delta_moyen']:>+9.4f}  {borne:>20}  p={r['p_signe']:.3f}"
+        )
+
+    for r in resultats:
+        bascules = [("▲", r["ameliorees"]), ("▼", r["degradees"])]
+        if not any(ids for _, ids in bascules):
+            continue
+        print(f"\n  Questions qui basculent — {r['metrique']} :")
+        for fleche, ids in bascules:
+            if not ids:
+                continue
+            visibles = ", ".join(ids[:MAX_BASCULES_AFFICHEES])
+            reste = len(ids) - MAX_BASCULES_AFFICHEES
+            suite = f" … et {reste} autre(s) non affichée(s)" if reste > 0 else ""
+            print(f"    {fleche} {visibles}{suite}")
+
+    ecartees = {r["metrique"]: r["sans_paire"] for r in resultats if r["sans_paire"]}
+    if ecartees:
+        print(f"\n  Questions non appariables, par métrique : {ecartees}")
+        print("  (valeur absente d'un côté — une métrique ajoutée depuis, ou une "
+              "question\n   dont la métrique ne s'applique pas)")
+    return True
+
+
 def comparer(actuel: dict, chemin: Path) -> None:
-    """Affiche l'écart avec une campagne précédente, métrique par métrique."""
+    """Écart des RÉSUMÉS, métrique par métrique — l'affichage non apparié.
+
+    Conservé, et volontairement second : il porte les grandeurs qui ne
+    s'apparient pas (latences, totaux, compteurs d'exclusion). Il ne dit rien de
+    la dispersion, et c'est pour cela que l'appariement est passé devant.
+    """
     precedent = json.loads(chemin.read_text(encoding="utf-8"))["resume"]
     print(f"\n{'=' * 72}\nCOMPARAISON avec {chemin.name}\n{'=' * 72}")
     for cle, valeur in actuel.items():
@@ -379,7 +634,12 @@ def main() -> int:
     parser.add_argument("--api", default="http://localhost:8011", help="URL de l'agent")
     parser.add_argument("--golden", type=Path, default=GOLDEN, help="Jeu doré")
     parser.add_argument("--out", type=Path, help="Fichier où écrire la campagne")
-    parser.add_argument("--compare", type=Path, help="Campagne précédente à comparer")
+    parser.add_argument(
+        "--compare",
+        type=Path,
+        help="Campagne précédente à comparer — APPARIÉE question par question. "
+             "Refuse de tourner (code 2) si les deux jeux de questions diffèrent.",
+    )
     parser.add_argument("--timeout", type=float, default=600.0, help="Délai par question (s)")
     args = parser.parse_args()
 
@@ -406,9 +666,17 @@ def main() -> int:
     langues = par_langue(lignes)
     afficher(resume, langues, lignes)
 
+    # L'appariement d'abord : c'est lui qui dit si un écart est un résultat. Le
+    # diff des résumés reste affiché ensuite pour les grandeurs qui ne
+    # s'apparient pas — latences, totaux, compteurs d'exclusion.
+    appariement_possible = True
     if args.compare and args.compare.exists():
+        appariement_possible = comparer_apparie(lignes, args.compare)
         comparer(resume, args.compare)
 
+    # Avant tout retour, y compris un refus de comparaison : la campagne a
+    # coûté une demi-heure de génération, et la perdre parce que la référence
+    # ne s'apparie pas serait absurde.
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(
@@ -418,7 +686,7 @@ def main() -> int:
         )
         print(f"\nCampagne écrite dans {args.out}")
 
-    return 0
+    return 0 if appariement_possible else 2
 
 
 if __name__ == "__main__":

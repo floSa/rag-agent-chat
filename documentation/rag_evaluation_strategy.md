@@ -31,10 +31,14 @@ second dit si l'écart est significatif.
 ## La boucle courte
 
 ```bash
-make eval                                    # compare à runs/reference.json
+make eval                                    # compare, APPARIÉ, à runs/final.json
 uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.json \
-    --out runs/essai.json --compare runs/reference.json
+    --out runs/essai.json --compare runs/final.json
 ```
+
+Codes de sortie : `0` la campagne a abouti, `1` aucune question n'a abouti, `2`
+la comparaison a été **refusée** — les deux jeux de questions diffèrent. La
+campagne est écrite dans les trois cas.
 
 Le script interroge `POST /answer` sur le jeu doré et calcule :
 
@@ -163,6 +167,57 @@ résultat : c'est du temps que personne ne sait expliquer.
 
 Le résumé donne **p50 et p95** par étage. Une moyenne de latence cache la queue,
 et c'est la queue qui décide de l'expérience.
+
+## La comparaison appariée
+
+`--compare` joignait les **résumés**, jamais les questions. Sur 138 questions, un
+écart de deux points est alors indistinguable du bruit, et personne ne peut
+savoir si un changement a amélioré 30 questions en dégradant 28, ou amélioré 2
+sans rien casser. Ce sont deux résultats opposés, et ils s'affichent identiques.
+
+L'appariement est désormais le mode par défaut. Par métrique, il rend :
+
+- le nombre de questions **améliorées / dégradées / inchangées** ;
+- la **liste des identifiants** qui basculent, dans chaque sens — c'est ce qu'on
+  lit pour comprendre pourquoi ;
+- un **test des signes exact** (binomial, bilatéral) sur les seules questions qui
+  bougent. Les inchangées sont exclues : c'est la définition du test, et c'est ce
+  qui lui donne sa puissance — deux améliorations sur 136 questions immobiles
+  sont un signal qu'une moyenne noie ;
+- un **intervalle de confiance à 95 %** de la différence appariée moyenne, par
+  bootstrap sur les différences par question.
+
+Les deux sont **déterministes**. Le test des signes est exact, donc sans tirage ;
+le bootstrap a une graine fixe (`GRAINE_BOOTSTRAP`) et 2 000 rééchantillonnages,
+de sorte que deux exécutions sur les mêmes fichiers rendent le même intervalle.
+Sans cela, personne ne saurait si un écart vient du changement mesuré ou du
+tirage. Aucun juge LLM n'intervient.
+
+Les latences ne sont pas appariées : elles dépendent de la charge de la machine,
+donc un écart apparié y mesurerait le voisinage plutôt que le changement. Elles
+restent lues sur le diff des résumés, en p50 et p95.
+
+### Le refus, et pourquoi il vaut mieux qu'une intersection
+
+**Quand les deux jeux de questions diffèrent, la comparaison refuse de tourner.**
+Elle nomme l'écart — les deux effectifs, et les identifiants absents de chaque
+côté — et le script sort en code 2. Une intersection tacite est la façon exacte
+dont on compare 100 questions en croyant en comparer 138.
+
+Ce dépôt en portait le cas : `make eval` visait `runs/reference.json`, que
+`runs/README.md` annonçait à 138 questions. Le fichier n'en contient que **117**
+— 21 questions (G-118 à G-138) n'ont pas abouti lors de cette campagne. Chaque
+`make eval` confrontait donc 138 moyennes à 117 moyennes sans que rien ne le
+dise. La cible est passée à `runs/final.json`, qui porte les 138 lignes du jeu
+doré, et un test épingle le refus sur l'ancienne.
+
+C'est la même règle que celle du banc et de la campagne, appliquée un cran plus
+loin : **un écart entre deux mesures n'est jamais du bruit.**
+
+Deux autres cas font refuser, pour la même raison : un identifiant **répété**
+d'un côté (l'appariement serait ambigu) et une référence sans lignes par question
+(l'appariement est impossible, et comparer les seuls résumés est ce qu'on cherche
+à éviter).
 
 ## Le jeu doré
 

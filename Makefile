@@ -44,8 +44,14 @@ models:
 health:
 	curl -s http://localhost:8011/health
 
-# Campagne d'evaluation : rappel du retrieval, completude des citations,
-# abstention et latence. Deterministe, sans juge LLM.
+# Campagne d'evaluation : rappel du retrieval, precision du contexte, completude
+# des citations, abstention et latence par etage. Deterministe, sans juge LLM.
+#
+# La comparaison est APPARIEE question par question, et elle REFUSE de tourner si
+# les deux jeux de questions diffèrent (code de sortie 2). La cible etait
+# `runs/reference.json`, qui ne porte que 117 des 138 lignes : chaque `make eval`
+# confrontait donc 138 moyennes a 117 moyennes, en silence. `runs/final.json`
+# porte les 138 et c'est la configuration retenue, donc la bonne base.
 eval:
 	uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.json \
-		--out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/reference.json
+		--out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/final.json

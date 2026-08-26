@@ -4,13 +4,20 @@ Chaque fichier est le résultat d'une exécution de `scripts/evaluate.py`. Ils s
 versionnés pour que `make eval` puisse comparer, et pour que les décisions de
 réglage restent vérifiables plutôt que d'être affirmées.
 
+**La comparaison est appariée question par question, et elle refuse de tourner si
+les deux jeux diffèrent.** Le tableau ci-dessous donne le nombre de lignes
+réellement présentes dans chaque fichier — pas le nombre de questions du jeu
+doré : seuls les fichiers qui portent les 138 lignes s'apparient avec une
+campagne complète. Compter les lignes est ce qui a révélé que `make eval`
+comparait 138 moyennes à 117.
+
 | Fichier | Jeu | Ce qu'il mesure |
 |---|---|---|
 | `baseline.json` | 12 questions annotées au document | Point de départ, avant toute correction de retrieval |
 | `c1-rewrite.json` | 15 questions | Après la réécriture des questions de suivi |
 | `c2-hybride.json` | 15 questions | Après la recherche hybride BM25 + RRF |
 | `c-final.json` | 15 questions | Après le lot complet : hybride, texte intégral, tool-calling |
-| `reference.json` | 138 questions annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. |
+| `reference.json` | **117 lignes**, annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. La ligne annonçait 138 : le fichier n'en porte que 117, 21 questions (G-118 à G-138) n'ayant pas abouti. **Il ne peut donc pas servir de base à une comparaison appariée**, et `make eval` ne le prend plus pour cible. |
 | `c3-translingue.json` | 138 questions | Après la recherche dans la traduction, avant réglage du vivier |
 | `final.json` | 138 questions | Configuration retenue |
 | `c-deps-a-jour.json` | 138 questions | Contrôle après la montée de toutes les dépendances. Aucune métrique de recherche ne bouge. |
