@@ -345,6 +345,19 @@ class SessionStats(BaseModel):
     failures: int = 0
 
 
+class ReindexResponse(BaseModel):
+    """Résultat d'une reconstruction de l'index lexical.
+
+    Le nombre rendu est celui de l'index APRÈS reconstruction : c'est ce que
+    l'ingestion peut confronter au nombre de chunks qu'elle vient d'écrire.
+    """
+
+    chunks_indexed: int
+    # Faux attendu juste après une reconstruction. Vrai signifie que le corpus
+    # a encore bougé entre-temps, ou que le compte de la collection est illisible.
+    stale: bool
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str

@@ -18,7 +18,8 @@ import logging
 import re
 import threading
 import unicodedata
-from typing import Any
+from collections.abc import Callable
+from typing import Any, NamedTuple
 
 from rank_bm25 import BM25Okapi
 
@@ -47,45 +48,110 @@ def tokenize(text: str) -> list[str]:
     return [t for t in _TOKEN.findall(sans_accents) if len(t) >= _MIN_TOKEN_LEN]
 
 
+class _Etat(NamedTuple):
+    """Index BM25 et les identifiants qu'il numérote, indissociables.
+
+    Les deux vivaient dans deux attributs distincts. Une reconstruction les
+    remplaçait l'un après l'autre, et une recherche qui s'intercalait entre les
+    deux affectations lisait les rangs du NOUVEAU BM25 dans l'ANCIENNE liste
+    d'identifiants — donc les mauvais chunks, ou un `IndexError` si la liste a
+    rétréci. Tant que l'index était construit une fois pour toutes, la fenêtre
+    n'existait pas ; elle s'ouvre dès qu'une reconstruction a lieu pendant que
+    le service répond. Un tuple remplacé d'un seul coup la referme.
+    """
+
+    bm25: BM25Okapi
+    chunk_ids: tuple[str, ...]
+
+
 class LexicalIndex:
     """Index BM25 en mémoire, construit une fois et interrogé ensuite."""
 
     def __init__(self) -> None:
-        self._bm25: BM25Okapi | None = None
-        self._chunk_ids: list[str] = []
+        self._etat: _Etat | None = None
         self._lock = threading.Lock()
+        self._constructions = 0
 
     @property
     def ready(self) -> bool:
-        return self._bm25 is not None
+        return self._etat is not None
 
     @property
     def size(self) -> int:
-        return len(self._chunk_ids)
+        etat = self._etat
+        return len(etat.chunk_ids) if etat is not None else 0
+
+    @property
+    def constructions(self) -> int:
+        """Nombre de constructions abouties depuis le démarrage.
+
+        Exposé pour être VÉRIFIÉ : un test qui se contente de constater que
+        l'index finit construit reste vert quand N requêtes concurrentes le
+        construisent N fois. Ce qui voit ce défaut-là, c'est un compteur.
+        """
+        return self._constructions
 
     def build(self, chunk_ids: list[str], documents: list[str]) -> None:
-        """Construit l'index à partir des textes de la collection."""
+        """Construit l'index à partir de textes déjà lus."""
         with self._lock:
-            corpus = [tokenize(doc) for doc in documents]
-            # BM25Okapi divise par la longueur moyenne des documents : un corpus
-            # vide la rendrait nulle et ferait échouer chaque recherche.
-            if not corpus:
-                logger.warning("Index lexical non construit : corpus vide.")
-                return
-            self._bm25 = BM25Okapi(corpus)
-            self._chunk_ids = chunk_ids
-            logger.info("Index lexical BM25 construit : %d chunks.", len(chunk_ids))
+            self._construire(chunk_ids, documents)
+
+    def ensure(
+        self, charger: Callable[[], tuple[list[str], list[str]]], *, force: bool = False
+    ) -> bool:
+        """Construit l'index une seule fois, même sous N appels concurrents.
+
+        La LECTURE du corpus est passée en rappel et exécutée SOUS LE VERROU.
+        C'est tout l'objet de la méthode : l'appelant testait `ready` puis
+        lisait le corpus hors verrou, et seule la construction finale était
+        protégée. N requêtes arrivant avant que l'index soit prêt déclenchaient
+        donc N lectures complètes de la collection et N tokenisations — N fois
+        le temps, N fois la mémoire, N−1 résultats jetés. Les endpoints de
+        recherche sont des `def`, donc servis par le threadpool FastAPI : deux
+        utilisateurs qui ouvrent l'interface après un redéploiement suffisent.
+
+        Args:
+            charger: Rend (chunk_ids, documents). Appelé au plus une fois par
+                construction, jamais si l'index est déjà prêt.
+            force: Reconstruit même si l'index est prêt. Sert la réindexation
+                explicite, quand le corpus a bougé sous l'index.
+
+        Returns:
+            Vrai si CET appel a construit l'index.
+        """
+        with self._lock:
+            if self._etat is not None and not force:
+                return False
+            chunk_ids, documents = charger()
+            return self._construire(chunk_ids, documents)
+
+    def _construire(self, chunk_ids: list[str], documents: list[str]) -> bool:
+        """Tokenise et remplace l'état. À appeler verrou tenu."""
+        corpus = [tokenize(doc) for doc in documents]
+        # BM25Okapi divise par la longueur moyenne des documents : un corpus
+        # vide la rendrait nulle et ferait échouer chaque recherche.
+        if not corpus:
+            logger.warning("Index lexical non construit : corpus vide.")
+            return False
+        self._etat = _Etat(BM25Okapi(corpus), tuple(chunk_ids))
+        self._constructions += 1
+        logger.info("Index lexical BM25 construit : %d chunks.", len(chunk_ids))
+        return True
 
     def search(self, question: str, top_k: int) -> list[tuple[str, float]]:
         """Retourne les (chunk_id, score) les mieux classés pour cette question."""
-        if self._bm25 is None:
+        # Lu une fois dans une locale : une reconstruction concurrente remplace
+        # l'état pendant la recherche, et les rangs doivent être résolus dans la
+        # liste d'identifiants qui les a produits.
+        etat = self._etat
+        if etat is None:
             return []
         jetons = tokenize(question)
         if not jetons:
             return []
-        scores = self._bm25.get_scores(jetons)
+        scores = etat.bm25.get_scores(jetons)
         meilleurs = sorted(enumerate(scores), key=lambda t: t[1], reverse=True)[:top_k]
-        return [(self._chunk_ids[i], float(s)) for i, s in meilleurs if s > 0]
+        return [(etat.chunk_ids[i], float(s)) for i, s in meilleurs if s > 0]
 
 
 def reciprocal_rank_fusion(

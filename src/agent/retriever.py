@@ -1,5 +1,6 @@
 import logging
 import math
+import threading
 from functools import lru_cache
 from typing import Any
 
@@ -58,13 +59,20 @@ def reset_connection() -> None:
 
 _lexical_index = LexicalIndex()
 
+# Reconstruction en cours, s'il y en a une. Un seul créneau : deux requêtes qui
+# constatent la même dérive ne doivent pas lancer deux parcours du corpus.
+_reconstruction: threading.Thread | None = None
+_verrou_reconstruction = threading.Lock()
 
-def _build_lexical_index() -> None:
-    """Charge tous les textes de la collection et construit l'index BM25.
 
-    Une seule fois, au premier besoin. Le coût est linéaire dans la taille du
-    corpus ; pour quelques dizaines de milliers de chunks il se compte en
-    secondes, et l'index tient en mémoire.
+def _charger_corpus() -> tuple[list[str], list[str]]:
+    """Lit tous les textes de la collection, par lots.
+
+    C'est la partie coûteuse — linéaire dans la taille du corpus, mesurée à
+    ~9 secondes sur celui de ce projet (§2, axes_amelioration.md). Elle est
+    passée en rappel à `LexicalIndex.ensure` pour être exécutée SOUS SON
+    VERROU : effectuée avant de le prendre, N requêtes concurrentes la
+    payaient N fois.
     """
     collection = _get_chroma_collection()
     total = collection.count()
@@ -78,22 +86,113 @@ def _build_lexical_index() -> None:
         documents.extend(lot.get("documents") or [])
         offset += _LEXICAL_PAGE
 
-    _lexical_index.build(chunk_ids, documents)
+    return chunk_ids, documents
+
+
+def _taille_collection() -> int | None:
+    """Nombre de chunks actuellement dans la collection, None s'il est illisible.
+
+    L'absorption est LARGE parce que le client chromadb remonte des erreurs de
+    transport, de sérialisation et de schéma sans ancêtre commun. Elle est MUETTE
+    parce que ce qu'elle cache est déjà dit ailleurs : `ping()` sonde Chroma et
+    /health publie le résultat dans la même réponse. Le doute est rendu tel
+    quel — « je ne sais pas » — et jamais confondu avec « rien n'a changé ».
+    """
+    try:
+        return int(_get_chroma_collection().count())
+    except Exception:
+        return None
+
+
+def lexical_stale() -> bool:
+    """L'index décrit-il un corpus qui n'existe plus ?
+
+    L'ingestion est un service SÉPARÉ qui écrit dans ChromaDB pendant que
+    l'agent tourne. Un document ingéré après la construction de l'index reste
+    trouvable en recherche dense — la requête part à Chroma à chaque fois — et
+    devenait invisible en recherche lexicale jusqu'au prochain redémarrage : la
+    recherche devenait silencieusement asymétrique, tandis que /health
+    continuait d'annoncer un index prêt. Il l'était ; il décrivait simplement
+    un corpus disparu.
+
+    Le compte de la collection est comparé au nombre de chunks indexés. Il est
+    déjà lu au moment de la construction, donc la comparaison ne coûte rien de
+    neuf. **Ce n'est qu'un filet** : un corpus dont on a retiré autant de chunks
+    qu'on en a ajouté affiche le même compte. C'est pourquoi `POST /reindex`
+    existe — un contrat que l'ingestion honore vaut mieux qu'une heuristique
+    qu'elle ignore.
+    """
+    if not _lexical_index.ready:
+        return False
+    taille = _taille_collection()
+    return taille is not None and taille != _lexical_index.size
 
 
 def lexical_ready() -> bool:
-    """L'index BM25 est-il construit ? (exposé par /health)"""
-    return _lexical_index.ready
+    """L'index BM25 est-il construit ET à jour ? (exposé par /health)
+
+    Un index périmé est déclaré NON prêt. Répondre vrai décrivait un corpus qui
+    n'existait plus, ce qui est plus trompeur que d'admettre la dégradation :
+    dans les deux cas la recherche est amputée, mais seul le faux le dit.
+    """
+    return _lexical_index.ready and not lexical_stale()
+
+
+def rebuild_lexical_index() -> int:
+    """Reconstruit l'index de force sur le corpus courant, et rend sa taille.
+
+    Sert `POST /reindex` et la reconstruction de fond. `force` traverse le test
+    « déjà prêt » d'`ensure` sans contourner son verrou : deux réindexations
+    simultanées restent sérialisées, et une recherche concurrente continue de
+    lire l'ancien index jusqu'à ce que le nouveau le remplace d'un bloc.
+    """
+    _lexical_index.ensure(_charger_corpus, force=True)
+    return _lexical_index.size
+
+
+def _planifier_reconstruction() -> None:
+    """Programme une reconstruction HORS du chemin de la requête.
+
+    La lecture du corpus et la tokenisation coûtent ~9 secondes : les faire
+    payer à la requête qui découvre la dérive punirait un utilisateur pour une
+    ingestion à laquelle il n'a pas participé. L'index périmé continue de servir
+    pendant ce temps — dégradé, mais pas absent, et il ne décrit alors qu'un
+    corpus plus petit que le vrai.
+
+    Fil démon : une reconstruction interrompue par l'arrêt du service ne laisse
+    rien derrière elle — l'index n'est pas persisté — alors qu'un fil non démon
+    retiendrait l'arrêt jusqu'à ~9 secondes.
+    """
+    global _reconstruction
+    with _verrou_reconstruction:
+        if _reconstruction is not None and _reconstruction.is_alive():
+            return
+        logger.info(
+            "Index lexical périmé (%d chunks indexés, %s dans la collection) : "
+            "reconstruction en tâche de fond, l'index actuel continue de servir.",
+            _lexical_index.size,
+            _taille_collection(),
+        )
+        _reconstruction = threading.Thread(
+            target=rebuild_lexical_index, name="reindex-lexical", daemon=True
+        )
+        _reconstruction.start()
 
 
 def _lexical_search(question: str, k: int) -> list[ChunkResult]:
     """Recherche BM25, résolue en ChunkResult via ChromaDB."""
     if not _lexical_index.ready:
         try:
-            _build_lexical_index()
+            _lexical_index.ensure(_charger_corpus)
         except Exception:
+            # Absorption LARGE et assumée : la recherche dense suffit à servir
+            # la requête, et l'absence de BM25 dégrade le rappel sans casser la
+            # réponse. Tracée avec sa pile, et /health la publie en
+            # `index_lexical: false`.
             logger.exception("Index lexical indisponible, recherche dense seule.")
             return []
+    elif lexical_stale():
+        _planifier_reconstruction()
 
     hits = _lexical_index.search(question, k)
     if not hits:
@@ -145,6 +244,10 @@ def full_texts(element_ids: list[str]) -> dict[str, str]:
             include=["documents", "metadatas"],
         )
     except Exception:
+        # Absorption LARGE et assumée : le client chromadb remonte transport,
+        # sérialisation et schéma sans ancêtre commun. La dégradation est réelle
+        # mais bornée — le texte tronqué du graphe reste, donc le LLM reçoit un
+        # tableau amputé plutôt que rien — et elle est tracée en WARNING.
         logger.warning("Texte intégral indisponible, le texte du graphe est conservé.")
         return {}
 
@@ -186,7 +289,12 @@ def _join_overlapping(morceaux: list[str]) -> str:
 
 
 def ping() -> bool:
-    """Vérifie que ChromaDB répond (utilisé par /health)."""
+    """Vérifie que ChromaDB répond (utilisé par /health).
+
+    Absorption LARGE et assumée : une sonde ne doit jamais lever. Elle n'est pas
+    muette — le faux rendu ici est ce que /health publie — et elle agit : le
+    cache de collection est oublié, pour que la prochaine requête rouvre.
+    """
     try:
         _get_chroma_collection().count()
         return True
@@ -271,6 +379,9 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
         # La collection est mise en cache : si ChromaDB a redémarré, l'objet
         # pointe vers une connexion morte et toutes les recherches échouent
         # jusqu'au redémarrage de l'agent. On la rouvre et on retente une fois.
+        # Absorption LARGE parce qu'un client mort produit des erreurs de
+        # transport, de sérialisation et de schéma sans ancêtre commun ; tracée
+        # en WARNING, et un second échec remonte à l'appelant.
         logger.warning("ChromaDB injoignable, réouverture de la connexion et nouvel essai.")
         reset_connection()
         results = _query(_get_chroma_collection())

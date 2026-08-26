@@ -25,7 +25,14 @@ from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
 from src.agent.llm import generate_stream
 from src.agent.minio_client import get_object_bytes
-from src.agent.retriever import group_by_document, lexical_ready, rerank, retrieve
+from src.agent.retriever import (
+    group_by_document,
+    lexical_ready,
+    lexical_stale,
+    rebuild_lexical_index,
+    rerank,
+    retrieve,
+)
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
 from src.agent.state import AgentState
@@ -43,6 +50,7 @@ from src.api.schemas import (
     FeedbackResponse,
     HealthResponse,
     ImageRef,
+    ReindexResponse,
     RetrievedContext,
     SearchRequest,
     SearchResponse,
@@ -147,9 +155,13 @@ async def health() -> HealthResponse:
     services: dict[str, bool] = {
         "chromadb": await to_thread.run_sync(chroma_ping),
         "nebulagraph": await to_thread.run_sync(nebula_ping),
-        # L'index BM25 se construit au premier appel : tant qu'il est faux, la
-        # recherche fonctionne en dense seul et la première requête paiera
-        # sa construction.
+        # Faux couvre DEUX cas, et c'est voulu : l'index pas encore construit
+        # (la première requête paiera sa construction, la recherche est dense
+        # seule d'ici là) et l'index construit sur un corpus qui n'existe plus.
+        # Le second est celui qui trompait : l'ingestion est un service séparé
+        # qui écrit dans Chroma pendant que l'agent tourne, et un `true` sur un
+        # index périmé décrivait un corpus disparu — la recherche lexicale ne
+        # voyait aucun document ingéré après le démarrage.
         "index_lexical": await to_thread.run_sync(lexical_ready),
     }
     try:
@@ -194,6 +206,31 @@ def search(req: SearchRequest) -> SearchResponse:
     """Retrieval brut ChromaDB sans reranking."""
     chunks = retrieve(req.question, top_k=req.top_k)
     return SearchResponse(question=req.question, chunks=chunks)
+
+
+# ─── Réindexation lexicale ────────────────────────────────────────────────────
+
+@app.post("/reindex", response_model=ReindexResponse, dependencies=[Depends(require_api_key)])
+def reindex() -> ReindexResponse:
+    """Reconstruit l'index lexical BM25 sur le corpus tel qu'il est maintenant.
+
+    **À appeler par l'ingestion en fin de pipeline.** L'ingestion est un service
+    séparé qui écrit dans ChromaDB pendant que l'agent tourne : un document
+    ingéré après le démarrage était trouvable en recherche dense — la requête
+    part à Chroma à chaque fois — et invisible en lexical jusqu'au prochain
+    redémarrage. La recherche devenait silencieusement asymétrique.
+
+    Cet endpoint est un CONTRAT, là où la détection par le compte de chunks
+    (cf. `retriever.lexical_stale`) n'est qu'un filet : celle-ci ne voit pas un
+    corpus dont on a retiré autant de chunks qu'on en a ajouté.
+
+    Endpoint `def` : la reconstruction est synchrone et coûte le parcours du
+    corpus entier, elle tourne donc dans le threadpool sans bloquer la boucle
+    d'événements. Ce coût est payé par le pipeline d'ingestion qui appelle,
+    jamais par une requête utilisateur.
+    """
+    chunks = rebuild_lexical_index()
+    return ReindexResponse(chunks_indexed=chunks, stale=lexical_stale())
 
 
 # ─── Reranking + groupement ───────────────────────────────────────────────────
