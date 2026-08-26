@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 262 tests, aucune dépendance
+## Unitaire — 270 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -30,6 +30,19 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 250 budgets). La chaîne `on_fit` → état du graphe → `/answer` y est exercée sur le vrai `node_generate`, seule la couche HTTP étant simulée : deux mutations la cassaient en gardant la suite verte. |
 | `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |
 | `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. La colonne `dropped_contexts` y est exercée sur des sections qui dépassent réellement la fenêtre — seule la couche HTTP est simulée, le budget est celui du vrai `fit_prompt` : trois mutations la cassent, une par maillon de la chaîne `on_fit` → état → colonne. |
+
+Deux leçons de la revue du lot 2, qui valent au-delà de ses fichiers :
+
+- **Un script n'est pas testé tant qu'il n'a pas été lancé comme une commande.**
+  `usage_export.py` mourait sur `ModuleNotFoundError` dès la première ligne de
+  `main()` ; les tests chargeaient le module par `importlib` et n'appelaient que
+  ses fonctions. Un test en processus ne l'aurait pas vu davantage — pytest
+  tourne depuis la racine, donc `src` y est déjà importable. Seul un
+  **sous-processus, PYTHONPATH retiré**, reproduit la vraie invocation.
+- **Une ligne écrite mérite d'être comparée entière.** Sept colonnes de
+  `sources_proposees` étaient écrites sans qu'aucun test ne les garde : sabotées
+  une à une, la suite restait verte. Comparer le dictionnaire complet coûte
+  moins qu'une assertion par colonne, et n'oublie rien.
 
 **`--strict-markers` et `asyncio_mode = "strict"` ne sont pas décoratifs.** Sans
 eux, un test asynchrone mal marqué n'échoue pas : il *passe sans rien
