@@ -763,7 +763,14 @@ un inconnu, la sonde a répondu, en levant. La propager ferait rendre 500 à
 existe pour éviter. Effet de bord acquis : un `OLLAMA_HOST` mal formé lève
 `httpx.InvalidURL`, qui n'hérite pas de `HTTPError` et n'est donc pas rattrapée
 par la sonde (§1.26) ; elle faisait rendre **500** à `/health`, elle rend
-maintenant 200 `degraded` avec le type de l'erreur au journal.
+maintenant 200 `degraded` avec le type de l'erreur au journal. Vérifié sur `main`
+avec `OLLAMA_HOST=http://héberge ur:8000` — un espace dans un nom d'hôte, la
+faute de frappe qu'un `.env` porte réellement — dont l'`httpx.InvalidURL: Invalid
+IDNA hostname` traversait la route. Nuance qui a d'abord rendu ce test faux : une
+URL **sans schéma** lève `UnsupportedProtocol`, qui hérite de `TransportError`
+donc de `HTTPError`, et que la sonde rattrape. Le test empruntait le chemin
+ordinaire en prétendant vérifier l'autre ; il épingle désormais, par un
+`pytest.raises` sur `httpx.URL`, que son host lève bien `InvalidURL`.
 
 Le contenu des sondes n'a pas été touché, ni les valeurs du healthcheck dans
 `docker-compose.yml` : desserrer le contrôle en même temps qu'on corrige l'API
