@@ -10,10 +10,15 @@ Les tests assertent depuis `node_reconstruct_context`, le nœud qui PRODUIT
 l'ordre, et non depuis un endpoint qui le consomme.
 """
 
+import ast
+from pathlib import Path
+
 import pytest
 
 from src.agent import graph as graph_module
 from src.api.schemas import ChunkResult, SectionContext
+
+_FRONTEND = Path(__file__).resolve().parents[2] / "src" / "frontend" / "app.py"
 
 
 def _chunk(element_id: str, rerank_score: float) -> ChunkResult:
@@ -119,18 +124,58 @@ def test_sans_selection_le_classement_est_repris_tel_quel(reconstruction) -> Non
     assert [c.element_id for c in resultat["enriched_contexts"]] == _PERTINENCE[:3]
 
 
-def test_le_frontend_envoie_bien_un_ordre_arbitraire() -> None:
-    """La cause, épinglée là où elle est : `src/frontend/app.py` range les cases
-    cochées dans un `set` et poste `list(...)`.
+def _dictionnaires(chemin: Path) -> list[ast.Dict]:
+    arbre = ast.parse(chemin.read_text(encoding="utf-8"))
+    return [n for n in ast.walk(arbre) if isinstance(n, ast.Dict)]
 
-    Sans ce test, le tri serveur pourrait être retiré un jour comme une
-    précaution inutile — « le client envoie déjà l'ordre du classement ». Il ne
-    l'envoie pas. Le tri est la seule chose qui garantit l'ordre.
+
+def _valeur(dictionnaires: list[ast.Dict], cle: str) -> ast.expr | None:
+    for noeud in dictionnaires:
+        for k, v in zip(noeud.keys, noeud.values, strict=True):
+            if isinstance(k, ast.Constant) and k.value == cle:
+                return v
+    return None
+
+
+def test_le_frontend_ne_transmet_aucun_ordre() -> None:
+    """La cause, lue LÀ OÙ ELLE EST : dans `src/frontend/app.py`.
+
+    Le premier jet de ce test construisait `list(set(...))` sur ses propres
+    identifiants et vérifiait que ça différait. Il n'épinglait rien — corriger
+    le frontend laissait la suite entièrement verte — et il rougissait au
+    hasard : l'ordre d'un `set` dépend de `PYTHONHASHSEED`, et il coïncidait
+    avec le classement sur environ une graine sur deux cents.
+
+    Celui-ci lit l'arbre syntaxique du frontend. `selected_ids` y est un `set`,
+    donc il ne porte aucun ordre, et il est posté par un `list()` nu, donc rien
+    ne lui en donne un. Le jour où l'une des deux choses change, ce test rougit
+    et oblige à relire la justification du tri serveur — au lieu de le laisser
+    retirer comme une précaution devenue inutile.
+
+    L'image du frontend ne contient que `src/frontend` : le module s'importe,
+    mais son état Streamlit n'existe pas hors exécution. La lecture statique est
+    donc le seul moyen d'atteindre les deux lignes qui comptent.
     """
-    envoye = list(set(_PERTINENCE))
+    dictionnaires = _dictionnaires(_FRONTEND)
 
-    assert sorted(envoye) == sorted(_PERTINENCE), "mêmes identifiants"
-    assert envoye != _PERTINENCE, (
-        "l'ordre d'un set coïncide par hasard avec le classement : changer les "
-        "identifiants du cas de test"
+    initial = _valeur(dictionnaires, "selected_ids")
+    assert isinstance(initial, ast.Call) and isinstance(initial.func, ast.Name), (
+        "selected_ids n'est plus initialisé par un appel dans app.py"
+    )
+    assert initial.func.id == "set", (
+        f"selected_ids est initialisé par {initial.func.id}() et non set() : "
+        "il porte peut-être un ordre, relire le tri serveur de node_reconstruct_context"
+    )
+
+    poste = _valeur(dictionnaires, "selected_element_ids")
+    assert isinstance(poste, ast.Call) and isinstance(poste.func, ast.Name), (
+        "selected_element_ids n'est plus posté par un appel dans app.py"
+    )
+    assert poste.func.id == "list", (
+        f"selected_element_ids est posté par {poste.func.id}(...) : le client "
+        "impose désormais un ordre, relire le tri serveur"
+    )
+    (argument,) = poste.args
+    assert isinstance(argument, ast.Attribute) and argument.attr == "selected_ids", (
+        "selected_element_ids ne vient plus directement de selected_ids"
     )

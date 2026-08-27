@@ -853,6 +853,20 @@ une propriété de la route, pas un oubli.
 Ce défaut passait **avant** le remplissage au plus juste (§1.30) : « tronquer la
 dernière retenue » n'a de sens que si la dernière est bien la moins pertinente.
 
+**Le test qui épingle la cause a d'abord été écrit sans lire le frontend.** Il
+construisait `list(set(...))` sur ses propres identifiants et vérifiait que
+l'ordre différait. Deux défauts pour le prix d'un : corriger `app.py` laissait la
+suite entièrement verte — donc il n'épinglait rien — et il rougissait au hasard,
+l'ordre d'un `set` dépendant de `PYTHONHASHSEED`, sur environ une graine sur deux
+cents. Dans un chantier dont la règle est que chaque commit soit vert
+individuellement, un demi-pour-cent d'exécutions rouges est un défaut à part
+entière. Il lit désormais l'**arbre syntaxique** de `src/frontend/app.py` :
+`selected_ids` doit être initialisé par `set()`, et `selected_element_ids` doit
+être posté par un `list()` nu pris directement dessus. Le jour où l'une des deux
+choses change, il rougit et oblige à relire la justification du tri serveur.
+Fixer `PYTHONHASHSEED` aurait fait taire le symptôme en aveuglant le dépôt sur
+toute la classe de défauts que la variabilité du hachage révèle.
+
 
 ### 1.30 La marge de fenêtre laissée par une source écartée restait vide — `llm.py`, `settings.py`
 
