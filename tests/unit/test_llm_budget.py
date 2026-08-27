@@ -920,25 +920,74 @@ def test_aucun_marqueur_retenu_ne_perd_son_texte() -> None:
                 )
 
 
+def _sans_aucun_marqueur() -> SectionContext:
+    """Une source qui ne porte AUCUN marqueur, telle que la production en produit.
+
+    `graph_context.reconstruct_section` ajoute le texte brut d'un élément
+    orphelin de section après le markdown rendu, sans marqueur. Si cet élément
+    n'a pas d'enfant, `elements` est vide : la source n'a alors pas un seul
+    `[src:ID]`. Aucune fixture faite d'éléments marqués ne peut produire ce cas,
+    et c'est ce qui avait laissé passer une phrase d'exhaustivité fausse.
+    """
+    return SectionContext(
+        element_id="abcdef0400",
+        section_id="abcdef0400",
+        breadcrumbs=[],
+        elements=[],
+        markdown=(
+            "Texte brut de l element orphelin de section, restitue tel quel apres le "
+            "markdown rendu, sans le moindre marqueur de citation puisque la section "
+            "n a aucun enfant a numeroter. " * 3
+        ),
+    )
+
+
 def test_aucun_fragment_retenu_ne_perd_son_marqueur() -> None:
     """Seconde dérive du point C : du texte lu que le modèle ne peut pas citer.
 
-    Tant qu'une autre source est retenue, tout fragment se termine sur un
-    marqueur complet — donc chaque élément présent porte son identifiant.
+    Tant qu'une autre source est retenue, un fragment se termine sur un marqueur
+    complet — **sauf si sa source n'en porte aucun**. La réserve n'est pas une
+    précaution de style : le cas existe en production, un élément orphelin de
+    section dont le texte brut est ajouté sans marqueur, et `_cut_on_marker`
+    coupe alors librement, à dessein. Il n'y a pas d'attribution à perdre, mais
+    il reste un crochet à ne pas laisser ouvert.
+
+    Deux arrangements, parce qu'un seul ne peut pas voir les deux cas : la source
+    sans marqueur doit être celle qui reçoit la marge pour être coupée, donc être
+    la mieux classée des écartées.
     """
-    sources = _serie(3, 25)
-    entiere = len(sources[0].markdown)
-    budgets = [entiere + pas for pas in range(0, len(sources[1].markdown), 37)]
-    vus = 0
-    for budget in budgets:
-        kept, _ = fit_contexts(sources, budget)
-        for ctx in kept:
-            if not ctx.markdown.endswith(_TRUNCATION_MARKER):
-                continue
-            vus += 1
-            corps = ctx.markdown.removesuffix(_TRUNCATION_MARKER)
-            assert corps.endswith("]"), f"budget {budget} : fragment sans marqueur final"
-    assert vus >= len(budgets) // 2, "le balayage n'a presque rien tronqué"
+    arrangements = (_serie(3, 25), [_serie(1, 4)[0], _sans_aucun_marqueur()])
+    porteuses = {
+        ctx.element_id
+        for sources in arrangements
+        for ctx in sources
+        if llm._MARKER_RE.search(ctx.markdown)
+    }
+    vus_avec, vus_sans = 0, 0
+
+    for sources in arrangements:
+        entiere = len(sources[0].markdown)
+        budgets = [entiere + pas for pas in range(0, len(sources[1].markdown), 37)]
+        for budget in budgets:
+            kept, _ = fit_contexts(sources, budget)
+            for ctx in kept:
+                if not ctx.markdown.endswith(_TRUNCATION_MARKER):
+                    continue
+                corps = ctx.markdown.removesuffix(_TRUNCATION_MARKER)
+                if ctx.element_id in porteuses:
+                    vus_avec += 1
+                    assert corps.endswith("]"), (
+                        f"budget {budget} : fragment sans marqueur final"
+                    )
+                else:
+                    vus_sans += 1
+                    dernier = corps.rfind("[")
+                    assert dernier == -1 or "]" in corps[dernier:], (
+                        f"budget {budget} : crochet resté ouvert — {corps[-30:]!r}"
+                    )
+
+    assert vus_avec > 10, "le balayage n'a presque rien tronqué de marqué"
+    assert vus_sans > 0, "la fixture ne produit aucune source sans marqueur"
 
 
 def test_un_crochet_qui_n_est_pas_un_marqueur_n_arrete_pas_la_coupe() -> None:

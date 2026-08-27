@@ -950,6 +950,15 @@ Les deux invariants sont vérifiés avec l'instrument du lot 4,
 modèle : tout identifiant présent dans le prompt y a son texte, et tout élément
 coupé disparaît des identifiants publiés par `/answer`.
 
+Une **réserve** manquait à l'énoncé de la seconde, et elle porte : « tout
+fragment se termine sur un marqueur complet » est faux pour une source qui n'en
+porte aucun. Le cas existe — `graph_context.reconstruct_section` ajoute le texte
+brut d'un élément orphelin de section sans marqueur, et si cet élément n'a pas
+d'enfant la source n'en a pas un seul. Le code était intentionnel,
+`_cut_on_marker` déclare qu'une telle source se coupe librement ; c'était la
+phrase du test qui était trop large, et sa fixture, faite de sources toutes
+marquées, ne pouvait pas la contredire.
+
 **Ce que ce changement déplace ailleurs.** `dropped_contexts` change de sens —
 une source hier écartée est aujourd'hui tronquée et retenue, donc le compteur
 baisse sans que le retrieval s'améliore. Dit dans `usage.py`, où il est écrit, et
