@@ -228,7 +228,7 @@ def test_le_resume_dit_sur_combien_de_questions_la_precision_porte() -> None:
     # rien n'est retenu y compte pour 0,0 — l'or n'a rien atteint, ce qui est une
     # mesure — là où `taux` et `part` l'excluent. Deux moyennes voisines dans le
     # même résumé, sur deux populations : son effectif doit être écrit.
-    assert resume["rappel_contexte_sur"] == 2  # noqa: PLR2004
+    assert resume["rappel_contexte_sur"] == 2
     assert resume["rappel_contexte_sur"] != resume["precision_contexte_sur"]
     # Les trois buckets couvrent le jeu : aucune question ne disparaît en
     # silence entre « comptée » et « exclue ».
@@ -275,10 +275,10 @@ def test_le_quotient_separe_plus_de_sections_de_sections_plus_grosses() -> None:
     grosses = _campagne(evaluate, [(3, 2000)] * 4)
 
     assert beaucoup["caracteres_retenus_p50"] == grosses["caracteres_retenus_p50"] == 6000
-    assert beaucoup["contextes_retenus_p50"] == 6  # noqa: PLR2004
-    assert grosses["contextes_retenus_p50"] == 3  # noqa: PLR2004
-    assert beaucoup["caracteres_par_section_p50"] == 1000  # noqa: PLR2004
-    assert grosses["caracteres_par_section_p50"] == 2000  # noqa: PLR2004
+    assert beaucoup["contextes_retenus_p50"] == 6
+    assert grosses["contextes_retenus_p50"] == 3
+    assert beaucoup["caracteres_par_section_p50"] == 1000
+    assert grosses["caracteres_par_section_p50"] == 2000
 
 
 def test_les_questions_sans_section_retenue_comptent_dans_le_denominateur() -> None:
@@ -331,9 +331,9 @@ def test_le_quotient_exclut_les_questions_sans_section_retenue() -> None:
 
     resume = evaluate.resumer(lignes)
 
-    assert resume["caracteres_par_section_p50"] == 900  # noqa: PLR2004
+    assert resume["caracteres_par_section_p50"] == 900
     # Et la population écartée reste nommée, elle ne disparaît pas.
-    assert resume["precision_contexte_exclues_sans_retenue"] == 3  # noqa: PLR2004
+    assert resume["precision_contexte_exclues_sans_retenue"] == 3
 
 
 def test_sans_aucune_section_retenue_le_quotient_est_indefini() -> None:
@@ -381,7 +381,7 @@ def test_le_rappel_au_contexte_dit_sur_combien_de_questions_il_porte() -> None:
     resume = evaluate.resumer(lignes)
 
     assert resume["precision_contexte_sur"] == 1
-    assert resume["rappel_contexte_sur"] == 3  # noqa: PLR2004
+    assert resume["rappel_contexte_sur"] == 3
     # Et il vaut bien la somme des deux compteurs qui le composent : l'écrire
     # évite au lecteur de faire l'addition, en silence, dans sa tête.
     assert resume["rappel_contexte_sur"] == (

@@ -108,8 +108,8 @@ async def test_eval_count_est_lu_dans_l_evenement_final(monkeypatch) -> None:
 
     assert tokens == ["Réponse."]
     assert len(mesures) == 1
-    assert mesures[0].eval_count == 512  # noqa: PLR2004
-    assert mesures[0].prompt_eval_count == 3400  # noqa: PLR2004
+    assert mesures[0].eval_count == 512
+    assert mesures[0].prompt_eval_count == 3400
     # Le plafond appliqué voyage avec la mesure : sans lui, « la génération a-t-
     # elle été coupée ? » n'est pas décidable depuis `eval_count` seul.
     assert mesures[0].num_predict == llm.settings.llm_max_tokens
@@ -160,7 +160,7 @@ async def test_node_generate_publie_la_mesure_a_l_etat(monkeypatch) -> None:
         }
     )
 
-    assert resultat["generation_measure"].eval_count == 77  # noqa: PLR2004
+    assert resultat["generation_measure"].eval_count == 77
 
 
 @pytest.mark.asyncio
@@ -202,8 +202,8 @@ async def test_answer_publie_la_mesure_de_generation(monkeypatch) -> None:
     body = TestClient(main.app).post("/answer", json={"question": QUESTION}).json()
     mesure = body["generation"]
 
-    assert mesure["eval_count"] == 640  # noqa: PLR2004
-    assert mesure["prompt_eval_count"] == 3400  # noqa: PLR2004
+    assert mesure["eval_count"] == 640
+    assert mesure["prompt_eval_count"] == 3400
     assert mesure["prompt_tokens_estimated"] > 0
     assert mesure["num_predict"] == llm.settings.llm_max_tokens
     # La longueur de la réponse est celle du texte rendu, pas celle du flux : la
@@ -264,7 +264,7 @@ async def test_un_decompte_pollue_est_publie_mais_marque(monkeypatch) -> None:
     async for _ in llm.generate_stream(QUESTION, [_section()], on_measure=mesures.append):
         pass
 
-    assert mesures[0].prompt_eval_count == 3  # noqa: PLR2004
+    assert mesures[0].prompt_eval_count == 3
     assert mesures[0].prompt_reliable is False
 
 
@@ -293,11 +293,11 @@ def test_la_campagne_compte_les_generations_qui_butent_sur_leur_plafond() -> Non
     au_plafond = [_ligne(evaluate, eval_count=4096, num_predict=4096) for _ in range(3)]
     en_dessous = [_ligne(evaluate, eval_count=300, num_predict=4096) for _ in range(3)]
 
-    assert evaluate.resumer(au_plafond)["generations_au_plafond"] == 3  # noqa: PLR2004
+    assert evaluate.resumer(au_plafond)["generations_au_plafond"] == 3
     assert evaluate.resumer(en_dessous)["generations_au_plafond"] == 0
     # Et le plafond lui-même est publié : les trois centiles de `eval_count` ne
     # se lisent pas sans lui.
-    assert evaluate.resumer(en_dessous)["num_predict"] == 4096  # noqa: PLR2004
+    assert evaluate.resumer(en_dessous)["num_predict"] == 4096
 
 
 def test_un_decompte_absent_ne_compte_pas_comme_une_generation_courte() -> None:
@@ -313,7 +313,7 @@ def test_un_decompte_absent_ne_compte_pas_comme_une_generation_courte() -> None:
     resume = evaluate.resumer(lignes)
 
     assert resume["eval_count_sur"] == 1
-    assert resume["eval_count_p50"] == 800  # noqa: PLR2004
+    assert resume["eval_count_p50"] == 800
     assert resume["generations_au_plafond"] == 0
 
 
@@ -328,8 +328,8 @@ def test_la_longueur_des_reponses_est_enregistree() -> None:
 
     resume = evaluate.resumer(lignes)
 
-    assert resume["reponse_caracteres_max"] == 5000  # noqa: PLR2004
-    assert resume["reponse_caracteres_p95"] == 5000  # noqa: PLR2004
+    assert resume["reponse_caracteres_max"] == 5000
+    assert resume["reponse_caracteres_p95"] == 5000
 
 
 def test_le_ratio_mesure_ecarte_les_echantillons_pollues() -> None:

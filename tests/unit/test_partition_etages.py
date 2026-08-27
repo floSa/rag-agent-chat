@@ -293,8 +293,8 @@ def test_le_resume_de_campagne_porte_les_deux_centiles_de_chaque_etage() -> None
     for etage in StageTimings.model_fields:
         assert f"{etage}_p50" in resume, etage
         assert f"{etage}_p95" in resume, etage
-    assert resume["dense_ms_p50"] == 90  # noqa: PLR2004
-    assert resume["residual_ms_p95"] == 30  # noqa: PLR2004
+    assert resume["dense_ms_p50"] == 90
+    assert resume["residual_ms_p95"] == 30
 
 
 def test_l_invariant_tient_sur_une_traversee_complete() -> None:

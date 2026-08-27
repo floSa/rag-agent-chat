@@ -776,12 +776,12 @@ def desaccord_de_jeu(actuelles: list[dict], precedentes: list[dict]) -> str | No
     if manquants:
         details.append(
             f"absentes de la référence ({len(manquants)}) : {', '.join(manquants[:10])}"
-            + (" …" if len(manquants) > 10 else "")  # noqa: PLR2004
+            + (" …" if len(manquants) > 10 else "")
         )
     if en_trop:
         details.append(
             f"absentes de la campagne ({len(en_trop)}) : {', '.join(en_trop[:10])}"
-            + (" …" if len(en_trop) > 10 else "")  # noqa: PLR2004
+            + (" …" if len(en_trop) > 10 else "")
         )
     return " — ".join(details)
 

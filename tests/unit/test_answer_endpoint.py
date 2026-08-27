@@ -127,8 +127,8 @@ def test_answer_publie_la_partition_du_temps(client) -> None:
     etapes = body["timings"]
 
     assert etapes["dense_ms"] == 0  # non renseigné par le stub, donc zéro
-    assert etapes["rerank_ms"] == 80  # noqa: PLR2004
-    assert etapes["generation_ms"] == 900  # noqa: PLR2004
+    assert etapes["rerank_ms"] == 80
+    assert etapes["generation_ms"] == 900
     assert etapes["reconstruction_ms"] == 0
 
     etages = [c for c in etapes if c not in ("residual_ms", "total_ms")]
@@ -155,7 +155,7 @@ def test_le_total_mesure_est_le_temps_mural_pas_une_somme(monkeypatch) -> None:
     monkeypatch.setattr(main.answer_graph, "ainvoke", ainvoke_lent)
     etapes = TestClient(main.app).post("/answer", json={"question": "q"}).json()["timings"]
 
-    assert etapes["total_ms"] >= 50  # noqa: PLR2004
+    assert etapes["total_ms"] >= 50
     # Aucun étage déclaré : tout le temps est du résidu, et c'est le seul
     # affichage honnête d'une instrumentation débranchée.
     assert etapes["residual_ms"] == etapes["total_ms"]
