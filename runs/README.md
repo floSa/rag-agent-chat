@@ -17,7 +17,7 @@ comparait 138 moyennes à 117.
 | `c1-rewrite.json` | 15 questions | Après la réécriture des questions de suivi |
 | `c2-hybride.json` | 15 questions | Après la recherche hybride BM25 + RRF |
 | `c-final.json` | 15 questions | Après le lot complet : hybride, texte intégral, tool-calling |
-| `reference.json` | **117 lignes**, annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. La ligne annonçait 138 : le fichier n'en porte que 117, 21 questions (G-118 à G-138) n'ayant pas abouti. **Il ne peut donc pas servir de base à une comparaison appariée**, et `make eval` ne le prend plus pour cible. |
+| `reference.json` | **117 lignes, et biaisées**, annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. La ligne annonçait 138 : le fichier n'en porte que 117, et le compte n'est pas le vrai problème — **aucune** des 8 questions `unanswerable` n'y figure, et l'anglais y survit moins bien (79 % contre 90 %). Ce qui en est tiré sur l'abstention est sans objet ; son résumé porte d'ailleurs `abstention_correcte: None`, l'instrument s'étant abstenu. **Il ne peut pas servir de base à une comparaison appariée**, et `make eval` ne le prend plus pour cible. |
 | `c3-translingue.json` | 138 questions | Après la recherche dans la traduction, avant réglage du vivier |
 | `final.json` | 138 questions | Configuration retenue |
 | `c-deps-a-jour.json` | 138 questions | Contrôle après la montée de toutes les dépendances. Aucune métrique de recherche ne bouge. |

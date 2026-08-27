@@ -108,9 +108,13 @@ make up && make test-integration
 
 ## Campagne — 138 questions, la seule mesure de qualité
 
-`make eval` rejoue le jeu doré contre l'API réelle et compare à
-`runs/reference.json`. C'est le seul niveau qui mesure si le système
-**répond bien**, par opposition à *fonctionne*.
+`make eval` rejoue le jeu doré contre l'API réelle et le compare à
+`runs/final.json`, **question par question**. C'est le seul niveau qui mesure si
+le système **répond bien**, par opposition à *fonctionne*.
+
+La cible fut `runs/reference.json` jusqu'au lot 4 : ce fichier ne porte que 117
+des 138 lignes, et la comparaison appariée le refuse désormais — cf. la ligne du
+registre, qui dit pourquoi le compte n'est pas le vrai problème.
 
 Les métriques et leur lecture sont dans
 [rag_evaluation_strategy.md](rag_evaluation_strategy.md) ; les résultats et les

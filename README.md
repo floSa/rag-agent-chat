@@ -135,7 +135,7 @@ make format            # ruff format + fix
 make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
-make eval              # campagne d'évaluation, comparée à runs/reference.json
+make eval              # campagne d'évaluation, comparée — APPARIÉE — à runs/final.json
 make models            # modèles servis par llm-service
 make health            # état de l'API et de ses dépendances
 make audit             # pip-audit sur requirements.txt
