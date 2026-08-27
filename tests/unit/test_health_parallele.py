@@ -440,16 +440,28 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
     une erreur de configuration, pas une panne de service. Mais /health ne doit
     pas tomber pour autant, sinon le service redémarre en boucle sur une faute de
     frappe dans un `.env`.
+
+    Le host est choisi pour lever cette exception-là, et l'épinglage ci-dessous
+    est ce qui rend ce test honnête : une URL sans schéma lève
+    `httpx.UnsupportedProtocol`, qui EST une `HTTPError` et que la sonde
+    rattrape. Écrite ainsi, l'assertion serait passée par le chemin ordinaire en
+    prétendant vérifier l'autre — c'est le premier host que j'avais mis.
     """
     import logging
 
+    import httpx
+
     from src.api import main
+
+    host = "http://héberge ur:8000"
+    with pytest.raises(httpx.InvalidURL):
+        httpx.URL(f"{host}/api/tags")
 
     monkeypatch.setattr(main.settings, "api_key", "")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.settings, "ollama_host", "ceci n'est pas une url")
+    monkeypatch.setattr(main.settings, "ollama_host", host)
 
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
