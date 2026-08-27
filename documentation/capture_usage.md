@@ -96,7 +96,7 @@ l'usage humain.
 | `response` | TEXT | la réponse, marqueurs `[src:…]` compris |
 | `citations` / `images` | TEXT (JSON) | les identifiants effectivement cités et illustrés |
 | `search_count` | INTEGER | itérations de la boucle agentique (> 1 = le modèle a redemandé) |
-| `dropped_contexts` | INTEGER | sections reconstruites que le budget de fenêtre a écartées avant le modèle. `submitted_section_ids` moins celles-ci = ce qui a réellement atteint le LLM, seul chiffre qu'aucune colonne ne stocke |
+| `dropped_contexts` | INTEGER | sections reconstruites que le budget de fenêtre a écartées avant le modèle. `submitted_section_ids` moins celles-ci = ce qui a réellement atteint le LLM, seul chiffre qu'aucune colonne ne stocke. **Le sens a changé** avec le remplissage au plus juste : une source qui ne tient pas entière est maintenant tronquée et retenue, donc plus comptée ici. Le compteur baisse sans que le retrieval s'améliore, et une série ne se lit pas à travers cette coupure — cf. [llm.md](llm.md) |
 | `retrieval_ms` / `rerank_ms` / `generation_ms` | INTEGER | latences par étage |
 | `config_hash` | TEXT | empreinte courte de la configuration — sert à grouper |
 | `config_json` | TEXT (JSON) | son détail |

@@ -94,6 +94,7 @@ est mesuré à l'exécution :
 | Ratio caractères/token | 3,5 | Le log `prompt_eval_count` donne le ratio mesuré à chaque génération |
 | Balises de tour du gabarit de chat, par message | 34 | Dépend du modèle. C'est le décompte du gabarit Gemma — `<start_of_turn>user\n` 20 caractères, `<end_of_turn>\n` 14 — appliqué à tous |
 | Part de la fenêtre laissée à l'historique (`HISTORY_WINDOW_SHARE`) | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
+| Part minimale d'une source tronquée (`TRUNCATION_FLOOR_SHARE`) | 1/3 | Rien : mesuré, de 0,25 à 0,45 le résultat est **identique** sur la grille — même marge, mêmes configurations gagnées, même plus petit fragment. 1/3 est le milieu de ce plateau. Ce qui reste à mesurer est l'effet sur la QUALITÉ des réponses, qui demande une campagne |
 | Marge sous `num_ctx` au-delà de laquelle on suspecte une troncature d'Ollama | 8 tokens | Dépend du gabarit de chat, qui ne retombe pas pile sur la borne. Se resserrerait sur des `prompt_eval_count` réels |
 | Fraction de l'estimation sous laquelle une mesure est imputée au cache KV | 0,6 | Choisi assez bas pour ne pas écarter une simple erreur d'estimation, assez haut pour attraper un préfixe caché. Se réglerait sur la distribution observée |
 
@@ -117,10 +118,17 @@ n'était pas le ratio qui trompait, c'était son application partielle.
 
 ### Ce qui est écarté, et par quel bout
 
+L'ordre compte, et il n'est pas celui de l'appelant. `node_reconstruct_context`
+reconstruit les sections **par pertinence décroissante**, sur le classement du
+reranker : sans ce tri, la fenêtre écartait la dernière du hachage d'un `set`
+côté frontend plutôt que la moins pertinente.
+
 | Élément | Coupe | Sens |
 |---|---|---|
 | Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
-| Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un identifiant amputé n'est plus résolu par le post-processing, ou correspond à un **autre** élément, et un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
+| La marge de fenêtre restante | Donnée à la **mieux classée des écartées**, tronquée | Elle restait vide : 1 172 caractères en moyenne, 3 964 au maximum sur la grille. Une seule source la reçoit — il n'y a qu'une marge. Si elle est refusée par le plancher, la suivante est essayée : plus petite, elle a plus de chances d'atteindre sa part |
+| Fragment sous `TRUNCATION_FLOOR_SHARE` | La source est écartée entière | Le modèle en verrait assez pour la citer, pas assez pour savoir ce qu'elle dit. Un défaut silencieux vaut moins qu'une abstention visible. Sans plancher, la grille descend à **4 %** d'une source |
+| Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. Le plancher et l'exigence de marqueur sont **relâchés** dans ce seul cas : il n'y a rien à arbitrer quand il n'y a rien d'autre. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
 | Historique | Les **tours** les plus anciens, entiers | C'est le dernier échange qui situe la question. La coupe porte sur des tours et non des messages : couper par message laissait passer une réponse sans la question à laquelle elle répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit strict sur l'alternance refuse |
 | Tour trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
 
@@ -218,6 +226,46 @@ Le résumé de campagne en tire `ratio_caracteres_par_token_mesure` — calculé
 les seuls échantillons exploitables, avec le nombre d'écartés à côté. C'est ce
 chiffre qui calibrera `_CHARS_PER_TOKEN`, aujourd'hui un forfait de 3,5 posé au
 jugé.
+
+### Remesurer la marge de fenêtre
+
+Sans stack : la grille est un calcul pur sur `fit_contexts`, elle ne demande ni
+Ollama ni les stores.
+
+```bash
+uv run python - <<'EOF'
+from src.agent.llm import context_budget_chars, fit_contexts, source_framing_chars
+from src.api.schemas import BreadcrumbEntry, SectionContext
+Q = "Quelle est la difference entre un pipeline de features et un feature store ?"
+
+def source(rang, taille, niveaux):
+    parties, i = [], 0
+    while sum(len(m) for m in parties) < taille:
+        parties.append(f"Paragraphe {i} de la section {rang}, avec assez de texte pour "
+                       f"peser dans la fenetre. [src:{rang:04d}{i:06d}]\n\n")
+        i += 1
+    return SectionContext(
+        element_id=f"abcdef{rang:04d}", section_id=f"section{rang:04d}",
+        breadcrumbs=[BreadcrumbEntry(node_id=f"n{j}", label="SectionHeader", text="T"*44)
+                     for j in range(niveaux)],
+        elements=[], markdown="".join(parties)[:taille])
+
+marges = []
+for niv in (0, 2, 5):
+    for taille in (500, 1000, 1500, 2000, 2500, 3000, 4000, 6000):
+        for n in (1, 3, 5, 7, 10, 12):
+            cands = [source(i, taille, niv) for i in range(n)]
+            budget = context_budget_chars(Q, [])
+            fr = source_framing_chars(Q, cands)
+            kept, dropped = fit_contexts(list(cands), budget, fr)
+            if dropped:
+                marges.append(budget - sum(len(c.markdown) for c in kept) - sum(fr[:len(kept)]))
+print("configurations avec une source ecartee :", len(marges))
+print("marge inutilisee : moyenne", sum(marges)//len(marges), "max", max(marges))
+EOF
+```
+
+Faire varier `TRUNCATION_FLOOR_SHARE` autour de 1/3 pour retrouver le plateau.
 
 ## `LLM_MAX_TOKENS` — à mesurer
 

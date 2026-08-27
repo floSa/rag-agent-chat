@@ -28,6 +28,38 @@ balayage suppose de refaire 130 appels au LLM, et les traductions changeraient
 d'une exécution à l'autre — le balayage ne serait plus comparable. Le supprimer
 le fait simplement se reconstruire.
 
+## Avertissement — le remplissage au plus juste invalide les comparaisons de contexte
+
+**À lire avec celui qui suit, et avant de comparer quoi que ce soit à
+`final.json`.** Depuis le lot du remplissage des sources (cf.
+[axes_amelioration.md](../documentation/axes_amelioration.md) §1.29 et §1.30),
+une source qui ne tient pas entière dans la fenêtre n'est plus écartée : elle est
+**tronquée sur une frontière d'élément et retenue**, tant que le fragment
+atteint `TRUNCATION_FLOOR_SHARE` de sa source. La fenêtre part donc plus pleine.
+
+| Métrique | Sens attendu | Pourquoi |
+|---|---|---|
+| `contextes_ecartes_total` | **En baisse** — et ce n'est PAS un gain de retrieval | Une source hier écartée est aujourd'hui tronquée et retenue, donc elle ne compte plus. Le classement n'a pas changé d'un rang |
+| `contextes_retenus` | En hausse, du même mouvement | Ce sont les mêmes sources, passées d'un compteur à l'autre |
+| `caracteres_retenus` | En hausse | C'est l'objet du lot : mesuré sur la grille, 80 % de la marge de fenêtre inutilisée est reprise |
+| `part_utile_caracteres` | **Sens indécidable a priori** | Le dénominateur grossit avec les caractères retenus. Si le fragment ajouté porte de l'or, la part monte ; sinon elle baisse. C'est la métrique à lire en premier, et la seule qui puisse dire si le remplissage sert la réponse |
+| `taux_contexte_utile` | Peut monter | Il compte des sections, et une section tronquée qui porte l'or compte comme utile là où l'écarter la retirait du numérateur |
+| `rappel_contexte` | En hausse ou stable | Un élément d'or dans la partie conservée d'une source tronquée atteint désormais le LLM |
+| `rappel_recherche`, `mrr`, `rappel_documents`, `rappel_elements` | Inchangés | Rien n'est touché en amont du reranking, et `rappel_elements` se calcule sur la graine de chaque section (cf. l'avertissement suivant) |
+
+**Aucune comparaison de ces métriques à une campagne antérieure n'est valide.**
+Ce ne sont pas les mêmes définitions de part et d'autre : `contextes_ecartes` ne
+compte plus la même population, et `caracteres_retenus` inclut des fragments qui
+n'existaient pas. Une nouvelle campagne de référence doit précéder toute
+comparaison.
+
+**Second effet, sur le flux interactif seulement.** La sélection de l'utilisateur
+est désormais reconstruite par pertinence décroissante et non dans l'ordre du
+client (§1.29). `make eval` passe par `/answer`, qui ne coche rien et prenait déjà
+le classement : **la campagne ne verra pas ce correctif**. Il change ce que
+`/chat/resume` envoie au modèle, et rien de ce que la campagne mesure. C'est une
+lacune du protocole, pas un signe que le défaut était sans effet.
+
 ## Avertissement — aucune campagne depuis la correction du budget de contexte
 
 **À lire avant de comparer une nouvelle campagne à `final.json`.** Le budget de la

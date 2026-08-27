@@ -415,6 +415,16 @@ async def record_completion(
     mesure » y est déjà devenu 0 avant d'arriver ici. Elle protège les
     appelants qui n'ont pas d'état de graphe — et le jour où ce repli du graphe
     deviendra un NULL, elle sera déjà en place.
+
+    **Le compteur a changé de sens, et une série ne se lit pas à travers la
+    coupure.** Depuis le remplissage au plus juste, une source qui ne tient pas
+    entière est TRONQUÉE et retenue, au lieu d'être écartée : elle ne compte donc
+    plus ici. `dropped_contexts` baisse, et la baisse ne dit rien du retrieval —
+    elle dit que la fenêtre est mieux remplie. Une source écartée l'est désormais
+    parce que son fragment n'atteignait pas `TRUNCATION_FLOOR_SHARE`, ou parce
+    que la marge était déjà donnée. Compter les enregistrements antérieurs avec
+    les suivants mélange deux définitions ; filtrer sur `started_at` est le seul
+    moyen de comparer.
     """
     if not capture_active():
         return

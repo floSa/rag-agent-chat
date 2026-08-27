@@ -10,6 +10,7 @@ pour une fenêtre utile de 14 336."""
 
 import json
 import logging
+import math
 import re
 
 import pytest
@@ -353,7 +354,7 @@ def test_toutes_les_sources_passent_si_le_budget_suffit() -> None:
     contexts = [_context("a", 100), _context("b", 100)]
     kept, dropped = fit_contexts(contexts, budget_chars=1000)
 
-    assert len(kept) == 2  # noqa: PLR2004
+    assert len(kept) == len(contexts)
     assert dropped == 0
 
 
@@ -758,3 +759,202 @@ async def test_node_generate_ne_publie_zero_que_si_tout_tient(monkeypatch) -> No
     )
 
     assert resultat["dropped_contexts"] == 0
+
+
+# ─── La marge de fenêtre revient à la mieux classée des écartées ──────────────
+
+def _serie(nb: int, elements_par_source: int) -> list[SectionContext]:
+    """`nb` sources classées, chacune faite d'éléments marqués comme en production."""
+    sources = []
+    for rang in range(nb):
+        parties = [
+            f"Paragraphe {i} de la section {rang}, avec assez de texte pour peser un peu "
+            f"dans la fenetre du modele. [src:{rang:04d}{i:06d}]"
+            for i in range(elements_par_source)
+        ]
+        sources.append(
+            SectionContext(
+                element_id=f"abcdef01{rang:02d}",
+                section_id=f"section{rang:04d}",
+                breadcrumbs=[],
+                elements=[],
+                markdown="\n\n".join(parties),
+            )
+        )
+    return sources
+
+
+def _marge(kept: list[SectionContext], budget: int) -> int:
+    return budget - sum(len(c.markdown) for c in kept)
+
+
+def test_la_marge_laissee_par_une_source_ecartee_est_reprise() -> None:
+    """Le défaut : la place qu'une source écartée aurait presque remplie restait
+    vide. Test de SERRAGE — « ça tient » serait vert des deux côtés.
+
+    La borne est la moins-disante des deux : ce qui reste libre doit être plus
+    petit que le plus petit fragment que le plancher aurait accepté.
+    """
+    sources = _serie(4, 12)
+    budget = sum(len(s.markdown) for s in sources[:2]) + len(sources[2].markdown) // 2
+    kept, dropped = fit_contexts(sources, budget)
+
+    assert len(kept) == 3, "la troisième doit entrer, tronquée"
+    assert dropped == 1
+    assert kept[2].markdown.endswith(_TRUNCATION_MARKER)
+    plancher = math.ceil(settings.truncation_floor_share * len(sources[2].markdown))
+    assert _marge(kept, budget) < plancher
+
+
+def test_la_troncature_porte_sur_la_mieux_classee_des_ecartees() -> None:
+    """Pas sur la plus commode : les sources arrivent triées par pertinence."""
+    sources = _serie(4, 12)
+    budget = len(sources[0].markdown) + len(sources[1].markdown) // 2
+    kept, _ = fit_contexts(sources, budget)
+
+    assert [c.section_id for c in kept] == ["section0000", "section0001"]
+
+
+def test_une_seule_source_recoit_la_marge() -> None:
+    """Il n'y a qu'une marge : une fois donnée, plus rien n'entre."""
+    sources = _serie(5, 12)
+    budget = len(sources[0].markdown) + len(sources[1].markdown) // 2
+    kept, dropped = fit_contexts(sources, budget)
+
+    tronquees = [c for c in kept if c.markdown.endswith(_TRUNCATION_MARKER)]
+    assert len(tronquees) == 1
+    assert dropped == len(sources) - len(kept)
+
+
+def test_le_plancher_ecarte_un_fragment_qui_ne_represente_pas_sa_source() -> None:
+    """L'arbitrage du lot : un fragment sous sa part est pire que rien.
+
+    Le modèle en verrait assez pour citer la source et pas assez pour savoir ce
+    qu'elle dit — un défaut silencieux, alors que l'abstention est visible.
+    """
+    sources = _serie(2, 40)
+    # De quoi loger la première entière, puis un dixième de la seconde.
+    budget = len(sources[0].markdown) + len(sources[1].markdown) // 10
+    kept, dropped = fit_contexts(sources, budget)
+
+    assert len(kept) == 1, "le fragment est sous le plancher, la source est écartée"
+    assert dropped == 1
+    assert not kept[0].markdown.endswith(_TRUNCATION_MARKER)
+
+
+def test_le_plancher_est_reglable_et_borne_la_part_retenue(monkeypatch) -> None:
+    """Asserté sur le RÉGLAGE, pas sur la valeur du jour : c'est un forfait.
+
+    Desserré, le même cas passe — donc c'est bien le plancher qui décidait, et
+    non une autre borne.
+    """
+    sources = _serie(2, 40)
+    budget = len(sources[0].markdown) + len(sources[1].markdown) // 10
+
+    monkeypatch.setattr(llm.settings, "truncation_floor_share", 0.02)
+    kept, _ = fit_contexts(sources, budget)
+
+    assert len(kept) == len(sources)
+    garde = kept[1].markdown[: -len(_TRUNCATION_MARKER)]
+    assert len(garde) >= math.ceil(0.02 * len(sources[1].markdown))
+
+
+def test_sans_aucune_source_retenue_le_plancher_ne_joue_pas() -> None:
+    """« Mieux vaut une source amputée que zéro source » reste l'arbitrage du
+    budget quand il n'y a rien d'autre : le plancher arbitre entre deux options,
+    et il n'y en a qu'une ici."""
+    source = _serie(1, 60)[0]
+    budget = len(source.markdown) // 20
+
+    kept, dropped = fit_contexts([source], budget)
+
+    assert len(kept) == 1
+    assert dropped == 0
+    assert len(kept[0].markdown) < len(source.markdown) * settings.truncation_floor_share
+
+
+def test_la_marge_saute_a_la_suivante_si_la_mieux_classee_ne_passe_pas() -> None:
+    """Une source plus petite atteint sa part là où une grosse échoue."""
+    grosse = _serie(1, 80)[0]
+    petite = _serie(2, 8)[1]
+    premiere = _serie(3, 6)[2]
+    budget = len(premiere.markdown) + len(petite.markdown) - 40
+
+    kept, _ = fit_contexts([premiere, grosse, petite], budget)
+
+    assert [c.section_id for c in kept] == ["section0002", "section0001"]
+    assert kept[1].markdown.endswith(_TRUNCATION_MARKER)
+
+
+# ─── Ce que la troncature ne doit jamais produire ─────────────────────────────
+
+def test_aucun_marqueur_retenu_ne_perd_son_texte() -> None:
+    """Première dérive du point C, rendue IMPOSSIBLE par la forme du markdown.
+
+    `_render_element` écrit « texte [src:ID] » : le marqueur suit son élément.
+    Toute coupe étant un préfixe, chaque marqueur retenu a son texte devant lui.
+    Le vérifier compte parce que `resolve_citations` résout un `[src:ID]` depuis
+    le modèle `SectionContext`, pas depuis le texte soumis : un marqueur
+    orphelin rendrait une citation vers un extrait jamais envoyé au modèle.
+    """
+    sources = _serie(3, 25)
+    for diviseur in range(2, 20):
+        budget = len(sources[0].markdown) + len(sources[1].markdown) // diviseur
+        kept, _ = fit_contexts(sources, budget)
+        for ctx in kept:
+            corps = ctx.markdown.removesuffix(_TRUNCATION_MARKER)
+            for marqueur in re.finditer(r"\[src:(\d{10})\]", corps):
+                rang, indice = marqueur.group(1)[:4], int(marqueur.group(1)[4:])
+                attendu = f"Paragraphe {indice} de la section {int(rang)},"
+                assert attendu in corps, (
+                    f"budget {budget} : [src:{marqueur.group(1)}] retenu sans son texte"
+                )
+
+
+def test_aucun_fragment_retenu_ne_perd_son_marqueur() -> None:
+    """Seconde dérive du point C : du texte lu que le modèle ne peut pas citer.
+
+    Tant qu'une autre source est retenue, tout fragment se termine sur un
+    marqueur complet — donc chaque élément présent porte son identifiant.
+    """
+    sources = _serie(3, 25)
+    entiere = len(sources[0].markdown)
+    budgets = [entiere + pas for pas in range(0, len(sources[1].markdown), 37)]
+    vus = 0
+    for budget in budgets:
+        kept, _ = fit_contexts(sources, budget)
+        for ctx in kept:
+            if not ctx.markdown.endswith(_TRUNCATION_MARKER):
+                continue
+            vus += 1
+            corps = ctx.markdown.removesuffix(_TRUNCATION_MARKER)
+            assert corps.endswith("]"), f"budget {budget} : fragment sans marqueur final"
+    assert vus >= len(budgets) // 2, "le balayage n'a presque rien tronqué"
+
+
+def test_un_crochet_qui_n_est_pas_un_marqueur_n_arrete_pas_la_coupe() -> None:
+    """`[Tableau]` et une note `[1]` sont du texte, pas des frontières.
+
+    Couper juste après laisserait le passage sans identifiant — exactement ce
+    que le durcissement de `_MARKER_RE` interdit, vérifié ici sur le chemin qui
+    l'emprunte plutôt que sur le motif seul.
+    """
+    source = SectionContext(
+        element_id="abcdef0100",
+        section_id="abcdef0100",
+        breadcrumbs=[],
+        elements=[],
+        markdown=(
+            "Premier paragraphe complet de la section. [src:0000000001]\n\n"
+            "[Tableau] Une legende de tableau et la note [1] qui la suit, avec du "
+            "texte qui continue longtemps sans jamais porter de marqueur avant la "
+            "toute fin de l'element. [src:0000000002]"
+        ),
+    )
+    autre = _serie(1, 4)[0]
+    for limite in range(70, len(source.markdown)):
+        kept, _ = fit_contexts([autre, source], len(autre.markdown) + limite)
+        if len(kept) < 2:
+            continue
+        corps = kept[1].markdown.removesuffix(_TRUNCATION_MARKER)
+        assert corps.endswith("[src:0000000001]"), f"limite {limite} : {corps[-40:]!r}"

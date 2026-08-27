@@ -53,6 +53,25 @@ class Settings(BaseSettings):
     # tranche — par le DÉBUT, donc en jetant le message système.
     history_window_share: float = Field(default=0.25, alias="HISTORY_WINDOW_SHARE",
                                         ge=0.0, le=1.0)
+    # Part de sa source qu'un fragment tronqué doit atteindre pour valoir la
+    # place qu'il prend. En dessous, la source est écartée entière.
+    #
+    # FORFAIT, mais un forfait dont la valeur exacte est SANS EFFET sur la
+    # grille de mesure : de 0,25 à 0,45 le résultat est identique — même marge
+    # inutilisée, mêmes configurations gagnées, même plus petit fragment. 1/3
+    # est le milieu de ce plateau, donc le point le moins sensible à ±10 points.
+    # Le protocole de mesure est dans documentation/llm.md.
+    #
+    # Ce qu'il empêche, mesuré : sans plancher, la grille retient un fragment
+    # tombant à 4 % de sa source. Le modèle en voit alors assez pour la citer et
+    # pas assez pour savoir ce qu'elle dit — un défaut silencieux, donc pire
+    # qu'une source absente, que l'abstention rend visible.
+    #
+    # Il ne s'applique QUE si une autre source est déjà retenue : sans lui le
+    # prompt partirait sans aucune source, et « mieux vaut une source amputée
+    # que zéro source » reste l'arbitrage du budget (registre 1.14).
+    truncation_floor_share: float = Field(default=1 / 3, alias="TRUNCATION_FLOOR_SHARE",
+                                          ge=0.0, le=1.0)
 
     # Retrieval
     embedding_model_name: str = Field(

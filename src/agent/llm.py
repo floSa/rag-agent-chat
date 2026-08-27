@@ -237,38 +237,132 @@ def context_budget_chars(question: str, chat_history: Sequence[Message]) -> int:
     return max(0, prompt_window_chars() - prompt_overhead_chars(question, chat_history))
 
 
-def _cut_on_marker(markdown: str, limite: int) -> str:
+def _cut_on_marker(markdown: str, limite: int, *, exiger_marqueur: bool) -> str:
     """Coupe `markdown` au plus tard à `limite`, sur une frontière d'élément.
 
-    La coupe recule jusqu'à la fin du dernier marqueur COMPLET : le texte
-    conservé porte alors toujours son identifiant de citation. Un fragment
-    d'élément privé de son marqueur ne serait pas attribuable, alors que le
-    prompt système exige de citer chaque affirmation — le modèle le rattacherait
-    au marqueur précédent, donc au mauvais passage.
+    Tronquer une source déplace la frontière entre ce que le modèle **lit** et ce
+    qu'il peut **citer**. Deux dérives symétriques, et les deux sont mauvaises.
+
+    Le marqueur survit, son contenu part → le modèle cite une source dont il n'a
+    pas vu le texte. Elle est impossible par construction, et non pas évitée :
+    `_render_element` écrit « texte [src:ID] », le marqueur SUIT son élément.
+    Toute coupe est un préfixe, donc tout marqueur retenu a son texte devant lui.
+    C'est structurel, pas une précaution — et c'est ce qui compte, parce que
+    `resolve_citations` résout un `[src:ID]` depuis le modèle `SectionContext` et
+    non depuis le texte soumis : un marqueur orphelin rendrait une citation vers
+    un extrait que le modèle n'a jamais reçu.
+
+    Le contenu survit, son marqueur part → le modèle lit un passage qu'il ne peut
+    pas attribuer, donc il l'utilisera sans référence ou le rattachera au
+    marqueur précédent, c'est-à-dire au mauvais élément. C'est celle-ci qu'il
+    faut écarter activement, et c'est tout le travail de cette fonction : la
+    coupe recule jusqu'à la fin du dernier marqueur COMPLET.
+
+    Aucun marqueur complet dans la tête ? Alors la tête est un préfixe du PREMIER
+    élément : les marqueurs suivent leur texte, donc n'en avoir croisé aucun veut
+    dire qu'on n'a pas fini le premier. Il n'y a alors aucun marqueur voisin
+    auquel le modèle pourrait rattacher le fragment par erreur — seulement une
+    perte de précision, l'attribution retombant sur la section, que le gabarit
+    annonce par « Source N — element_id ».
+
+    `exiger_marqueur` porte ce choix. Vrai, on rend une chaîne vide et l'appelant
+    écarte la source : une autre est déjà retenue, la précision d'attribution
+    vaut mieux qu'un préfixe d'élément. Faux, on rend la tête : c'est le cas où
+    la refuser enverrait un prompt sans aucune source, et « mieux vaut une source
+    amputée que zéro source » l'a déjà tranché (registre 1.14).
+
+    Une source qui ne porte aucun marqueur du tout se coupe librement dans les
+    deux cas : il n'y a pas de précision à perdre.
+
+    L'ancienne version rendait la tête telle quelle dès qu'un crochet
+    quelconque — « [Tableau] », une note « [1] » — s'y trouvait refermé, et elle
+    la rendait TOUJOURS. C'était la seconde dérive, produite par le garde-fou
+    censé l'éviter.
     """
     tete = markdown[:limite]
     complets = list(_MARKER_RE.finditer(tete))
     if complets:
         return tete[: complets[-1].end()]
-
-    # Aucun marqueur complet dans la tête : on écarte au moins un crochet resté
-    # ouvert à la coupe ([src:, [img:, [Tableau], [Figure]).
-    ouvert = tete.rfind("[")
-    return tete[:ouvert] if ouvert != -1 and "]" not in tete[ouvert:] else tete
+    return "" if exiger_marqueur and _MARKER_RE.search(markdown) else tete
 
 
-def _truncate(ctx: SectionContext, budget_chars: int) -> SectionContext:
-    """Coupe une source par la FIN pour la faire tenir dans le budget."""
-    # La marque compte dans le budget : sinon la troncature déplace la borne au
-    # lieu de la respecter.
-    garde = _cut_on_marker(ctx.markdown, max(0, budget_chars - len(_TRUNCATION_MARKER)))
+def truncation_floor_chars(ctx: SectionContext) -> int:
+    """Caractères qu'un fragment de `ctx` doit atteindre pour valoir sa place.
+
+    Une part de la source, pas un nombre absolu — et c'est l'arbitrage. Le
+    dommage visé est un fragment qui **ne représente pas** sa section : le modèle
+    en voit assez pour la citer, pas assez pour savoir ce qu'elle dit. C'est une
+    proportion, pas une longueur. Un plancher absolu se tromperait dans un cas
+    que la grille contient : une source de 300 caractères coupée à 250 en garde
+    83 %, elle est parfaitement lisible, et tout plancher absolu supérieur à 250
+    l'écarterait.
+
+    Le plancher absolu existe déjà, et il est structurel : `_cut_on_marker`
+    n'accepte de coupe qu'à la fin d'un marqueur, donc un fragment porte au
+    minimum **un élément entier avec son identifiant**. Rien n'est réglable là,
+    et rien n'a besoin de l'être.
+    """
+    return math.ceil(settings.truncation_floor_share * len(ctx.markdown))
+
+
+def _truncate(
+    ctx: SectionContext, budget_chars: int, *, plancher: bool
+) -> SectionContext | None:
+    """Coupe une source par la FIN pour la faire tenir dans `budget_chars`.
+
+    Rend `None` quand la coupe ne vaut pas la place qu'elle prendrait — trois
+    raisons, toutes journalisées : la marque de troncature ne tiendrait même pas,
+    aucun marqueur de citation ne tient dans la tête (cf. `_cut_on_marker`), ou
+    le fragment n'atteint pas `truncation_floor_chars`.
+
+    `plancher` porte l'arbitrage : il est faux quand aucune source n'est encore
+    retenue. Refuser alors la coupe enverrait un prompt SANS AUCUNE source, ce
+    que « mieux vaut une source amputée que zéro source » a déjà tranché.
+    """
+    place = budget_chars - len(_TRUNCATION_MARKER)
+    if place <= 0:
+        logger.info(
+            "Source %s écartée : %d caractères de fenêtre restants, la seule marque "
+            "de troncature en demande %d.",
+            ctx.element_id,
+            budget_chars,
+            len(_TRUNCATION_MARKER),
+        )
+        return None
+
+    garde = _cut_on_marker(ctx.markdown, place, exiger_marqueur=plancher)
+    if not garde:
+        logger.info(
+            "Source %s écartée : aucun marqueur de citation ne tient dans les %d "
+            "caractères restants, et une autre source est déjà retenue. Le fragment "
+            "serait un préfixe d'élément attribuable à la section seulement.",
+            ctx.element_id,
+            place,
+        )
+        return None
+
+    minimum = truncation_floor_chars(ctx)
+    if plancher and len(garde) < minimum:
+        logger.info(
+            "Source %s écartée : %d caractères tiendraient sur %d, soit %.0f %% de la "
+            "source — sous le plancher de %.0f %% (TRUNCATION_FLOOR_SHARE). Le modèle "
+            "en verrait assez pour la citer et pas assez pour savoir ce qu'elle dit.",
+            ctx.element_id,
+            len(garde),
+            len(ctx.markdown),
+            100 * len(garde) / len(ctx.markdown),
+            100 * settings.truncation_floor_share,
+        )
+        return None
+
     logger.warning(
-        "Source %s tronquée : %d caractères conservés sur %d — elle dépasse à elle "
-        "seule le budget de %d. La coupe se fait ici, par la FIN et sur une frontière "
-        "d'élément ; laissée entière, c'est Ollama qui coupait, par le DÉBUT du prompt.",
+        "Source %s tronquée : %d caractères conservés sur %d (%.0f %%) — elle ne tenait "
+        "pas entière dans les %d restants. La coupe se fait ici, par la FIN et sur une "
+        "frontière d'élément ; laissée à Ollama, elle se ferait par le DÉBUT du prompt.",
         ctx.element_id,
         len(garde),
         len(ctx.markdown),
+        100 * len(garde) / len(ctx.markdown),
         budget_chars,
     )
     return ctx.model_copy(update={"markdown": garde + _TRUNCATION_MARKER})
@@ -279,23 +373,40 @@ def fit_contexts(
     budget_chars: int,
     framing_chars: Sequence[int] | None = None,
 ) -> tuple[list[SectionContext], int]:
-    """Écarte les sources qui ne tiennent pas dans la fenêtre de contexte.
+    """Fait entrer dans la fenêtre ce qui y entre, et tronque ce qui la remplit.
 
     Sans cette borne, Ollama tronque le prompt lui-même — silencieusement, et
     par le DÉBUT, donc en jetant le message système puis les premières sources.
     Le système pouvait répondre « je n'ai pas trouvé » sur une information
     qu'il avait reçue.
 
-    L'ordre du classement est conservé, mais le remplissage se fait **au
-    mieux** : une petite source qui suit une grosse écartée est retenue. Ce
-    n'est pas « la queue de la liste qui saute » — le docstring l'affirmait,
-    le code ne l'a jamais fait.
+    Deux passes, et la seconde est ce que ce lot ajoute.
 
-    La première source est retenue même si elle dépasse seule le budget, mais
-    **tronquée** : la transmettre entière rendait la main à Ollama, c'est-à-dire
-    exactement au mode de panne que cette fonction existe pour éviter. Une
-    section sans `SectionHeader` — fenêtre de 13 éléments, textes intégraux
-    relus dans l'index — y arrive.
+    **Remplissage au mieux.** Les sources arrivent classées par pertinence
+    décroissante — c'est `node_reconstruct_context` qui le garantit, pas
+    l'appelant. Chacune est retenue si elle tient entière ; sinon elle est mise
+    de côté, et une source plus petite qui la suit peut encore passer. Ce n'est
+    pas « la queue de la liste qui saute ».
+
+    **La marge revient à la mieux classée des écartées, tronquée.** Elle restait
+    vide : mesuré sur la grille, 1 083 caractères de fenêtre inutilisés en
+    moyenne et 4 106 au maximum, sur les 68 configurations où au moins une source
+    est écartée. Une source presque entièrement finançable était rejetée pour
+    quelques centaines de caractères manquants.
+
+    La coupe n'est pas systématique. `_truncate` refuse un fragment qui
+    n'atteint pas `TRUNCATION_FLOOR_SHARE` de sa source : sous ce seuil, le
+    modèle en voit assez pour la citer et pas assez pour savoir ce qu'elle dit,
+    et un défaut silencieux vaut moins qu'une abstention visible. Quand la
+    mieux classée est refusée, la suivante est essayée — plus petite, elle a plus
+    de chances d'atteindre sa part. La première qui passe prend la marge, et la
+    boucle s'arrête : il n'y a qu'une marge à donner.
+
+    Le plancher ne joue que si une source est déjà retenue. Sinon il n'y a rien
+    à arbitrer, et « mieux vaut une source amputée que zéro source » reste le
+    choix du budget : une section sans `SectionHeader` — fenêtre de 13 éléments,
+    textes intégraux relus dans l'index — dépasse à elle seule la fenêtre, et
+    l'écarter rendrait une abstention sur un document qu'on venait de trouver.
 
     `framing_chars` porte l'encadrement mesuré de chaque source
     (`source_framing_chars`). Il est facturé au moment où la source est
@@ -312,23 +423,24 @@ def fit_contexts(
 
     framing = list(framing_chars) if framing_chars is not None else [0] * len(contexts)
     kept: list[SectionContext] = []
+    ecartees: list[tuple[SectionContext, int]] = []
     used = 0
     for ctx, encadrement in zip(contexts, framing, strict=True):
         cost = len(ctx.markdown) + encadrement
-        if not kept and cost > budget_chars:
-            place = budget_chars - encadrement
-            if place <= len(_TRUNCATION_MARKER):
-                # Même vidée de son texte, la source ne tiendrait pas : seuls son
-                # encadrement et la marque de troncature entreraient, ce qui
-                # n'apprend rien au modèle.
-                continue
-            kept.append(_truncate(ctx, place))
-            used = budget_chars
+        if used + cost <= budget_chars:
+            kept.append(ctx)
+            used += cost
+        else:
+            ecartees.append((ctx, encadrement))
+
+    for ctx, encadrement in ecartees:
+        tronquee = _truncate(ctx, budget_chars - used - encadrement, plancher=bool(kept))
+        if tronquee is None:
             continue
-        if kept and used + cost > budget_chars:
-            continue
-        kept.append(ctx)
-        used += cost
+        kept.append(tronquee)
+        used += len(tronquee.markdown) + encadrement
+        break
+
     return kept, len(contexts) - len(kept)
 
 

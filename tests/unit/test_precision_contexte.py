@@ -624,3 +624,118 @@ def test_les_element_ids_publies_sont_ceux_du_texte_soumis(monkeypatch) -> None:
         ["abcdef0100"],
         ["abcdef0101"],
     ]
+
+
+# ─── Ce que la troncature déplace entre « lu » et « citable » ─────────────────
+
+def _section_marquee(rang: int, nb_elements: int) -> SectionContext:
+    """Une section rendue comme `_render_element` la rend, éléments compris.
+
+    `elements` est peuplé pour de vrai : c'est lui que `resolve_citations`
+    interroge, et c'est ce décalage entre le modèle et le texte soumis que ces
+    tests éclairent.
+    """
+    from src.api.schemas import SectionElement
+
+    elements = [
+        SectionElement(
+            node_id=f"{rang:04d}{i:06d}",
+            label="paragraph",
+            text=f"Paragraphe {i} de la section {rang}, avec assez de texte pour peser.",
+            sequence=i,
+            page_no=88,
+        )
+        for i in range(nb_elements)
+    ]
+    return SectionContext(
+        element_id=f"abcdef01{rang:02d}",
+        section_id=f"section{rang:04d}",
+        breadcrumbs=[],
+        elements=elements,
+        markdown="\n\n".join(f"{e.text} [src:{e.node_id}]" for e in elements),
+        filename="3. Statistical Toolbox",
+        section_title="Dispersion",
+    )
+
+
+def test_aucun_identifiant_soumis_ne_designe_un_texte_absent_du_prompt() -> None:
+    """La première dérive du point C, mesurée avec l'instrument du lot 4.
+
+    `element_ids_presents` lit les marqueurs du texte RÉELLEMENT soumis. Chacun
+    doit avoir son texte dans ce même texte : sinon le modèle citerait une source
+    dont il n'a pas vu le contenu.
+
+    Balayé sur toute la plage de budgets qui tronque, parce qu'un seul point
+    tombe rarement à l'endroit gênant.
+    """
+    from src.agent.graph import element_ids_presents
+    from src.agent.llm import _TRUNCATION_MARKER, fit_contexts
+
+    sections = [_section_marquee(0, 20), _section_marquee(1, 20)]
+    textes = {e.node_id: e.text for s in sections for e in s.elements}
+    tronquees = 0
+
+    entiere = len(sections[0].markdown)
+    for pas in range(0, len(sections[1].markdown), 29):
+        kept, _ = fit_contexts(list(sections), entiere + pas)
+        for ctx in kept:
+            if ctx.markdown.endswith(_TRUNCATION_MARKER):
+                tronquees += 1
+            for eid in element_ids_presents(ctx.markdown):
+                assert textes[eid] in ctx.markdown, (
+                    f"budget {entiere + pas} : [src:{eid}] soumis sans son texte"
+                )
+    assert tronquees > 0, "le balayage n'a rien tronqué"
+
+
+def test_un_element_coupe_disparait_des_identifiants_soumis() -> None:
+    """Le pendant : ce qui a été coupé ne doit plus être annoncé comme soumis.
+
+    C'est ce que `/answer` publie sous `element_ids`, et ce sur quoi la campagne
+    calcule `part_utile_caracteres`. Le lire dans `SectionContext.elements`
+    surestimerait le contexte payé de tout ce que la troncature a enlevé.
+    """
+    from src.agent.graph import element_ids_presents
+    from src.agent.llm import fit_contexts
+
+    sections = [_section_marquee(0, 20), _section_marquee(1, 20)]
+    entiers = element_ids_presents(sections[1].markdown)
+    kept, _ = fit_contexts(list(sections), len(sections[0].markdown)
+                           + len(sections[1].markdown) // 2)
+
+    assert len(kept) == 2  # la seconde est entrée, tronquée
+    soumis = element_ids_presents(kept[1].markdown)
+    assert set(soumis) < set(entiers), "la troncature doit retirer des éléments"
+    assert [e.node_id for e in kept[1].elements] == entiers, (
+        "le modèle SectionContext garde tous ses éléments : c'est bien pour cela "
+        "qu'il ne faut pas le lire pour savoir ce qui a été soumis"
+    )
+
+
+def test_le_post_processing_resout_un_identifiant_que_le_prompt_ne_portait_pas() -> None:
+    """Le fait désagréable, épinglé plutôt que supposé.
+
+    `resolve_citations` construit sa table depuis `SectionContext.elements` — le
+    MODÈLE — et non depuis le texte soumis. Un `[src:ID]` d'élément coupé s'y
+    résout donc quand même, vers un extrait que le modèle n'a jamais reçu.
+
+    Ce n'est pas une faille tant que la troncature ne laisse jamais un tel
+    identifiant dans le prompt, ce que les deux tests précédents établissent.
+    Mais cela dit où vit la garantie : dans la coupe, pas dans le résolveur. Si
+    quelqu'un assouplit `_cut_on_marker`, rien en aval ne rattrapera l'erreur —
+    la citation sortira, résolue, avec un extrait plausible.
+    """
+    from src.agent.graph import resolve_citations
+    from src.agent.llm import fit_contexts
+
+    sections = [_section_marquee(0, 20), _section_marquee(1, 20)]
+    kept, _ = fit_contexts(list(sections), len(sections[0].markdown)
+                           + len(sections[1].markdown) // 2)
+    coupe = next(
+        e.node_id for e in sections[1].elements if f"[src:{e.node_id}]" not in kept[1].markdown
+    )
+
+    citations, _ = resolve_citations(f"Une affirmation. [src:{coupe}]", kept, [])
+
+    assert [c.element_id for c in citations] == [coupe]
+    assert citations[0].text_excerpt, "résolu vers un extrait jamais soumis"

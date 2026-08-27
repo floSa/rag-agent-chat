@@ -854,6 +854,90 @@ Ce défaut passait **avant** le remplissage au plus juste (§1.30) : « tronquer
 dernière retenue » n'a de sens que si la dernière est bien la moins pertinente.
 
 
+### 1.30 La marge de fenêtre laissée par une source écartée restait vide — `llm.py`, `settings.py`
+
+Seule la **première** source retenue pouvait être tronquée. Une source qui
+n'entrait pas dans la place restante était écartée entière, et cette place
+restait vide.
+
+Mesuré sur la grille — 144 configurations, 3 profondeurs de fil des titres x 8
+tailles de source x 6 nombres de candidates, un seul tour, sans historique, avec
+des sources faites d'éléments marqués comme `_render_element` les rend :
+**1 172 caractères de fenêtre inutilisés en moyenne, 3 964 au maximum**, sur les
+68 configurations où au moins une source est écartée.
+
+*(L'audit du lot 1 annonçait 2 308 en moyenne et 6 169 au maximum sur 43
+configurations. Ces chiffres portaient sur des sources sans marqueur ni fil des
+titres et sur un décompte différent — « configurations où le budget corrigé
+retient moins que `main` ». Ils ne sont pas comparables terme à terme aux
+précédents ; ceux publiés ici sont remesurés sur le code livré.)*
+
+La marge revient désormais à la **mieux classée des sources écartées**,
+tronquée. Le protocole de mesure est dans [llm.md](llm.md).
+
+Résultat, remesuré sur le code livré : marge moyenne **1 172 → 227**, soit
+**80 % de la marge perdue reprise**, et **26 configurations sur 68** où une
+source de plus atteint le modèle.
+
+**Le plancher, et pourquoi il est relatif.** Un fragment trop petit coûte des
+tokens et fait pire que rien : le modèle en voit assez pour citer la source et
+pas assez pour savoir ce qu'elle dit — un défaut silencieux, alors que
+l'abstention est visible. Mesuré : sans plancher, la grille retient un fragment
+tombant à **4 %** de sa source.
+
+Le plancher est une **part de la source**, pas un nombre de caractères, parce
+que le dommage est une proportion. Un plancher absolu se tromperait sur un cas
+que la grille contient : une source de 300 caractères coupée à 250 en garde
+83 %, elle est lisible, et tout plancher absolu supérieur à 250 l'écarterait. Le
+plancher absolu existe d'ailleurs déjà, et il est structurel : la coupe ne se
+pose qu'à la fin d'un marqueur, donc un fragment porte au minimum un élément
+entier avec son identifiant.
+
+`TRUNCATION_FLOOR_SHARE` vaut **1/3**, et c'est un forfait assumé — mais un
+forfait dont la valeur exacte est **sans effet** : mesuré, de 0,25 à 0,45 le
+résultat est identique, même marge, mêmes configurations gagnées, même plus petit
+fragment. 1/3 est le milieu de ce plateau, donc le point le moins sensible à
+±10 points. Sur le code livré, la plus petite part retenue est de 55 % — le
+plancher n'est pas la borne active, la frontière de marqueur l'est.
+
+Il ne joue **que si une autre source est déjà retenue**. Sans lui le prompt
+partirait sans aucune source, et « mieux vaut une source amputée que zéro
+source » reste l'arbitrage du budget (§1.14) : la même relaxation s'applique à
+l'exigence de marqueur, pour la même raison.
+
+**Ce que la troncature déplace, traité nommément.** Elle bouge la frontière
+entre ce que le modèle lit et ce qu'il peut citer. Deux dérives.
+
+*Le marqueur survit, son contenu part* — le modèle cite une source dont il n'a
+pas vu le texte. **Impossible par construction** : `_render_element` écrit
+« texte [src:ID] », le marqueur SUIT son élément, et toute coupe est un préfixe.
+Ce n'est pas une précaution, c'est la forme du markdown. Elle compte parce que
+`resolve_citations` résout un `[src:ID]` depuis `SectionContext.elements` — le
+MODÈLE — et non depuis le texte soumis : un marqueur orphelin rendrait une
+citation vers un extrait jamais envoyé. Épinglé par un test qui montre que le
+post-processing résout bel et bien un identifiant coupé, pour que personne ne
+croie la garantie logée dans le résolveur : elle est dans la coupe.
+
+*Le contenu survit, son marqueur part* — le modèle lit un passage qu'il ne peut
+pas attribuer, donc il l'utilise sans référence ou le rattache au marqueur
+précédent, c'est-à-dire au mauvais élément. C'est celle-ci qu'il faut écarter
+activement, et c'est le travail de `_cut_on_marker`, dont le garde-fou vient
+d'être durci dans les deux sens (§1.28).
+
+Les deux invariants sont vérifiés avec l'instrument du lot 4,
+`element_ids_presents`, qui lit les marqueurs du **texte soumis** et non le
+modèle : tout identifiant présent dans le prompt y a son texte, et tout élément
+coupé disparaît des identifiants publiés par `/answer`.
+
+**Ce que ce changement déplace ailleurs.** `dropped_contexts` change de sens —
+une source hier écartée est aujourd'hui tronquée et retenue, donc le compteur
+baisse sans que le retrieval s'améliore. Dit dans `usage.py`, où il est écrit, et
+dans [capture_usage.md](capture_usage.md), où il est lu. Les métriques de contexte
+du lot 4 bougent toutes, et aucune comparaison à une campagne antérieure n'est
+valide : l'avertissement est dans [runs/README.md](../runs/README.md), à côté de
+celui de la correction du budget.
+
+
 ## 1bis. Corrigé — qualité, mesure, exploitation
 
 | Sujet | Ce qui a été fait |
@@ -894,7 +978,6 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 
 | Priorité | Sujet | Détail |
 |---|---|---|
-| P1 | Marge résiduelle du remplissage des sources | Seule la **première** source retenue peut être tronquée, jamais la dernière : quand une source est écartée, la place qu'elle aurait presque remplie reste vide. Mesuré sur les 43 configurations où le budget corrigé écarte une source : **2 308 caractères de fenêtre inutilisés en moyenne, 6 169 au maximum**. Tronquer la dernière retenue au lieu de l'écarter les récupérerait. C'est un changement de l'algorithme de remplissage, pas un réglage — il touche l'ordre de préférence entre « une source de plus, amputée » et « une source de moins, entière », qui demande à être arbitré. **Reporté au lot 1**, débloqué par : rien, c'est prêt à être fait dans un lot dédié. |
 | P1 | Le pari central n'est pas vérifié | Personne n'a montré que la reconstruction de section améliore les **réponses**. Le rappel mesure le retrieval, pas ce que le LLM en fait. Trancher sur la QUALITÉ demande un juge calibré — donc RAG-Eval-Bench. Ce que le lot 4 rend décidable sans juge : le prix (`reconstruction_ms`), le coût en contexte (`caracteres_retenus`), la composition du contexte payé (`taux_contexte_utile`, `part_utile_caracteres`) et l'apport propre de la fenêtre (`rappel_contexte` moins `rappel_elements`). Un rapport prix/apport défavorable tranche sans juge ; seul un rapport favorable en demande un. Débloqué par : la stack démarrée. |
 | P1 | `rappel_elements` mesure la graine, pas ce qui atteint le LLM | **Trouvé au lot 4, non corrigé, et il faut dire pourquoi.** La métrique compare l'or aux `element_id` du CLASSEMENT retenus comme graines, alors que la fenêtre du graphe ramène jusqu'à treize éléments par section, plus les voisines : un or ramené par la fenêtre sans avoir été classé compte pour zéro alors qu'il a atteint le LLM. Deuxième écart, de la même famille : elle se calcule sur `contexts`, qui contient les sections ÉCARTÉES par le budget — donc elle ne bouge pas quand une source est écartée, contrairement à ce qu'annonce [runs/README.md](../runs/README.md), corrigé ici. `rappel_contexte` est ajouté À CÔTÉ plutôt qu'en remplacement : redéfinir `rappel_elements` rendrait incomparables les sept campagnes de `runs/`, dont les chiffres portent les décisions de réglage déjà prises. Débloqué par : rien, mais l'arbitrage « couper la comparabilité historique » est un choix, pas une correction. |
 | P1 | Jeu doré non relu | 138 questions générées, toutes `reviewed: false`. L'approche est fiable pour régler un retriever, moins pour arbitrer entre générateurs. Une relecture humaine les promeut — et depuis la capture d'usage, les questions réellement posées et les sources validées par un humain s'accumulent pour la remplacer progressivement. Encore faut-il des utilisateurs : il n'y en a aucun à ce jour. |
