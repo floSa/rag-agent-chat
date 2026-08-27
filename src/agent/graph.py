@@ -170,8 +170,13 @@ def _par_pertinence(element_ids: Sequence[str], ranking: Sequence[ChunkResult]) 
     hachage des identifiants, sans rapport avec le classement. La fenêtre
     écartait donc une source au hasard plutôt que la moins pertinente.
 
-    Un identifiant absent du classement passe en fin, dans son ordre d'arrivée :
-    la boucle agentique peut en ajouter que le reranker n'a jamais vus.
+    Un identifiant absent du classement passe en fin, dans son ordre d'arrivée.
+    Ce n'est PAS la boucle agentique qui l'atteint — elle passe par l'autre
+    branche de `node_reconstruct_context` et ne repasse jamais ici. Le cas
+    réellement possible est un appelant : `/chat/resume` accepte les
+    `selected_element_ids` qu'on lui poste, y compris un identifiant qui n'est
+    pas dans le classement de ce fil. Il n'a alors pas de rang, donc pas de titre
+    à passer devant les sources classées.
     """
     rang = {chunk.element_id: i for i, chunk in enumerate(ranking)}
     return sorted(element_ids, key=lambda eid: rang.get(eid, len(rang)))
@@ -184,8 +189,15 @@ def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
     (recherche déclenchée par le LLM) : top-3 des nouveaux chunks reranqués,
     ajoutés aux contextes déjà reconstruits — sans repasser par la sélection.
 
-    Dans les deux cas la reconstruction suit le classement du reranker, et non
-    l'ordre d'arrivée : cf. `_par_pertinence`.
+    La première passe suit le classement du reranker et non l'ordre d'arrivée
+    (cf. `_par_pertinence`), parce que celui du client n'en est pas un.
+
+    L'itération, elle, **ajoute à la suite** : les contextes déjà reconstruits
+    gardent leur place, et les nouveaux — pourtant issus d'un reranking frais —
+    arrivent en fin, donc les premiers exposés à la troncature. C'est un choix,
+    pas un oubli : le LLM a déjà rédigé en s'appuyant sur les premiers, et les
+    renuméroter d'un tour à l'autre changerait sous lui le sens de « Source 2 ».
+    Ce que cela coûte n'est pas mesuré, et c'est inscrit au registre.
     """
     is_iteration = state.get("search_count", 0) > 1
     top_k = state.get("max_sources") or settings.auto_select_top_k

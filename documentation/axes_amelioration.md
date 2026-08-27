@@ -1013,6 +1013,31 @@ du lot 4 bougent toutes, et aucune comparaison à une campagne antérieure n'est
 valide : l'avertissement est dans [runs/README.md](../runs/README.md), à côté de
 celui de la correction du budget.
 
+Trois précisions y ont été apportées après coup, et chacune corrigeait une
+affirmation trop confiante.
+
+`taux_contexte_utile` portait une flèche à **un seul sens** (« peut monter »).
+Elle est fausse : la métrique vaut `utiles / retenus`, donc une section retenue
+de plus entre toujours au dénominateur et seulement parfois au numérateur.
+Mesuré sur le calcul de `scripts/evaluate.py` : à une utile sur deux, une section
+de plus sans or fait 0,500 → 0,333, la même porteuse d'or fait 0,500 → 0,667.
+Elle est aussi indécidable que `part_utile_caracteres`, et une métrique qui ne
+peut pas se tromper n'est pas gardée.
+
+Un **quatrième effet** n'était pas déclaré. Une source sans aucun marqueur — le
+texte brut d'un élément orphelin de section — sort avec `element_ids = []` : elle
+peut entrer au dénominateur de ces deux métriques, jamais au numérateur. Ce lot
+en retient davantage puisqu'il reprend la marge, donc elles peuvent baisser du
+seul fait que cette population grossit.
+
+Enfin, `retained` repose sur un invariant **non écrit** : `/answer` indexe les
+sources soumises par `section_id` (`main.py`), ce qui fusionnerait deux
+candidates de même section. Il n'y en a jamais deux parce que
+`node_reconstruct_context` déduplique par `section_id` en amont — vérifié, deux
+éléments distincts d'une même section rendent une seule candidate enrichie. La
+déduplication porte donc la justesse de `retained`, et la retirer casserait une
+métrique du lot 4 sans toucher au lot 4.
+
 
 ## 1bis. Corrigé — qualité, mesure, exploitation
 
@@ -1054,6 +1079,8 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 
 | Priorité | Sujet | Détail |
 |---|---|---|
+| P1 | `resolve_citations` résout une section JAMAIS SOUMISE au modèle | `node_postprocess` lui passe `enriched_contexts` — toutes les candidates reconstruites, y compris celles que le budget a écartées — et sa table de correspondance retombe sur `chunks_map`. Un `[src:ID]` qui n'était pas dans le prompt ressort donc résolu, avec un extrait plausible que le modèle n'a jamais reçu. Le chemin est atteignable en production par l'**historique** : `fit_history` resoumet les réponses passées marqueurs compris et le prompt système ordonne de les reprendre tels quels, donc il suffit que le tour 1 ait soumis une section que le budget du tour 2 écarte. **Ce n'est pas une régression du lot 6** — la garantie de la coupe porte sur la coupe, et ce chemin-ci préexiste — mais elle ne le couvre pas, et le §1.30 pourrait le laisser croire. Correctif chiffré : passer `submitted_contexts` (déjà dans l'état, `state.py`) au lieu d'`enriched_contexts`, filtrer `chunks_map` sur les identifiants soumis, remonter `on_fit` dans `/chat/simple` — environ 9 lignes et 3 tests. Débloqué par : rien. |
+| P2 | La boucle agentique n'est pas retriée, et ce choix n'était pas écrit | Dans la branche d'itération de `node_reconstruct_context`, `contexts` vaut « anciens + nouveaux » sans retri : les chunks d'un reranking **frais** arrivent en fin de liste et sont donc les premiers candidats à la troncature, alors qu'ils sont les plus pertinents pour ce que le LLM vient de demander. La raison de ne pas retrier est réelle — le modèle a déjà rédigé en s'appuyant sur les premières, et renuméroter changerait sous lui le sens de « Source 2 » — mais elle n'était écrite nulle part, et le docstring affirmait au contraire que « dans les deux cas la reconstruction suit le classement ». C'est désormais écrit comme un choix. Ce qu'il coûte n'est pas mesuré. Débloqué par : rien, mais l'arbitrage est un choix produit. |
 | P1 | Le pari central n'est pas vérifié | Personne n'a montré que la reconstruction de section améliore les **réponses**. Le rappel mesure le retrieval, pas ce que le LLM en fait. Trancher sur la QUALITÉ demande un juge calibré — donc RAG-Eval-Bench. Ce que le lot 4 rend décidable sans juge : le prix (`reconstruction_ms`), le coût en contexte (`caracteres_retenus`), la composition du contexte payé (`taux_contexte_utile`, `part_utile_caracteres`) et l'apport propre de la fenêtre (`rappel_contexte` moins `rappel_elements`). Un rapport prix/apport défavorable tranche sans juge ; seul un rapport favorable en demande un. Débloqué par : la stack démarrée. |
 | P1 | `rappel_elements` mesure la graine, pas ce qui atteint le LLM | **Trouvé au lot 4, non corrigé, et il faut dire pourquoi.** La métrique compare l'or aux `element_id` du CLASSEMENT retenus comme graines, alors que la fenêtre du graphe ramène jusqu'à treize éléments par section, plus les voisines : un or ramené par la fenêtre sans avoir été classé compte pour zéro alors qu'il a atteint le LLM. Deuxième écart, de la même famille : elle se calcule sur `contexts`, qui contient les sections ÉCARTÉES par le budget — donc elle ne bouge pas quand une source est écartée, contrairement à ce qu'annonce [runs/README.md](../runs/README.md), corrigé ici. `rappel_contexte` est ajouté À CÔTÉ plutôt qu'en remplacement : redéfinir `rappel_elements` rendrait incomparables les sept campagnes de `runs/`, dont les chiffres portent les décisions de réglage déjà prises. Débloqué par : rien, mais l'arbitrage « couper la comparabilité historique » est un choix, pas une correction. |
 | P1 | Jeu doré non relu | 138 questions générées, toutes `reviewed: false`. L'approche est fiable pour régler un retriever, moins pour arbitrer entre générateurs. Une relecture humaine les promeut — et depuis la capture d'usage, les questions réellement posées et les sources validées par un humain s'accumulent pour la remplacer progressivement. Encore faut-il des utilisateurs : il n'y en a aucun à ce jour. |

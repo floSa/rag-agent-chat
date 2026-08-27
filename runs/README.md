@@ -41,11 +41,13 @@ atteint `TRUNCATION_FLOOR_SHARE` de sa source. La fenêtre part donc plus pleine
 |---|---|---|
 | `contextes_ecartes_total` | **En baisse** — et ce n'est PAS un gain de retrieval | Une source hier écartée est aujourd'hui tronquée et retenue, donc elle ne compte plus. Le classement n'a pas changé d'un rang |
 | `contextes_retenus` | En hausse, du même mouvement | Ce sont les mêmes sources, passées d'un compteur à l'autre |
-| `caracteres_retenus` | En hausse | C'est l'objet du lot : mesuré sur la grille, 80 % de la marge de fenêtre inutilisée est reprise |
+| `caracteres_retenus` | En hausse | C'est l'objet du lot : mesuré sur la grille, 70 % de la marge de fenêtre inutilisée est reprise |
 | `part_utile_caracteres` | **Sens indécidable a priori** | Le dénominateur grossit avec les caractères retenus. Si le fragment ajouté porte de l'or, la part monte ; sinon elle baisse. C'est la métrique à lire en premier, et la seule qui puisse dire si le remplissage sert la réponse |
-| `taux_contexte_utile` | Peut monter | Il compte des sections, et une section tronquée qui porte l'or compte comme utile là où l'écarter la retirait du numérateur |
-| `rappel_contexte` | En hausse ou stable | Un élément d'or dans la partie conservée d'une source tronquée atteint désormais le LLM |
+| `taux_contexte_utile` | **Sens indécidable a priori** | Il compte des sections : une retenue de plus entre au dénominateur, et au numérateur seulement si elle porte de l'or. Mesuré sur le calcul de `scripts/evaluate.py` : à une utile sur deux, une section de plus sans or fait 0,500 → 0,333, la même porteuse d'or fait 0,500 → 0,667. La flèche à un seul sens qui figurait ici était fausse — une métrique qui ne peut pas se tromper n'est pas gardée |
+| `rappel_contexte` | En hausse ou stable | Un élément d'or dans la partie conservée d'une source tronquée atteint désormais le LLM. Vérifié monotone sur les 144 configurations de la grille : aucune configuration ne perd de source |
 | `rappel_recherche`, `mrr`, `rappel_documents`, `rappel_elements` | Inchangés | Rien n'est touché en amont du reranking, et `rappel_elements` se calcule sur la graine de chaque section (cf. l'avertissement suivant) |
+
+Un quatrième effet, non déclaré d'abord : une source **sans aucun marqueur** — le texte brut d'un élément orphelin de section, que `reconstruct_section` ajoute tel quel — sort avec `element_ids = []`. Elle peut donc entrer au dénominateur de `taux_contexte_utile` et de `part_utile_caracteres`, jamais au numérateur. Ce lot en retient davantage, puisqu'il reprend la marge : ces deux métriques peuvent baisser du seul fait qu'une population qui ne peut pas les faire monter grossit. À population comparable, c'est `rappel_contexte` qui reste lisible.
 
 **Aucune comparaison de ces métriques à une campagne antérieure n'est valide.**
 Ce ne sont pas les mêmes définitions de part et d'autre : `contextes_ecartes` ne
