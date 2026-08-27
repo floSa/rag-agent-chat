@@ -56,16 +56,27 @@ class Settings(BaseSettings):
     # Part de sa source qu'un fragment tronqué doit atteindre pour valoir la
     # place qu'il prend. En dessous, la source est écartée entière.
     #
-    # FORFAIT, mais un forfait dont la valeur exacte est SANS EFFET sur la
-    # grille de mesure : de 0,25 à 0,45 le résultat est identique — même marge
-    # inutilisée, mêmes configurations gagnées, même plus petit fragment. 1/3
-    # est le milieu de ce plateau, donc le point le moins sensible à ±10 points.
-    # Le protocole de mesure est dans documentation/llm.md.
+    # FORFAIT, au sens plein : aucune mesure ne désigne cette valeur-ci. Une
+    # version antérieure annonçait un plateau d'insensibilité de 0,25 à 0,45 ;
+    # c'était un ARTEFACT du montage, dont les sources avaient toutes la même
+    # taille dans une configuration donnée — le plancher mordait alors pour
+    # toutes ou pour aucune. Tailles tirées par source, il n'y a aucun palier :
+    # chaque pas déplace la marge, le nombre de configurations gagnées et la plus
+    # petite part retenue (protocole et sortie dans documentation/llm.md).
     #
-    # Ce qu'il empêche, mesuré : sans plancher, la grille retient un fragment
-    # tombant à 4 % de sa source. Le modèle en voit alors assez pour la citer et
-    # pas assez pour savoir ce qu'elle dit — un défaut silencieux, donc pire
-    # qu'une source absente, que l'abstention rend visible.
+    # Ce que la mesure établit vraiment, et qui suffit à trancher :
+    #   - sans plancher, la grille retient un fragment tombant à 1 % de sa
+    #     source. Le modèle en voit alors assez pour la citer et pas assez pour
+    #     savoir ce qu'elle dit — un défaut silencieux, donc pire qu'une source
+    #     absente, que l'abstention rend visible ;
+    #   - la plus petite part retenue suit le réglage de près (34 % à 1/3, 25 % à
+    #     0,25, 51 % à 0,50) : le réglage veut bien dire ce qu'il dit ;
+    #   - son prix est continu : à 1/3, 408 caractères de marge laissés et 38
+    #     configurations gagnées, contre 76 et 70 sans plancher.
+    #
+    # 1/3 est donc un arbitrage entre lisibilité du fragment et remplissage de la
+    # fenêtre, pas un optimum mesuré. Ce qui le trancherait est une mesure de la
+    # QUALITÉ des réponses, qui demande une campagne.
     #
     # Il ne s'applique QUE si une autre source est déjà retenue : sans lui le
     # prompt partirait sans aucune source, et « mieux vaut une source amputée

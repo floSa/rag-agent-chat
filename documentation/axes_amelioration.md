@@ -904,7 +904,7 @@ l'algorithme d'avant, de sorte que les deux colonnes sortent du même montage.
 tokens et fait pire que rien : le modèle en voit assez pour citer la source et
 pas assez pour savoir ce qu'elle dit — un défaut silencieux, alors que
 l'abstention est visible. Mesuré : sans plancher, la grille retient un fragment
-tombant à **4 %** de sa source.
+tombant à **1 %** de sa source.
 
 Le plancher est une **part de la source**, pas un nombre de caractères, parce
 que le dommage est une proportion. Un plancher absolu se tromperait sur un cas
@@ -914,12 +914,37 @@ plancher absolu existe d'ailleurs déjà, et il est structurel : la coupe ne se
 pose qu'à la fin d'un marqueur, donc un fragment porte au minimum un élément
 entier avec son identifiant.
 
-`TRUNCATION_FLOOR_SHARE` vaut **1/3**, et c'est un forfait assumé — mais un
-forfait dont la valeur exacte est **sans effet** : mesuré, de 0,25 à 0,45 le
-résultat est identique, même marge, mêmes configurations gagnées, même plus petit
-fragment. 1/3 est le milieu de ce plateau, donc le point le moins sensible à
-±10 points. Sur le code livré, la plus petite part retenue est de 55 % — le
-plancher n'est pas la borne active, la frontière de marqueur l'est.
+`TRUNCATION_FLOOR_SHARE` vaut **1/3**, et c'est un forfait **au sens plein** :
+aucune mesure ne désigne cette valeur-ci. La version précédente de cette fiche
+annonçait un plateau d'insensibilité de 0,25 à 0,45 ; c'était un **artefact du
+montage**. La grille donnait alors la même taille à toutes les sources d'une
+configuration, donc le plancher mordait pour toutes ou pour aucune, et le
+résultat ne bougeait plus sur de larges plages. Deux choses étaient fausses à la
+fois : le plateau réel de cette grille-là allait de 0,08 à 1/3, et 0,34 en sortait
+déjà — donc 1/3 en
+était le **bord droit** et non le milieu, et « le point le moins sensible à
+±10 points » affirmait l'inverse de ce que la grille montrait — et le plateau
+lui-même n'existait que parce que les tailles étaient uniformes.
+
+Tailles tirées **par source**, il n'y a aucun palier : chaque pas du plancher
+déplace la marge, le nombre de configurations gagnées et la plus petite part
+retenue.
+
+| plancher | marge moyenne | configurations gagnées | plus petite part retenue |
+|---|---|---|---|
+| 0,00 | 76 | 70 | **1 %** |
+| 0,15 | 175 | 55 | 15 % |
+| 0,25 | 266 | 48 | 25 % |
+| **1/3** | **408** | **38** | **34 %** |
+| 0,40 | 457 | 35 | 41 % |
+| 0,50 | 585 | 31 | 51 % |
+
+Ce que la mesure établit, et qui suffit à garder le plancher : **il doit
+exister** — sans lui la grille descend à 1 % d'une source — et **le réglage veut
+dire ce qu'il dit**, la plus petite part retenue le suivant de près. Ce qu'elle
+n'établit pas, c'est la valeur : son prix est continu, et 1/3 est un arbitrage
+entre lisibilité du fragment et remplissage de la fenêtre. Le trancher demande
+une mesure de la QUALITÉ des réponses, donc une campagne.
 
 Il ne joue **que si une autre source est déjà retenue**. Sans lui le prompt
 partirait sans aucune source, et « mieux vaut une source amputée que zéro
