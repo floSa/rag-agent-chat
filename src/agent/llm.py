@@ -421,10 +421,17 @@ def fit_contexts(
     pas « la queue de la liste qui saute ».
 
     **La marge revient à la mieux classée des écartées, tronquée.** Elle restait
-    vide : mesuré sur la grille, 1 083 caractères de fenêtre inutilisés en
-    moyenne et 4 106 au maximum, sur les 68 configurations où au moins une source
-    est écartée. Une source presque entièrement finançable était rejetée pour
-    quelques centaines de caractères manquants.
+    vide : mesuré sur la grille, 1 355 caractères de fenêtre inutilisés en
+    moyenne et 7 970 au maximum sur 88 configurations, ramenés à 408 en
+    moyenne — 70 % de la marge reprise, 38 configurations gagnées et aucune
+    perdue. Une source presque entièrement finançable était rejetée pour quelques
+    centaines de caractères manquants.
+
+    Cette phrase est reprise **mot pour mot** dans `documentation/llm.md` et dans
+    le registre, et `test_coherence_depot` exige qu'elles restent identiques : la
+    même grille avait fini par porter trois triplets différents, un par endroit
+    où elle était recopiée. Le protocole qui la produit est dans `llm.md`, et il
+    tourne à sec.
 
     La coupe n'est pas systématique. `_truncate` refuse un fragment qui
     n'atteint pas `TRUNCATION_FLOOR_SHARE` de sa source : sous ce seuil, le

@@ -126,7 +126,7 @@ côté frontend plutôt que la moins pertinente.
 | Élément | Coupe | Sens |
 |---|---|---|
 | Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
-| La marge de fenêtre restante | Donnée à la **mieux classée des écartées**, tronquée | Elle restait vide : 1 172 caractères en moyenne, 3 964 au maximum sur la grille. Une seule source la reçoit — il n'y a qu'une marge. Si elle est refusée par le plancher, la suivante est essayée : plus petite, elle a plus de chances d'atteindre sa part |
+| La marge de fenêtre restante | Donnée à la **mieux classée des écartées**, tronquée | Elle restait vide : 1 355 caractères de fenêtre inutilisés en moyenne et 7 970 au maximum sur 88 configurations, ramenés à 408 en moyenne — 70 % de la marge reprise, 38 configurations gagnées et aucune perdue. Une seule source la reçoit — il n'y a qu'une marge. Si elle est refusée par le plancher, la suivante est essayée : plus petite, elle a plus de chances d'atteindre sa part |
 | Fragment sous `TRUNCATION_FLOOR_SHARE` | La source est écartée entière | Le modèle en verrait assez pour la citer, pas assez pour savoir ce qu'elle dit. Un défaut silencieux vaut moins qu'une abstention visible. Sans plancher, la grille descend à **4 %** d'une source |
 | Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. Le plancher et l'exigence de marqueur sont **relâchés** dans ce seul cas : il n'y a rien à arbitrer quand il n'y a rien d'autre. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
 | Historique | Les **tours** les plus anciens, entiers | C'est le dernier échange qui situe la question. La coupe porte sur des tours et non des messages : couper par message laissait passer une réponse sans la question à laquelle elle répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit strict sur l'alternance refuse |
@@ -230,11 +230,26 @@ jugé.
 ### Remesurer la marge de fenêtre
 
 Sans stack : la grille est un calcul pur sur `fit_contexts`, elle ne demande ni
-Ollama ni les stores.
+Ollama ni les stores. Elle mesure l'**avant** et l'**après** dans la même
+exécution — l'algorithme d'avant y est réimplémenté, sinon les deux colonnes
+sortent de deux montages différents et ne se comparent pas.
+
+Deux traits comptent, et ils ont tous les deux été appris à leurs dépens :
+
+- la grille reconstruit l'**avant** ; une version antérieure ne mesurait que
+  l'après tout en publiant ses chiffres comme l'avant ;
+- les sources d'une même configuration n'ont **pas la même taille**. Avec des
+  tailles uniformes, le plancher mord pour toutes ou pour aucune : le résultat
+  devient plat sur de larges plages, et cette platitude est un artefact du
+  montage, pas une propriété du réglage.
 
 ```bash
 uv run python - <<'EOF'
-from src.agent.llm import context_budget_chars, fit_contexts, source_framing_chars
+import random
+from src.agent import llm
+from src.agent.llm import (_TRUNCATION_MARKER, context_budget_chars, fit_contexts,
+                           source_framing_chars)
+from src.agent.settings import settings
 from src.api.schemas import BreadcrumbEntry, SectionContext
 Q = "Quelle est la difference entre un pipeline de features et un feature store ?"
 
@@ -250,22 +265,82 @@ def source(rang, taille, niveaux):
                      for j in range(niveaux)],
         elements=[], markdown="".join(parties)[:taille])
 
-marges = []
-for niv in (0, 2, 5):
-    for taille in (500, 1000, 1500, 2000, 2500, 3000, 4000, 6000):
-        for n in (1, 3, 5, 7, 10, 12):
-            cands = [source(i, taille, niv) for i in range(n)]
-            budget = context_budget_chars(Q, [])
-            fr = source_framing_chars(Q, cands)
-            kept, dropped = fit_contexts(list(cands), budget, fr)
-            if dropped:
-                marges.append(budget - sum(len(c.markdown) for c in kept) - sum(fr[:len(kept)]))
-print("configurations avec une source ecartee :", len(marges))
-print("marge inutilisee : moyenne", sum(marges)//len(marges), "max", max(marges))
+def avant(contexts, budget, framing):
+    """Algorithme d'avant le remplissage : seule la PREMIERE pouvait etre coupee."""
+    kept, used = [], 0
+    for ctx, enc in zip(contexts, framing, strict=True):
+        cout = len(ctx.markdown) + enc
+        if not kept and cout > budget:
+            place = budget - enc - len(_TRUNCATION_MARKER)
+            if place <= 0:
+                continue
+            garde = llm._cut_on_marker(ctx.markdown, place, exiger_marqueur=False)
+            kept.append(ctx.model_copy(update={"markdown": garde + _TRUNCATION_MARKER}))
+            used = budget
+        elif not kept or used + cout <= budget:
+            kept.append(ctx); used += cout
+    return kept
+
+def marge(budget, kept, fr):
+    return budget - sum(len(c.markdown) for c in kept) - sum(fr[:len(kept)])
+
+def campagne():
+    av, ap, gagnees, perdues, parts = [], [], 0, 0, []
+    alea = random.Random(1789)          # graine fixe : la grille est reproductible
+    for niv in (0, 2, 5):
+        for taille in (500, 1000, 1500, 2000, 2500, 3000, 4000, 6000):
+            for n in (1, 3, 5, 7, 10, 12):
+                cands = [source(i, max(120, int(taille * alea.uniform(0.25, 3.0))), niv)
+                         for i in range(n)]
+                budget = context_budget_chars(Q, [])
+                fr = source_framing_chars(Q, cands)
+                k_av = avant(list(cands), budget, fr)
+                if len(k_av) == len(cands):
+                    continue
+                k_ap, _ = fit_contexts(list(cands), budget, fr)
+                av.append(marge(budget, k_av, fr)); ap.append(marge(budget, k_ap, fr))
+                gagnees += len(k_ap) > len(k_av); perdues += len(k_ap) < len(k_av)
+                tailles = {c.element_id: len(c.markdown) for c in cands}
+                parts += [(len(c.markdown) - len(_TRUNCATION_MARKER)) / tailles[c.element_id]
+                          for c in k_ap if c.markdown.endswith(_TRUNCATION_MARKER)]
+    return av, ap, gagnees, perdues, parts
+
+av, ap, gagnees, perdues, parts = campagne()
+print(f"configurations avec au moins une ecartee : {len(av)} / 144")
+print(f"marge inutilisee AVANT : moyenne {sum(av)/len(av):.0f}, max {max(av)}")
+print(f"marge inutilisee APRES : moyenne {sum(ap)/len(ap):.0f}, max {max(ap)}")
+print(f"marge reprise : {100*(1-sum(ap)/sum(av)):.0f} %")
+print(f"configurations gagnees : {gagnees}, perdues : {perdues}")
+print(f"plus petite part retenue : {100*min(parts):.0f} %")
+for plancher in (0.0, 0.15, 0.25, 1/3, 0.40, 0.50):
+    settings.truncation_floor_share = plancher
+    _, ap2, g2, _, p2 = campagne()
+    print(f"plancher {plancher:.2f} : marge {sum(ap2)/len(ap2):6.0f}, {g2:2d} gagnees, "
+          f"plus petite part {100*min(p2):.0f} %")
 EOF
 ```
 
-Faire varier `TRUNCATION_FLOOR_SHARE` autour de 1/3 pour retrouver le plateau.
+Sortie du dépôt d'aujourd'hui, **mesurée** :
+
+```
+configurations avec au moins une ecartee : 88 / 144
+marge inutilisee AVANT : moyenne 1355, max 7970
+marge inutilisee APRES : moyenne 408, max 3865
+marge reprise : 70 %
+configurations gagnees : 38, perdues : 0
+plus petite part retenue : 34 %
+plancher 0.00 : marge     76, 70 gagnees, plus petite part 1 %
+plancher 0.15 : marge    175, 55 gagnees, plus petite part 15 %
+plancher 0.25 : marge    266, 48 gagnees, plus petite part 25 %
+plancher 0.33 : marge    408, 38 gagnees, plus petite part 34 %
+plancher 0.40 : marge    457, 35 gagnees, plus petite part 41 %
+plancher 0.50 : marge    585, 31 gagnees, plus petite part 51 %
+```
+
+La première moitié de cette sortie est reprise mot pour mot dans le docstring de
+`fit_contexts` et dans le registre, et `test_coherence_depot` exige que les trois
+restent identiques. C'est ce garde-fou qui manquait : la même grille a porté
+jusqu'à **trois triplets différents**, un par endroit où elle était recopiée.
 
 ## `LLM_MAX_TOKENS` — à mesurer
 

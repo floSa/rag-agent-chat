@@ -876,9 +876,19 @@ restait vide.
 
 Mesuré sur la grille — 144 configurations, 3 profondeurs de fil des titres x 8
 tailles de source x 6 nombres de candidates, un seul tour, sans historique, avec
-des sources faites d'éléments marqués comme `_render_element` les rend :
-**1 172 caractères de fenêtre inutilisés en moyenne, 3 964 au maximum**, sur les
-68 configurations où au moins une source est écartée.
+des sources faites d'éléments marqués comme `_render_element` les rend, et dont
+les tailles sont tirées **par source** : **1 355 caractères de fenêtre
+inutilisés en moyenne et 7 970 au maximum sur 88 configurations, ramenés à 408 en
+moyenne — 70 % de la marge reprise, 38 configurations gagnées et aucune perdue**.
+
+Cette phrase est le **site canonique** de la mesure. Elle est reprise mot pour
+mot dans le docstring de `fit_contexts` et dans [llm.md](llm.md), et
+`test_coherence_depot` exige que les trois restent identiques. Le garde-fou est
+né d'un défaut réel : la même grille a porté **trois triplets différents** — 1 083
+/ 4 106 sur 68 dans le code, 1 172 / 3 964 sur 68 dans les deux documents, et un
+troisième au rejeu — parce que rien ne forçait les trois copies à s'accorder et
+que le protocole publié, lui, ne mesurait que l'après tout en étiquetant sa
+sortie « avant ».
 
 *(L'audit du lot 1 annonçait 2 308 en moyenne et 6 169 au maximum sur 43
 configurations. Ces chiffres portaient sur des sources sans marqueur ni fil des
@@ -887,11 +897,8 @@ retient moins que `main` ». Ils ne sont pas comparables terme à terme aux
 précédents ; ceux publiés ici sont remesurés sur le code livré.)*
 
 La marge revient désormais à la **mieux classée des sources écartées**,
-tronquée. Le protocole de mesure est dans [llm.md](llm.md).
-
-Résultat, remesuré sur le code livré : marge moyenne **1 172 → 227**, soit
-**80 % de la marge perdue reprise**, et **26 configurations sur 68** où une
-source de plus atteint le modèle.
+tronquée. Le protocole de mesure est dans [llm.md](llm.md) : il réimplémente
+l'algorithme d'avant, de sorte que les deux colonnes sortent du même montage.
 
 **Le plancher, et pourquoi il est relatif.** Un fragment trop petit coûte des
 tokens et fait pire que rien : le modèle en voit assez pour citer la source et
