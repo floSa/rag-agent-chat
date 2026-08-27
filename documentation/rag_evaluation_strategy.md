@@ -53,6 +53,7 @@ Le script interroge `POST /answer` sur le jeu doré et calcule :
 | `taux_contexte_utile` | Parmi les sections PAYÉES, quelle part porte un élément d'or ? | oui |
 | `part_utile_caracteres` | Parmi les caractères PAYÉS, quelle part appartient à une section qui porte un élément d'or ? | oui |
 | `rappel_contexte` | L'élément d'or est-il dans le contexte réellement soumis, fenêtre du graphe comprise ? | oui |
+| `contextes_retenus`, `caracteres_par_section` | Le prix a-t-il monté parce qu'il y a plus de sections, ou parce qu'elles sont plus grosses ? | oui |
 | `timings` | Quel étage coûte le temps ? Huit étages, plus le résidu — cf. § La décomposition du temps | oui |
 | `contextes_ecartes` | Combien de sources n'ont pas tenu dans la fenêtre ? | oui |
 | `eval_count`, `generations_au_plafond` | La génération a-t-elle besoin de son plafond ? — cf. § Ce que la génération coûte | oui |
@@ -98,6 +99,15 @@ qu'aucune dégradation n'ait eu lieu. Le résumé publie trois compteurs —
 dont la somme égale le nombre de questions. Une métrique dont on ne sait pas sur
 combien de questions elle porte n'est pas lisible.
 
+`rappel_contexte` porte sur une population **différente** des deux autres, et
+publie donc son propre effectif, `rappel_contexte_sur`. Quand rien n'est retenu,
+`taux_contexte_utile` et `part_utile_caracteres` valent `None` — exclus, faute de
+dénominateur — alors que `rappel_contexte` vaut 0,0 et compte : l'or n'a rien
+atteint, ce qui est une mesure et non une absence de mesure. C'est délibéré et
+juste, mais deux moyennes voisines dans le même résumé ne se lisent pas si leurs
+populations diffèrent sans le dire. L'effectif se déduisait de la somme de deux
+autres compteurs ; l'écrire évite au lecteur de faire l'addition en silence.
+
 ### Ce que `rappel_contexte` voit et que `rappel_elements` ne voit pas
 
 `rappel_elements` se mesure sur la **graine** du retrieval : les `element_id` que
@@ -122,6 +132,37 @@ Ce que l'ablation de la taille de fenêtre lit, c'est le **couple** :
 `caracteres_retenus` (p50 et p95) qui double pendant que `rappel_contexte` reste
 plat. Même or, deux fois le prix. Un test épingle cette borne, pour que personne
 ne lise un `part_utile_caracteres` stable comme « la fenêtre ne coûte rien ».
+
+### Les deux causes du prix, séparées
+
+`caracteres_retenus` seul confond **plus de sections** (`AUTO_SELECT_TOP_K`,
+`RERANK_TOP_K`, le budget de fenêtre) et **des sections plus grosses**
+(`CONTEXT_WINDOW_*`, `ADJACENT_SECTION_ELEMENTS`, la relecture du texte
+intégral). Le quotient qui les sépare avait son numérateur publié en p50/p95 et
+son dénominateur jeté : `contextes_retenus` était calculé, écrit dans la ligne de
+chaque question, et absent du résumé — c'est-à-dire absent de ce que `--compare`
+diffe et de ce sur quoi la décision se lit.
+
+| Clé | Ce qu'elle isole |
+|---|---|
+| `caracteres_retenus_p50/p95` | Le prix total, toutes causes confondues |
+| `contextes_retenus_p50/p95` | Combien de sections ont été payées |
+| `caracteres_par_section_p50` | Quelle est la taille d'une section payée |
+
+Deux campagnes au prix total identique — 6 000 caractères par question — n'ont
+pas la même cause si l'une paie six sections de mille et l'autre trois de deux
+mille. Sans le dénominateur, la première mesure de l'ablation du graphe aurait
+été ininterprétable entre ses deux causes, et il aurait fallu rejouer une
+demi-heure de GPU pour une raison connue d'avance.
+
+**Le dénominateur nul, et les deux voies.** Une question dont rien n'est retenu
+compte dans `contextes_retenus` — zéro section payée est une *valeur du compte*,
+et l'exclure ferait remonter le centile au moment précis où le budget affame les
+questions. Elle est **exclue** du quotient : une moyenne par section n'a pas de
+valeur quand il n'y a pas de section, elle est indéfinie et non nulle, et un zéro
+s'y lirait « les sections ont maigri ». Sans aucune question servie, le quotient
+vaut `None` plutôt que zéro. La population écartée est déjà nommée par
+`precision_contexte_exclues_sans_retenue`.
 
 ## La décomposition du temps
 
@@ -223,6 +264,42 @@ le trou soit **visible** plutôt qu'affiché comme un résultat.
 La découpe translinguistique n'apparaissait, elle, que lorsqu'elle était peuplée.
 Même défaut, un cran de moins de gravité, même correction.
 
+## Le sens de lecture d'une métrique
+
+**Une flèche affirme une direction.** `--compare` posait « ▲ » sur tout écart
+positif : une génération passant de 9 s à 6 s portait donc le même « ▼ » qu'un
+rappel qui s'effondre. Vingt-six clés du résumé se lisent « plus bas est
+mieux » — les dix étages en p50 et p95, l'agrégat `retrieval_ms`, le prix du
+contexte et les deux compteurs de gâchis — dont `reconstruction_ms`, précisément
+celle que l'ablation du graphe viendra lire.
+
+Trois directions, tenues par trois listes dans `scripts/evaluate.py` :
+
+| Direction | Ce qu'elle regroupe | Affichage |
+|---|---|---|
+| `HAUT_EST_MIEUX` | La qualité : rappels, MRR, citations, abstention, précision du contexte | ▲ quand ça monte |
+| `PLUS_BAS_EST_MIEUX` | Le temps (tout suffixe `_ms`), le prix du contexte, les contextes écartés, les décomptes pollués | ▲ quand ça **descend** |
+| `SANS_DIRECTION` | Les effectifs de population et les grandeurs de calibration | **±** : ça a bougé, sans jugement |
+
+La troisième vaut les deux autres. Une flèche posée sur une grandeur qui n'a pas
+de sens de lecture ne peut pas se tromper, donc elle ne mesure rien.
+`reponse_caracteres_p95` qui monte n'est ni meilleur ni pire — c'est exactement
+le chiffre dont on a besoin pour régler `LLM_MAX_TOKENS`, et un « ▲ » y dirait
+qu'une réponse longue vaut mieux qu'une courte. Même raison pour
+`generations_au_plafond`, qui tranche ce réglage **dans les deux sens** selon ce
+qu'on décide : zéro dit que le plafond ne sert jamais, non nul qu'il faut y
+regarder avant de le baisser.
+
+Le sens appartient à la grandeur, pas au centile : `dense_ms_p50` et
+`dense_ms_p95` se lisent pareil, et le suffixe `_ms` couvre d'avance tout étage
+ajouté à la partition.
+
+`sens_de_lecture` rend +1 sur une clé qu'aucune liste ne connaît — la lecture
+historique, pour ne pas casser une campagne sur un nom inattendu. Le garde-fou
+n'est donc pas dans le code mais dans un **test** : `test_toutes_les_cles_du_
+resume_sont_classees` rougit sur toute métrique ajoutée sans qu'on ait tranché
+son sens. Production indulgente, garde-fou strict.
+
 ## La comparaison appariée
 
 `--compare` joignait les **résumés**, jamais les questions. Sur 138 questions, un
@@ -248,9 +325,23 @@ de sorte que deux exécutions sur les mêmes fichiers rendent le même intervall
 Sans cela, personne ne saurait si un écart vient du changement mesuré ou du
 tirage. Aucun juge LLM n'intervient.
 
-Les latences ne sont pas appariées : elles dépendent de la charge de la machine,
-donc un écart apparié y mesurerait le voisinage plutôt que le changement. Elles
-restent lues sur le diff des résumés, en p50 et p95.
+L'appariement porte **l'apport et le prix** : les huit métriques de qualité, plus
+`caracteres_retenus` et `contextes_retenus`. Sans ces deux-là, l'apport avait son
+test des signes et son intervalle de confiance pendant que le prix tombait dans
+le diff des résumés, sans statistique — pour un arbitrage prix/apport, c'était la
+moitié de l'instrument. Leur sens est inversé, et `apparier` le lit : moins de
+caractères pour le même or est une **amélioration**, et le tableau la marque
+« ↓ ». Les écarts et l'intervalle de confiance, eux, gardent leur signe brut :
+c'est la différence mesurée, et seule l'étiquette suit le sens.
+
+**Les latences ne sont pas appariées, et la raison n'est pas le signe** — celui-là
+est géré par `sens_de_lecture`. C'est que deux campagnes ne partagent pas leur
+machine : un écart apparié de latence mesurerait la charge du moment, question
+par question, et le test des signes lui donnerait une p-value, donc un air de
+résultat là où il n'y a que du bruit d'ordonnancement. Elles se lisent sur les
+centiles du résumé, où l'agrégation dilue ce bruit au lieu de le tester. Deux
+tests tiennent la décision : aucune racine `_ms` dans le tuple, et aucune
+métrique appariée sans sens de lecture.
 
 ### Le refus, et pourquoi il vaut mieux qu'une intersection
 

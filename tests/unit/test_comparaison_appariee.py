@@ -133,21 +133,10 @@ def test_une_metrique_absente_de_la_reference_ne_se_lit_pas_zero_ameliorees() ->
     assert apparie["ic95"] is None
 
 
-def test_aucune_latence_n_entre_dans_l_appariement() -> None:
-    """Asserté depuis `METRIQUES_APPARIEES`, qui décide de ce qui s'apparie.
-
-    Une latence dépend de la charge de la machine : un écart apparié y mesurerait
-    le voisinage, pas le changement — et le test des signes lui donnerait une
-    p-value, donc un air de résultat. Les latences se lisent sur le diff des
-    résumés, en p50 et p95.
-
-    La décision est documentée ; rien ne l'empêchait d'être défaite au premier
-    « il manque les temps dans le tableau ».
-    """
-    appariees = set(_evaluate().METRIQUES_APPARIEES)
-
-    assert not {m for m in appariees if m.endswith("_ms")}
-    assert "total_ms" not in appariees
+# L'exclusion des latences de l'appariement, et le sens de lecture des métriques
+# de prix, sont assertés dans `test_sens_des_metriques.py` : ils relèvent du même
+# sujet, et la raison écrite ici — « le voisinage, pas le changement » — y est
+# reprise avec le garde-fou qui manquait.
 
 
 # ─── Le test des signes ───────────────────────────────────────────────────────

@@ -74,9 +74,25 @@ ETAGES = (
 
 
 # Métriques appariables : une valeur par question, comparables d'une campagne à
-# l'autre. Les latences n'y figurent pas — elles dépendent de la charge de la
-# machine, donc un écart apparié y mesurerait le voisinage, pas le changement.
+# l'autre.
+#
+# **L'APPORT et le PRIX, les deux.** Les huit premières mesurent ce que le
+# système ramène ; les deux dernières ce qu'il coûte. Sans elles, l'apport avait
+# son test des signes et son intervalle de confiance pendant que le prix tombait
+# dans le diff des résumés, sans statistique : pour un arbitrage prix/apport,
+# c'était la moitié de l'instrument. Leur sens de lecture est inversé, et
+# `apparier` le lit dans `sens_de_lecture` — moins de caractères pour le même or
+# est une amélioration.
+#
+# **Les latences n'y figurent pas, et la raison n'est PAS le sens du signe** —
+# celui-là est désormais géré par `sens_de_lecture`, qui reconnaît le suffixe
+# `_ms`. C'est que deux campagnes ne partagent pas leur machine : un écart
+# apparié de latence mesurerait la charge du moment, question par question, et le
+# test des signes lui donnerait une p-value — donc un air de résultat là où il
+# n'y a que du bruit d'ordonnancement. Les latences se lisent sur les centiles du
+# résumé, où l'agrégation dilue ce bruit au lieu de le tester.
 METRIQUES_APPARIEES = (
+    # L'apport.
     "rappel_recherche",
     "rappel_elements",
     "rang_reciproque",
@@ -85,7 +101,126 @@ METRIQUES_APPARIEES = (
     "taux_contexte_utile",
     "part_utile_caracteres",
     "rappel_contexte",
+    # Le prix — « plus bas est mieux » pour les deux.
+    "caracteres_retenus",
+    "contextes_retenus",
 )
+
+# ─── Le sens de lecture d'une métrique ───────────────────────────────────────
+#
+# **Une flèche affirme une direction, et sur la moitié du résumé elle affirmait
+# la mauvaise.** `comparer` posait « ▲ » sur tout delta positif : une génération
+# qui passe de 9 s à 6 s portait donc le même « ▼ » qu'un rappel qui s'effondre.
+# Vingt-deux clés de latence sont concernées — les dix étages en p50 et p95, plus
+# l'agrégat `retrieval_ms` — dont `reconstruction_ms`, précisément la clé que
+# l'ablation du graphe viendra lire.
+#
+# Trois directions, et la troisième vaut les deux autres : une flèche posée sur
+# une grandeur qui n'a PAS de sens de lecture ne peut pas se tromper, donc elle
+# ne mesure rien. `reponse_caracteres_p95` qui monte n'est ni meilleur ni pire —
+# c'est exactement le chiffre dont on a besoin pour régler `LLM_MAX_TOKENS`, et
+# lui coller un « ▲ » serait affirmer qu'une réponse longue vaut mieux.
+
+# Racines dont la valeur BASSE est la bonne : du temps, du prix, du gâchis.
+# Les latences n'y figurent pas — elles sont reconnues à leur suffixe `_ms`, ce
+# qui couvre d'avance tout étage ajouté à la partition.
+PLUS_BAS_EST_MIEUX = frozenset({
+    "contextes_ecartes_total",
+    "prompt_tokens_ecartes_cache_kv",
+    # Le prix du contexte : caractères payés, sections payées, et leur quotient.
+    "caracteres_retenus",
+    "contextes_retenus",
+    "caracteres_par_section",
+})
+
+# Racines DESCRIPTIVES : elles renseignent une décision sans être bonnes ni
+# mauvaises. Trois familles, et chacune a sa raison.
+#
+# Les effectifs (`questions`, `*_sur`, `*_exclues_*`, `prompt_tokens_exploitables`)
+# décrivent la POPULATION d'une moyenne. Les voir monter ou descendre ne dit rien
+# de la qualité — cela dit sur combien de questions la ligne d'à côté porte, ce
+# qui est justement pourquoi ils sont publiés.
+#
+# Les grandeurs de calibration (`reponse_caracteres`, `eval_count`,
+# `prompt_eval_count`, `ratio_caracteres_par_token_mesure`, `num_predict`) servent
+# à POSER un réglage, pas à le juger.
+#
+# `generations_au_plafond` est le cas qui demande le plus d'attention : il tranche
+# `LLM_MAX_TOKENS`, mais dans les deux sens selon ce qu'on décide. Zéro dit que le
+# plafond ne sert jamais et que ses tokens sont pris aux sources pour rien ; non
+# nul dit que le baisser tronquerait des réponses. Une flèche y trancherait à la
+# place du lecteur.
+SANS_DIRECTION = frozenset({
+    "questions",
+    "citations_par_reponse",
+    "precision_contexte_sur",
+    "precision_contexte_exclues_sans_or",
+    "precision_contexte_exclues_sans_retenue",
+    "rappel_contexte_sur",
+    "reponse_caracteres",
+    "eval_count",
+    "eval_count_sur",
+    "num_predict",
+    "generations_au_plafond",
+    "prompt_tokens_exploitables",
+    "prompt_eval_count",
+    "ratio_caracteres_par_token_mesure",
+})
+
+# Racines dont la valeur HAUTE est la bonne : de la qualité. Déclarées, et non
+# laissées au repli de `sens_de_lecture`, pour qu'un test puisse exiger que
+# CHAQUE clé du résumé soit classée par quelqu'un. Sans cette liste, une métrique
+# ajoutée demain hériterait d'un « ▲ » que personne n'aurait décidé et rien ne
+# tomberait.
+HAUT_EST_MIEUX = frozenset({
+    "rappel_recherche",
+    "rappel_elements",
+    "mrr",
+    "rappel_documents",
+    "rang_reciproque",
+    "taux_citation_complete",
+    "abstention_correcte",
+    "taux_contexte_utile",
+    "part_utile_caracteres",
+    "rappel_contexte",
+})
+
+# Suffixes de centile : le sens de lecture appartient à la GRANDEUR, pas au
+# centile. Sans ce retrait, `dense_ms_p50` et `dense_ms_p95` demanderaient deux
+# entrées, et le jour où un étage s'ajoute il en manquerait deux.
+_SUFFIXES_DE_CENTILE = ("_p50", "_p95", "_max")
+
+
+def racine_metrique(cle: str) -> str:
+    """Nom de la grandeur, centile retiré."""
+    for suffixe in _SUFFIXES_DE_CENTILE:
+        if cle.endswith(suffixe):
+            return cle[: -len(suffixe)]
+    return cle
+
+
+def sens_de_lecture(cle: str) -> int:
+    """+1 si haut vaut mieux, −1 si bas vaut mieux, 0 si la grandeur n'a pas de sens.
+
+    Le repli est +1, la lecture historique : une clé inconnue s'affiche comme
+    avant plutôt que de casser une campagne. C'est un TEST qui exige que chaque
+    clé du résumé soit classée explicitement — production indulgente, garde-fou
+    strict. Sans lui, une métrique ajoutée demain hériterait d'un « ▲ » que
+    personne n'aurait décidé.
+    """
+    racine = racine_metrique(cle)
+    if racine.endswith("_ms") or racine in PLUS_BAS_EST_MIEUX:
+        return -1
+    if racine in SANS_DIRECTION:
+        return 0
+    if racine in HAUT_EST_MIEUX:
+        return 1
+    # Clé qu'aucune des trois listes ne classe : on garde la lecture historique
+    # plutôt que de casser une campagne sur un nom inattendu. C'est
+    # `test_toutes_les_cles_du_resume_sont_classees` qui exige qu'il n'en existe
+    # aucune — production indulgente, garde-fou strict.
+    return 1
+
 
 # Graine FIXE du bootstrap. Sans elle, deux exécutions sur les mêmes fichiers
 # rendraient deux intervalles, et personne ne saurait si l'écart vient du
@@ -366,8 +501,49 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
             for r in lignes
             if r["rappel_contexte"] is not None and r["taux_contexte_utile"] is None
         ),
+        # `rappel_contexte` porte sur une population DIFFÉRENTE des deux lignes
+        # au-dessus : quand rien n'est retenu, `taux` et `part` valent None —
+        # exclus — alors que lui vaut 0,0 et compte. C'est délibéré : l'or n'a
+        # rien atteint, ce qui est une mesure et non une absence de mesure.
+        # Mais deux moyennes voisines sur des populations qui diffèrent de moitié
+        # ne se lisent pas, et la règle du lot vaut aussi pour lui — une métrique
+        # dont on ne sait pas sur combien de questions elle porte n'est pas
+        # lisible. C'est `precision_contexte_sur` + `..._exclues_sans_retenue`,
+        # mais l'écrire fait faire l'addition au lecteur, en silence.
+        "rappel_contexte_sur": sum(1 for r in lignes if r["rappel_contexte"] is not None),
+        # ─── Le prix du contexte, et ses DEUX causes séparées ────────────────
+        # `caracteres_retenus` seul confond « plus de sections » (AUTO_SELECT_TOP_K,
+        # RERANK_TOP_K, budget) et « des sections plus grosses »
+        # (CONTEXT_WINDOW_*, ADJACENT_*, FULL_TEXT_*). Le quotient qui les sépare
+        # avait son numérateur publié et son dénominateur jeté : la première
+        # mesure de l'ablation du graphe aurait été ininterprétable entre ses deux
+        # causes, et il aurait fallu rejouer une demi-heure de GPU pour une raison
+        # connue d'avance.
         "caracteres_retenus_p50": _centile([r["caracteres_retenus"] for r in lignes], 0.5),
         "caracteres_retenus_p95": _centile([r["caracteres_retenus"] for r in lignes], 0.95),
+        # Les zéros ENTRENT ici : « cette question n'a payé aucune section » est
+        # une valeur du compte, pas une absence de compte. Les exclure ferait
+        # remonter le centile au moment précis où le budget affame les questions.
+        "contextes_retenus_p50": _centile([r["contextes_retenus"] for r in lignes], 0.5),
+        "contextes_retenus_p95": _centile([r["contextes_retenus"] for r in lignes], 0.95),
+        # Le quotient, lui, EXCLUT ces questions : une moyenne par section n'a pas
+        # de valeur quand il n'y a pas de section — elle est indéfinie, pas nulle.
+        # Un zéro s'y moyennerait avec les autres et se lirait « les sections ont
+        # maigri », alors qu'aucune n'a été payée. Même raisonnement que pour
+        # `part_utile_caracteres`, et la population écartée est déjà nommée par
+        # `precision_contexte_exclues_sans_retenue`.
+        "caracteres_par_section_p50": (
+            _centile(
+                [
+                    round(r["caracteres_retenus"] / r["contextes_retenus"])
+                    for r in lignes
+                    if r["contextes_retenus"]
+                ],
+                0.5,
+            )
+            if any(r["contextes_retenus"] for r in lignes)
+            else None
+        ),
         # ─── Ce que la génération coûte réellement ────────────────────────────
         "reponse_caracteres_p50": _centile([r["reponse_caracteres"] for r in lignes], 0.5),
         "reponse_caracteres_p95": _centile([r["reponse_caracteres"] for r in lignes], 0.95),
@@ -622,6 +798,10 @@ def apparier(
     jamais eu lieu.
     """
     precedent = {ligne["id"]: ligne for ligne in precedentes}
+    # Le sens de lecture DE CETTE métrique. `caracteres_retenus` qui baisse est
+    # une amélioration ; classer les bascules sur le seul signe de l'écart
+    # rangerait chaque économie de contexte parmi les dégradations.
+    sens = sens_de_lecture(metrique)
     differences: list[float] = []
     ameliorees: list[str] = []
     degradees: list[str] = []
@@ -634,14 +814,19 @@ def apparier(
             sans_paire += 1
             continue
         ecart = float(apres) - float(avant)
+        # L'écart garde son signe BRUT dans `differences` : c'est lui que le
+        # bootstrap rééchantillonne, et un intervalle dont le signe dépendrait du
+        # sens de lecture ne serait plus l'intervalle de la différence mesurée.
+        # Seules les ÉTIQUETTES suivent le sens.
         differences.append(ecart)
-        if ecart > 0:
+        if ecart * sens > 0:
             ameliorees.append(ligne["id"])
-        elif ecart < 0:
+        elif ecart * sens < 0:
             degradees.append(ligne["id"])
 
     return {
         "metrique": metrique,
+        "sens": sens,
         "appariees": len(differences),
         "sans_paire": sans_paire,
         "ameliorees": ameliorees,
@@ -688,18 +873,23 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
         return False
 
     print(entete(f" — {len(lignes)} questions communes"))
-    print(f"  {'métrique':24s} {'n':>4} {'▲':>4} {'▼':>4} {'=':>4} "
+    print("  ▲ et ▼ se lisent dans le sens de CHAQUE métrique ; « ↓ » marque celles")
+    print("  dont la valeur basse est la bonne. Δ et l'IC gardent leur signe brut.")
+    print(f"  {'métrique':26s} {'n':>4} {'▲':>4} {'▼':>4} {'=':>4} "
           f"{'Δ moyen':>9}  {'IC 95 %':>20}  signe")
     resultats = [apparier(lignes, precedentes, m) for m in METRIQUES_APPARIEES]
     for r in resultats:
+        # « ↓ » sur la ligne, pas seulement dans la légende : c'est la ligne qu'on
+        # recopie dans un compte rendu, et un ▲ sans son sens s'y lit à l'envers.
+        libelle = f"{r['metrique']}{' ↓' if r['sens'] < 0 else ''}"
         if not r["appariees"]:
-            print(f"  {r['metrique']:24s} {0:>4}   — aucune paire "
+            print(f"  {libelle:26s} {0:>4}   — aucune paire "
                   f"({r['sans_paire']} question(s) sans valeur des deux côtés)")
             continue
         ic = r["ic95"]
         borne = f"[{ic[0]:+.3f}, {ic[1]:+.3f}]" if ic else "—"
         print(
-            f"  {r['metrique']:24s} {r['appariees']:>4} {len(r['ameliorees']):>4} "
+            f"  {libelle:26s} {r['appariees']:>4} {len(r['ameliorees']):>4} "
             f"{len(r['degradees']):>4} {r['inchangees']:>4} "
             f"{r['delta_moyen']:>+9.4f}  {borne:>20}  p={r['p_signe']:.3f}"
         )
@@ -725,6 +915,21 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
     return True
 
 
+def fleche_de(cle: str, delta: float) -> str:
+    """Flèche d'un écart, dans le sens de lecture de SA métrique.
+
+    « ± » n'est pas un aveu d'ignorance : c'est le refus d'affirmer une direction
+    que la grandeur ne porte pas. Un « ▲ » sur `reponse_caracteres_p95` dirait
+    qu'une réponse longue vaut mieux qu'une courte, ce que personne n'a décidé.
+    """
+    sens = sens_de_lecture(cle)
+    if delta == 0:
+        return "→"
+    if sens == 0:
+        return "±"
+    return "▲" if delta * sens > 0 else "▼"
+
+
 def comparer(actuel: dict, chemin: Path) -> None:
     """Écart des RÉSUMÉS, métrique par métrique — l'affichage non apparié.
 
@@ -734,12 +939,12 @@ def comparer(actuel: dict, chemin: Path) -> None:
     """
     precedent = json.loads(chemin.read_text(encoding="utf-8"))["resume"]
     print(f"\n{'=' * 72}\nCOMPARAISON avec {chemin.name}\n{'=' * 72}")
+    print("  ▲ mieux    ▼ moins bien    ± a bougé, sans sens de lecture    → inchangé")
     for cle, valeur in actuel.items():
         ancien = precedent.get(cle)
         if isinstance(valeur, int | float) and isinstance(ancien, int | float):
             delta = valeur - ancien
-            fleche = "→" if delta == 0 else ("▲" if delta > 0 else "▼")
-            print(f"  {cle:28s} {ancien}  {fleche}  {valeur}   ({delta:+.3f})")
+            print(f"  {cle:36s} {ancien}  {fleche_de(cle, delta)}  {valeur}   ({delta:+.3f})")
 
 
 def main() -> int:

@@ -224,6 +224,12 @@ def test_le_resume_dit_sur_combien_de_questions_la_precision_porte() -> None:
     assert resume["precision_contexte_sur"] == 1
     assert resume["precision_contexte_exclues_sans_or"] == 1
     assert resume["precision_contexte_exclues_sans_retenue"] == 1
+    # `rappel_contexte` porte sur une population DIFFÉRENTE : la question dont
+    # rien n'est retenu y compte pour 0,0 — l'or n'a rien atteint, ce qui est une
+    # mesure — là où `taux` et `part` l'excluent. Deux moyennes voisines dans le
+    # même résumé, sur deux populations : son effectif doit être écrit.
+    assert resume["rappel_contexte_sur"] == 2  # noqa: PLR2004
+    assert resume["rappel_contexte_sur"] != resume["precision_contexte_sur"]
     # Les trois buckets couvrent le jeu : aucune question ne disparaît en
     # silence entre « comptée » et « exclue ».
     assert (
@@ -234,7 +240,154 @@ def test_le_resume_dit_sur_combien_de_questions_la_precision_porte() -> None:
     )
 
 
+# ─── Le prix du contexte, et la séparation de ses DEUX causes ────────────────
+
+def _campagne(evaluate, sections_par_question: list[tuple[int, int]]) -> dict:
+    """Résume une campagne où chaque question porte (nb de sections, taille de chacune)."""
+    lignes = [
+        evaluate.evaluer(
+            {"id": f"G-{i:03d}", "gold_element_ids": [OR], "language": "fr"},
+            {
+                "contexts": [_contexte(f"s{j}", [OR], taille) for j in range(nombre)],
+                "citations": [],
+                "answer": "r",
+            },
+        )
+        for i, (nombre, taille) in enumerate(sections_par_question, 1)
+    ]
+    return evaluate.resumer(lignes)
+
+
+def test_le_quotient_separe_plus_de_sections_de_sections_plus_grosses() -> None:
+    """**Le test qui porte le point.**
+
+    Deux campagnes au prix TOTAL identique — 6 000 caractères payés par question
+    — et à la cause opposée : l'une paie six sections de mille caractères, l'autre
+    trois sections de deux mille. `caracteres_retenus` ne les distingue pas, et
+    c'est exactement l'ambiguïté dans laquelle la première mesure de l'ablation
+    du graphe serait tombée.
+
+    Le quotient les sépare, et son dénominateur — publié ici pour la première
+    fois — dit laquelle des deux causes a bougé.
+    """
+    evaluate = _evaluate()
+    beaucoup = _campagne(evaluate, [(6, 1000)] * 4)
+    grosses = _campagne(evaluate, [(3, 2000)] * 4)
+
+    assert beaucoup["caracteres_retenus_p50"] == grosses["caracteres_retenus_p50"] == 6000
+    assert beaucoup["contextes_retenus_p50"] == 6  # noqa: PLR2004
+    assert grosses["contextes_retenus_p50"] == 3  # noqa: PLR2004
+    assert beaucoup["caracteres_par_section_p50"] == 1000  # noqa: PLR2004
+    assert grosses["caracteres_par_section_p50"] == 2000  # noqa: PLR2004
+
+
+def test_les_questions_sans_section_retenue_comptent_dans_le_denominateur() -> None:
+    """Zéro section retenue est une VALEUR du compte, pas une absence de compte.
+
+    Les exclure ferait remonter `contextes_retenus_p50` au moment précis où le
+    budget affame les questions — soit l'inverse de ce qu'on veut lire.
+    """
+    evaluate = _evaluate()
+    lignes = [
+        evaluate.evaluer(
+            {"id": f"G-{i:03d}", "gold_element_ids": [OR], "language": "fr"},
+            {"contexts": contextes, "citations": [], "answer": "r"},
+        )
+        for i, contextes in enumerate(
+            [[_contexte("s1", [OR], 900)], [], [], []], 1
+        )
+    ]
+
+    resume = evaluate.resumer(lignes)
+
+    assert resume["contextes_retenus_p50"] == 0
+    assert resume["contextes_retenus_p95"] == 1
+
+
+def test_le_quotient_exclut_les_questions_sans_section_retenue() -> None:
+    """Le pendant, et la décision inverse pour une bonne raison.
+
+    Une moyenne PAR SECTION n'a pas de valeur quand il n'y a pas de section :
+    elle est indéfinie, pas nulle. Un zéro s'y moyennerait avec les autres et se
+    lirait « les sections ont maigri », alors qu'aucune n'a été payée. Même
+    raisonnement que pour `part_utile_caracteres`.
+
+    **Le montage est dimensionné pour que la médiane BOUGE.** Deux questions
+    servies et TROIS vides : les zéros inclus, ils sont majoritaires et le
+    centile tombe à 0. À deux zéros sur quatre, la médiane resterait à 900 et le
+    test serait vert des deux côtés du défaut — c'est le piège que ce dépôt
+    connaît, un test qui ne peut pas rougir.
+    """
+    evaluate = _evaluate()
+    lignes = [
+        evaluate.evaluer(
+            {"id": f"G-{i:03d}", "gold_element_ids": [OR], "language": "fr"},
+            {"contexts": contextes, "citations": [], "answer": "r"},
+        )
+        for i, contextes in enumerate(
+            [[_contexte("s1", [OR], 900)], [_contexte("s1", [OR], 900)], [], [], []], 1
+        )
+    ]
+
+    resume = evaluate.resumer(lignes)
+
+    assert resume["caracteres_par_section_p50"] == 900  # noqa: PLR2004
+    # Et la population écartée reste nommée, elle ne disparaît pas.
+    assert resume["precision_contexte_exclues_sans_retenue"] == 3  # noqa: PLR2004
+
+
+def test_sans_aucune_section_retenue_le_quotient_est_indefini() -> None:
+    """Rendre 0 affirmerait « des sections de zéro caractère », ce qui n'existe
+    pas. `_centile` sur une liste vide rend 0 : c'est ce zéro-là qu'on refuse
+    de publier."""
+    evaluate = _evaluate()
+    ligne = evaluate.evaluer(
+        {"id": "G-001", "gold_element_ids": [OR], "language": "fr"},
+        {"contexts": [], "citations": [], "answer": "r"},
+    )
+
+    resume = evaluate.resumer([ligne])
+
+    assert resume["caracteres_par_section_p50"] is None
+    assert resume["contextes_retenus_p50"] == 0
+
+
 # ─── Le rappel au contexte, là où la fenêtre du graphe se voit ───────────────
+
+def test_le_rappel_au_contexte_dit_sur_combien_de_questions_il_porte() -> None:
+    """**La règle du lot, appliquée à la métrique qui y échappait.**
+
+    « Une métrique dont on ne sait pas sur combien de questions elle porte n'est
+    pas lisible. » Les trois compteurs somment au nombre de questions, mais aucun
+    ne nomme la population de `rappel_contexte` — qui inclut les questions sans
+    section retenue et exclut les questions sans or.
+
+    Sur ce montage : 4 questions, 1 sans or, 2 sans section retenue. `taux` porte
+    sur 1, `rappel_contexte` sur 3 — trois fois plus, dans le même tableau.
+    """
+    evaluate = _evaluate()
+    lignes = [
+        evaluate.evaluer(question, {"contexts": contextes, "citations": [], "answer": "r"})
+        for question, contextes in (
+            ({"id": "G-001", "gold_element_ids": [OR], "language": "fr"},
+             [_contexte("s1", [OR])]),
+            ({"id": "G-002", "gold_element_ids": [OR], "language": "fr"}, []),
+            ({"id": "G-003", "gold_element_ids": [OR], "language": "fr"}, []),
+            ({"id": "N-001", "unanswerable": True, "language": "fr"},
+             [_contexte("s9", ["bbbbbbbbb9"])]),
+        )
+    ]
+
+    resume = evaluate.resumer(lignes)
+
+    assert resume["precision_contexte_sur"] == 1
+    assert resume["rappel_contexte_sur"] == 3  # noqa: PLR2004
+    # Et il vaut bien la somme des deux compteurs qui le composent : l'écrire
+    # évite au lecteur de faire l'addition, en silence, dans sa tête.
+    assert resume["rappel_contexte_sur"] == (
+        resume["precision_contexte_sur"] + resume["precision_contexte_exclues_sans_retenue"]
+    )
+
 
 def test_l_or_ramene_par_la_fenetre_sans_avoir_ete_trouve_compte() -> None:
     """C'est la valeur que le graphe prétend apporter, et elle était invisible.
