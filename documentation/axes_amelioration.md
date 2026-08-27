@@ -673,6 +673,96 @@ L'affirmation est retirée. Le réglage n'a **pas** été créé : l'absence de 
 se traite avec les deux autres manifestations du même problème, et cela reste
 ouvert (§2, « Tout décoché »).
 
+### 1.27 `/health` sérialisait ses sondes, et empêchait le frontend de démarrer — `api/main.py`, `api/schemas.py`
+
+Les quatre sondes — Chroma, Nebula, index lexical, Ollama — s'attendaient l'une
+l'autre. Or `docker-compose.yml` coupe le healthcheck à `timeout: 5s` avec
+`retries: 5`, et `frontend.depends_on` exige `agent-api: {condition:
+service_healthy}` : sans stores joignables, `curl` était tué à 5 s, les cinq
+tentatives échouaient, `agent-api` passait *unhealthy*, et **le frontend ne
+démarrait jamais** — alors que l'API répondait 200 `degraded`, ce qu'elle est
+écrite pour faire (« retourne toujours 200 pour ne pas déclencher de restart en
+boucle »). Le healthcheck annulait l'intention de la route.
+
+**Mesuré** (`test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck`,
+quatre sondes muettes plafonnées à 8 s) : **32,0 s** avant, **3,0 s** après. Le
+32,0 ≈ 4 × 8 est la preuve de la sérialisation elle-même. Les deux mesures de
+l'audit du lot 3 — ~140 s contre une adresse qui avale les paquets, ~40 s contre
+un port qui refuse — sont **reprises sans remesure** : la stack est éteinte ici.
+L'écart entre elles vient du mode de panne, pas de la mesure.
+
+Les quatre sondes partent maintenant ensemble sous un plafond global de 3 s
+(`_PLAFOND_SONDES_S`), et le test épingle ce plafond **contre le `timeout` lu
+dans `docker-compose.yml`** : c'est le contrat de déploiement qui donne au
+plafond sa valeur, et il vit dans un autre fichier que celui qu'on corrige.
+
+Quatre décisions, qui sont le fond du sujet.
+
+**Un fil abandonné n'est pas un fil interrompu.** Trois des quatre sondes sont
+synchrones et passent par `to_thread.run_sync` ; rien ne peut tuer un fil bloqué
+dans un appel réseau. Deux pièges s'enchaînent. D'abord, `abandon_on_cancel` vaut
+`False` par défaut, ce qui **shielde** l'attente : l'annulation n'aboutit qu'une
+fois le fil terminé, donc un `wait_for` posé sur l'appel par défaut n'aurait borné
+**rien du tout** — le plafond aurait été un ornement. Ensuite, une fois
+`abandon_on_cancel=True` posé, le plafond ne fait que *lâcher* le fil : sous un
+healthcheck toutes les 20 s contre un store muet, ils s'accumuleraient dans le
+threadpool que les endpoints de recherche partagent. Traité, pas consigné :
+`_sondes_en_vol` porte le nom des sondes dont le fil n'est pas revenu, et une
+sonde en vol n'est pas relancée. Donc **un fil lâché par sonde au plus**, quelle
+que soit la durée de la panne. Le drapeau est posé et retiré **par le fil
+lui-même**, jamais par la tâche : la tâche rend la main au plafond, pendant que le
+fil tourne encore. Résidu assumé, écrit au site : deux `/health` vraiment
+simultanés peuvent doubler une sonde le temps qu'un fil démarre. Poser le drapeau
+côté boucle fermerait cette fenêtre et en ouvrirait une pire — une tâche annulée
+avant que son fil ne démarre laisserait le drapeau posé pour toujours, et la
+sonde resterait « en vol » à jamais : une panne remplacée par une cécité.
+
+**« Pas revenue » n'est pas « tombée ».** Le premier est un fait sur l'agent, le
+second sur le service. `services` reste un `dict[str, bool]` et publie `false`
+dans les deux cas : ni le healthcheck ni l'exploitant ne doivent lire « je n'ai
+pas eu le temps de regarder » comme « ça répond ». Mais la distinction existe, à
+côté du contrat plutôt que dedans : `services_unknown` nomme les sondes qui n'ont
+pas répondu, et le journal porte l'événement en WARNING **une fois** par abandon
+— les appels suivants trouvent la sonde en vol et se taisent en DEBUG. Élargir
+`services` en `dict[str, bool | None]` aurait imposé le doute à tous ses lecteurs
+pour un cas normalement vide ; le champ ajouté ne casse aucun lecteur, et le seul
+consommateur du corps est aujourd'hui l'exploitant — le frontend ne lit pas
+`/health` (vérifié par `grep health src/frontend/`), le healthcheck n'en lit que
+le code HTTP.
+
+**Un plafond qui ne couvre pas tout finit par mentir.** Ce qui restait hors du
+plafond a été inventorié. `usage_stats()` ouvre SQLite avec un `busy_timeout` de
+5 s : laissée dehors, elle pouvait à elle seule faire dépasser le délai du
+healthcheck sans qu'aucune sonde soit en cause. Elle est passée **sous le même
+plafond**, et son absence se dit en `null`, ce que le contrat prévoyait déjà —
+l'inventer en zéros décrirait une base vide. Ce qui reste dehors est borné et
+nommé au site : `sessions.stats()` et `sessions.durable()` ne lisent que des
+compteurs en mémoire et un réglage, sans aucune entrée-sortie. (La note qui les
+soupçonnait de lire SQLite était fausse : `sessions.py:110-117` et `101-107`.)
+
+**Une sonde qui lève ne fait pas tomber la route.** Les sondes absorbent déjà
+leurs pannes, donc une exception qui remonte est un défaut de programmation : elle
+est journalisée **avec son type**, jamais tue, et publiée `false` — ce n'est pas
+un inconnu, la sonde a répondu, en levant. La propager ferait rendre 500 à
+`/health`, donc redémarrer le service en boucle : précisément ce que cette route
+existe pour éviter. Effet de bord acquis : un `OLLAMA_HOST` mal formé lève
+`httpx.InvalidURL`, qui n'hérite pas de `HTTPError` et n'est donc pas rattrapée
+par la sonde (§1.26) ; elle faisait rendre **500** à `/health`, elle rend
+maintenant 200 `degraded` avec le type de l'erreur au journal.
+
+Le contenu des sondes n'a pas été touché, ni les valeurs du healthcheck dans
+`docker-compose.yml` : desserrer le contrôle en même temps qu'on corrige l'API
+aurait rendu le lot invérifiable. Le délai propre de 5 s de la sonde Ollama est
+désormais dominé par le plafond ; il reste parce qu'il est le contrat de cette
+sonde, et qu'un plafond global n'en tient pas lieu.
+
+Enfin, l'ordre des journaux n'est plus déterministe — quatre sondes concurrentes
+écrivent quand elles reviennent. Vérifié : aucun test du dépôt ne dépend d'un
+ordre de lignes de journal (les assertions sur `caplog` sont toutes des
+appartenances, des comptes ou `== []`). L'ordre de la **réponse**, lui, reste
+déterministe : `services` et `services_unknown` sont publiés dans l'ordre de la
+table des sondes, pas dans celui des retours.
+
 ---
 
 ## 1bis. Corrigé — qualité, mesure, exploitation
@@ -737,8 +827,7 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 | P2 | Latence de génération | ~3 à 10 s contre 0,5 s de recherche — **ordres de grandeur hérités, non remesurés depuis**. Le levier est le LLM — quantisation, `num_predict`, modèle plus petit — pas la recherche. La partition des étages (lot 4) donne de quoi le vérifier plutôt que de le répéter : `generation_ms` face à `dense_ms + lexical_ms + fusion_ms + rerank_ms`, en p50 et p95. Débloqué par : la stack démarrée. |
 | P2 | Coût de la traduction | Un appel LLM par question s'ajoute à la recherche. Un cache des traductions, ou un modèle plus petit dédié, l'amortirait. Le prix est désormais isolé (`translation_ms`, distinct de `rewrite_ms`) : l'amortissement peut être arbitré sur une mesure, plus sur une intuition. Débloqué par : la stack démarrée. |
 | P3 | Observabilité, et pourquoi pas OpenTelemetry | Logs console uniquement, pas de tracing distribué ni de métriques exportées. **Écarté du lot 4 explicitement** : c'est de l'observabilité de production, cela ajoute des dépendances, et cela ne rend décidable aucun des trois arbitrages qui motivaient le lot — l'ablation du graphe, le seuil de pertinence, le modèle d'embedding. La partition des étages couvre le besoin de mesure hors ligne ; un tracing n'est utile que le jour où le service a des utilisateurs et une charge, et il n'en a ni l'un ni l'autre. |
-| P1 | `/health` est séquentiel, et dépasse le délai du healthcheck | **Antérieur à ce lot, jamais consigné, et il casse le premier démarrage de quiconque suit le README sans avoir lancé l'ingestion.** Les quatre sondes de `/health` — Chroma, Nebula, index lexical, Ollama — s'attendent l'une l'autre. Mesuré à l'audit : ~140 s contre une adresse qui avale les paquets, ~40 s contre un port qui refuse ; le chiffre dépend du mode de panne, la conclusion non. Or `docker-compose.yml` donne `timeout: 5s` et `retries: 5` au healthcheck, et `frontend.depends_on` exige `agent-api: {condition: service_healthy}`. Sans stores : `curl` est tué à 5 s, les cinq tentatives échouent, `agent-api` passe *unhealthy*, et **le frontend ne démarre jamais** — alors que l'API répondrait `degraded` en 200, ce qu'elle est écrite pour faire (« retourne toujours 200 pour ne pas déclencher de restart en boucle »). Ce que ce lot y change, honnêtement : `lexical_ready` appelle désormais `_taille_collection`, donc un aller-retour Chroma de plus. Sans effet à froid — l'index n'étant pas construit, la sonde court-circuite en 0 s — mais un délai de plus dans le cas « index construit, Chroma tombe ensuite ». Piste : les quatre sondes en parallèle sous un `asyncio.wait_for` global de 3 s, chaque sonde non revenue publiée `false`. Débloqué par : rien, mais cela change le contrat de `/health` et mérite son propre lot. |
-| P2 | `lexical_stale` coûte un `count()` ChromaDB par appel | Un aller-retour par recherche lexicale **et** par sonde `/health`. Mesuré au compteur : 10 recherches → 10 `count()`, 5 appels à `lexical_ready` → 5 `count()`. Le docstring de la fonction a d'abord affirmé le contraire (« le compte est déjà lu au moment de la construction, donc la comparaison ne coûte rien de neuf ») : c'est faux, la lecture de la construction ne sert qu'à la construction, et la phrase est corrigée. Candidat à un cache sur fenêtre courte — mais c'est un arbitrage de performance, pas une correction : il faut savoir ce que coûte réellement un `count()` contre le vrai ChromaDB face au risque de servir un index périmé quelques secondes de plus. **Débloqué par : la stack démarrée**, absente ici. Aggravé par la ligne `/health` ci-dessus, avec laquelle il se traite bien. |
+| P2 | `lexical_stale` coûte un `count()` ChromaDB par appel | Un aller-retour par recherche lexicale **et** par sonde `/health`. Mesuré au compteur : 10 recherches → 10 `count()`, 5 appels à `lexical_ready` → 5 `count()`. Le docstring de la fonction a d'abord affirmé le contraire (« le compte est déjà lu au moment de la construction, donc la comparaison ne coûte rien de neuf ») : c'est faux, la lecture de la construction ne sert qu'à la construction, et la phrase est corrigée. Candidat à un cache sur fenêtre courte — mais c'est un arbitrage de performance, pas une correction : il faut savoir ce que coûte réellement un `count()` contre le vrai ChromaDB face au risque de servir un index périmé quelques secondes de plus. **Débloqué par : la stack démarrée**, absente ici. Le passage de `/health` en parallèle (§1.27) ne le traite pas : le `count()` reste payé à chaque appel, il est seulement borné par le plafond des sondes. |
 | P3 | 79 `# noqa` inertes subsistent hors du périmètre des lots 4 et 4b | **Mesuré au lot 4b.** `PLR2004`, `BLE001` et `SLF001` ne figurent dans aucun des neuf groupes du `select` de `pyproject.toml` (`E, W, F, I, UP, B, SIM, N, ANN`) : ces marqueurs ne dérogent à rien, ils ne suppriment aucun avertissement. Ce sont des commentaires morts, et ils coûtent surtout de la confusion — trois comptes différents ont circulé pour les seuls 26 du lot 4, avant qu'on ne s'avise qu'aucun ne dérogeait à quoi que ce soit. Les 26 du périmètre sont retirés ; les 79 restants sont dans 24 fichiers qu'aucun de ces lots ne touche, et les balayer ici aurait grossi un diff en cours d'audit. Nuance pour le balayage à venir : les `BLE001` marquent les absorptions larges assumées, que `test_absorptions.py` garde par ailleurs — les retirer perd une intention écrite, à remplacer par un vrai commentaire plutôt qu'à effacer. Débloqué par : rien, c'est un balayage mécanique dans un lot dédié. |
 | P3 | L'extrait d'`AgentState` de `agent_architecture.md` avait divergé | **Trouvé au lot 4, corrigé.** Il omettait `search_query`, `search_translation`, `max_sources`, `top_k` et `dropped_contexts` — cinq champs antérieurs à ce lot. Recalé sur `src/agent/state.py`, qui fait foi. Rien ne force les deux à s'accorder : un extrait de code recopié dans un document est un candidat permanent à la dérive, et celui-là n'est pas couvert par `test_coherence_depot.py` — le comparer demanderait de parser le fichier Markdown, ce qui n'a pas été fait. |
 | P3 | Deux lecteurs composites de `_etat`, hors de `LexicalIndex` | `retriever.lexical_stale` lit `ready`, puis `count()`, puis `size` en trois temps ; `rebuild_lexical_index` lit `size` dans ses deux branches. Une reconstruction concurrente peut donc s'intercaler entre deux de ces lectures. **Bénin, et il faut dire pourquoi :** `_etat` n'est jamais remis à `None` et chaque `search` capture l'état en une fois (§1.22), donc ni mauvais chunk ni `IndexError` — c'est de la comptabilité. Au pire un verdict de péremption faux, donc une reconstruction de fond superflue, ou une taille rendue par `/reindex` qui décrit l'index d'après plutôt que celui qu'il vient de construire. Mais l'affirmation « un tuple remplacé d'un seul coup referme la fenêtre » est vraie de `LexicalIndex`, **pas de tout ce qui le lit**. Un accesseur `etat()` à capture unique fermerait le sujet. Non fait : ce lot a déjà été audité, et grossir son diff après coup remet tout en cause. |

@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 414 tests, aucune dépendance
+## Unitaire — 424 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -38,9 +38,10 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_precision_contexte.py` | La précision du contexte **payé**, et les trois pièges de son dénominateur. Chaque métrique y a un test qui la fait RÉGRESSER : un or noyé dans neuf sections inutiles fait chuter `taux_contexte_utile` à rapport de rappel identique, et un contexte inutile qui grossit fait chuter `part_utile_caracteres` sans que le taux bouge. Trois mutations sont vérifiées rouges — dénominateur pris sur les candidates, texte publié entier au lieu du texte tronqué, `submitted_contexts` jamais publié. Un test épingle la BORNE de `part_utile_caracteres` : elle ne bouge pas quand la fenêtre grossit à l'intérieur de la section porteuse, et c'est `caracteres_retenus` à `rappel_contexte` constant qui lit ce cas. Les deux derniers exercent la vraie chaîne `on_fit` → état → `/answer` sur le vrai `fit_prompt`. Le lot 4b y ajoute la séparation des **deux causes du prix** : deux campagnes au prix total identique — six sections de mille caractères contre trois de deux mille — que `caracteres_retenus` seul ne distingue pas, et que le quotient sépare. Le test du dénominateur nul est dimensionné pour que la médiane BOUGE — deux questions servies et trois vides — parce qu'à deux zéros sur quatre il serait vert des deux côtés du défaut. |
 | `test_chronometrie.py` | La partition du temps par étage : son arithmétique, et surtout ce qui la fait mentir. Le test qui compte fait **régresser** la mesure — il verse un agrégat dans un étage et exige que le résidu devienne NÉGATIF et que le journal le dise. Borner le résidu à zéro le rendrait vert sur un tableau faux. Un second épingle la décision elle-même : `retrieval_ms` est un agrégat, et il tombe le jour où quelqu'un l'ajoute à `ETAGES` « pour compléter le tableau ». |
 | `test_partition_etages.py` | La même partition, mais branchée sur les **vrais nœuds** : chaque étape simulée dort une durée qui lui est propre, ce qui permet d'exiger le SENS de l'attribution et pas seulement la présence d'un chiffre. Un `decomposer` correct branché sur rien publierait huit zéros et un résidu égal au total. Deux tests portent l'étage qui n'avait jamais été chronométré — la reconstruction par le graphe — dans les deux sens : elle coûte son temps même quand elle échoue, et elle tombe à zéro quand rien n'est reconstruit, ce que l'ablation doit lire. |
+| `test_health_parallele.py` | `/health` sous le délai que Docker lui accorde. Le test du lot compare la durée mesurée au `timeout` **lu dans `docker-compose.yml`** : 32,0 s avant, 3,0 s après, et le 32,0 ≈ 4 × 8 s de sondes muettes est la preuve de la sérialisation. Le parallélisme, lui, n'est pas prouvé par un chronomètre — « moins de 5 s » reste vert sur des sondes séquentielles rapides — mais par une **barrière à quatre parties**, qu'une implémentation séquentielle ne peut pas franchir quelle que soit la vitesse de chaque sonde. Deux tests portent le piège du lot : un plafond n'interrompt pas un fil, il le lâche, donc une sonde déjà en vol ne doit pas être relancée (compté sur les ENTRÉES de la sonde, pas sur la réponse), et un fil revenu doit rendre la sonde à nouveau interrogeable — sans quoi la panne serait remplacée par une cécité définitive. |
 | `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. La colonne `dropped_contexts` y est exercée sur des sections qui dépassent réellement la fenêtre — seule la couche HTTP est simulée, le budget est celui du vrai `fit_prompt` : trois mutations la cassent, une par maillon de la chaîne `on_fit` → état → colonne. |
 
-Deux leçons du lot 3, du même ordre que celles du lot 2 :
+Trois leçons du lot 3, du même ordre que celles du lot 2 :
 
 - **Un faux qui ne ressemble pas à la bibliothèque ne prouve rien de la
   bibliothèque.** Deux tests simulaient la panne d'Ollama en levant un
@@ -60,6 +61,23 @@ Deux leçons du lot 3, du même ordre que celles du lot 2 :
   ligne. Tout test qui aurait cru ce compteur aurait été vert. Les tests de
   `test_purge_sessions.py` ouvrent le fichier SQLite en lecture directe, et
   confrontent le nombre annoncé au nombre réellement supprimé.
+
+Deux leçons du lot 5, sur la forme des tests de temps :
+
+- **Un chronomètre ne prouve pas le parallélisme.** Un test qui n'assère que
+  « moins de 5 s » reste vert sur quatre sondes séquentielles rapides : il garde
+  la borne, pas la simultanéité. Une **barrière** à autant de parties qu'il y a
+  de sondes prouve la simultanéité structurellement — une implémentation
+  séquentielle ne peut pas la franchir, quelle que soit la vitesse de chaque
+  sonde — et elle ne coûte aucune attente quand elle est verte.
+- **Ce qu'il faut simuler, c'est une sonde qui ne revient pas, pas une sonde qui
+  dort.** Une suite qui gagne huit secondes de `sleep` par test de latence
+  devient une suite qu'on n'exécute plus. Les sondes de ces tests bloquent sur un
+  `threading.Event` débloqué dans un `finally` : la durée verte est celle du
+  plafond, pas celle du blocage — et sans ce `finally`, les fils du threadpool
+  n'étant pas des démons, ils retiendraient l'interpréteur à la sortie. Un seul
+  test paie le plafond RÉEL, parce qu'un test qui règle lui-même le plafond
+  resterait vert le jour où la valeur par défaut passe à 60 s.
 
 Deux leçons de la revue du lot 2, qui valent au-delà de ses fichiers :
 

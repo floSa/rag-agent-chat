@@ -137,6 +137,16 @@ prix d'une requête perdue.
 n'entrant pas dans le calcul du statut, puisque son absence dégrade la recherche
 sans l'empêcher.
 
+Les quatre sondes partent **ensemble**, sous un plafond global de 3 s : en
+séquence, elles dépassaient le délai de 5 s que `docker-compose.yml` accorde au
+healthcheck, et le frontend — qui attend `agent-api` en `service_healthy` — ne
+démarrait alors jamais (§1.27 du registre). Une sonde qui n'est pas revenue avant
+le plafond vaut `false` dans `services`, comme une panne : « je n'ai pas eu le
+temps de regarder » ne doit pas se lire « ça répond ». Les deux cas se
+distinguent quand même, à côté — `services_unknown` nomme les sondes qui n'ont
+pas répondu — parce qu'un store qui **avale** les paquets et un store qui refuse
+la connexion ne se soignent pas de la même façon.
+
 Un compte de collection **illisible** n'est pas traité comme un index périmé :
 Chroma injoignable est déjà rapporté par `services.chromadb` dans la même
 réponse, et le déduire une seconde fois transformerait une panne de store en
