@@ -905,6 +905,16 @@ partirait sans aucune source, et « mieux vaut une source amputée que zéro
 source » reste l'arbitrage du budget (§1.14) : la même relaxation s'applique à
 l'exigence de marqueur, pour la même raison.
 
+Mais ce sont **deux décisions**, et un seul booléen les portait. « Ce fragment
+représente-t-il sa source » et « ce fragment est-il attribuable » ne posent pas
+la même question, et rien ne garantit que leurs réponses continueront de
+coïncider. Le coût de la fusion était mesurable : forcer le booléen à faux, ou
+retirer entièrement la clause du marqueur, ne faisait rougir **aucun** test — le
+plancher refusait le cas d'abord, donc il masquait l'autre exigence. `_truncate`
+prend désormais `exiger_marqueur` et `exiger_plancher` séparément, et deux tests
+gardent le marqueur dans les deux sens sur un fragment qui passe le plancher :
+refusé quand une autre source est retenue, rendu quand il est la seule.
+
 **Ce que la troncature déplace, traité nommément.** Elle bouge la frontière
 entre ce que le modèle lit et ce qu'il peut citer. Deux dérives.
 

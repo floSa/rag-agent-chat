@@ -1005,3 +1005,67 @@ def test_aucun_crochet_ne_reste_ouvert_a_la_coupe() -> None:
             assert dernier == -1 or "]" in corps[dernier:], (
                 f"budget {budget} : crochet resté ouvert — {corps[-30:]!r}"
             )
+
+
+def _marqueur_a_la_toute_fin() -> SectionContext:
+    """Un élément unique dont le marqueur n'arrive qu'à la fin de la source.
+
+    C'est la forme que produit `_restore_full_text` : un paragraphe relu intégral
+    dans l'index, restitué d'un bloc, suivi de son seul `[src:ID]`. Toute coupe
+    avant la fin tombe donc dans un fragment sans identifiant.
+    """
+    return SectionContext(
+        element_id="abcdef0300",
+        section_id="abcdef0300",
+        breadcrumbs=[],
+        elements=[],
+        markdown=(
+            "Un element restitue en texte integral depuis l index, dont le seul "
+            "marqueur n arrive qu a la toute fin. [src:0000000001]"
+        ),
+    )
+
+
+def test_un_fragment_inattribuable_est_refuse_meme_au_dessus_du_plancher() -> None:
+    """L'exigence de marqueur décide SEULE ici, et c'est ce qui la garde.
+
+    Le fragment vaut plus du tiers de sa source : le plancher le laisse passer.
+    Il ne porte aucun identifiant : le modèle le lirait sans pouvoir l'attribuer,
+    et le rattacherait au marqueur précédent, donc à une autre source.
+
+    Séparer les deux exigences est le seul moyen de garder celle-ci : tant qu'un
+    unique booléen les portait, le plancher refusait le cas d'abord et le
+    forcer à faux ne faisait rougir personne.
+    """
+    premiere = _serie(1, 4)[0]
+    lointaine = _marqueur_a_la_toute_fin()
+    place = 50
+    assert place > math.ceil(
+        settings.truncation_floor_share * len(lointaine.markdown)
+    ), "le cas doit passer le plancher, sinon il ne garde pas le marqueur"
+
+    budget = len(premiere.markdown) + len(_TRUNCATION_MARKER) + place
+    kept, dropped = fit_contexts([premiere, lointaine], budget)
+
+    assert len(kept) == 1, "un fragment inattribuable ne vaut pas sa place"
+    assert dropped == 1
+
+
+def test_seule_source_un_prefixe_inattribuable_vaut_mieux_que_rien() -> None:
+    """L'autre sens de la même exigence : relâchée, elle rend bien la tête.
+
+    « Mieux vaut une source amputée que zéro source » (§1.14) : l'attribution
+    retombe sur la section, que le gabarit annonce par « Source N — element_id ».
+    Sans ce test, exiger le marqueur en toutes circonstances rendrait un prompt
+    sans aucune source et rien ne le dirait.
+    """
+    lointaine = _marqueur_a_la_toute_fin()
+    budget = len(_TRUNCATION_MARKER) + 50
+
+    kept, dropped = fit_contexts([lointaine], budget)
+
+    assert len(kept) == 1
+    assert dropped == 0
+    corps = kept[0].markdown.removesuffix(_TRUNCATION_MARKER)
+    assert corps, "la tête doit repartir, pas une chaîne vide"
+    assert "[src:" not in corps, "le cas de test n'atteint pas la branche visée"

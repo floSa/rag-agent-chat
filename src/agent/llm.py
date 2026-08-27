@@ -318,16 +318,18 @@ def truncation_floor_chars(ctx: SectionContext) -> int:
     83 %, elle est parfaitement lisible, et tout plancher absolu supérieur à 250
     l'écarterait.
 
-    Le plancher absolu existe déjà, et il est structurel : `_cut_on_marker`
-    n'accepte de coupe qu'à la fin d'un marqueur, donc un fragment porte au
-    minimum **un élément entier avec son identifiant**. Rien n'est réglable là,
-    et rien n'a besoin de l'être.
+    Un plancher absolu existe déjà, et il est structurel : quand le marqueur est
+    exigé, `_cut_on_marker` n'accepte de coupe qu'à la fin d'un marqueur, donc le
+    fragment porte au minimum **un élément entier avec son identifiant**. Rien
+    n'est réglable là. Il ne couvre en revanche ni le cas relâché — plus rien
+    d'autre à retenir — ni une source qui ne porte aucun marqueur : c'est
+    exactement là que ce plancher-ci reste seul à décider.
     """
     return math.ceil(settings.truncation_floor_share * len(ctx.markdown))
 
 
 def _truncate(
-    ctx: SectionContext, budget_chars: int, *, plancher: bool
+    ctx: SectionContext, budget_chars: int, *, exiger_marqueur: bool, exiger_plancher: bool
 ) -> SectionContext | None:
     """Coupe une source par la FIN pour la faire tenir dans `budget_chars`.
 
@@ -336,9 +338,18 @@ def _truncate(
     aucun marqueur de citation ne tient dans la tête (cf. `_cut_on_marker`), ou
     le fragment n'atteint pas `truncation_floor_chars`.
 
-    `plancher` porte l'arbitrage : il est faux quand aucune source n'est encore
-    retenue. Refuser alors la coupe enverrait un prompt SANS AUCUNE source, ce
-    que « mieux vaut une source amputée que zéro source » a déjà tranché.
+    Les deux exigences sont portées par **deux** paramètres, et ce n'est pas une
+    coquetterie : elles n'arbitrent pas la même chose. `exiger_marqueur` demande
+    si le fragment est **attribuable** — porte-t-il un identifiant de citation.
+    `exiger_plancher` demande s'il **représente** sa source — en montre-t-il
+    assez pour qu'on sache ce qu'elle dit. Un fragment peut satisfaire l'une et
+    pas l'autre dans les deux sens.
+
+    Elles se relâchent aujourd'hui sur la même condition — aucune autre source
+    retenue — et un seul booléen les portait. Rien ne garantit que les réponses
+    continueront de coïncider, et un test qui ne peut pas les séparer ne garde
+    ni l'une ni l'autre : forcer l'ancien booléen à faux ne faisait rougir
+    personne.
     """
     place = budget_chars - len(_TRUNCATION_MARKER)
     if place <= 0:
@@ -351,7 +362,7 @@ def _truncate(
         )
         return None
 
-    garde = _cut_on_marker(ctx.markdown, place, exiger_marqueur=plancher)
+    garde = _cut_on_marker(ctx.markdown, place, exiger_marqueur=exiger_marqueur)
     if not garde:
         logger.info(
             "Source %s écartée : aucun marqueur de citation ne tient dans les %d "
@@ -363,7 +374,7 @@ def _truncate(
         return None
 
     minimum = truncation_floor_chars(ctx)
-    if plancher and len(garde) < minimum:
+    if exiger_plancher and len(garde) < minimum:
         logger.info(
             "Source %s écartée : %d caractères tiendraient sur %d, soit %.0f %% de la "
             "source — sous le plancher de %.0f %% (TRUNCATION_FLOOR_SHARE). Le modèle "
@@ -423,11 +434,14 @@ def fit_contexts(
     de chances d'atteindre sa part. La première qui passe prend la marge, et la
     boucle s'arrête : il n'y a qu'une marge à donner.
 
-    Le plancher ne joue que si une source est déjà retenue. Sinon il n'y a rien
-    à arbitrer, et « mieux vaut une source amputée que zéro source » reste le
-    choix du budget : une section sans `SectionHeader` — fenêtre de 13 éléments,
-    textes intégraux relus dans l'index — dépasse à elle seule la fenêtre, et
-    l'écarter rendrait une abstention sur un document qu'on venait de trouver.
+    Le plancher ne joue que si une source est déjà retenue, et l'exigence de
+    marqueur avec lui — mais ce sont **deux** décisions, portées par deux
+    paramètres de `_truncate` : « ce fragment représente-t-il sa source » et « ce
+    fragment est-il attribuable ». Sinon il n'y a rien à arbitrer, et « mieux
+    vaut une source amputée que zéro source » reste le choix du budget : une
+    section sans `SectionHeader` — fenêtre de 13 éléments, textes intégraux
+    relus dans l'index — dépasse à elle seule la fenêtre, et l'écarter rendrait
+    une abstention sur un document qu'on venait de trouver.
 
     `framing_chars` porte l'encadrement mesuré de chaque source
     (`source_framing_chars`). Il est facturé au moment où la source est
@@ -455,7 +469,17 @@ def fit_contexts(
             ecartees.append((ctx, encadrement))
 
     for ctx, encadrement in ecartees:
-        tronquee = _truncate(ctx, budget_chars - used - encadrement, plancher=bool(kept))
+        # Deux décisions distinctes, relâchées aujourd'hui par la même condition :
+        # tant que rien n'est retenu, refuser la coupe enverrait un prompt sans
+        # aucune source. Elles restent deux paramètres pour que la prochaine
+        # raison de relâcher l'une ne relâche pas l'autre par inadvertance.
+        seule_chance = not kept
+        tronquee = _truncate(
+            ctx,
+            budget_chars - used - encadrement,
+            exiger_marqueur=not seule_chance,
+            exiger_plancher=not seule_chance,
+        )
         if tronquee is None:
             continue
         kept.append(tronquee)
