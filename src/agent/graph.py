@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -156,25 +157,49 @@ def node_await_source_selection(state: AgentState) -> dict[str, Any]:
     return {}
 
 
+def _par_pertinence(element_ids: Sequence[str], ranking: Sequence[ChunkResult]) -> list[str]:
+    """Réordonne une sélection sur le classement du reranker, mieux classé d'abord.
+
+    `enriched_contexts` sort d'ici dans l'ordre où les identifiants arrivent, et
+    tout l'aval suppose que cet ordre est celui de la pertinence : `fit_contexts`
+    remplit la fenêtre en partant du début et écarte ce qui déborde, le gabarit
+    numérote « Source 1, 2, 3… », et la troncature ne touche que les dernières.
+
+    Or la sélection ne vient pas triée. Le frontend range les cases cochées dans
+    un `set` (`src/frontend/app.py`) et poste `list(...)` : l'ordre est celui du
+    hachage des identifiants, sans rapport avec le classement. La fenêtre
+    écartait donc une source au hasard plutôt que la moins pertinente.
+
+    Un identifiant absent du classement passe en fin, dans son ordre d'arrivée :
+    la boucle agentique peut en ajouter que le reranker n'a jamais vus.
+    """
+    rang = {chunk.element_id: i for i, chunk in enumerate(ranking)}
+    return sorted(element_ids, key=lambda eid: rang.get(eid, len(rang)))
+
+
 def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
     """Reconstruit le contexte enrichi pour chaque élément sélectionné.
 
     Première passe : éléments choisis par l'utilisateur. Itérations suivantes
     (recherche déclenchée par le LLM) : top-3 des nouveaux chunks reranqués,
     ajoutés aux contextes déjà reconstruits — sans repasser par la sélection.
+
+    Dans les deux cas la reconstruction suit le classement du reranker, et non
+    l'ordre d'arrivée : cf. `_par_pertinence`.
     """
     is_iteration = state.get("search_count", 0) > 1
     top_k = state.get("max_sources") or settings.auto_select_top_k
+    ranking = state.get("reranked_chunks") or []
 
     if is_iteration:
-        element_ids = [c.element_id for c in state["reranked_chunks"][:top_k]]
+        element_ids = [c.element_id for c in ranking[:top_k]]
         contexts: list[SectionContext] = list(state.get("enriched_contexts") or [])
     else:
-        element_ids = state.get("selected_element_ids") or []
+        element_ids = _par_pertinence(state.get("selected_element_ids") or [], ranking)
         if not element_ids:
             # Personne n'a choisi : /answer fonctionne ainsi par construction,
             # et le flux interactif y tombe si la sélection revient vide.
-            element_ids = [c.element_id for c in state["reranked_chunks"][:top_k]]
+            element_ids = [c.element_id for c in ranking[:top_k]]
             logger.info("Aucune source sélectionnée, reprise des %d mieux classées.", top_k)
         contexts = []
 

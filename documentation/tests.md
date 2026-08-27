@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 425 tests, aucune dépendance
+## Unitaire — 430 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -27,6 +27,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_resilience.py` | Un store qui redémarre doit rester invisible : cache oublié, une seule reprise. |
 | `test_coherence_depot.py` | Trois endroits qui doivent s'accorder et que rien ne forçait à s'accorder : la borne d'historique dupliquée dans le frontend (son image ne contient pas les schémas), et les versions épinglées par `Dockerfile.frontend` face à `requirements.txt`. Les deux ont réellement divergé. Le troisième est la liste des étages de latence, recopiée dans `scripts/evaluate.py` — délibérément, le script interrogeant un service distant — donc exposée à la divergence qui rendrait un étage mesuré mais jamais publié. |
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
+| `test_ordre_des_sources.py` | L'ordre dans lequel les sources entrent dans la fenêtre. Tout l'aval du budget suppose la pertinence décroissante ; le frontend postait un `set`, donc l'ordre du hachage, et la fenêtre écartait une source au hasard. Les tests assertent depuis `node_reconstruct_context`, qui produit l'ordre. |
 | `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 250 budgets). La chaîne `on_fit` → état du graphe → `/answer` y est exercée sur le vrai `node_generate`, seule la couche HTTP étant simulée : deux mutations la cassaient en gardant la suite verte. |
 | `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |
 | `test_purge_sessions.py` | La purge des sessions LangGraph : ce qu'elle supprime, et ce qu'elle annonce. Le checkpointer y est **réel** — un vrai `AsyncSqliteSaver` sur un fichier temporaire — et les assertions sont lues en SQL brut dans `checkpoints`. Un faux checkpointer ne lève pas `asyncio.InvalidStateError`, donc il ne prouve rien du défaut : c'est exactement ce montage-là qui l'a laissé vivre. Cinq des six tests sont rouges sur le code d'origine, dont celui qui confronte le nombre de suppressions ANNONCÉ au nombre RÉEL — « le journal annonce [1] suppression(s) alors qu'aucune n'a eu lieu ». Le sixième est un garde-fou, vert des deux côtés et c'est ce qu'on lui demande : une session en attente de sélection doit survivre à un redémarrage. |

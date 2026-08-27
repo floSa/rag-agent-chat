@@ -821,6 +821,39 @@ la coupe ne touchait que la première source retenue, elle était un chemin rare
 elle devient le chemin courant.
 
 
+### 1.29 La fenêtre écartait une source au hasard sur le flux interactif — `agent/graph.py`
+
+Tout l'aval du budget suppose que `enriched_contexts` est trié par pertinence
+décroissante : `fit_contexts` remplit depuis le début et écarte ce qui déborde,
+le gabarit numérote « Source 1, 2, 3… », et la troncature ne touche que les
+dernières retenues.
+
+La supposition était fausse sur `/chat/start` → `/chat/resume`.
+`node_reconstruct_context` reconstruisait dans l'ordre d'arrivée de
+`selected_element_ids`, et le frontend range les cases cochées dans un **`set`**
+(`src/frontend/app.py`) avant de poster `list(...)` : l'ordre est celui du
+hachage des identifiants. Vérifié — cinq identifiants classés par pertinence
+ressortent de `list(set(...))` dans un ordre différent.
+
+Conséquence : la source que la fenêtre écartait n'était pas la moins pertinente,
+c'était la dernière du hachage. Deux utilisateurs cochant les mêmes cases
+pouvaient payer deux fenêtres différentes.
+
+La sélection est désormais réordonnée **côté serveur** sur le classement du
+reranker, que le graphe porte déjà (`_par_pertinence`). Corriger le frontend
+aurait laissé l'API dépendre du bon vouloir de son appelant, et créé un second
+endroit à tenir synchronisé — le dépôt en garde déjà un sous test. Un identifiant
+absent du classement passe en fin : la boucle agentique peut en ajouter que le
+reranker n'a jamais vus.
+
+`/chat/simple` reste servi dans l'ordre de son appelant : cet endpoint reçoit une
+liste nue, sans recherche ni reranking, donc aucune pertinence n'y existe. C'est
+une propriété de la route, pas un oubli.
+
+Ce défaut passait **avant** le remplissage au plus juste (§1.30) : « tronquer la
+dernière retenue » n'a de sens que si la dernière est bien la moins pertinente.
+
+
 ## 1bis. Corrigé — qualité, mesure, exploitation
 
 | Sujet | Ce qui a été fait |
