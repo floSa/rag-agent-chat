@@ -924,6 +924,17 @@ précédent, c'est-à-dire au mauvais élément. C'est celle-ci qu'il faut écar
 activement, et c'est le travail de `_cut_on_marker`, dont le garde-fou vient
 d'être durci dans les deux sens (§1.28).
 
+Le premier jet de ce lot avait **retiré** de ce garde-fou, sans remplacement, le
+retrait du crochet resté ouvert à la coupe que `main` portait. Sans marqueur
+complet dans la tête, la tête repartait telle quelle — donc avec un
+« [src:00000 » entamé, que le post-processing ne résout pas. Mesuré sur la
+fixture du test : **11 budgets fautifs, bande 124–134**. Ce qui compte autant que
+le correctif est la raison pour laquelle rien ne rougissait : le balayage qui
+surveille cette coupe commençait à 150, **au-dessus de la bande**. Il part
+désormais de la première coupe possible, calculée et non posée
+(`len(_TRUNCATION_MARKER) + 1`), et il refuse tout crochet resté ouvert, pas
+seulement un `[src:` amputé.
+
 Les deux invariants sont vérifiés avec l'instrument du lot 4,
 `element_ids_presents`, qui lit les marqueurs du **texte soumis** et non le
 modèle : tout identifiant présent dans le prompt y a son texte, et tout élément

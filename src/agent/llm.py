@@ -237,6 +237,23 @@ def context_budget_chars(question: str, chat_history: Sequence[Message]) -> int:
     return max(0, prompt_window_chars() - prompt_overhead_chars(question, chat_history))
 
 
+def _sans_crochet_ouvert(tete: str) -> str:
+    """Retire de `tete` un crochet que la coupe a laissé ouvert.
+
+    N'avoir croisé aucun marqueur COMPLET ne veut pas dire qu'on n'a croisé aucun
+    crochet : la coupe peut tomber À L'INTÉRIEUR du premier — « [src:00000 »,
+    « [Tableau ». Rendre la tête telle quelle laisse ce début de marqueur dans le
+    prompt, et le post-processing ne résout pas un identifiant amputé.
+
+    La bande où cela se produit est étroite — entre la coupe minimale et la fin
+    du premier marqueur — et c'est ce qui l'avait fait disparaître d'un lot sans
+    que rien ne rougisse : le balayage qui la surveillait commençait au-dessus
+    d'elle.
+    """
+    ouvert = tete.rfind("[")
+    return tete[:ouvert] if ouvert != -1 and "]" not in tete[ouvert:] else tete
+
+
 def _cut_on_marker(markdown: str, limite: int, *, exiger_marqueur: bool) -> str:
     """Coupe `markdown` au plus tard à `limite`, sur une frontière d'élément.
 
@@ -272,7 +289,9 @@ def _cut_on_marker(markdown: str, limite: int, *, exiger_marqueur: bool) -> str:
     amputée que zéro source » l'a déjà tranché (registre 1.14).
 
     Une source qui ne porte aucun marqueur du tout se coupe librement dans les
-    deux cas : il n'y a pas de précision à perdre.
+    deux cas : il n'y a pas de précision à perdre. « Librement » ne veut pas dire
+    « à l'index brut » pour autant : `_sans_crochet_ouvert` retire ce que la coupe
+    a laissé entamé.
 
     L'ancienne version rendait la tête telle quelle dès qu'un crochet
     quelconque — « [Tableau] », une note « [1] » — s'y trouvait refermé, et elle
@@ -283,7 +302,9 @@ def _cut_on_marker(markdown: str, limite: int, *, exiger_marqueur: bool) -> str:
     complets = list(_MARKER_RE.finditer(tete))
     if complets:
         return tete[: complets[-1].end()]
-    return "" if exiger_marqueur and _MARKER_RE.search(markdown) else tete
+    if exiger_marqueur and _MARKER_RE.search(markdown):
+        return ""
+    return _sans_crochet_ouvert(tete)
 
 
 def truncation_floor_chars(ctx: SectionContext) -> int:

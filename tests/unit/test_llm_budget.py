@@ -423,13 +423,18 @@ def test_la_troncature_n_ampute_jamais_un_marqueur() -> None:
     C'était le mode de panne d'IMP-6, déplacé d'Ollama vers `_truncate` : la
     coupe se faisait à un index de caractère brut. Balayé sur une plage de
     budgets, parce qu'un seul cas tombe rarement au milieu d'un marqueur.
+
+    La borne basse est celle de la PREMIÈRE coupe possible — `budget` doit juste
+    dépasser la marque de troncature — et non un rond arbitraire. Elle valait 150
+    et la seule bande où un marqueur pouvait être amputé est 124–134 : le
+    balayage surveillait tout sauf l'endroit où le défaut vivait.
     """
     source = _source_avec_marqueurs(20)
     vrais_ids = {f"{i:010d}" for i in range(20)}
     marqueur = re.compile(r"\[src:([^\]]*)\]")
     tronquees = 0
 
-    for budget in range(150, 1400):
+    for budget in range(len(_TRUNCATION_MARKER) + 1, 1400):
         kept, _ = fit_contexts([source], budget_chars=budget)
         if not kept:
             continue
@@ -446,6 +451,10 @@ def test_la_troncature_n_ampute_jamais_un_marqueur() -> None:
         )
         assert set(marqueur.findall(corps)) <= vrais_ids, (
             f"budget {budget} : identifiant inconnu — {corps[-40:]!r}"
+        )
+        dernier = corps.rfind("[")
+        assert dernier == -1 or "]" in corps[dernier:], (
+            f"budget {budget} : crochet resté ouvert — {corps[-40:]!r}"
         )
         assert len(markdown) <= budget, f"budget {budget} : {len(markdown)} caractères rendus"
 
@@ -958,3 +967,41 @@ def test_un_crochet_qui_n_est_pas_un_marqueur_n_arrete_pas_la_coupe() -> None:
             continue
         corps = kept[1].markdown.removesuffix(_TRUNCATION_MARKER)
         assert corps.endswith("[src:0000000001]"), f"limite {limite} : {corps[-40:]!r}"
+
+
+def test_aucun_crochet_ne_reste_ouvert_a_la_coupe() -> None:
+    """Le garde-fou que le lot 6 avait retiré sans remplacement.
+
+    Sans marqueur COMPLET dans la tête, la coupe peut tomber à l'intérieur du
+    premier crochet — « [src:00000 », « [Tableau ». Rendre la tête telle quelle
+    laisse un identifiant amputé dans le prompt, que le post-processing ne
+    résout pas.
+
+    Balayé depuis la première coupe possible, et sur deux markdowns : l'un porte
+    des marqueurs de citation, l'autre n'en porte aucun et n'a donc que des
+    crochets de texte. Le second cas est celui qu'aucune fixture du lot ne
+    pouvait produire.
+    """
+    corpus = (
+        "Un premier paragraphe de section, avec du texte. [src:0000000001] Et la "
+        "suite du meme element, plus longue. [src:0000000002]",
+        "Une legende de tableau [Tableau] puis la note [1] et du texte qui continue "
+        "un long moment sans jamais porter le moindre marqueur de citation.",
+    )
+    for markdown in corpus:
+        source = SectionContext(
+            element_id="abcdef0200",
+            section_id="abcdef0200",
+            breadcrumbs=[],
+            elements=[],
+            markdown=markdown,
+        )
+        for budget in range(len(_TRUNCATION_MARKER) + 1, len(markdown) + len(_TRUNCATION_MARKER)):
+            kept, _ = fit_contexts([source], budget_chars=budget)
+            if not kept:
+                continue
+            corps = kept[0].markdown.removesuffix(_TRUNCATION_MARKER)
+            dernier = corps.rfind("[")
+            assert dernier == -1 or "]" in corps[dernier:], (
+                f"budget {budget} : crochet resté ouvert — {corps[-30:]!r}"
+            )
