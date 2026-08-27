@@ -204,11 +204,23 @@ def _executer_sonde(nom: str, sonde: Callable[[], bool]) -> bool:
 async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
     """Lance une sonde synchrone, ou renonce si son fil précédent tourne encore.
 
-    `abandon_on_cancel=True` est ce qui donne un sens au plafond : par défaut
-    anyio SHIELDE l'attente du fil, donc l'annulation n'aboutit qu'une fois le
-    fil terminé, et un plafond posé sur l'appel par défaut n'aurait borné rien du
-    tout. Le fil n'est pas interrompu pour autant — il est lâché, et le garde
-    ci-dessus l'empêche d'être doublé.
+    Le plafond, lui, ne vient PAS de `abandon_on_cancel` : il vient de
+    `asyncio.wait(timeout=…)` et du fait qu'on n'attend pas l'annulation.
+    **Mesuré**, parce que le contraire semblait évident et ne l'était pas : un
+    plafond anyio (`move_on_after(0,3 s)`) autour d'une sonde bloquée 6 s rend en
+    **6,00 s** avec la valeur par défaut — le bouclier d'anyio diffère
+    l'annulation jusqu'au retour du fil, et le plafond ne borne alors plus rien —
+    et en **0,30 s** avec le drapeau ; `asyncio.wait` et `asyncio.wait_for`
+    rendent en 0,30 s dans les deux cas, l'annulation d'une tâche asyncio étant
+    délivrée directement au futur attendu. À refaire avec un `threading.Event`
+    non levé et les quatre combinaisons.
+
+    Le drapeau reste donc posé pour deux raisons, aucune n'étant le délai : il dit
+    la vérité sur le fil — lâché, pas interrompu — et il rend cet appel
+    indépendant du plafond employé, alors que remplacer `asyncio.wait` par une
+    construction anyio est une modification tout à fait plausible dans une
+    application qui tourne sur anyio. Aucun test ne le garde, faute d'effet
+    observable ici : consigné comme tel au registre (§1.27).
 
     Rend None pour « pas de réponse », qui n'est pas « le service est tombé ».
     """

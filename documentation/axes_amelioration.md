@@ -696,15 +696,11 @@ Les quatre sondes partent maintenant ensemble sous un plafond global de 3 s
 dans `docker-compose.yml`** : c'est le contrat de déploiement qui donne au
 plafond sa valeur, et il vit dans un autre fichier que celui qu'on corrige.
 
-Quatre décisions, qui sont le fond du sujet.
+Les décisions du lot, et ce qu'elles laissent ouvert.
 
 **Un fil abandonné n'est pas un fil interrompu.** Trois des quatre sondes sont
 synchrones et passent par `to_thread.run_sync` ; rien ne peut tuer un fil bloqué
-dans un appel réseau. Deux pièges s'enchaînent. D'abord, `abandon_on_cancel` vaut
-`False` par défaut, ce qui **shielde** l'attente : l'annulation n'aboutit qu'une
-fois le fil terminé, donc un `wait_for` posé sur l'appel par défaut n'aurait borné
-**rien du tout** — le plafond aurait été un ornement. Ensuite, une fois
-`abandon_on_cancel=True` posé, le plafond ne fait que *lâcher* le fil : sous un
+dans un appel réseau. Le plafond ne fait donc que *lâcher* le fil : sous un
 healthcheck toutes les 20 s contre un store muet, ils s'accumuleraient dans le
 threadpool que les endpoints de recherche partagent. Traité, pas consigné :
 `_sondes_en_vol` porte le nom des sondes dont le fil n'est pas revenu, et une
@@ -716,6 +712,25 @@ simultanés peuvent doubler une sonde le temps qu'un fil démarre. Poser le drap
 côté boucle fermerait cette fenêtre et en ouvrirait une pire — une tâche annulée
 avant que son fil ne démarre laisserait le drapeau posé pour toujours, et la
 sonde resterait « en vol » à jamais : une panne remplacée par une cécité.
+
+**Ce qui borne le plafond, et ce qui ne le borne pas.** La documentation d'anyio
+dit que `abandon_on_cancel=False` — la valeur par défaut — fait *ignorer les
+annulations jusqu'à ce que le fil ait fini*, ce qui rendrait tout plafond
+décoratif. J'ai failli l'écrire comme un fait sur ce code ; **mesuré, c'est faux
+ici**. Un plafond anyio (`move_on_after(0,3 s)`) sur une sonde bloquée 6 s rend en
+**6,00 s** par défaut et **0,30 s** avec le drapeau — le bouclier existe bel et
+bien — mais `asyncio.wait(timeout=…)` **comme** `asyncio.wait_for` rendent en
+**0,30 s dans les deux cas**, l'annulation d'une tâche asyncio étant délivrée
+directement au futur attendu. Le plafond de `/health` vient donc de
+`asyncio.wait` et du fait qu'on n'attend pas l'annulation, pas du drapeau ; la
+piste consignée au lot 3 (« un `asyncio.wait_for` global ») aurait fonctionné.
+Le drapeau reste posé pour deux raisons écrites au site, aucune n'étant le
+délai : il dit la vérité sur le fil, et il rend l'appel indépendant du plafond
+employé — remplacer `asyncio.wait` par une construction anyio est plausible dans
+une application qui tourne sur anyio. **Aucun test ne le garde**, faute d'effet
+observable ici : un test qui le prouverait testerait anyio, sur des sondes qui
+dorment. La mesure est à refaire avec un `threading.Event` non levé et les quatre
+combinaisons.
 
 **« Pas revenue » n'est pas « tombée ».** Le premier est un fait sur l'agent, le
 second sur le service. `services` reste un `dict[str, bool]` et publie `false`
