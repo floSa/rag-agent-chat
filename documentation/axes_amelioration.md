@@ -787,6 +787,40 @@ table des sondes, pas dans celui des retours.
 
 ---
 
+### 1.28 Le garde-fou des marqueurs de coupe ne jouait que dans un sens — `tests/unit/test_llm_budget.py`
+
+`test_la_notion_de_marqueur_complet_est_celle_du_post_processing` comparait
+`llm._MARKER_RE` — le motif qui décide où la troncature coupe — à
+`graph._BLOC_SRC` — celui qui résout les citations — sur **trois formes
+positives**. Un motif plus étroit se voyait ; un motif plus large, non. Vérifié
+sur le dépôt d'aujourd'hui : en élargissant `_MARKER_RE` à un crochet
+quelconque, la suite entière reste verte (**424 passed**).
+
+**La conséquence annoncée par cette fiche était fausse**, et c'est la correction
+la plus utile ici. Elle disait qu'un motif plus large « laisserait un `[src:`
+amputé derrière lui ». Il ne le peut pas : la coupe se pose toujours à la **fin**
+d'une correspondance, donc sur un `]`, et jamais à l'intérieur d'un marqueur.
+Mesuré sur trois corpus (`[Tableau]`, `[Figure]`, une note `[1]`) et toutes les
+limites de coupe : **zéro `[src:` amputé** dans les deux motifs.
+
+Le vrai dommage est l'autre dérive. Un motif large prend `[Tableau]`, `[Figure]`
+ou `[1]` pour une frontière d'élément et coupe juste après : le fragment retenu
+est alors du texte **sans identifiant de citation**, que le modèle lit et ne peut
+pas attribuer. C'est la seconde dérive de la troncature, celle qui fait citer un
+autre passage ou n'en citer aucun.
+
+Le test exige désormais l'équivalence dans les **deux sens** : quatre formes qui
+doivent être des frontières, six qui ne doivent pas l'être — dont celles que
+`_render_element` écrit réellement dans le markdown. Il asserte depuis
+`_MARKER_RE`, le côté qui **produit** la coupe, contre l'union de `_BLOC_SRC` et
+`_BLOC_IMG`, le côté qui résout. Un second test vérifie que les deux désignent le
+même identifiant, et pas seulement la même forme.
+
+Ce durcissement passait **avant** le remplissage au plus juste (§1.29) : tant que
+la coupe ne touchait que la première source retenue, elle était un chemin rare ;
+elle devient le chemin courant.
+
+
 ## 1bis. Corrigé — qualité, mesure, exploitation
 
 | Sujet | Ce qui a été fait |
@@ -842,7 +876,6 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 | P2 | La capture d'usage nomme « soumises » des sections qui ne l'ont pas été | **Trouvé au lot 4, non corrigé.** `record_completion(submitted=enriched)` écrit dans `submitted_element_ids` et `submitted_section_ids` les sections CANDIDATES, celles que le budget a écartées comprises — alors que `dropped_contexts` est stocké à part sur la même ligne. Les deux colonnes surestiment donc ce qui a été payé, du même écart que celui corrigé côté campagne. À la décharge de la capture, [capture_usage.md](capture_usage.md) le DIT — « les sections reconstruites, avant la coupe de fenêtre : à lire avec `dropped_contexts` » — donc c'est un nom trompeur et un chiffre absent, pas une affirmation fausse. `/answer` publie désormais la distinction (`retained`), donc la correction est à portée. Non faite ici : redéfinir le sens d'une colonne déjà écrite rend ambiguës les lignes existantes, et c'est le lot de la capture qui doit trancher ce qu'il garde. Aucun enregistrement réel n'existe à ce jour, ce qui rend la correction bon marché — raison de plus pour la faire délibérément. |
 | P2 | Le jeu doré ne contient aucun historique de conversation | **0 des 138 questions** de `golden_qa_generated.json` porte un `chat_history` (l'ancien jeu de 15 en a 3, mais `make eval` ne l'utilise pas). Or le bénéfice principal du budget corrigé est la survie du message système **au troisième tour** d'une conversation : la campagne mesurera le coût de la correction sans jamais mesurer son gain. C'est un manque du **jeu**, pas du protocole de lecture — celui-ci est prévenu dans [runs/README.md](../runs/README.md), et depuis le lot 4 le résumé affiche « [questions de suivi] 0 question — STRATE VIDE » au lieu d'omettre la ligne : le trou est désormais visible dans la sortie même. **Reporté au lot 1**, débloqué par : quelques questions de suivi ajoutées au jeu, et une relecture humaine pour les valider (cf. « Jeu doré non relu »). |
 | P2 | Ratio caractères/token posé au jugé | `_CHARS_PER_TOKEN = 3,5` gouverne tout le budget. Le log `prompt_eval_count` donne maintenant de quoi le calibrer, mais aucune campagne ne l'a encore fait (§ ci-dessus). |
-| P2 | Le garde-fou de `_MARKER_RE` ne joue que dans un sens | `test_la_notion_de_marqueur_complet_est_celle_du_post_processing` compare `llm._MARKER_RE` à `graph._BLOC_SRC` sur trois formes. Il attrape un `_MARKER_RE` plus **étroit** que le post-processing, mais pas un plus **large** : vérifié, en l'élargissant à `\[[^\]]*\]` — qui accepterait `[Tableau]` comme frontière de coupe, donc laisserait un `[src:` amputé derrière lui — la suite reste entièrement verte. Le test doit exiger l'équivalence dans les deux sens, sur des formes qui ne sont **pas** des marqueurs. **Reporté au lot 1**, débloqué par : rien, c'est un durcissement de test. |
 | P2 | `HISTORY_WINDOW_SHARE` posé au jugé | 25 % de la fenêtre de prompt pour l'historique, 75 % pour les sources. Forfait assumé : arbitrer demande de mesurer la qualité des réponses **multi-tour**, ce que `make eval` ne fait pas — le jeu doré ne pose que des questions isolées. Le réglage est exposé pour qu'un balayage soit possible le jour où la mesure existe. |
 | P3 | Balises de tour du gabarit de chat | 34 caractères par message, le décompte du gabarit Gemma appliqué à tous les modèles. Le log `prompt_eval_count` permettrait de le déduire par différence. |
 | P3 | `test_les_balises_de_tour_valent_le_gabarit_qu_elles_citent` ne valide rien d'externe | Le test recalcule `len("<start_of_turn>user\n") + len("<end_of_turn>\n")`, soit les mêmes littéraux que le commentaire de la constante : c'est un épinglage contre la dérive — utile — mais sa docstring laisse entendre une validation contre le gabarit réel de Gemma, qui n'a pas lieu. Le vrai gabarit vit dans le modèle Ollama, pas dans ce dépôt. **Reporté au lot 1**, débloqué par : reformuler la docstring en « épinglage », ou lire le gabarit du modèle servi — ce qui demande la stack. |

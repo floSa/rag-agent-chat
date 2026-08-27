@@ -460,17 +460,63 @@ def test_la_coupe_tombe_sur_une_frontiere_d_element() -> None:
     assert corps.endswith("]")
 
 
+# Ce que la troncature doit reconnaître comme frontière d'élément, et ce qu'elle
+# doit refuser. Les crochets de la colonne de droite existent dans le markdown
+# rendu — `_render_element` écrit « [Tableau] », « [Figure] » — et un document
+# peut en porter d'autres, une note « [1] » par exemple. Aucun ne porte
+# d'identité de citation.
+_FRONTIERES = ("[src:abcdef0123]", "[ src:abcdef0123]", "[SRC:abcdef0123]", "[img:abcdef0123]")
+_PAS_DES_FRONTIERES = ("[Tableau]", "[Figure]", "[1]", "[]", "[note de bas de page]", "[srcx:abc]")
+
+
 def test_la_notion_de_marqueur_complet_est_celle_du_post_processing() -> None:
-    """`_MARKER_RE` doit reconnaître ce que `_BLOC_SRC` de graph.py résout.
+    """`_MARKER_RE` doit reconnaître EXACTEMENT ce que le post-processing résout.
 
-    Un marqueur complet d'un seul côté rouvrirait l'écart : la troncature le
-    croirait tronqué et couperait trop tôt, ou l'inverse.
+    L'équivalence est exigée dans les DEUX sens, et c'est le point.
+
+    Trop étroite, la troncature croirait un marqueur incomplet, couperait avant
+    lui, et perdrait du texte que le modèle pouvait citer.
+
+    Trop large, elle prendrait un crochet quelconque pour une frontière
+    d'élément et couperait juste après — le fragment retenu serait alors du
+    texte d'élément privé de son identifiant, que le modèle lit sans pouvoir le
+    citer. C'est la seconde dérive de la troncature, et l'ancienne version de ce
+    test ne la voyait pas : elle ne comparait que trois formes POSITIVES, donc
+    élargir `_MARKER_RE` à un crochet quelconque gardait la suite entière verte.
+
+    L'assertion porte sur `_MARKER_RE`, le côté qui PRODUIT la coupe, comparé à
+    l'union de `_BLOC_SRC` et `_BLOC_IMG`, le côté qui résout — et non l'inverse.
     """
-    from src.agent.graph import _BLOC_SRC
+    from src.agent.graph import _BLOC_IMG, _BLOC_SRC
 
-    for marqueur in ("[src:abcdef0123]", "[ src:abcdef0123]", "[SRC:abcdef0123]"):
+    def resolu(texte: str) -> bool:
+        return bool(_BLOC_SRC.search(texte) or _BLOC_IMG.search(texte))
+
+    for marqueur in _FRONTIERES:
         texte = f"Du texte. {marqueur}"
-        assert bool(_BLOC_SRC.search(texte)) == bool(llm._MARKER_RE.search(texte)), marqueur  # noqa: SLF001
+        assert llm._MARKER_RE.search(texte), f"{marqueur} : frontière non reconnue"
+        assert resolu(texte), f"{marqueur} : le post-processing ne le résout pas"
+
+    for crochet in _PAS_DES_FRONTIERES:
+        texte = f"Du texte. {crochet}"
+        assert not llm._MARKER_RE.search(texte), (
+            f"{crochet} n'est pas un marqueur de citation : le prendre pour une "
+            "frontière de coupe laisserait un fragment sans identifiant"
+        )
+        assert not resolu(texte), f"{crochet} : le post-processing le résout à tort"
+
+
+def test_marqueur_et_post_processing_lisent_le_meme_identifiant() -> None:
+    """L'équivalence des motifs ne suffit pas : les deux doivent aussi désigner
+    le même élément, sinon la coupe garde un marqueur que la résolution attribue
+    ailleurs."""
+    from src.agent.graph import _BLOC_SRC, element_ids_cites
+
+    texte = "Un passage. [src:abcdef0123] un autre. [src:beef001122]"
+    coupes = [m.group(0) for m in llm._MARKER_RE.finditer(texte)]
+
+    assert coupes == ["[src:abcdef0123]", "[src:beef001122]"]
+    assert element_ids_cites(texte, _BLOC_SRC) == ["abcdef0123", "beef001122"]
 
 
 def test_une_fenetre_trop_etroite_pour_la_marque_ecarte_la_source() -> None:
