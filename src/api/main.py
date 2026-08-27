@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 import secrets
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -150,16 +151,148 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
+# Plafond global des sondes de /health, en secondes.
+#
+# `docker-compose.yml` coupe le healthcheck à 5 s et `frontend` attend
+# `agent-api` en `service_healthy`. Les quatre sondes enchaînées en SÉQUENCE
+# dépassaient ce délai dès que les stores ne répondaient plus : curl était tué,
+# les cinq tentatives échouaient, `agent-api` passait `unhealthy`, et le frontend
+# ne démarrait JAMAIS — alors que l'API répond 200 `degraded`, ce qu'elle est
+# écrite pour faire. Le healthcheck annulait l'intention de cette route.
+#
+# 3 s laisse 2 s de marge. Tout ce qui fait des entrées-sorties est SOUS ce
+# plafond, sondes et lecture de la base de capture comprises ; ce qui reste
+# dehors est du calcul en mémoire, énuméré dans `health()`.
+_PLAFOND_SONDES_S = 3.0
+
+# Sondes lancées et pas encore revenues.
+#
+# Une sonde SYNCHRONE ne s'interrompt pas : rien ne peut tuer un fil bloqué dans
+# un appel réseau, et renoncer à l'attendre ne fait que LÂCHER le fil, qui
+# continue de tourner. Sans ce garde, un healthcheck toutes les 20 s contre un
+# store muet lâcherait un fil de plus par sonde à chaque passage, dans le
+# threadpool que les endpoints de recherche partagent. Avec lui, une sonde déjà
+# en vol n'est pas relancée, donc un fil lâché par sonde à la fois — quelle que
+# soit la durée de la panne.
+#
+# Reste un résidu, assumé : le drapeau est posé par le FIL, et la décision de
+# lancer est prise par la boucle. Deux /health VRAIMENT simultanés peuvent donc
+# doubler une sonde, le temps que le premier fil démarre. Poser le drapeau côté
+# boucle fermerait cette fenêtre et en ouvrirait une pire : si la tâche est
+# annulée avant que le fil ne démarre (threadpool saturé), plus personne ne
+# retire le drapeau et la sonde reste « en vol » à jamais — une panne remplacée
+# par une cécité définitive. Le healthcheck passe toutes les 20 s ; la fenêtre
+# ici dure le temps d'un démarrage de fil.
+_sondes_en_vol: set[str] = set()
+
+
+def _executer_sonde(nom: str, sonde: Callable[[], bool]) -> bool:
+    """Exécute une sonde synchrone DANS le fil du threadpool.
+
+    Le drapeau « en vol » est posé et retiré ici, par le fil lui-même, et non par
+    la tâche qui l'attend : celle-ci rend la main au plafond, alors que le fil
+    tourne encore. Retiré côté tâche, le garde laisserait repartir un second fil
+    à chaque appel de /health — exactement ce qu'il existe pour empêcher.
+    """
+    _sondes_en_vol.add(nom)
+    try:
+        return sonde()
+    finally:
+        _sondes_en_vol.discard(nom)
+
+
+async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
+    """Lance une sonde synchrone, ou renonce si son fil précédent tourne encore.
+
+    `abandon_on_cancel=True` est ce qui donne un sens au plafond : par défaut
+    anyio SHIELDE l'attente du fil, donc l'annulation n'aboutit qu'une fois le
+    fil terminé, et un plafond posé sur l'appel par défaut n'aurait borné rien du
+    tout. Le fil n'est pas interrompu pour autant — il est lâché, et le garde
+    ci-dessus l'empêche d'être doublé.
+
+    Rend None pour « pas de réponse », qui n'est pas « le service est tombé ».
+    """
+    if nom in _sondes_en_vol:
+        logger.debug("/health: sonde %s encore en vol, aucun second fil lancé", nom)
+        return None
+    return await to_thread.run_sync(_executer_sonde, nom, sonde, abandon_on_cancel=True)
+
+
+async def _sonder_ollama() -> bool:
+    """Sonde HTTP d'Ollama.
+
+    Seule sonde réellement interruptible des quatre : elle fait des
+    entrées-sorties asynchrones, donc le plafond la coupe pour de bon, sans
+    laisser de fil derrière lui. Son propre délai de 5 s est désormais dominé par
+    le plafond ; il reste parce qu'il est le contrat de CETTE sonde, et qu'un
+    plafond global n'en tient pas lieu.
+
+    `httpx.InvalidURL` n'est pas rattrapée, et c'est la décision écrite dans
+    `llm.py` : elle n'hérite pas de `HTTPError`, un OLLAMA_HOST mal formé est une
+    erreur de configuration et non une panne de service. Elle remonte donc à
+    `_relever`, qui la journalise en nommant son type au lieu de la taire.
+    """
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        resp = await client.get(f"{settings.ollama_host}/api/tags")
+        return resp.status_code == 200
+
+
+def _relever[T](nom: str, tache: asyncio.Task[T], *, si_levee: T | None) -> T | None:
+    """Ce qu'une sonde a rendu, ou None quand elle n'a rien rendu.
+
+    Paramétré parce que la même attente borne les quatre sondes, qui rendent des
+    booléens, ET la lecture de la base de capture, qui rend un `UsageStats`.
+
+    Trois cas, qui ne veulent pas dire la même chose :
+
+    - **pas revenue** avant le plafond : on renonce à l'attendre, et l'événement
+      est journalisé. Pour une sonde synchrone, cela LÂCHE son fil, et le journal
+      ne le répète pas : les appels suivants la trouvent en vol et se taisent en
+      DEBUG.
+    - **revenue en levant** : les sondes absorbent déjà leurs pannes, donc une
+      exception ici est un défaut de programmation. Elle est journalisée avec son
+      type — ce n'est pas une absorption muette — et publiée fausse : /health n'a
+      aucune preuve que le service répond. La propager ferait rendre 500 à
+      /health, donc redémarrer le service en boucle, ce que cette route existe
+      précisément pour éviter. `si_levee` dit ce qui est publié alors, et il est
+      nommé à l'appel : faux pour une sonde, qui a répondu par une panne ; rien
+      pour la base de capture, dont l'absence se dit déjà en null.
+    - **revenue** : sa valeur.
+    """
+    if not tache.done():
+        logger.warning(
+            "/health: %s n'a pas répondu en %.1f s ; on renonce à l'attendre",
+            nom,
+            _PLAFOND_SONDES_S,
+        )
+        tache.cancel()
+        return None
+    if tache.cancelled():
+        return None
+    exc = tache.exception()
+    if exc is not None:
+        logger.warning("/health: sonde %s a levé %s: %s", nom, type(exc).__name__, exc)
+        return si_levee
+    return tache.result()
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Vérifie réellement les trois dépendances (Chroma, Nebula, Ollama).
 
+    Les quatre sondes partent EN PARALLÈLE sous un plafond global : en séquence,
+    elles dépassaient le délai du healthcheck et empêchaient le frontend de
+    démarrer (voir `_PLAFOND_SONDES_S`).
+
     Retourne toujours 200 (pour ne pas déclencher de restart en boucle) avec
     le détail par service ; status passe à "degraded" si l'une est down.
     """
-    services: dict[str, bool] = {
-        "chromadb": await to_thread.run_sync(chroma_ping),
-        "nebulagraph": await to_thread.run_sync(nebula_ping),
+    # Table construite à l'appel, pas au chargement du module : les sondes sont
+    # des noms de module, et une table figée à l'import ne verrait plus leur
+    # remplacement.
+    sondes: dict[str, Callable[[], bool]] = {
+        "chromadb": chroma_ping,
+        "nebulagraph": nebula_ping,
         # Faux couvre DEUX cas, et c'est voulu : l'index pas encore construit
         # (la première requête paiera sa construction, la recherche est dense
         # seule d'ici là) et l'index construit sur un corpus qui n'existe plus.
@@ -167,29 +300,58 @@ async def health() -> HealthResponse:
         # qui écrit dans Chroma pendant que l'agent tourne, et un `true` sur un
         # index périmé décrivait un corpus disparu — la recherche lexicale ne
         # voyait aucun document ingéré après le démarrage.
-        "index_lexical": await to_thread.run_sync(lexical_ready),
+        "index_lexical": lexical_ready,
     }
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{settings.ollama_host}/api/tags")
-            services["ollama"] = resp.status_code == 200
-    except httpx.HTTPError:
-        services["ollama"] = False
+    taches: dict[str, asyncio.Task[bool | None]] = {
+        nom: asyncio.create_task(_sonder(nom, sonde)) for nom, sonde in sondes.items()
+    }
+    taches["ollama"] = asyncio.create_task(_sonder_ollama())
+    # Sous le MÊME plafond : `usage_stats` ouvre SQLite avec un busy_timeout de
+    # 5 s, donc laissée dehors elle pouvait à elle seule faire dépasser le délai
+    # du healthcheck, sans qu'aucune sonde soit en cause — un plafond qui ne
+    # couvre pas tout finit par mentir. Son absence se dit en null, déjà prévu
+    # par le contrat ; l'inventer en zéros décrirait une base vide. Ce que le
+    # plafond y lâche est borné tout seul : aiosqlite tient un fil par connexion,
+    # et la connexion abandonnée le ferme en se faisant collecter — au plus une à
+    # la fois, le healthcheck ne passant que toutes les 20 s.
+    tache_usage = asyncio.create_task(usage_stats())
+
+    # Liste typée `Future[Any]` : les tâches n'ont pas toutes le même type de
+    # résultat, et c'est bien la même attente qui les borne toutes.
+    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage]
+    await asyncio.wait(attente, timeout=_PLAFOND_SONDES_S)
+
+    services: dict[str, bool] = {}
+    # Une sonde qui n'est pas revenue n'est pas une sonde qui a échoué : le
+    # second est un fait sur le service, le premier un fait sur l'agent.
+    # `services` reste un `dict[str, bool]` — le healthcheck comme l'exploitant
+    # ne doivent en aucun cas lire « je n'ai pas eu le temps de regarder » comme
+    # « ça répond » — et la distinction est portée à côté, en clair.
+    inconnues: list[str] = []
+    for nom, tache in taches.items():
+        resultat = _relever(nom, tache, si_levee=False)
+        services[nom] = bool(resultat)
+        if resultat is None:
+            inconnues.append(nom)
 
     # L'index lexical n'est pas une dépendance : son absence dégrade la
     # recherche, elle ne l'empêche pas. Le healthcheck Docker ne doit pas
     # redémarrer le service pour ça.
     essentiels = {k: v for k, v in services.items() if k != "index_lexical"}
     status = "ok" if all(essentiels.values()) else "degraded"
-    # `stats` absorbe ses propres échecs et rend des zéros : une sonde qui
-    # tombe parce qu'une base d'observation est illisible serait une régression,
-    # pas une mesure. Le compteur `failures` dit alors ce qui s'est passé.
+    # Hors du plafond, et borné : `sessions.stats()` et `sessions.durable()` ne
+    # lisent que des compteurs en mémoire et un réglage — aucune entrée-sortie,
+    # donc rien qui puisse attendre. `stats` absorbe ses propres échecs et rend
+    # des zéros : une sonde qui tombe parce qu'une base d'observation est
+    # illisible serait une régression, pas une mesure. Le compteur `failures` dit
+    # alors ce qui s'est passé.
     chemin, vivantes, purgees, echecs = sessions.stats()
     return HealthResponse(
         status=status,
         ollama_model=settings.ollama_model,
         services=services,
-        usage=await usage_stats(),
+        services_unknown=inconnues,
+        usage=_relever("usage", tache_usage, si_levee=None),
         sessions=SessionStats(
             path=chemin,
             durable=sessions.durable(),

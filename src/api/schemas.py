@@ -464,6 +464,15 @@ class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
     services: dict[str, bool] = Field(default_factory=dict)
+    # Sondes qui n'ont pas répondu avant le plafond de /health. Elles valent
+    # `false` dans `services`, et ce n'est pas une approximation : le healthcheck
+    # comme l'exploitant ne doivent jamais lire « je n'ai pas eu le temps de
+    # regarder » comme « ça répond ». Mais les deux ne se soignent pas pareil —
+    # une panne est un fait sur le service, une sonde non revenue un fait sur
+    # l'agent — donc la distinction existe ici, à côté du contrat plutôt que
+    # dedans : élargir `services` en `dict[str, bool | None]` aurait imposé le
+    # doute à tous ses lecteurs pour un cas qui est normalement vide.
+    services_unknown: list[str] = Field(default_factory=list)
     # Taille de la base de capture. Aucune purge n'existe : un actif qui
     # grossit sans qu'on le sache redevient une fuite, donc la sonde le porte.
     usage: UsageStats | None = None
