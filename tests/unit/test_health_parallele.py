@@ -68,13 +68,11 @@ class _SondeMuette:
     def __init__(self, plafond: float = _CAP_SECURITE_S) -> None:
         self.debloquer = threading.Event()
         self.entrees = 0
-        self.sorties = 0
         self._plafond = plafond
 
     def __call__(self) -> bool:
         self.entrees += 1
         self.debloquer.wait(self._plafond)
-        self.sorties += 1
         return True
 
 
@@ -121,6 +119,23 @@ class _SondesMuettes:
         return lambda **_kwargs: Client()
 
 
+def _ollama_repond_vrai():
+    class Reponse:
+        status_code = 200
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        async def get(self, *_args, **_kwargs):
+            return Reponse()
+
+    return lambda **_kwargs: Client()
+
+
 def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
     from src.api import main
 
@@ -138,9 +153,9 @@ def _sans_sonde_en_vol():
     """
     from src.api import main
 
-    main._sondes_en_vol.clear()  # noqa: SLF001
+    main._sondes_en_vol.clear()
     yield
-    main._sondes_en_vol.clear()  # noqa: SLF001
+    main._sondes_en_vol.clear()
 
 
 # ─── Le défaut ────────────────────────────────────────────────────────────────
@@ -162,7 +177,7 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
     finally:
         sondes.liberer()
 
-    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.status_code == 200
     assert ecoule < _delai_du_healthcheck(), (
         f"/health a mis {ecoule:.1f} s : curl est tué avant, donc agent-api "
         "passe unhealthy et le frontend n'est jamais démarré"
@@ -175,6 +190,15 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
         "index_lexical": False,
         "ollama": False,
     }
+    # L'exécution n'est plus ordonnée, la RÉPONSE doit l'être : les deux champs
+    # sont publiés dans l'ordre de la table des sondes, pas dans celui des
+    # retours, sans quoi un exploitant lirait un ordre qui change à chaque appel.
+    assert corps["services_unknown"] == [
+        "chromadb",
+        "nebulagraph",
+        "index_lexical",
+        "ollama",
+    ]
 
 
 def test_le_plafond_laisse_une_marge_au_delai_du_healthcheck() -> None:
@@ -186,7 +210,7 @@ def test_le_plafond_laisse_une_marge_au_delai_du_healthcheck() -> None:
     """
     from src.api import main
 
-    assert _delai_du_healthcheck() > main._PLAFOND_SONDES_S  # noqa: SLF001
+    assert _delai_du_healthcheck() > main._PLAFOND_SONDES_S
 
 
 # ─── Le parallélisme, et non la seule borne ───────────────────────────────────
@@ -307,23 +331,6 @@ def test_un_index_lexical_non_revenu_ne_degrade_pas_le_statut(monkeypatch) -> No
     assert corps["status"] == "ok"
 
 
-def _ollama_repond_vrai():
-    class Reponse:
-        status_code = 200
-
-    class Client:
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, *_):
-            return False
-
-        async def get(self, *_args, **_kwargs):
-            return Reponse()
-
-    return lambda **_kwargs: Client()
-
-
 # ─── Les fils abandonnés ──────────────────────────────────────────────────────
 
 def test_une_sonde_toujours_en_vol_ne_relance_pas_un_second_fil(monkeypatch, caplog) -> None:
@@ -381,13 +388,13 @@ def test_le_fil_revenu_rend_la_sonde_a_nouveau_interrogeable(monkeypatch) -> Non
         sondes.liberer()
 
     for _ in range(50):
-        if not main._sondes_en_vol:  # noqa: SLF001
+        if not main._sondes_en_vol:
             break
         time.sleep(0.02)
 
     corps = client.get("/health").json()
 
-    assert sondes.chromadb.entrees == 2, "la sonde revenue doit être réinterrogée"  # noqa: PLR2004
+    assert sondes.chromadb.entrees == 2, "la sonde revenue doit être réinterrogée"
     assert corps["services"]["chromadb"] is True
     assert corps["services_unknown"] == [], "toutes les sondes ont répondu au second appel"
 
@@ -417,7 +424,7 @@ def test_une_sonde_qui_leve_ne_fait_pas_tomber_health(monkeypatch, caplog) -> No
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
 
-    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.status_code == 200
     corps = reponse.json()
     assert corps["services"]["chromadb"] is False
     # Elle a répondu, en levant : ce n'est pas un inconnu, c'est un non.
@@ -447,7 +454,7 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
 
-    assert reponse.status_code == 200  # noqa: PLR2004
+    assert reponse.status_code == 200
     assert reponse.json()["services"]["ollama"] is False
     assert reponse.json()["status"] == "degraded"
     assert any("ollama" in message.lower() for message in caplog.messages)
@@ -483,8 +490,8 @@ def test_la_lecture_de_la_base_de_capture_est_sous_le_plafond(monkeypatch) -> No
     reponse = TestClient(main.app).get("/health")
     ecoule = time.monotonic() - debut
 
-    assert reponse.status_code == 200  # noqa: PLR2004
-    assert ecoule < 5.0, f"/health a mis {ecoule:.1f} s hors sondes"  # noqa: PLR2004
+    assert reponse.status_code == 200
+    assert ecoule < 5.0, f"/health a mis {ecoule:.1f} s hors sondes"
     # `usage` est déjà optionnel dans le contrat : l'absence se dit en null,
     # elle ne s'invente pas en zéros — qui décriraient une base vide.
     assert reponse.json()["usage"] is None
