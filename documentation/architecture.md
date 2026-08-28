@@ -184,6 +184,57 @@ N.
 du processus qui reçoit la requête. Le contrat suppose aujourd'hui un worker
 unique ; les autres attendent leur filet.
 
+## La partition du temps
+
+`AnswerResponse` ne portait que `retrieval_ms` et `generation_ms` : deux chiffres
+pour huit étages, dont celui qui n'avait **jamais** été chronométré — la
+reconstruction par le graphe, c'est-à-dire le pari central du projet. On ne peut
+pas arbitrer la suppression d'une étape dont on ignore le prix, et c'est la
+raison d'être de `src/agent/chronometrie.py`.
+
+Le module tient une **partition**, pas une collection de compteurs. Ce qu'un
+lecteur doit attendre :
+
+- **la somme des étages plus le résidu égale le temps mural.** `total_ms` est
+  mesuré autour de la traversée entière du graphe : c'est le seul chiffre qui ne
+  dépende d'aucune instrumentation interne, donc le seul contre lequel la
+  partition puisse être confrontée ;
+- **le résidu est publié, et il peut devenir négatif.** Il porte ce qu'aucun
+  étage ne réclame — l'ordonnancement de LangGraph, le post-traitement des
+  citations, l'assemblage de la réponse HTTP. Un résidu négatif est la **seule
+  trace observable** d'un double comptage : le borner à zéro effacerait
+  précisément ce qu'on cherche à voir. Un résidu large est en soi un résultat,
+  c'est du temps que personne ne sait expliquer ;
+- **`retrieval_ms` survit comme AGRÉGAT, pas comme étage.** Il est le temps
+  mural du nœud de recherche et contient `dense_ms`, `lexical_ms` et
+  `fusion_ms`. Il reste publié parce que la capture d'usage a une colonne de ce
+  nom et qu'`AnswerResponse` le porte depuis l'origine — mais l'ajouter à
+  `ETAGES` doublerait le comptage de tout l'étage de recherche. C'est le piège
+  que ce module existe pour fermer, donc il est nommé dans `AGREGATS` plutôt
+  que laissé à la sagacité du prochain lecteur ;
+- **un nom d'étage inconnu lève `KeyError`.** C'est délibérément brutal : un
+  étage mal nommé n'échoue pas, il *disparaît* — son temps tombe au résidu et la
+  table de latence continue de s'afficher comme si elle était complète ;
+- **l'accumulation est cumulative.** La boucle agentique repasse par la
+  recherche et par la génération ; ce qui compte pour arbitrer un étage est ce
+  qu'il coûte à la réponse entière, pas à son dernier passage. `cumuler` ajoute
+  au lieu d'écraser, l'état LangGraph étant remplacé nœud par nœud.
+
+`rewrite_ms` et `translation_ms` sont deux appels LLM distincts et se mesurent
+séparément : la traduction est un coût de la recherche translingue, la
+réécriture un coût des questions de suivi, et les deux s'arbitrent
+indépendamment.
+
+**Limite connue :** le post-traitement des citations n'a pas d'étage à lui et
+tombe donc dans le résidu — non nul, et non mesuré séparément. La restriction
+des citations aux éléments réellement soumis y ajoute un balayage de marqueurs
+par section soumise ; l'effet est consigné dans [runs/README.md](../runs/README.md)
+plutôt qu'appelé zéro.
+
+`scripts/evaluate.py` publie p50 **et** p95 par étage — une moyenne de latence
+cache la queue, et c'est la queue qui décide de l'expérience — et un test de
+cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
+
 ## Décisions d'architecture
 
 - **Reconstruction par le graphe** plutôt que chunks isolés : le LLM reçoit la

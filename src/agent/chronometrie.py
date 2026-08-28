@@ -1,7 +1,7 @@
 """Partition du temps d'une réponse par étage.
 
 `AnswerResponse` ne portait que `retrieval_ms` et `generation_ms` : deux
-chiffres pour sept étages, dont celui qui n'avait jamais été chronométré — la
+chiffres pour huit étages, dont celui qui n'avait jamais été chronométré — la
 reconstruction par le graphe, c'est-à-dire le pari central du projet. On ne peut
 pas arbitrer la suppression d'une étape dont on ignore le prix.
 
