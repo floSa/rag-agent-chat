@@ -15,7 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.agent import usage
-from src.api.schemas import ChunkResult, SectionContext
+from src.api.schemas import ChunkResult, SectionContext, SectionElement
 
 
 def _chunk(element_id: str, relevance: float) -> ChunkResult:
@@ -56,15 +56,53 @@ _SECTIONS = {
 
 
 def _section(element_id: str) -> SectionContext:
+    """Section reconstruite, marqueurs compris.
+
+    Elle porte les marqueurs de TOUS les éléments de sa section, comme la
+    reconstruction réelle : lequel des deux a ancré la remontée ne doit pas
+    changer ce que le texte soumis contient. La résolution des citations lit ces
+    marqueurs pour savoir ce qui a été envoyé au modèle — un markdown sans
+    marqueur ne cite plus rien, et le faux ne ressemblerait plus à ce qu'il
+    remplace.
+    """
+    section_id = _SECTIONS.get(element_id, "ssssssssxx")
+    freres = [eid for eid, sid in _SECTIONS.items() if sid == section_id] or [element_id]
     return SectionContext(
         element_id=element_id,
-        section_id=_SECTIONS.get(element_id, "ssssssssxx"),
+        section_id=section_id,
         breadcrumbs=[],
-        elements=[],
-        markdown="Le contexte reconstruit.",
+        elements=[
+            SectionElement(
+                node_id=eid, label="paragraph", text="Le contexte reconstruit.", sequence=i
+            )
+            for i, eid in enumerate(freres)
+        ],
+        markdown=" ".join(f"Le contexte reconstruit. [src:{eid}]" for eid in freres),
         filename="3. Statistical Toolbox",
         section_title="Dispersion",
     )
+
+
+def _annoncer_le_budget(args: tuple, kwargs: dict) -> None:
+    """Appelle `on_fit` avec le VRAI budget, comme le fait `generate_stream`.
+
+    Les deux conventions d'appel sont acceptées parce que les deux existent :
+    `node_generate` passe tout par mots-clés, `/chat/simple` passe la question,
+    les contextes et l'historique en positionnel.
+
+    Sans ce rappel, l'état ne porte aucune section soumise, aucune citation ne se
+    résout, et un faux muet sur ce point rendrait vertes des routes qui ne citent
+    plus rien.
+    """
+    from src.agent.llm import fit_prompt
+
+    on_fit = kwargs.get("on_fit")
+    if on_fit is None:
+        return
+    question = kwargs.get("question", args[0] if args else "")
+    contexts = kwargs.get("contexts", args[1] if len(args) > 1 else [])
+    historique = kwargs.get("chat_history", args[2] if len(args) > 2 else None)
+    on_fit(fit_prompt(question, contexts or [], historique))
 
 
 def _client(tmp_path, monkeypatch, capture: bool):
@@ -98,7 +136,8 @@ def _client(tmp_path, monkeypatch, capture: bool):
     async def pas_de_traduction(_question):
         return "how to measure dispersion"
 
-    async def generation(*_args, **_kwargs):
+    async def generation(*args, **kwargs):
+        _annoncer_le_budget(args, kwargs)
         for token in ("La dispersion ", "se mesure [src:abcdef0123]."):
             yield token
 
@@ -361,7 +400,8 @@ def test_chat_simple_hors_flux_rend_aussi_son_thread_id(client, base, monkeypatc
     """Même route, réponse non diffusée : le champ doit y être aussi."""
     from src.agent import llm as llm_module
 
-    async def generation(*_args, **_kwargs):
+    async def generation(*args, **kwargs):
+        _annoncer_le_budget(args, kwargs)
         return "La dispersion se mesure [src:abcdef0123]."
 
     monkeypatch.setattr(llm_module, "generate", generation)

@@ -967,12 +967,14 @@ entre ce que le modèle lit et ce qu'il peut citer. Deux dérives.
 *Le marqueur survit, son contenu part* — le modèle cite une source dont il n'a
 pas vu le texte. **Impossible par construction** : `_render_element` écrit
 « texte [src:ID] », le marqueur SUIT son élément, et toute coupe est un préfixe.
-Ce n'est pas une précaution, c'est la forme du markdown. Elle compte parce que
-`resolve_citations` résout un `[src:ID]` depuis `SectionContext.elements` — le
-MODÈLE — et non depuis le texte soumis : un marqueur orphelin rendrait une
-citation vers un extrait jamais envoyé. Épinglé par un test qui montre que le
-post-processing résout bel et bien un identifiant coupé, pour que personne ne
-croie la garantie logée dans le résolveur : elle est dans la coupe.
+Ce n'est pas une précaution, c'est la forme du markdown. Elle comptait d'autant
+plus que `resolve_citations` résolvait alors un `[src:ID]` depuis
+`SectionContext.elements` — le MODÈLE — et non depuis le texte soumis : un
+marqueur orphelin rendait une citation vers un extrait jamais envoyé, et un test
+l'épinglait pour que personne ne croie la garantie logée dans le résolveur. Elle
+est depuis **aux deux bouts** (§1.31) : le résolveur refuse un identifiant absent
+du texte soumis, et le test d'épinglage a été retourné en garde. Celle de la
+coupe reste la seule à protéger le TEXTE — l'autre ne protège que la citation.
 
 *Le contenu survit, son marqueur part* — le modèle lit un passage qu'il ne peut
 pas attribuer, donc il l'utilise sans référence ou le rattache au marqueur
@@ -1038,6 +1040,107 @@ candidates de même section. Il n'y en a jamais deux parce que
 déduplication porte donc la justesse de `retained`, et la retirer casserait une
 métrique du lot 4 sans toucher au lot 4.
 
+### 1.31 Une citation résolvait vers un texte jamais soumis au modèle — `agent/graph.py`, `agent/llm.py`, `api/main.py`
+
+`resolve_citations` résolvait un `[src:ID]` depuis deux tables dont **aucune**
+n'était restreinte à ce que le budget de fenêtre avait envoyé : `elements_map`,
+bâtie sur les sections CANDIDATES que `node_postprocess` lui passait, et
+`chunks_map`, bâtie sur TOUS les chunks reranqués. Un identifiant écarté
+ressortait donc résolu — document, page, section, extrait — vers un passage que le
+modèle n'avait pas lu. Rouge sur `main`, la citation que le défaut produisait :
+
+```
+Citation(element_id='bbbbbbbbbb', filename='3. Statistical Toolbox',
+         collection='The Statistics Workshop', section_title='Dispersion',
+         page_no=88, text_excerpt='Le texte du chunk, celui que le classement porte.')
+```
+
+L'extrait est celui du **chunk du classement**, jamais celui du prompt : c'est ce
+qui rend la fausse citation indétectable à la lecture.
+
+**Le chemin est l'historique, et il est prouvé maillon par maillon.** L'objection
+évidente — le modèle ne peut pas citer ce qu'il n'a jamais vu — tombe sur le
+multi-tour : `fit_history` resoumet les réponses passées marqueurs compris, et le
+gabarit ordonne de reprendre les identifiants tels quels. Le test du chemin réel
+exige les trois maillons dans le même corps, sur le vrai `_build_messages` : le
+budget écarte bien la section (`dropped_contexts == 1`, et elle est absente des
+retenues), le marqueur est bel et bien dans le prompt du tour courant par
+l'historique, et la citation qui le recite est refusée. Sans le maillon du milieu,
+le lot n'aurait corrigé qu'un défaut inatteignable.
+
+**Le grain est l'ÉLÉMENT, pas la section, et c'est le cœur du lot.** Une section
+retenue peut avoir été TRONQUÉE : l'élément dont le marqueur est tombé à la coupe
+n'a pas été soumis, même si sa section l'a été. Le filtre lit donc
+`element_ids_presents(ctx.markdown)` — les marqueurs du texte réellement envoyé,
+l'instrument du lot 4 — et non `ctx.elements`, qui est le modèle et garde tout.
+Choisir la section aurait laissé ouverte exactement la fenêtre que le §1.30
+décrivait comme fermée par la coupe : mutation vérifiée, le grain de la section
+laisse passer l'élément coupé et deux tests le disent.
+
+Ce qui change de statut, et c'était écrit à trois endroits : « la garantie est
+dans la coupe, pas dans le résolveur ». Elle est désormais **aux deux bouts**.
+Celle de la coupe protège le TEXTE — un marqueur retenu a son texte devant lui —
+celle du résolveur protège la CITATION. Les trois phrases sont corrigées, dans le
+même commit que le code : `llm.py` (`_truncate`), `test_llm_budget.py`, et le test
+d'épinglage de `test_precision_contexte.py`, qui **affirmait l'inverse** et avait
+raison de l'affirmer avant ce lot.
+
+**Un identifiant connu mais non soumis est un troisième cas**, distinct de
+l'inventé et du légitime : il est refusé, et journalisé en WARNING. Le laisser
+tomber en silence empêcherait d'apprendre s'il se produit vraiment en production,
+et c'est la seule question qui reste ouverte sur ce défaut. L'inventé, lui, reste
+ignoré sans bruit — un test garde le fait qu'il ne déclenche pas l'avertissement,
+sinon le journal serait bavard sur un cas ordinaire et le vrai signal s'y noierait.
+La classification du journal est incomplète et le dit au site : un élément d'une
+section écartée ENTIÈREMENT n'est reconnu que si le classement le porte encore.
+Le refus, lui, ne dépend pas de cette distinction.
+
+**Les images suivent, et pas au même grain.** La voie 1 — un `[img:ID]` que le
+modèle écrit — est filtrée comme une citation : c'est une affirmation sur ce qu'il
+a vu. La voie 2 — les illustrations attachées à une section citée — reste au grain
+de la SECTION : une figure n'a pas de texte, le modèle n'en voit jamais qu'un
+marqueur, et la retirer parce que la coupe a emporté ce marqueur ne corrigerait
+aucun mensonge tout en privant le lecteur d'une figure qui appartient réellement à
+la section citée. Une section jamais soumise, elle, ne peut plus rien illustrer.
+Les deux décisions ont leur test, et leur mutation : filtrer `media_map` fait
+rougir l'une, ne pas filtrer la voie 1 fait rougir l'autre. Ce qui disparaît est
+visible par l'utilisateur — `MAX_IMAGES` borne toujours à 4, et
+`numeroter_citations` du frontend **retire** les marqueurs non résolus au lieu de
+les laisser bruts, donc le texte de la réponse reste propre : ce que le lecteur
+perd est la carte de source, pas la lisibilité.
+
+**Ce que le multi-tour perd, assumé.** Un modèle qui recite le `[src:ID]` d'un
+tour précédent voit sa citation refusée. La réponse peut rester vraie, et c'est
+l'argument contraire ; il ne l'emporte pas, parce qu'une carte de source affirme
+« cette phrase vient de ce passage, que j'ai lu », et que ce n'est plus vrai au
+tour courant. Le coût réel est borné par ce que le frontend fait déjà des
+marqueurs non résolus.
+
+**`/chat/simple` ne passe pas par le graphe** : personne n'y renseignait
+`submitted_contexts`. Le rappel `on_fit` est posé au point d'appel, sur les deux
+chemins, et `generate` le relaie — du câblage, le budget restant appliqué au même
+endroit. Un budget vide y **ferme** la résolution au lieu de retomber sur les
+candidates : le jour où le câblage sera défait, une réponse sans citations et un
+WARNING se voient, une citation fausse ne se voit pas. `node_postprocess` tranche
+pareil, et le dit aussi quand des candidates existent sans aucune section soumise.
+La capture d'usage de cette route enregistre toujours les CANDIDATES dans
+`submitted_element_ids`, alors que la valeur juste était sous la main : la
+corriger ici seulement aurait donné à une même colonne deux sens selon la route,
+ce qui est pire qu'un nom trompeur uniforme. L'entrée §2 « La capture d'usage
+nomme « soumises » des sections qui ne l'ont pas été » garde ce sujet, et elle
+demande de trancher les trois routes ensemble.
+
+**Deux tests du dépôt étaient verts grâce au défaut**, et il faut le dire :
+`test_citation_issue_d_un_chunk_reranque` et
+`test_citation_dupliquee_n_apparait_qu_une_fois` résolvaient depuis `chunks_map`
+avec `submitted_contexts` VIDE. Ils portent maintenant un état où l'élément est
+dans le classement ET dans une section soumise — le cas normal, l'élément
+d'ancrage étant ce qui a fait remonter la section. Deux faux ont dû changer pour
+la même raison : ceux de `test_flux_interactif.py` et `test_capture_branchement.py`
+remplaçaient `generate_stream` en entier sans jamais appeler `on_fit`, ce que le
+dépôt savait et avait écrit. Ils appellent désormais le vrai `fit_prompt`, et les
+sections de leurs fixtures portent leurs marqueurs comme la production les porte.
+
 
 ## 1bis. Corrigé — qualité, mesure, exploitation
 
@@ -1079,7 +1182,6 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 
 | Priorité | Sujet | Détail |
 |---|---|---|
-| P1 | `resolve_citations` résout une section JAMAIS SOUMISE au modèle | `node_postprocess` lui passe `enriched_contexts` — toutes les candidates reconstruites, y compris celles que le budget a écartées — et sa table de correspondance retombe sur `chunks_map`. Un `[src:ID]` qui n'était pas dans le prompt ressort donc résolu, avec un extrait plausible que le modèle n'a jamais reçu. Le chemin est atteignable en production par l'**historique** : `fit_history` resoumet les réponses passées marqueurs compris et le prompt système ordonne de les reprendre tels quels, donc il suffit que le tour 1 ait soumis une section que le budget du tour 2 écarte. **Ce n'est pas une régression du lot 6** — la garantie de la coupe porte sur la coupe, et ce chemin-ci préexiste — mais elle ne le couvre pas, et le §1.30 pourrait le laisser croire. Correctif chiffré : passer `submitted_contexts` (déjà dans l'état, `state.py`) au lieu d'`enriched_contexts`, filtrer `chunks_map` sur les identifiants soumis, remonter `on_fit` dans `/chat/simple` — environ 9 lignes et 3 tests. Débloqué par : rien. |
 | P2 | La boucle agentique n'est pas retriée, et ce choix n'était pas écrit | Dans la branche d'itération de `node_reconstruct_context`, `contexts` vaut « anciens + nouveaux » sans retri : les chunks d'un reranking **frais** arrivent en fin de liste et sont donc les premiers candidats à la troncature, alors qu'ils sont les plus pertinents pour ce que le LLM vient de demander. La raison de ne pas retrier est réelle — le modèle a déjà rédigé en s'appuyant sur les premières, et renuméroter changerait sous lui le sens de « Source 2 » — mais elle n'était écrite nulle part, et le docstring affirmait au contraire que « dans les deux cas la reconstruction suit le classement ». C'est désormais écrit comme un choix. Ce qu'il coûte n'est pas mesuré. Débloqué par : rien, mais l'arbitrage est un choix produit. |
 | P1 | Le pari central n'est pas vérifié | Personne n'a montré que la reconstruction de section améliore les **réponses**. Le rappel mesure le retrieval, pas ce que le LLM en fait. Trancher sur la QUALITÉ demande un juge calibré — donc RAG-Eval-Bench. Ce que le lot 4 rend décidable sans juge : le prix (`reconstruction_ms`), le coût en contexte (`caracteres_retenus`), la composition du contexte payé (`taux_contexte_utile`, `part_utile_caracteres`) et l'apport propre de la fenêtre (`rappel_contexte` moins `rappel_elements`). Un rapport prix/apport défavorable tranche sans juge ; seul un rapport favorable en demande un. Débloqué par : la stack démarrée. |
 | P1 | `rappel_elements` mesure la graine, pas ce qui atteint le LLM | **Trouvé au lot 4, non corrigé, et il faut dire pourquoi.** La métrique compare l'or aux `element_id` du CLASSEMENT retenus comme graines, alors que la fenêtre du graphe ramène jusqu'à treize éléments par section, plus les voisines : un or ramené par la fenêtre sans avoir été classé compte pour zéro alors qu'il a atteint le LLM. Deuxième écart, de la même famille : elle se calcule sur `contexts`, qui contient les sections ÉCARTÉES par le budget — donc elle ne bouge pas quand une source est écartée, contrairement à ce qu'annonce [runs/README.md](../runs/README.md), corrigé ici. `rappel_contexte` est ajouté À CÔTÉ plutôt qu'en remplacement : redéfinir `rappel_elements` rendrait incomparables les sept campagnes de `runs/`, dont les chiffres portent les décisions de réglage déjà prises. Débloqué par : rien, mais l'arbitrage « couper la comparabilité historique » est un choix, pas une correction. |

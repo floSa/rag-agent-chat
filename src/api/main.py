@@ -27,7 +27,7 @@ from src.agent.graph import (
 )
 from src.agent.graph_context import ping as nebula_ping
 from src.agent.graph_context import reconstruct_section
-from src.agent.llm import generate_stream
+from src.agent.llm import PromptFit, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import (
     group_by_document,
@@ -466,6 +466,32 @@ async def _capturer_generation_directe(
     )
 
 
+def _sections_soumises(
+    budget: list[PromptFit], candidates: list[SectionContext]
+) -> list[SectionContext]:
+    """Les sections réellement parties au LLM, pour la génération directe.
+
+    Cet endpoint ne passe pas par le graphe : personne ne renseignerait
+    `submitted_contexts` à sa place, d'où le rappel `on_fit` posé au point
+    d'appel.
+
+    Un budget vide **ferme** la résolution au lieu de retomber sur les
+    candidates, et c'est un choix. `generate_stream` appelle `on_fit` avant sa
+    requête HTTP, donc ce cas suppose déjà que le câblage a été défait ; le jour
+    où il le sera, une réponse sans citations et un WARNING se voient, alors
+    qu'une citation fausse ne se voit pas — c'est le critère de ce dépôt, et
+    `node_postprocess` tranche pareil pour le même motif.
+    """
+    if budget:
+        return budget[-1].contexts
+    logger.warning(
+        "Génération directe : aucun budget rendu par on_fit pour %d candidate(s) — "
+        "aucune citation ne sera résolue, faute de savoir ce qui a été soumis.",
+        len(candidates),
+    )
+    return []
+
+
 @app.post("/chat/simple", response_model=None, dependencies=[Depends(require_api_key)])
 async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     """Génération directe (sans agentic loop) à partir des sources sélectionnées.
@@ -512,13 +538,22 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             morceaux: list[str] = []
+            # Le budget tel qu'il a été appliqué. Cet endpoint ne passe pas par le
+            # graphe, donc rien ne le renseignerait à sa place : sans ce rappel,
+            # les citations se résolvaient sur les CANDIDATES, y compris celles
+            # que la fenêtre avait écartées.
+            budget: list[PromptFit] = []
             async for token in generate_stream(
-                req.question, contexts, req.chat_history[-MAX_HISTORY_MESSAGES:]
+                req.question,
+                contexts,
+                req.chat_history[-MAX_HISTORY_MESSAGES:],
+                on_fit=budget.append,
             ):
                 morceaux.append(token)
                 yield {"data": json.dumps({"token": token})}
             reponse = "".join(morceaux)
-            citations, images = resolve_citations(reponse, contexts, [])
+            soumises = _sections_soumises(budget, contexts)
+            citations, images = resolve_citations(reponse, soumises, [])
             yield {
                 "data": json.dumps(
                     {
@@ -532,6 +567,12 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
                     }
                 )
             }
+            # La capture reçoit les CANDIDATES, et ce n'est pas un oubli : le
+            # registre porte déjà une entrée sur `submitted_element_ids`, qui
+            # nomme « soumises » des sections écartées sur les trois routes. La
+            # corriger ici seulement donnerait à une même colonne deux sens
+            # selon la route empruntée, ce qui est pire qu'un nom trompeur
+            # uniforme. Cf. §2, « La capture d'usage nomme « soumises »… ».
             await _capturer_generation_directe(
                 thread_id, req.question, reponse, citations, images, contexts
             )
@@ -546,8 +587,16 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
     # Même profondeur d'historique que /chat/start et /answer : cet endpoint
     # soumettait tout ce que le client envoyait, donc un autre prompt pour la
     # même conversation selon la route empruntée.
-    response = await generate(req.question, contexts, req.chat_history[-MAX_HISTORY_MESSAGES:])
-    citations, images = resolve_citations(response, contexts, [])
+    budget: list[PromptFit] = []
+    response = await generate(
+        req.question,
+        contexts,
+        req.chat_history[-MAX_HISTORY_MESSAGES:],
+        on_fit=budget.append,
+    )
+    soumises = _sections_soumises(budget, contexts)
+    citations, images = resolve_citations(response, soumises, [])
+    # Les candidates, pour la raison écrite au chemin diffusé ci-dessus.
     await _capturer_generation_directe(
         thread_id, req.question, response, citations, images, contexts
     )

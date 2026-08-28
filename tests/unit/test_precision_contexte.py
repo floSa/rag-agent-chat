@@ -631,9 +631,10 @@ def test_les_element_ids_publies_sont_ceux_du_texte_soumis(monkeypatch) -> None:
 def _section_marquee(rang: int, nb_elements: int) -> SectionContext:
     """Une section rendue comme `_render_element` la rend, éléments compris.
 
-    `elements` est peuplé pour de vrai : c'est lui que `resolve_citations`
-    interroge, et c'est ce décalage entre le modèle et le texte soumis que ces
-    tests éclairent.
+    `elements` est peuplé pour de vrai, et le markdown porte les marqueurs
+    correspondants : c'est le décalage entre les deux — le modèle garde tous ses
+    éléments, le texte soumis n'en porte que la tête — que ces tests éclairent.
+    `resolve_citations` lit désormais le second.
     """
     from src.api.schemas import SectionElement
 
@@ -712,18 +713,20 @@ def test_un_element_coupe_disparait_des_identifiants_soumis() -> None:
     )
 
 
-def test_le_post_processing_resout_un_identifiant_que_le_prompt_ne_portait_pas() -> None:
-    """Le fait désagréable, épinglé plutôt que supposé.
+def test_le_post_processing_refuse_un_identifiant_que_le_prompt_ne_portait_pas() -> None:
+    """Le grain de la restriction est l'ÉLÉMENT, et c'est ce test qui le tranche.
 
-    `resolve_citations` construit sa table depuis `SectionContext.elements` — le
-    MODÈLE — et non depuis le texte soumis. Un `[src:ID]` d'élément coupé s'y
-    résout donc quand même, vers un extrait que le modèle n'a jamais reçu.
+    La section est RETENUE — donc restreindre à la section ne suffirait pas — mais
+    tronquée, et l'élément dont le marqueur est tombé à la coupe n'a pas été
+    soumis pour autant. Sa citation est refusée.
 
-    Ce n'est pas une faille tant que la troncature ne laisse jamais un tel
-    identifiant dans le prompt, ce que les deux tests précédents établissent.
-    Mais cela dit où vit la garantie : dans la coupe, pas dans le résolveur. Si
-    quelqu'un assouplit `_cut_on_marker`, rien en aval ne rattrapera l'erreur —
-    la citation sortira, résolue, avec un extrait plausible.
+    Ce test disait exactement l'inverse jusqu'ici, et il avait raison de le dire :
+    `resolve_citations` construisait sa table depuis `SectionContext.elements` —
+    le MODÈLE, qui garde tout — et non depuis le texte soumis. Il épinglait le
+    fait désagréable pour que personne ne croie la garantie logée dans le
+    résolveur : elle était dans la coupe, et nulle part ailleurs. Elle est
+    maintenant dans les deux, et c'est ce que ce test garde : si quelqu'un
+    assouplit `_cut_on_marker`, la citation ne sortira plus quand même.
     """
     from src.agent.graph import resolve_citations
     from src.agent.llm import fit_contexts
@@ -731,11 +734,20 @@ def test_le_post_processing_resout_un_identifiant_que_le_prompt_ne_portait_pas()
     sections = [_section_marquee(0, 20), _section_marquee(1, 20)]
     kept, _ = fit_contexts(list(sections), len(sections[0].markdown)
                            + len(sections[1].markdown) // 2)
+    assert len(kept) == 2, "la seconde section doit être RETENUE, tronquée"
     coupe = next(
         e.node_id for e in sections[1].elements if f"[src:{e.node_id}]" not in kept[1].markdown
     )
+    garde = next(
+        e.node_id for e in sections[1].elements if f"[src:{e.node_id}]" in kept[1].markdown
+    )
 
-    citations, _ = resolve_citations(f"Une affirmation. [src:{coupe}]", kept, [])
+    citations, _ = resolve_citations(
+        f"Une affirmation. [src:{coupe}] Une autre. [src:{garde}]", kept, []
+    )
 
-    assert [c.element_id for c in citations] == [coupe]
-    assert citations[0].text_excerpt, "résolu vers un extrait jamais soumis"
+    # Les deux espèces comptées séparément : le refus ne doit pas être un refus
+    # de tout. L'élément dont le marqueur a survécu reste citable, avec son
+    # extrait — sans quoi ce test serait vert sur un résolveur qui ne rend rien.
+    assert [c.element_id for c in citations] == [garde]
+    assert citations[0].text_excerpt, "l'élément soumis garde son extrait"

@@ -80,6 +80,10 @@ mesurer le système.
    estimé confronté au `prompt_eval_count` réel, tokens streamés en SSE.
 7. **Post-processing** (`node_postprocess`) : citations `[src:ID]` résolues vers
    document, ouvrage, page et section ; images `[img:ID]` servies par `/media`.
+   La résolution est restreinte à ce qui a été **réellement soumis** au modèle,
+   au grain de l'élément — les marqueurs du texte parti, pas les sections
+   candidates. Un identifiant écarté par le budget de fenêtre est refusé et
+   journalisé : le résoudre publiait une citation vers un passage jamais lu.
 8. **Boucle agentique** : si le modèle appelle l'outil `search_vectors`, une
    nouvelle passe recherche → rerank → reconstruction s'enchaîne sans
    re-sélection, contextes accumulés, dans la limite de `MAX_SEARCH_ITERATIONS`.

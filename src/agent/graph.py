@@ -349,7 +349,7 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
 
 def resolve_citations(
     response: str,
-    contexts: list[SectionContext],
+    submitted_contexts: list[SectionContext],
     chunks: list[ChunkResult],
 ) -> tuple[list[Citation], list[ImageRef]]:
     """Résout les marqueurs `[src:ID]` et `[img:ID]` d'une réponse.
@@ -358,18 +358,50 @@ def resolve_citations(
     nœud de post-traitement comme par l'endpoint de génération directe, qui
     rendait auparavant `citations: []` en dur.
 
-    Un identifiant que ni les contextes ni les chunks ne connaissent est
-    ignoré : le modèle l'a inventé, et le résoudre serait mentir.
+    **Seul un élément réellement soumis est citable.** Un identifiant que ni les
+    contextes ni les chunks ne connaissent est ignoré : le modèle l'a inventé, et
+    le résoudre serait mentir. Un identifiant CONNU mais jamais envoyé n'est ni
+    l'un ni l'autre — ni inventé, ni légitime — et le résoudre mentirait de la
+    même façon : il rendrait un extrait, une page et une section que le modèle
+    n'a pas lus. Il est donc refusé, et journalisé en WARNING, parce que le
+    laisser tomber en silence empêcherait d'apprendre qu'il se produit.
+
+    Le grain de la restriction est l'**élément**, pas la section : le texte d'une
+    section retenue peut avoir été tronqué, et un élément dont le marqueur est
+    parti à la coupe n'a pas été soumis même si sa section l'a été. C'est pour
+    cela que le filtre lit `element_ids_presents(ctx.markdown)` — les marqueurs
+    du TEXTE ENVOYÉ — et non `ctx.elements`, qui est le modèle et garde tout.
 
     Args:
         response: Le texte généré, marqueurs compris.
-        contexts: Sections reconstruites soumises au LLM.
-        chunks: Chunks reranqués — seuls porteurs de l'ouvrage.
+        submitted_contexts: Les sections telles qu'elles sont PARTIES au LLM,
+            tronquées si elles l'ont été — `submitted_contexts` de l'état, et
+            non `enriched_contexts`, qui porte les candidates.
+        chunks: Chunks reranqués — seuls porteurs de l'ouvrage. Filtrés eux
+            aussi : c'est cette table qui laissait passer une section que le
+            budget avait écartée.
 
     Returns:
         (citations, images), chacune sans doublon et dans l'ordre du texte.
     """
-    chunks_map: dict[str, ChunkResult] = {c.element_id: c for c in chunks}
+    # Ce que le modèle a eu sous les yeux, lu dans les marqueurs du texte soumis.
+    soumis = {
+        eid for ctx in submitted_contexts for eid in element_ids_presents(ctx.markdown)
+    }
+    # Connu quelque part, sans avoir été soumis : le troisième cas. La liste est
+    # incomplète et il faut le dire — un élément d'une section que le budget a
+    # écartée ENTIÈREMENT n'apparaît ici que si le classement le porte encore,
+    # cette section n'étant plus passée à la fonction. L'identifiant est refusé
+    # dans les deux cas ; seul le journal est moins précis.
+    connus: set[str] = {c.element_id for c in chunks}
+    connus.update(
+        elem.node_id
+        for ctx in submitted_contexts
+        for elem in (*ctx.before, *ctx.elements, *ctx.after)
+    )
+    chunks_map: dict[str, ChunkResult] = {
+        c.element_id: c for c in chunks if c.element_id in soumis
+    }
 
     # Les [src:ID] et [img:ID] référencent surtout des éléments des sections
     # reconstruites, qui ne figurent pas dans les chunks reranqués : on indexe
@@ -382,12 +414,22 @@ def resolve_citations(
 
     media_map: dict[str, str] = {}
     elements_map: dict[str, Citation] = {}
-    for ctx in contexts:
+    for ctx in submitted_contexts:
         # Les éléments des sections voisines sont citables au même titre que
         # ceux de la section trouvée : ils sont dans le prompt.
         for elem in (*ctx.before, *ctx.elements, *ctx.after):
+            # `media_map` n'est PAS filtré, et c'est délibéré : il sert deux
+            # voies aux exigences différentes. La voie 1 — un [img:ID] émis par
+            # le modèle — est filtrée au point d'appel, comme une citation. La
+            # voie 2 attache les illustrations de la section CITÉE, sur une
+            # justification éditoriale et non sur ce que le modèle a lu : une
+            # figure n'a pas de texte, le modèle n'en voit qu'un marqueur, et la
+            # perdre parce que la coupe a emporté ce marqueur retirerait au
+            # lecteur une figure qui appartient réellement à la section citée.
             if elem.minio_url:
                 media_map.setdefault(elem.node_id, elem.minio_url)
+            if elem.node_id not in soumis:
+                continue
             elements_map.setdefault(
                 elem.node_id,
                 Citation(
@@ -407,6 +449,9 @@ def resolve_citations(
     # sinon depuis les éléments des sections reconstruites.
     citations: list[Citation] = []
     cited: set[str] = set()
+    # Ordre du texte, sans doublon : une liste, jamais un ensemble — le journal
+    # doit être reproductible d'une exécution à l'autre.
+    refuses: list[str] = []
     for eid in element_ids_cites(response, _BLOC_SRC):
         chunk = chunks_map.get(eid)
         if chunk is not None:
@@ -424,6 +469,21 @@ def resolve_citations(
         elif eid in elements_map:
             citations.append(elements_map[eid])
             cited.add(eid)
+        elif eid in connus:
+            refuses.append(eid)
+
+    if refuses:
+        # Le chemin réel est l'HISTORIQUE : `fit_history` resoumet les réponses
+        # passées marqueurs compris et le gabarit ordonne de les reprendre tels
+        # quels, donc il suffit qu'un tour précédent ait soumis une section que
+        # le budget du tour courant écarte. C'est aussi le seul moyen de savoir
+        # si cela arrive vraiment en production.
+        logger.warning(
+            "Citations refusées : %s — identifiant(s) connu(s) du classement ou "
+            "d'une section soumise, mais absent(s) du texte réellement envoyé au "
+            "modèle. Résoudre reviendrait à publier un extrait qu'il n'a pas lu.",
+            ", ".join(refuses),
+        )
 
     # Images servies via le proxy /media : les URLs internes minio:9000 ne sont
     # pas résolvables depuis le navigateur.
@@ -436,9 +496,12 @@ def resolve_citations(
             vus.add(eid)
             images.append(ImageRef(element_id=eid, minio_url=to_media_path(minio_url)))
 
-    # Voie 1 : le marqueur explicite du modèle.
+    # Voie 1 : le marqueur explicite du modèle. Filtrée comme une citation —
+    # c'est le modèle qui affirme avoir vu cette illustration, et publier une
+    # image dont le marqueur n'était pas dans son prompt serait le même mensonge.
     for eid in element_ids_cites(response, _BLOC_IMG):
-        ajouter(eid)
+        if eid in soumis:
+            ajouter(eid)
 
     # Voie 2 : les illustrations des sections d'où viennent les citations.
     #
@@ -453,13 +516,19 @@ def resolve_citations(
     # et c'est tout l'intérêt d'avoir reconstruit la section.
     #
     # Borné : au-delà, on remplirait l'écran d'illustrations décoratives.
+    #
+    # Le grain est ici la SECTION, et non l'élément comme pour les citations :
+    # une section jamais soumise ne peut plus rien illustrer — elle n'est pas
+    # dans `submitted_contexts`, et aucune de ses citations n'a été retenue —
+    # mais une figure dont le marqueur est tombé à la coupe appartient toujours
+    # à la section citée, et la retirer ne corrigerait aucun mensonge.
     sections_citees = {
         ctx.section_id
-        for ctx in contexts
+        for ctx in submitted_contexts
         for elem in (*ctx.before, *ctx.elements, *ctx.after)
         if elem.node_id in cited
     }
-    for ctx in contexts:
+    for ctx in submitted_contexts:
         if ctx.section_id not in sections_citees:
             continue
         for elem in ctx.elements:
@@ -472,10 +541,28 @@ def resolve_citations(
 
 
 def node_postprocess(state: AgentState) -> dict[str, Any]:
-    """Extrait les citations [src:ID] et les références images [img:ID]."""
+    """Extrait les citations [src:ID] et les références images [img:ID].
+
+    `submitted_contexts` et non `enriched_contexts` : les candidates portent des
+    sections que le budget de fenêtre a écartées, et les résoudre publiait une
+    citation vers un passage jamais envoyé au modèle.
+    """
+    soumises = state.get("submitted_contexts", [])
+    if not soumises and state.get("enriched_contexts"):
+        # `on_fit` n'a pas renseigné l'état alors que des candidates existaient :
+        # aucune citation ne pourra être résolue. Dit ici, parce qu'une réponse
+        # sans aucune citation ressemble à un modèle qui n'en a émis aucune —
+        # c'est le même repli muet que celui que ce lot corrige, une strate plus
+        # haut. Cf. l'avertissement d'incohérence du budget dans /answer.
+        logger.warning(
+            "postprocess: aucune section soumise dans l'état pour %d candidate(s) — "
+            "la chaîne on_fit → submitted_contexts est cassée, et aucune citation "
+            "ne sera résolue.",
+            len(state.get("enriched_contexts", [])),
+        )
     citations, images = resolve_citations(
         state.get("response", ""),
-        state.get("enriched_contexts", []),
+        soumises,
         state.get("reranked_chunks", []),
     )
     logger.info("postprocess: %d citations, %d images", len(citations), len(images))

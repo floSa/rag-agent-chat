@@ -14,7 +14,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.schemas import ChunkResult, SectionContext
+from src.api.schemas import ChunkResult, SectionContext, SectionElement
 
 
 def _chunk(element_id: str) -> ChunkResult:
@@ -37,12 +37,23 @@ def _chunk(element_id: str) -> ChunkResult:
 
 
 def _section(element_id: str) -> SectionContext:
+    """Section reconstruite, marqueur compris.
+
+    Le markdown PORTE le marqueur de son élément, comme celui que
+    `_render_element` produit en production. Sans lui, la résolution des
+    citations — qui lit désormais les marqueurs du texte soumis — ne trouverait
+    rien à résoudre, et ce faux ne ressemblerait plus à ce qu'il remplace.
+    """
     return SectionContext(
         element_id=element_id,
         section_id="sssssssss1",
         breadcrumbs=[],
-        elements=[],
-        markdown="Le contexte reconstruit.",
+        elements=[
+            SectionElement(
+                node_id=element_id, label="paragraph", text="Le contexte reconstruit.", sequence=0
+            )
+        ],
+        markdown=f"Le contexte reconstruit. [src:{element_id}]",
         filename="3. Statistical Toolbox",
         section_title="Dispersion",
     )
@@ -51,6 +62,7 @@ def _section(element_id: str) -> SectionContext:
 @pytest.fixture
 def client(monkeypatch):
     from src.agent import graph as graph_module
+    from src.agent.llm import fit_prompt
     from src.api import main
 
     # Checkpointer en mémoire : le test porte sur le flux, pas sur le stockage.
@@ -71,7 +83,20 @@ def client(monkeypatch):
     async def pas_de_traduction(_question):
         return None
 
-    async def generation(**_kwargs):
+    async def generation(**kwargs):
+        # Le faux appelle `on_fit` avec le VRAI budget, comme le fait
+        # `generate_stream` avant sa requête HTTP. Sans ce rappel, l'état ne
+        # porte aucune section soumise et plus aucune citation ne se résout : un
+        # faux qui ne ressemble pas à la fonction qu'il remplace ne prouve rien
+        # de ce qui l'appelle.
+        if kwargs.get("on_fit"):
+            kwargs["on_fit"](
+                fit_prompt(
+                    kwargs.get("question", ""),
+                    kwargs.get("contexts") or [],
+                    kwargs.get("chat_history"),
+                )
+            )
         for token in ("La dispersion ", "se mesure [src:abcdef0123]."):
             yield token
 

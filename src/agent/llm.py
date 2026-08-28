@@ -264,10 +264,11 @@ def _cut_on_marker(markdown: str, limite: int, *, exiger_marqueur: bool) -> str:
     pas vu le texte. Elle est impossible par construction, et non pas évitée :
     `_render_element` écrit « texte [src:ID] », le marqueur SUIT son élément.
     Toute coupe est un préfixe, donc tout marqueur retenu a son texte devant lui.
-    C'est structurel, pas une précaution — et c'est ce qui compte, parce que
-    `resolve_citations` résout un `[src:ID]` depuis le modèle `SectionContext` et
-    non depuis le texte soumis : un marqueur orphelin rendrait une citation vers
-    un extrait que le modèle n'a jamais reçu.
+    C'est structurel, pas une précaution. `resolve_citations` ne s'appuie plus
+    là-dessus seul : il ne résout qu'un identifiant PRÉSENT dans le texte soumis,
+    donc un marqueur orphelin ne rendrait plus de citation. La garantie est
+    désormais aux deux bouts, ce qui n'enlève rien à celle-ci — elle est la seule
+    à protéger le TEXTE, l'autre ne protégeant que la citation.
 
     Le contenu survit, son marqueur part → le modèle lit un passage qu'il ne peut
     pas attribuer, donc il l'utilisera sans référence ou le rattachera au
@@ -1021,9 +1022,16 @@ async def generate(
     question: str,
     contexts: list[SectionContext],
     chat_history: list[Message] | None = None,
+    on_fit: Callable[[PromptFit], None] | None = None,
 ) -> str:
-    """Génère la réponse complète (non-streaming)."""
+    """Génère la réponse complète (non-streaming).
+
+    `on_fit` est relayé tel quel : sans lui, l'appelant non-streaming ne sait pas
+    ce que le budget a retenu, et il ne peut donc pas restreindre ses citations
+    aux sections réellement soumises. C'est du câblage, pas une politique — le
+    budget lui-même est appliqué au même endroit qu'avant.
+    """
     parts: list[str] = []
-    async for token in generate_stream(question, contexts, chat_history):
+    async for token in generate_stream(question, contexts, chat_history, on_fit=on_fit):
         parts.append(token)
     return "".join(parts)

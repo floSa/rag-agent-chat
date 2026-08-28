@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 447 tests, aucune dépendance
+## Unitaire — 461 tests, aucune dépendance
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -40,6 +40,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_chronometrie.py` | La partition du temps par étage : son arithmétique, et surtout ce qui la fait mentir. Le test qui compte fait **régresser** la mesure — il verse un agrégat dans un étage et exige que le résidu devienne NÉGATIF et que le journal le dise. Borner le résidu à zéro le rendrait vert sur un tableau faux. Un second épingle la décision elle-même : `retrieval_ms` est un agrégat, et il tombe le jour où quelqu'un l'ajoute à `ETAGES` « pour compléter le tableau ». |
 | `test_partition_etages.py` | La même partition, mais branchée sur les **vrais nœuds** : chaque étape simulée dort une durée qui lui est propre, ce qui permet d'exiger le SENS de l'attribution et pas seulement la présence d'un chiffre. Un `decomposer` correct branché sur rien publierait huit zéros et un résidu égal au total. Deux tests portent l'étage qui n'avait jamais été chronométré — la reconstruction par le graphe — dans les deux sens : elle coûte son temps même quand elle échoue, et elle tombe à zéro quand rien n'est reconstruit, ce que l'ablation doit lire. |
 | `test_health_parallele.py` | `/health` sous le délai que Docker lui accorde. Le test du lot compare la durée mesurée au `timeout` **lu dans `docker-compose.yml`** : 32,0 s avant, 3,0 s après, et le 32,0 ≈ 4 × 8 s de sondes muettes est la preuve de la sérialisation. Le parallélisme, lui, n'est pas prouvé par un chronomètre — « moins de 5 s » reste vert sur des sondes séquentielles rapides — mais par une **barrière à quatre parties**, qu'une implémentation séquentielle ne peut pas franchir quelle que soit la vitesse de chaque sonde. Deux tests portent le piège du lot : un plafond n'interrompt pas un fil, il le lâche, donc une sonde déjà en vol ne doit pas être relancée (compté sur les ENTRÉES de la sonde, pas sur la réponse), et un fil revenu doit rendre la sonde à nouveau interrogeable — sans quoi la panne serait remplacée par une cécité définitive. Un dernier test porte une leçon générale : il vérifie que `/health` rend 200 sur un `OLLAMA_HOST` mal formé, et il **épingle d'abord que son host lève bien l'exception visée**. Écrit sans cet épinglage, il empruntait le chemin ordinaire — une URL sans schéma lève `UnsupportedProtocol`, qui EST une `HTTPError` et que la sonde rattrape — en prétendant vérifier l'autre. Un test qui choisit lui-même son cas doit prouver qu'il l'a atteint. |
+| `test_citations_soumises.py` | Une citation ne doit pas résoudre vers un texte jamais soumis au modèle. Deux voies y sont comptées **séparément**, parce que chacune se ferme par une moitié différente du correctif : passer les sections soumises au lieu des candidates ferme `elements_map`, filtrer `chunks_map` ferme l'autre, et un test qui n'en couvre qu'une reste vert avec la moitié du travail. Le test du chemin réel — le modèle recite un marqueur d'un tour précédent, resoumis par `fit_history` — prouve ses trois maillons dans le même corps sur le vrai `_build_messages` : la section est bien écartée, le marqueur est bien dans le prompt, la citation est refusée. Sans le maillon du milieu, le lot corrigerait un défaut inatteignable. Les tailles de sections y sont **calculées depuis le budget réel** et non posées : une constante choisie à la main finit du mauvais côté de la frontière, et le test surveille alors un cas qu'il n'atteint plus. |
 | `test_capture_branchement.py` | La capture vue de l'API : les deux phases jointes par `thread_id`, la sélection humaine distinguée des sections soumises, et une base en échec qui ne casse aucune requête. La colonne `dropped_contexts` y est exercée sur des sections qui dépassent réellement la fenêtre — seule la couche HTTP est simulée, le budget est celui du vrai `fit_prompt` : trois mutations la cassent, une par maillon de la chaîne `on_fit` → état → colonne. |
 
 Trois leçons du lot 3, du même ordre que celles du lot 2 :
@@ -79,6 +80,24 @@ Deux leçons du lot 5, sur la forme des tests de temps :
   n'étant pas des démons, ils retiendraient l'interpréteur à la sortie. Un seul
   test paie le plafond RÉEL, parce qu'un test qui règle lui-même le plafond
   resterait vert le jour où la valeur par défaut passe à 60 s.
+
+Deux leçons du lot 6b, sur les tests qui accompagnent une restriction :
+
+- **Un test vert peut l'être GRÂCE au défaut.** Deux tests de
+  `test_postprocess.py` résolvaient une citation depuis les chunks reranqués avec
+  AUCUNE section soumise dans l'état : ils décrivaient précisément le trou qu'on
+  vient de fermer, et il a fallu les réécrire — pas les désactiver — sur l'état
+  normal, où l'élément est à la fois dans le classement et dans une section
+  soumise. Un test qu'un correctif fait rougir mérite d'être lu avant d'être cru.
+- **Un faux qui ne rappelle pas ses rappels ne prouve rien de l'appelant.** Les
+  faux `generate_stream` de `test_flux_interactif.py` et
+  `test_capture_branchement.py` remplaçaient la fonction en entier sans jamais
+  appeler `on_fit` — le dépôt le savait et l'avait écrit — donc l'état ne portait
+  aucune section soumise et plus aucune citation ne se résolvait. Ils appellent
+  désormais le vrai `fit_prompt`. Même famille : le test de la route non diffusée
+  laisse tourner le vrai `generate` et ne neutralise que `generate_stream`, sinon
+  retirer le relais de `on_fit` dans `generate` laissait la suite verte — mutation
+  vérifiée dans les deux sens.
 
 Deux leçons de la revue du lot 2, qui valent au-delà de ses fichiers :
 

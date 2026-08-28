@@ -902,9 +902,10 @@ def test_aucun_marqueur_retenu_ne_perd_son_texte() -> None:
 
     `_render_element` écrit « texte [src:ID] » : le marqueur suit son élément.
     Toute coupe étant un préfixe, chaque marqueur retenu a son texte devant lui.
-    Le vérifier compte parce que `resolve_citations` résout un `[src:ID]` depuis
-    le modèle `SectionContext`, pas depuis le texte soumis : un marqueur
-    orphelin rendrait une citation vers un extrait jamais envoyé au modèle.
+    Le vérifier compte même si `resolve_citations` refuse désormais un `[src:ID]`
+    absent du texte soumis : cette garde-là protège la CITATION, celle-ci protège
+    le texte. Un marqueur orphelin ne produirait plus de citation fausse, mais il
+    resterait un identifiant sans contenu au milieu du prompt.
     """
     sources = _serie(3, 25)
     for diviseur in range(2, 20):
