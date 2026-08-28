@@ -74,10 +74,43 @@ première fera bouger, et dans quel sens :
 |---|---|---|
 | `contextes_ecartes_total` | **En hausse**, depuis 0 | Le budget ne prétend plus qu'un forfait de 512 tokens couvre le prompt système, le gabarit et l'historique. Il compte ce qui est réellement envoyé, donc il écarte plus tôt |
 | `rappel_elements` | **Inchangé** — et l'affirmation d'origine était fausse | Elle annonçait « il se mesure sur ce qui atteint le LLM, une source écartée en moins le fait baisser ». Vérifié au lot 4 : la métrique se calcule sur `contexts`, qui contient les sections ÉCARTÉES par le budget, et sur la seule GRAINE de chaque section. Elle ne bouge donc ni quand une source est écartée, ni quand la fenêtre du graphe ramène l'or. C'est `rappel_contexte`, ajouté au lot 4, qui recule dans ce cas |
-| `citations_par_reponse` | En légère baisse | Moins de texte en entrée, donc moins de sources citables |
-| `taux_citation_complete`, `abstention_correcte` | Stables | Rien ne change dans la résolution des citations |
+| `citations_par_reponse` | **En baisse**, deux causes | La première était seule inscrite : moins de texte en entrée, donc moins de sources citables. La seconde vient de la restriction des citations aux éléments réellement soumis ([axes_amelioration.md](../documentation/axes_amelioration.md) §1.31) — un identifiant que le modèle n'a pas eu sous les yeux n'est plus résolu. Elle est plus grande que la première, et son mécanisme est **mesuré** : le gabarit imprime `Source N — {{ ctx.element_id }}` en clair, hors de tout marqueur, et sa dernière ligne ordonne de reprendre les identifiants tels quels ; or l'élément d'ancrage est celui que la recherche a matché, donc il est au MILIEU de la section, et la troncature coupe par la fin. Sur une section de 12 éléments dont l'ancre est le 7e, **10 budgets de troncature sur 10** laissent cette ancre sans son texte dans le markdown soumis. Un modèle qui obéit au prompt émet donc une citation désormais refusée, à juste titre. L'**ampleur** de la baisse en campagne est **supposée** : la stack est éteinte, aucun chiffre n'est avancé. Cf. l'entrée §2 « Le gabarit imprime un identifiant qui n'est attaché à aucun texte » |
+| `taux_citation_complete` | Stable en VALEUR, sur une population qui rétrécit | La justification d'origine — « rien ne change dans la résolution des citations » — est fausse depuis §1.31 : c'est précisément ce qui change. Le verdict survit pour une autre raison : la métrique vaut `citations_completes / citations`, donc elle porte sur les citations qui EXISTENT. Une citation refusée est absente, pas incomplète : elle n'entre ni au numérateur ni au dénominateur, et elle ne peut pas faire baisser le taux. Ce qu'elle déplace est ailleurs — une réponse dont la seule citation est refusée passe de 1,000 à `None`, et `_moyenne` écarte les `None` en silence. Le taux peut donc rester à 1,000 sur moins de réponses, sans qu'aucun champ ne le dise : cette métrique n'a pas de compagnon `_sur`, contrairement à `precision_contexte_sur`. C'est `citations_par_reponse`, ligne du dessus, qui porte l'effet |
+| `abstention_correcte` | Stable | Séparée de la ligne précédente, parce que sa raison n'est pas la même — une justification unique pour deux métriques est exactement ce qui a laissé passer l'erreur ci-dessus. Elle se lit dans le TEXTE de la réponse (`REFUS` cherché dans `answer`), que §1.31 ne touche pas : la résolution des citations n'écrit rien dans la réponse |
 | `rappel_recherche`, `mrr`, `rappel_documents` | Inchangés | Rien n'est touché en amont du reranking |
-| latences | Quasi inchangées | Quelques rendus Jinja de plus par génération, négligeables devant 4,4 s |
+| latences | Quasi inchangées | Quelques rendus Jinja de plus par génération, négligeables devant 4,4 s. §1.31 y ajoute un balayage de marqueurs par section soumise et par réponse (`element_ids_presents`), du même ordre : non mesuré séparément, et non nul — le dire plutôt que l'appeler zéro |
+
+### Ce que la restriction des citations ne déplace pas, métrique par métrique
+
+**Passées en revue exprès, y compris celles où la réponse est « non ».** Une
+métrique qui se tait ressemble à une métrique saine, et la moitié du travail est
+de dire laquelle ne bouge pas et pourquoi.
+
+| Métrique | Déplacée par §1.31 ? | Pourquoi |
+|---|---|---|
+| `rappel_recherche`, `mrr`, `rang_reciproque`, `rappel_documents` | Non | Elles se calculent sur le CLASSEMENT, en amont de la génération. La résolution des citations est en aval de tout |
+| `rappel_elements` | Non | Sur `contexts` et sur la seule graine de chaque section, comme le dit la ligne du tableau ci-dessus. §1.31 ne touche pas la liste `contexts` que `/answer` publie |
+| `contextes_ecartes`, `contextes_retenus`, `caracteres_retenus` | Non | Renseignés par `on_fit` depuis `node_generate`. §1.31 LIT ce que le budget a retenu, il ne change pas ce qu'il retient |
+| `taux_contexte_utile`, `part_utile_caracteres`, `rappel_contexte` | Non | Elles lisent déjà `retained` et `element_ids` — c'est-à-dire `element_ids_presents(markdown soumis)`, depuis le lot 4. §1.31 aligne le RÉSOLVEUR sur l'instrument que ces métriques utilisaient déjà ; il ne déplace pas l'instrument. C'est la raison de fond du choix du grain : une seule définition de « soumis » dans tout le dépôt |
+| `precision_contexte_sur` et ses deux compteurs d'exclusion | Non | Même raison : ils comptent les questions dont `taux_contexte_utile` est calculable, ce qui ne dépend que du budget |
+| `hallucination_probable` | Non | Lue dans le texte de la réponse, comme `abstention_correcte` |
+| `reponse_caracteres`, `eval_count`, `prompt_eval_count`, `generations_au_plafond`, `num_predict` | Non | Le prompt et la génération sont identiques : §1.31 n'intervient qu'APRÈS la réponse, sur la publication des citations |
+| étages de latence et résidu | Non, à la marge près notée au tableau | Un balayage de marqueurs par section soumise s'ajoute au post-traitement, qui n'a pas d'étage à lui : il tombe dans le résidu |
+| `citations`, `citations_par_reponse` | **Oui**, en baisse | Seule famille déplacée. Cf. le tableau ci-dessus |
+| `citations_completes`, `taux_citation_complete` | Valeur non, population oui | Cf. le tableau ci-dessus |
+
+**Ce que la campagne ne verra PAS, et il faut le dire.** Le chemin par lequel le
+défaut était atteignable en production est le multi-tour : le modèle recite un
+`[src:ID]` d'un tour précédent, que `fit_history` resoumet marqueurs compris.
+Aucune campagne de ce dépôt ne l'exerce. **Mesuré** sur les deux jeux :
+`golden_qa_generated.json`, les 138 questions que vise `make eval`, porte
+`chat_history` sur **0** d'entre elles ; `golden_qa.json`, le jeu de 15 questions
+utilisé par défaut, en porte 3, mais leurs historiques sont écrits à la main et
+contiennent **0 marqueur `[src:]`**. La campagne verra donc les deux autres causes
+— l'ancre imprimée sans son texte, et un identifiant de section entièrement
+écartée — pas celle qui a motivé le lot. C'est une lacune du protocole, pas un
+signe que le défaut était sans effet : même espèce que celle notée plus haut pour
+le flux interactif.
 
 Le lot 4 ajoute des champs que **aucun** fichier de ce dossier ne porte, donc
 qu'aucune comparaison appariée ne pourra apparier contre eux : la précision du
