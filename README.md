@@ -190,6 +190,7 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | [architecture.md](documentation/architecture.md) | Le système tel qu'il est : services, machine à états, décisions |
 | [agent_architecture.md](documentation/agent_architecture.md) | Vue détaillée de l'agent : nœuds, données, prompts, réglages |
 | [stores.md](documentation/stores.md) | Le contrat avec l'ingestion, du point de vue du consommateur |
+| [pour_le_pipeline_ingestion.md](documentation/pour_le_pipeline_ingestion.md) | Ce que l'agent attend du pipeline d'ingestion, et ce qui casse en silence sinon |
 | [llm.md](documentation/llm.md) | Le service d'inférence central et la fenêtre de contexte |
 | [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
 | [capture_usage.md](documentation/capture_usage.md) | Ce que le service enregistre de son usage, et les requêtes qui l'exploitent |

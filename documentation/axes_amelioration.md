@@ -1237,13 +1237,29 @@ Correction : stocker le niveau du titre sur le tag `SectionHeader` et chaîner
 les parents. **Impose une purge du space** — le schéma Nebula n'évolue pas en
 place.
 
-### 3.2 Modèle d'embedding monolingue
+### 3.2 Modèle d'embedding — le monolingue est derrière nous, la contrainte reste
 
-`all-MiniLM-L6-v2` est un modèle anglais, tronqué à 256 tokens, utilisé sur un
-corpus et des questions en partie francophones. C'est l'écart le plus coûteux à
-l'état de l'art. Le modèle est décidé à l'ingestion et doit coïncider des deux
-côtés : en changer (`bge-m3`, `multilingual-e5-large`) **impose une réingestion
-complète**.
+**Cette entrée annonçait `all-MiniLM-L6-v2` comme le modèle en service. C'était
+vrai, ce ne l'est plus, et la laisser telle quelle était dangereux** : une
+conversation d'ingestion qui la lit avant de réingérer choisirait le modèle
+anglais, alors que l'agent interroge avec le multilingue.
+
+Le modèle en service est `paraphrase-multilingual-MiniLM-L12-v2` (384
+dimensions), défaut de `settings.py`. Preuve que l'ingestion l'utilisait bien :
+`runs/final.json` porte `rappel_recherche = 0,985`, ce qui est **impossible**
+avec deux embedders différents — un index construit avec un autre modèle rend
+des passages au hasard.
+
+Ce qui reste vrai et n'a pas bougé : le modèle est décidé à l'ingestion, il
+**doit** coïncider des deux côtés, et un désaccord est la panne la plus coûteuse
+du système — ni exception, ni log, ni sonde, seulement des passages plausibles et
+faux ([stores.md](stores.md)). En changer pour l'état de l'art (`bge-m3`,
+`multilingual-e5-large`) **impose une réingestion complète** ; c'est le dernier
+lot du plan, et il ne se décide pas sans campagne appariée.
+
+Toute réingestion doit donc employer `paraphrase-multilingual-MiniLM-L12-v2`,
+sauf décision explicite de changer les DEUX côtés à la fois. Voir
+[pour_le_pipeline_ingestion.md](pour_le_pipeline_ingestion.md).
 
 ### 3.3 Illustrations sans légende
 
