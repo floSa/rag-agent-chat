@@ -9,7 +9,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 486 tests, aucune dépendance
+## Unitaire — 496 tests, aucune dépendance
+
+> **Ce compte est `mesuré`, et rien ne le garde** — c'est le §4.13 du registre,
+> un angle mort connu : il a déjà pris 25 tests de retard sans que le lot ni son
+> audit le voient. Il se remesure ainsi, et les deux chiffres doivent
+> concorder :
+>
+> ```bash
+> pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
+> ```
+>
+> `mesuré` le 3 septembre 2026 : **496** tests sur **36** fichiers.
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -20,7 +31,9 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | Fichier | Ce qu'il protège |
 |---|---|
 | `test_lexical.py` | Tokenisation et fusion RRF — la fusion se fait sur les **rangs**, jamais sur les scores, qui ne sont pas comparables entre moteurs. |
-| `test_context_assembly.py` | Fenêtrage, sections voisines, assemblage du markdown soumis au LLM. |
+| `test_context_assembly.py` | Échappement des VIDs, fenêtrage, assemblage du markdown soumis au LLM. **Ce que ses cinq tests de fenêtre ne voient pas** : ils appellent `_window_around` sur une liste qu'ils fabriquent eux-mêmes, et sans clé `seq`. Une réécriture qui pousse la fenêtre dans la requête nGQL laisse cette fonction intacte et la sort du chemin — `mesuré` le 3 septembre 2026, les 486 tests d'alors restaient **tous verts** sous cette réécriture. C'est `test_lecture_sequence.py` qui garde la composition. |
+| `test_lecture_sequence.py` | Les **trois réserves de lecture de `sequence`** — elle repart à 0 par document, elle n'est pas contiguë sous un parent, et l'écart entre deux enfants peut être grand. La propriété gardée n'est pas dans `_window_around` mais dans la **composition** « chercher tous les enfants sans filtre, puis découper par position » : les tests pilotent donc `reconstruct_section`, avec un bouchon posé à la frontière nGQL (`_execute`). Le graphe factice **honore les clauses `WHERE`** des requêtes qu'il reçoit — sans quoi un code qui filtre dans la requête recevrait quand même toutes les lignes, et les gardes seraient verts pour rien ; deux tests gardent cette fidélité du montage lui-même. Six mutations distinctes le font rougir, dont l'encadrement `sequence ∈ [s−k, s+k]` qui amputerait 7,5 % des ancres. Les tests de frontière portent un épinglage d'anti-vacuité : ils prouvent que le montage POURRAIT franchir la frontière du document avant d'exiger qu'il ne la franchisse pas. |
+| `test_installation_des_garde_fous.py` | La cible `make install` et le garde-fou d'identité Git qu'elle arme — **le plus gros fichier de tests du dépôt**, et il manquait à cette table (§4.13). Deux familles : `TestLaCibleInstallArmeVraiment`, parce que git n'exécute jamais ce qui arrive avec un clone et qu'un garde-fou qui repose sur la mémoire du suivant n'en est pas un ; et `TestLaCibleInstallNeDesarmeRien`, qui interdit que la cible arme les hooks en retirant `ruff`, `mypy` ou `pytest` de l'environnement — ce que `uv sync` faisait, en `rc=0` et sans un seul rouge. |
 | `test_affichage_sources.py` | Numérotation des citations et couleurs de pertinence côté frontend. |
 | `test_postprocess.py` | Extraction des `[src:…]` — y compris les crochets à identifiants multiples, qui avaient fait perdre 27 citations sur 30. |
 | `test_securite.py` | Traversée de chemin, échappement nGQL, comparaison de clé à temps constant. |

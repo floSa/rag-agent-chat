@@ -153,11 +153,13 @@ par `GET /health` sous `sessions`.
 - Space : `rag_space`
 - Tags lus : `Document`, `SectionHeader`, `Paragraph`, `Table`, `Picture`, `Code`, `Formula`, `Caption`, `ListItem`, `Footnote`, `PageHeader`, `PageFooter`
 - Propriétés lues : `label`, `text`, `minio_url`, `page_no`
-- Edge utilisé : `PARENT_OF(sequence)` — traversal ascendant (`REVERSELY`) et descendant
+- Edge utilisé : `PARENT_OF(sequence)` — traversal ascendant (`REVERSELY`) et descendant. `sequence` porte **trois réserves de lecture** qui décident de la forme du fenêtrage : site canonique, [stores.md](stores.md#les-trois-réserves-de-lecture-de-sequence)
 - Requête propriétés : `FETCH PROP ON * "vid"` (1 requête pour tous les tags) + fallback `FETCH PROP ON Document` pour les nœuds racines
 - Requête ascendante : `GO FROM v OVER PARENT_OF REVERSELY YIELD src(edge) AS parent_id`
 - Requête descendante : `GO FROM section_id OVER PARENT_OF YIELD dst(edge) AS child_id ... | ORDER BY seq`
-- Fenêtrage du contexte : `_window_around` limite les éléments retournés à `_MAX_CONTEXT_ELEMENTS=12`, centrés sur l'`element_id` ciblé. Pour les nœuds Document racine (pas de SectionHeader intermédiaire), les éléments Picture/Table/SectionHeader sont en plus filtrés avant fenêtrage.
+- Fenêtrage du contexte : `_window_around` restreint les enfants de la section à `CONTEXT_WINDOW_BEFORE` + `CONTEXT_WINDOW_AFTER` + 1 éléments (**13** par défaut), centrés sur l'`element_id` ciblé, et par **position de liste** — jamais par valeur de `sequence`, pour les raisons données dans [stores.md](stores.md#les-trois-réserves-de-lecture-de-sequence). Quand l'ancre est introuvable dans la liste — elle est la section elle-même — c'est la tête de section qui est prise.
+
+  > Ce document a décrit un `_MAX_CONTEXT_ELEMENTS=12` et un filtrage des éléments Picture/Table/SectionHeader avant fenêtrage pour les nœuds Document racine. **Ni l'un ni l'autre n'existe** : `grep -rn "_MAX_CONTEXT_ELEMENTS" src/` ne rend rien (`mesuré` le 3 septembre 2026), et `_window_around` ne filtre sur aucun tag. La borne réelle est celle des deux réglages ci-dessus.
 
 **Note sur `REVERSELY`** : `YIELD src(edge)` retourne l'origine de l'arête originale (le parent), pas la destination. Utiliser `dst(edge)` retournerait le nœud de départ lui-même.
 

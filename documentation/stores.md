@@ -93,7 +93,7 @@ précédente et le début de la suivante.
 | Élément | Attente |
 |---|---|
 | VIDs | Hash 10 hexadécimaux, ou `doc_{chemin}` jusqu'à 256 octets |
-| `PARENT_OF(sequence)` | Hiérarchie **et** ordre de lecture. C'est `sequence` qui permet d'atteindre la section voisine. |
+| `PARENT_OF(sequence)` | Hiérarchie **et** ordre de lecture. C'est `sequence` qui permet d'atteindre la section voisine. Elle porte **trois réserves de lecture** — voir plus bas, c'est leur site canonique. |
 | Arête légende → visuel | Cherchée dans le schéma parmi `LINKED_TO` puis `DESCRIBES` |
 | `Document.collection` | Ouvrage, source préférée pour les citations |
 | Propriété `text` | Tronquée à l'ingestion — voir plus bas |
@@ -114,6 +114,80 @@ L'ingestion tronque le texte des nœuds à 2000 caractères. L'agent relit donc
 dans ChromaDB le texte des éléments qui frôlent cette limite — un tableau
 exporté par Docling la dépasse souvent, et arrivait amputé au LLM.
 `GRAPH_TEXT_TRUNCATION` doit suivre le `graph_text_max_chars` de l'ingestion.
+
+### Les trois réserves de lecture de `sequence`
+
+> **Site canonique.** Le contrat d'ingestion garantit que `sequence` porte
+> l'ordre de lecture et qu'elle est monotone. Ce que cette garantie ne dit pas,
+> c'est comment on la **lit** — et c'est ici, parce que c'est une propriété du
+> consommateur, pas du store. Les autres pages renvoient à celle-ci.
+
+Toutes les mesures de cette section se rejouent par un seul geste, en lecture
+seule (`graphd` n'expose aucun port sur ce poste) :
+
+```bash
+docker exec -i rag-agent-api python - < scripts/mesurer_le_graphe.py
+```
+
+**1. `sequence` repart à 0 dans chaque document.** Elle n'est pas un rang
+global : `mesuré` le 3 septembre 2026, les **23** documents commencent tous à
+`0`, et **toutes** les paires de documents ont des intervalles qui se recouvrent
+(253 paires, soit les 23 × 22 / 2 possibles). Deux éléments de deux ouvrages
+portent donc couramment la même valeur.
+
+Conséquence : **tout « avant / après » se borne au document.** En pratique
+l'ancrage est structurel — `_get_children` et `_find_sibling` partent d'un VID
+de parent, jamais d'une valeur de `sequence` seule. Une comparaison non ancrée
+(un `LOOKUP` sur l'arête, par exemple) rapprocherait deux ouvrages sans erreur
+visible.
+
+**2. Elle n'est pas contiguë sous un parent, et ce n'est pas une perte.**
+`mesuré` le 3 septembre 2026 : **167** parents sur **763** portent des valeurs
+non contiguës. L'écart s'explique **entièrement** par la taille du sous-arbre
+du frère précédent — vérifié sur les **14 410** couples de frères consécutifs
+du graphe, **0** discordance. `sequence` numérote l'ordre de lecture de
+l'ouvrage entier, pas les enfants d'un parent : un frère dont le sous-arbre
+compte 40 nœuds fait donc avancer le suivant de 40.
+
+**3. L'écart entre deux enfants d'un même parent peut être grand.** `mesuré` le
+3 septembre 2026 : le plus grand vaut **994**, soit 993 valeurs intercalaires,
+sous `doc_htms/MLOps with Databricks/7. Foundation Models and Context
+Engineering`.
+
+#### Ce que ces trois réserves interdisent
+
+**La fenêtre d'éléments se découpe sur des POSITIONS de liste, jamais sur des
+VALEURS de `sequence`.** C'est ce que fait le code : `_get_children` va chercher
+tous les enfants avec un `ORDER BY` et **sans filtre d'intervalle**, puis
+`_window_around` découpe par `rows[start:stop]`.
+
+L'optimisation qui se présente d'elle-même — pousser la fenêtre dans la requête
+nGQL sous la forme d'un encadrement `sequence ∈ [s−k, s+k]`, ce qui économise un
+aller-retour et du transfert — serait juste sur la plupart des sections et
+**silencieusement amputée** ailleurs. `mesuré` le 3 septembre 2026, à la fenêtre
+par défaut (`CONTEXT_WINDOW_BEFORE=CONTEXT_WINDOW_AFTER=6`, soit 13 éléments) :
+
+| | `mesuré` |
+|---|---|
+| ancres qui rendraient MOINS d'éléments | **1 141** sur 15 173, soit **7,5 %** |
+| parents touchés | **162** |
+| perte maximale sur une ancre | **12** éléments sur 13 — l'ancre revient seule |
+
+> La perte se borne à `before + after`, jamais aux 993 valeurs intercalaires de
+> la réserve 3 : le découpage positionnel ne demande que 13 éléments, donc on ne
+> peut pas en perdre plus de 12. L'écart de 994 mesure un **trou de
+> numérotation**, pas un nombre d'éléments manquants.
+
+**Ce découpage est gardé, pas seulement documenté** :
+`tests/unit/test_lecture_sequence.py` pilote `reconstruct_section` contre un
+graphe factice qui **honore** les clauses `WHERE` des requêtes, et rougit sur
+six mutations distinctes — dont l'encadrement ci-dessus. Le garde porte sur la
+**composition** « chercher sans filtre, puis découper par position » : les tests
+qui appellent `_window_around` seul restent verts des deux côtés du défaut.
+
+Pour la forme du graphe elle-même — profondeur, imbrication des titres, et les
+214 en-têtes sans frère en-tête — le site canonique est le **§4.6** de
+[`axes_amelioration.md`](axes_amelioration.md).
 
 ## MinIO — les illustrations
 

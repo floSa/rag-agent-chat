@@ -100,6 +100,14 @@ la fenêtre d'éléments et pour le « avant / après » entre sections voisines
 `sequence` absent ou non monotone casse cette reconstruction sans erreur
 visible.
 
+**Ce que l'agent en a fait de son côté, et vous n'avez rien à changer pour ça.**
+`sequence` porte trois réserves qui décrivent comment on la LIT — elle repart à
+0 par document, elle n'est pas contiguë sous un parent, et l'écart entre deux
+enfants peut être grand. C'était le dernier point ouvert du contrat, et il est
+désormais écrit et **gardé par un test** de ce côté-ci. Site canonique :
+[stores.md](stores.md#les-trois-réserves-de-lecture-de-sequence). Les trois
+chiffres que le pipeline avait transmis ont été reproduits ici à l'unité.
+
 ### MinIO, bucket `documents`
 
 Crops PNG sous `images/{stem}/{id}_{type}.png`, référencés par `minio_url` dans
@@ -150,25 +158,37 @@ vérifier.
 Trois points relevés côté agent, dont aucun n'est corrigeable sans toucher à
 l'ingestion.
 
-### 5.1 Le graphe est plat — mesuré
+### 5.1 → RENDU. Le graphe n'est plus plat, et vous l'avez livré
 
-Sur le graphe tel qu'il était en production : **901** `SectionHeader` enfants
-d'un `Document`, **0** enfant d'un autre `SectionHeader`, **0** chemin de
-longueur 3 depuis le `Document`. L'arbre fait exactement **deux** niveaux.
+**Cette demande est close, et elle n'attend plus rien de vous.** Elle a survécu
+à sa livraison parce que ce dépôt est resté immobile pendant que le pipeline
+réingérait : la page redemandait donc un travail déjà fait, et faisait perdre
+son temps à qui la lisait.
 
-En cause : `elements.py` pose `reference_id = ROOT_REFERENCE` dès qu'un en-tête
-est rencontré, alors que Docling expose le niveau des titres — que `TAG_MAP`
-écrase.
+Ce qui était demandé : chaîner les parents des titres au lieu de les rattacher
+tous au `Document`. Ce que la réingestion du **2 septembre 2026** a livré,
+`mesuré` de ce côté-ci le 3 septembre 2026 sur le graphe en service :
 
-Conséquence côté agent : le fil d'Ariane ne peut afficher qu'un seul titre,
-jamais `Chapitre 3 > 3.2 > 3.2.1`. Le budget de contexte de l'agent facture
-d'ailleurs le cadrage par source en fonction de la profondeur du fil : 34
-caractères sans fil, 134 à deux niveaux, 275 à cinq. Un graphe réellement
-hiérarchique coûtera donc un peu de fenêtre, et c'est prévu.
+| | `mesuré` |
+|---|---|
+| `SectionHeader` dans le graphe | **746** |
+| dont parent direct = un autre `SectionHeader` | **583**, soit **78,2 %** |
+| profondeur des `SectionHeader`, en titres | 0 → 163, 1 → 301, 2 → 234, 3 → 40, 4 → 8 |
 
-Correction : stocker le niveau du titre sur le tag `SectionHeader` et chaîner
-les parents. **Impose une purge du space** — le schéma Nebula n'évolue pas en
-place. Donc autant le faire *pendant* cette réingestion que plus tard.
+`Chapitre 3 > 3.2 > 3.2.1` est donc possible, et le fil d'Ariane de l'agent le
+construit correctement **sans rien changer** : `_climb_to_section` collecte la
+chaîne entière jusqu'au tag racine.
+
+Le site canonique de ces chiffres, avec leurs commandes, est le **§4.6** de
+[`axes_amelioration.md`](axes_amelioration.md) — celui-ci y renvoie plutôt que
+de les recopier.
+
+**Ce qui reste vrai du coût annoncé ici**, et c'est la seule chose à retenir de
+l'ancienne version : le budget de contexte de l'agent facture l'encadrement
+source par source selon la profondeur du fil, donc des titres imbriqués
+coûtent réellement plus de fenêtre. C'est absorbé par construction et gardé par
+un test, mais **ce coût n'a jamais été payé en campagne** : aucune mesure ne
+dit encore ce qu'il déplace.
 
 ### 5.2 Illustrations sans légende
 
@@ -206,9 +226,10 @@ Six lots de travail ont porté sur l'agent pendant que les stores étaient
   (`reconstruction_ms`), et son bénéfice mesurable — l'écart entre
   `rappel_contexte` et `rappel_elements` isole ce que la fenêtre du graphe
   apporte par elle-même. C'est ce qui permettra enfin d'arbitrer le pari central
-  du projet : le graphe vaut-il son prix ? Un graphe **hiérarchique** (§5.1)
-  changera cette réponse, donc l'ordre importe — mieux vaut réingérer avec le
-  graphe corrigé avant de mesurer l'ablation, sinon il faudra tout rejouer ;
+  du projet : le graphe vaut-il son prix ? Le graphe **est** désormais
+  hiérarchique (§5.1), et aucune campagne n'a encore été jouée dessus — la
+  précaution que ce point demandait (« réingérer avant de mesurer l'ablation »)
+  est donc satisfaite d'office, mais la mesure reste entièrement à faire ;
 - **le jeu doré ne porte aucune question de suivi** : 0 des 138 questions n'a
   d'historique de conversation. C'est un chantier côté agent, mentionné ici
   parce qu'il conditionne ce qu'une campagne peut voir.
@@ -221,8 +242,8 @@ Six lots de travail ont porté sur l'agent pendant que les stores étaient
 - le modèle d'embedding effectivement utilisé par le pipeline aujourd'hui ;
 - le nombre de documents et de chunks après ingestion, pour confronter à
   `collection.count()` côté agent ;
-- si §5.1 est corrigé dans la même passe, puisqu'il impose de toute façon une
-  purge du space ;
+- ~~si §5.1 est corrigé dans la même passe~~ — **rendu** : il l'est depuis la
+  réingestion du 2 septembre 2026 (§5.1) ;
 - la sortie de `POST /reindex` en fin de pipeline.
 
 ---
