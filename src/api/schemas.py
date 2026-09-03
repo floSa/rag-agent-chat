@@ -172,8 +172,11 @@ class SectionContext(BaseModel):
     collection: str = ""                  # ouvrage dont il fait partie
     section_title: str = ""               # titre de la section
     # Queue de la section précédente et tête de la suivante : le « avant /
-    # après » demandé au produit. Les sections sont frères sous le Document,
-    # ordonnées par la propriété `sequence` de l'arête PARENT_OF.
+    # après » demandé au produit. La section voisine est le frère en-tête sous
+    # le PARENT COMMUN — un `Document` ou un autre `SectionHeader` depuis que
+    # l'ingestion imbrique les titres — ordonné par la propriété `sequence` de
+    # l'arête PARENT_OF. Voir `graph_context._find_sibling` pour ce que cette
+    # définition laisse de côté.
     before: list[SectionElement] = Field(default_factory=list)
     after: list[SectionElement] = Field(default_factory=list)
     before_title: str = ""
