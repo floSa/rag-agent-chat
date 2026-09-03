@@ -1568,11 +1568,18 @@ tombent à l'unité :
 **Ce que fait le code aujourd'hui, et c'est la partie qui compte.** Les trois
 réserves sont respectées, mais **par construction, et non par un garde** :
 
-- `_window_around` (`src/agent/graph_context.py:493`) découpe sur des
-  **positions de liste** — `rows[start:stop]`, après un `index` trouvé par
-  énumération — et **jamais sur des valeurs de `sequence`. `_get_children`
-  (`:398`) va chercher **tous** les enfants avec `ORDER BY $-.seq ASC`, sans
-  aucun filtre d'intervalle. **Le piège 3 ne mord donc pas** ;
+- `_window_around` (`src/agent/graph_context.py`) découpe sur des **positions de
+  liste** — `rows[start:stop]`, après un `index` trouvé par énumération — et
+  **jamais sur des valeurs de `sequence`**. `_get_children` va chercher **tous**
+  les enfants avec `ORDER BY $-.seq ASC`, sans aucun filtre d'intervalle. **Le
+  piège 3 ne mord donc pas** ;
+
+  > *Cette entrée citait des numéros de ligne — `:493` et `:398`. Ils étaient déjà
+  > faux (`495` sur `main`) et le lot 2 les a déplacés à `539` en documentant le
+  > fichier. **Un numéro de ligne dans un registre est un chiffre qui périme à
+  > chaque commit du fichier qu'il désigne, et rien ne le garde** : les symboles
+  > les remplacent partout. C'est la règle du §4.11, appliquée à ma propre
+  > écriture.*
 - `_get_children` et `_find_sibling` partent tous deux d'un VID de parent, donc
   leur portée est **structurellement bornée à un document**. Le piège 1 ne mord
   pas non plus.
@@ -1581,8 +1588,27 @@ réserves sont respectées, mais **par construction, et non par un garde** :
 quelqu'un « optimise » `_window_around` en poussant la fenêtre dans la requête
 nGQL sous la forme d'un encadrement sur `sequence` — l'optimisation naturelle,
 celle qui économise un aller-retour. Le résultat serait juste sur la plupart des
-sections et **silencieusement amputé** sur les 167 parents non contigus, jusqu'à
-993 éléments manquants au pire site. **Le travail n'est donc pas d'écrire trois
+sections et **silencieusement amputé** sur les parents non contigus.
+
+**Ce que l'amputation coûte VRAIMENT — corrigé par le lot 2, et j'avais
+surestimé.** Cette entrée écrivait « jusqu'à 993 éléments manquants au pire
+site ». **C'est faux, et l'erreur est de nature** : l'écart de 994 mesure un trou
+de **numérotation**, pas un nombre d'éléments. À la fenêtre réellement
+configurée — `CONTEXT_WINDOW_BEFORE/AFTER = 6/6`, donc 13 éléments demandés — on
+ne peut pas en perdre plus de 12. `mesuré` le 3 septembre 2026 par le lot 2 et
+**reproduit par le pilote** sur les 15 173 arêtes, simulant l'encadrement contre
+le découpage positionnel :
+
+| ce qu'un encadrement `sequence ∈ [s−6, s+6]` coûterait | `mesuré` |
+|---|---|
+| ancres rendant moins d'éléments | **1 141 sur 15 173**, soit **7,5 %** |
+| parents touchés | **162** — et non 167 : cinq parents non contigus ont des écarts ≤ 6, qui n'amputent rien |
+| perte maximale | **12 sur 13** — l'ancre revient seule |
+
+Le défaut reste réel et sérieux : une ancre sur treize rend moins de contexte que
+demandé, sans un mot. Il est simplement **borné autrement** que je ne l'écrivais.
+*Un écart de numérotation n'est pas un compte d'éléments, et confondre les deux
+gonfle un défaut au lieu de le décrire.* **Le travail n'est donc pas d'écrire trois
 paragraphes : c'est d'écrire les trois réserves ET le garde qui rend le découpage
 positionnel non négociable.**
 
@@ -1617,9 +1643,27 @@ tiré :
 | `documentation/axes_amelioration.md` §3.1 | le graphe est plat, classé **« Ouvert — dépend de l'ingestion »** | demandait au pipeline un travail qu'il a livré. Amendé par ce lot |
 | `documentation/pour_le_pipeline_ingestion.md` §5.1 | idem, sous le titre « Le graphe est plat — mesuré » | **redemande au pipeline le même travail livré.** À rendre, sinon on fait perdre son temps à son pilote |
 | `documentation/axes_amelioration.md` §1.11 | « l'ingestion n'imbrique pas les titres, **il n'y a aucun niveau à remonter** (§3.1) » | c'est la **justification** de la suppression de `CONTEXT_DEPTH`. Le motif est mort ; la décision est à rouvrir |
-| `src/agent/graph_context.py:19-22` | « L'ingestion produit aujourd'hui un arbre à **deux niveaux** » | justifie `_MAX_DEPTH = 10`. **Sans conséquence** : 10 couvre la profondeur réelle, qui atteint 4 pour un titre et 5 pour un élément. La marge annoncée « pour une future imbrication » a effectivement absorbé le changement |
-| `src/agent/graph_context.py:24-26` | « Les enfants d'un `Document` ne sont pas tous des en-têtes » | justifie `_SIBLING_CANDIDATES = 5`. **Sans conséquence non plus, et pas pour la raison écrite** — voir la mesure ci-dessous |
-| `src/agent/graph_context.py:266-267` | « Les en-têtes sont **tous** enfants directs du `Document` (l'ingestion ne les imbrique pas) » | justifie toute la stratégie « la section voisine est un frère ». C'est la phrase la plus fausse des six : 78,2 % des en-têtes la contredisent |
+| `graph_context.py`, en-tête du module | « L'ingestion produit aujourd'hui un arbre à **deux niveaux** » | justifie `_MAX_DEPTH = 10`. **Sans conséquence** : voir la nuance de profondeur ci-dessous. La marge annoncée « pour une future imbrication » a effectivement absorbé le changement |
+| `graph_context.py`, au-dessus de `_SIBLING_CANDIDATES` | « Les enfants d'un `Document` ne sont pas tous des en-têtes » | justifie `_SIBLING_CANDIDATES = 5`. **Sans conséquence non plus, et pas pour la raison écrite** — voir la mesure ci-dessous |
+| `graph_context.py`, docstring de `_find_sibling` | « Les en-têtes sont **tous** enfants directs du `Document` (l'ingestion ne les imbrique pas) » | justifie toute la stratégie « la section voisine est un frère ». C'est la phrase la plus fausse des six : 78,2 % des en-têtes la contredisent |
+
+**Le lot 2 a trouvé trois sites de plus**, portant la même prémisse : le docstring
+de `_neighbour_elements`, les `Args` de `_find_sibling`, et **`src/api/schemas.py`
+— hors de `graph_context.py`, donc hors de la liste ci-dessus.** Six sites au
+total. *Une énumération de sites est une phrase d'exhaustivité comme une autre :
+celle-ci en avait manqué la moitié, faute d'avoir cherché ailleurs que dans le
+fichier évident.*
+
+**La nuance de profondeur, et elle décide de ce que `_MAX_DEPTH` doit couvrir.**
+Cette entrée écrivait que la profondeur « atteint 4 pour un titre et 5 pour un
+élément ». Les deux écritures sont justes **sous des définitions différentes**, et
+c'est exactement l'ambiguïté de `depth` que le §5.1 de l'état des lieux du
+pipeline signale. `mesuré` par le lot 2 : en **niveaux de titres**, 4 ; en
+**sauts jusqu'à la racine**, 5 pour le `SectionHeader` le plus profond et **6**
+pour le nœud le plus profond. Ce qui compte pour `_MAX_DEPTH` est le compte de
+**sauts**, soit 6, `_climb_to_section` remontant d'un parent par itération —
+donc 10 laisse 4 de marge. La constante reste saine, mais **pour une raison qu'il
+fallait mesurer, pas pour celle que j'écrivais.**
 
 **Le constat de mesure qui a démenti le pilote, et il faut le lire avant de
 toucher à quoi que ce soit.** Le pilote a supposé que `_SIBLING_CANDIDATES = 5`,
@@ -1632,8 +1676,22 @@ constante 5 est donc largement suffisante — **le commentaire est faux, la
 constante est saine**, et la corriger serait une correction sans défaut.
 
 **Ce que la même simulation a trouvé, et qui reste ouvert** : sur les 746
-en-têtes, **214** n'ont aucun frère en-tête d'un côté donné (mêmes 214 dans les
-deux directions). Pour ceux-là `_find_sibling` rend `None`, alors qu'une section
+en-têtes, **214** n'ont aucun frère en-tête d'un côté donné.
+
+> **Correction du lot 2, et l'erreur était un raisonnement, pas une frappe.**
+> Cette entrée ajoutait « (mêmes 214 dans les deux directions) ». **Le compte
+> coïncide, l'ENSEMBLE non**, et j'avais déduit l'identité des ensembles de
+> l'égalité des comptes. `mesuré` par le lot 2 et **reproduit par le pilote** :
+> 214 sans frère en-tête avant, 214 après, **intersection 47**, **union 381** —
+> soit **51,1 %** des 746 en-têtes concernés dans au moins une direction, et non
+> 28,7 %. La coïncidence des deux comptes à 214 est un hasard, robuste à la
+> limite examinée. *Deux ensembles de même cardinal ne sont pas le même
+> ensemble : c'est une inférence que rien n'autorisait, et elle a doublé la
+> portée du constat une fois mesurée.*
+>
+> Et le phénomène n'est pas un effet de bord de tri : seuls **25** en-têtes sont
+> premiers sous leur parent. Les 189 autres ont bien des frères précédents, mais
+> **aucun n'est un en-tête**. Pour ceux-là `_find_sibling` rend `None`, alors qu'une section
 voisine existe **en ordre de lecture** — dans le sous-arbre de l'oncle, ou au
 chapitre suivant. Ce n'est pas un bug : c'est une **définition** de « section
 voisine » — le frère sous le parent commun — qui n'a jamais été rediscutée
