@@ -38,10 +38,12 @@ sont autorisées et elles seules :
 - `florian_horellou@laposte.net`
 
 **Vérifie toujours une identité sur l'ADRESSE, jamais sur le nom** : deux
-identités portent le même nom, « Florian Horellou ». Sur le dépôt jumeau, sept
+identités portent le même nom, « Florian Horellou ». **Sur CE dépôt-ci**, sept
 commits sont partis avec une adresse **professionnelle** `@aosis.net` ; il a
-fallu réécrire 165 commits **puis détruire et recréer** le dépôt GitHub, la
-liste des contributeurs ne se défaisant pas. **Jamais de `--no-verify`.**
+fallu réécrire les 165 commits de l'époque **puis détruire et recréer** le dépôt
+GitHub, la liste des contributeurs ne se défaisant pas. Les trois mesures qui
+établissent que c'est bien ici, et non sur le dépôt jumeau, sont au §4.1 du
+registre. **Jamais de `--no-verify`.**
 
 **Ce dépôt n'a AUCUN garde-fou armé**, et c'est le premier constat du chantier —
 §4.1 du registre. Ce qui a été mesuré le 3 septembre 2026 est là-bas ; ce qui
@@ -81,7 +83,11 @@ jamais en intégration continue sans lui.
 `make test-integration` et `make eval` exigent la pile démarrée. **`make eval`
 est hors service** — §4.3 du registre.
 
-Les outils sont épinglés dans `requirements-dev.txt`. Sur un poste nu :
+**La porte ne tourne PAS sur un arbre de travail neuf**, et c'est une trouvaille
+du lot 1 : `which ruff mypy pytest` rend `rc=1` sur ce poste, aucun n'étant au
+`PATH`. Un `make lint` depuis un arbre neuf échoue donc sur
+`ruff: command not found`, et non sur une faute de code. Les outils sont épinglés
+dans `requirements-dev.txt`. Sur un arbre neuf comme sur un poste nu :
 
 ```bash
 uv venv --python 3.12 && uv pip install torch --index-url https://download.pytorch.org/whl/cpu && uv pip install -r requirements.txt -r requirements-dev.txt
@@ -123,15 +129,15 @@ le pilote croyait avoir supprimé.
 
 | | `mesuré` le 3 septembre 2026 |
 |---|---|
-| branches | **une seule** hors `main` : `claude/audit-rag-agent-chat-e8de9d`, l'arbre du pilote. `main` = `origin/main` = `a6b9c0c`, arbre propre, seul `.claude/` non suivi |
+| branches | **deux** hors `main` : `claude/audit-rag-agent-chat-e8de9d` (l'arbre du pilote) et `claude/conv21-lot1-identite-exigence5-3de29d` (lot 1, en vol). `main` = `origin/main` = `d526f6a`, arbre propre, seul `.claude/` non suivi |
 | dernier commit du dépôt | **28 août 2026** — le dépôt est resté immobile pendant que le pipeline réingérait le 2 septembre. C'est la cause matérielle de §4.3 et §4.6 |
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
 | garde-fou d'identité | **absent** — §4.1 |
-| historique | 165 commits, **deux adresses et elles seules** (89 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code |
-| porte qualité | `ruff check src/ tests/ scripts/` → `rc=0` ; `mypy src/` → `rc=0`, 18 fichiers ; `pytest tests/unit/` → `rc=0`, **461 passés**. Concordant avec `tests.md`, qui annonce 461 |
+| historique | **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
+| porte qualité | à `d526f6a` : `ruff check src/ tests/ scripts/` → `rc=0` ; `mypy src/` → `rc=0`, 18 fichiers ; `pytest tests/unit/` → `rc=0`, **461 passés**, concordant avec `tests.md`. À `ff000f7` (lot 1, non fusionné) : `rc=0`, **479 passés** |
 | tests désactivés | **0** `pytest.mark.skip`, **0** `xfail`. 3 `type: ignore` (frontière ChromaDB, `retriever.py`), 90 `noqa` presque tous `PLR2004` — antérieurs à ce chantier, non instruits |
-| pile Docker | projet `rag-ingestion-pipeline`, 9 services debout ; `llm-service`, 1 service. Réseaux `rag_network` et `llm-net` présents. **Aucun conteneur de l'agent** |
-| `dagster-daemon` | **arrêté** — et « arrêté » n'est PAS une propriété stable : il a démarré **trois fois** sur le dépôt jumeau sans qu'aucune conversation le décide, cause jamais cherchée |
+| pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
+| `dagster-daemon` | **arrêté** (`Exited (0)`), et il l'est resté pendant tout le lot 1, relevé à ses deux bouts. Mais « arrêté » n'est PAS une propriété stable : il a démarré **trois fois** sur le dépôt jumeau sans qu'aucune conversation le décide, cause jamais cherchée |
 | les stores | ChromaDB `rag_documents`, **4 367** chunks ; NebulaGraph `rag_space`, **15 173** arêtes `PARENT_OF`, **23** documents. Concordant à l'unité avec la campagne de référence du pipeline |
 | les LLM | `ollama-central` sert `gemma4:e4b` et `nomic-embed-text` — `gemma4:e4b` est bien celui qu'attend `.env.example` |
 

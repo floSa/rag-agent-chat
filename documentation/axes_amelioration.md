@@ -1296,22 +1296,53 @@ par une commande dont la sortie a été lue. Le mandat du chantier est
 | le hook versionné du dépôt jumeau | `ls scripts/git-hooks/` | **absent** |
 | une cible d'installation | `grep install Makefile` | **absente** |
 
-Autrement dit : **rien ne protège ce dépôt**, et la seule raison pour laquelle
-aucun mauvais commit n'en est parti est qu'aucune identité n'était configurée du
-tout — un `fail-closed` par accident, pas par construction. Le geste qui le
-défait est une seule commande, et il n'y a rien derrière.
+Autrement dit : **rien ne protège ce dépôt**, et le geste qui le défait est une
+seule commande.
 
-Ce que ça a coûté sur le dépôt jumeau, où le même trou existait : sept commits
-partis avec une adresse **professionnelle** `@aosis.net` sur un dépôt
-**personnel**, puis 165 commits réécrits, puis **le dépôt GitHub détruit et
-recréé** — la liste des contributeurs, une fois constituée, ne se défait pas.
+**L'incident des sept commits est arrivé ICI, sur ce dépôt-ci — et cette entrée
+l'attribuait au dépôt jumeau.** C'était faux, et la correction change la nature
+du constat. Le lot 1 l'a relevé, et le pilote a reproduit ses trois mesures, qui
+concordent (`mesuré` le 3 septembre 2026) :
 
-**Ce que l'historique de CE dépôt porte, et il est sain** (`mesuré` :
-`git log --all --format='%ae | %ce' | sort | uniq -c`) : 165 commits, **deux
-adresses et elles seules** — `florian_horellou@laposte.net` (89) et
-`florian.horellou@gmail.com` (76) —, **0** occurrence de `@aosis.net`, et **0**
-attribution à un assistant de génération de code. Il n'y a rien à réparer :
-il y a un garde à poser avant que quelque chose soit à réparer.
+1. **la source primaire nomme ce dépôt.** `scripts/git-hooks/pre-commit` du
+   jumeau, versionné, porte en commentaire : « Sept commits sont partis avec
+   l'adresse professionnelle sur le dépôt personnel **`rag-agent-chat`**, et il
+   a fallu réécrire l'historique PUIS détruire et recréer le dépôt ». C'est le
+   développeur qui a fait le travail qui l'écrit, dans le fichier même du garde ;
+2. **le compte de commits désigne ce dépôt.** « 165 commits réécrits » : ce
+   dépôt-ci en portait exactement **165** à `a6b9c0c`. Le jumeau en portait
+   **111** au commit où il mesure lui-même ce chiffre (`a005172`), et **235** sur
+   `main` aujourd'hui — 165 n'a jamais été son compte ;
+3. **la date de création du dépôt distant le confirme.**
+   `api.github.com/repos/floSa/rag-agent-chat` rend
+   `created_at = 2026-08-28T07:47:48Z`, quand le plus ancien commit du clone est
+   du **30 avril 2026**. Un dépôt créé quatre mois après son premier commit est
+   un dépôt **recréé**. Pour comparaison, le jumeau rend
+   `created_at = 2026-07-12`, au milieu de son historique : aucune signature de
+   recréation.
+
+**Ce que ça change, et ce n'est pas une querelle d'attribution.** Cette entrée
+concluait « il n'y a rien à réparer : il y a un garde à poser avant que quelque
+chose soit à réparer », et expliquait l'absence de mauvais commit par un
+`fail-closed` par accident. **La vraie raison est que les mauvais commits ont
+déjà été purgés et le dépôt GitHub déjà détruit et recréé.** La gravité de ce
+constat n'est donc pas « ce qui pourrait arriver » : c'est **ce qui est arrivé
+ici**, et dont il ne reste aucune trace dans `git log` précisément parce que le
+prix a été payé. Le trou est resté ouvert après la réparation, et le garde n'a
+jamais été posé de ce côté.
+
+**Ce que l'historique de ce dépôt porte aujourd'hui, et il est sain** (`mesuré`
+le 3 septembre 2026 : `git log --all --format='%ae | %ce' | sort | uniq -c`) :
+**167** commits — 165 avant l'ouverture du chantier —, **deux adresses et elles
+seules**, `florian_horellou@laposte.net` (91) et `florian.horellou@gmail.com`
+(76), **0** occurrence de `@aosis.net`, et **0** attribution à un assistant de
+génération de code.
+
+**Ce compte est un état de poste, pas une propriété de l'historique**, et
+l'entrée le présentait comme une propriété. Le lot 1 l'a mesuré à 167 trois
+heures après que le pilote eut écrit 165 : l'écart était exactement les deux
+commits d'ouverture du chantier. Un chiffre qui bouge à chaque commit se borne à
+sa révision — d'où le `a6b9c0c` ci-dessus — ou ne s'écrit pas.
 
 **La correction, et elle est à porter, pas à inventer :** le dépôt jumeau porte
 un montage éprouvé, avec son test — `scripts/git-hooks/pre-commit`,
