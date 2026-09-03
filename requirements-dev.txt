@@ -6,3 +6,32 @@ pytest==9.1.1
 # n'executent RIEN sans ce greffon : ils echouent, ou pire, passent a vide.
 pytest-asyncio==1.4.0
 pip-audit==2.10.1
+
+# LE FRAMEWORK DE HOOKS EST UN OUTIL DE LA PORTE, PAS UN EXTRA.
+#
+# `make test` vaut `pytest tests/unit/`, et il ramasse
+# `test_installation_des_garde_fous.py`, qui lance le framework dans un
+# sous-processus (`python -m pre_commit`) sur un depot jetable. Ce que la CI
+# installe doit donc le contenir, et la CI n'installe que les
+# `requirements*.txt` (`.github/workflows/ci.yml`) : le declarer ailleurs, c'est
+# le declarer nulle part pour elle.
+#
+# `mesure` le 3 septembre 2026 : declare dans le seul groupe `hooks` de
+# `pyproject.toml`, que rien dans la CI n'installe, l'environnement monte par le
+# protocole du §2.2 rendait `make test` en `rc=2` — 3 echecs, 464 passes,
+# 12 erreurs, toutes sur `No module named pre_commit` — quand un `.venv` ou
+# `make install` avait passe rendait `rc=0`, 479 passes. La batterie qui garde
+# l'identite ne tournait pas la ou le chantier la regarde.
+#
+# UN SEUL SITE, ET C'EST CETTE LIGNE-CI. `pyproject.toml` ne porte plus de
+# groupe `hooks` : deux sites divergeraient sans que rien ne rougisse. La version
+# est alignee sur celle du depot jumeau `rag-ingestion-pipeline`, dont le montage
+# de garde-fous est porte ici — deux frameworks de versions differentes sur le
+# meme poste rendraient deux verdicts.
+#
+# CE FICHIER NE TIRE PAS LA PILE DE PRODUCTION, et c'est ce qui autorise
+# `make install` a l'installer entier. `mesure` le 3 septembre 2026, `uv pip
+# install --dry-run` dans un venv nu : 39 paquets sans cette ligne, 47 avec,
+# dont zero `torch` et zero `nvidia-*`. Armer un hook git ne telecharge pas la
+# pile CUDA.
+pre-commit==4.6.2

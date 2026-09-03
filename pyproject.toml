@@ -26,6 +26,35 @@ dependencies = [
     "aiosqlite==0.22.1",
 ]
 
+# CE FICHIER NE DECLARE PAS LE FRAMEWORK DE HOOKS, ET C'EST DELIBERE.
+#
+# `pre-commit==4.6.2` est epingle dans `requirements-dev.txt`, avec les autres
+# outils de la porte qualite, et la-bas seulement. La contrainte qui l'y met :
+#
+#   ce que la CI installe doit contenir ce dont `make test` a besoin.
+#
+# `make test` vaut `pytest tests/unit/`, qui ramasse
+# `tests/unit/test_installation_des_garde_fous.py` : cette batterie lance le
+# framework dans un sous-processus. Et la CI n'installe que les
+# `requirements*.txt` (`.github/workflows/ci.yml`) — modifier ce workflow exige
+# un jeton avec le scope `workflow`, que le jeton de push n'a pas, donc la liste
+# de ce qu'elle installe n'est pas un levier disponible ici.
+#
+# CE QU'UN GROUPE `[dependency-groups]` A COUTE ICI. Le framework y a vecu le
+# 3 septembre 2026, dans un groupe `hooks` que rien dans la CI n'installait. La
+# justification d'alors tenait en « la CI n'appelle jamais les hooks git » : la
+# premisse etait vraie, et la conclusion fausse, parce que la CI appelle les
+# TESTS des hooks. `mesure` : `make test` rendait `rc=2` dans l'environnement du
+# protocole (§2.2 de `documentation/pilotage_du_chantier.md`) et `rc=0` dans un
+# `.venv` ou `make install` avait passe. Le raisonnement n'avait pas ete
+# incomplet par distraction : il avait ferme une enumeration des usages de la
+# CI, et l'usage manquant etait le seul qui comptait.
+#
+# Rajouter un groupe ici redonnerait DEUX sites a une meme version, qui
+# divergeraient sans que rien ne rougisse.
+# Garde : `tests/unit/test_installation_des_garde_fous.py`,
+# `TestLeFrameworkEstInstallableParLaCI`.
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
