@@ -169,19 +169,18 @@ Ce qui était demandé : chaîner les parents des titres au lieu de les rattache
 tous au `Document`. Ce que la réingestion du **2 septembre 2026** a livré,
 `mesuré` de ce côté-ci le 3 septembre 2026 sur le graphe en service :
 
-| | `mesuré` |
-|---|---|
-| `SectionHeader` dans le graphe | **746** |
-| dont parent direct = un autre `SectionHeader` | **583**, soit **78,2 %** |
-| profondeur des `SectionHeader`, en titres | 0 → 163, 1 → 301, 2 → 234, 3 → 40, 4 → 8 |
+L'ordre de grandeur, et une seule valeur pour le fixer : **78,2 %** des
+`SectionHeader` ont pour parent un autre `SectionHeader`.
 
 `Chapitre 3 > 3.2 > 3.2.1` est donc possible, et le fil d'Ariane de l'agent le
 construit correctement **sans rien changer** : `_climb_to_section` collecte la
 chaîne entière jusqu'au tag racine.
 
-Le site canonique de ces chiffres, avec leurs commandes, est le **§4.6** de
-[`axes_amelioration.md`](axes_amelioration.md) — celui-ci y renvoie plutôt que
-de les recopier.
+Le compte exact, la distribution des profondeurs et les commandes qui les
+rejouent sont au **§4.6** de
+[`axes_amelioration.md`](axes_amelioration.md), leur site canonique — cette page
+y renvoie plutôt que de les recopier. La version précédente recopiait la table
+entière trois lignes au-dessus d'écrire qu'elle ne la recopiait pas.
 
 **Ce qui reste vrai du coût annoncé ici**, et c'est la seule chose à retenir de
 l'ancienne version : le budget de contexte de l'agent facture l'encadrement

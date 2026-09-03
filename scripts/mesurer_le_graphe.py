@@ -36,6 +36,11 @@ _AVANT = int(os.environ.get("CONTEXT_WINDOW_BEFORE", "6"))
 _APRES = int(os.environ.get("CONTEXT_WINDOW_AFTER", "6"))
 # Nebula rend ses résultats par pages ; au-delà, il tronque sans le dire.
 _PAGE = 5000
+# Un parent doit avoir au moins deux enfants pour que la contiguïté de leurs
+# `sequence` soit une question : une suite d'un seul élément est contiguë par
+# définition. C'est la population sur laquelle le taux de non-contiguïté se
+# mesure, et la nommer évite de la reconfondre avec « tous les parents ».
+_MIN_ENFANTS_ELIGIBLES = 2
 
 
 def _pool() -> Any:
@@ -169,11 +174,20 @@ def rapporter(aretes: list[tuple[str, str, int | None]], tags: dict[str, str]) -
     non_contigus = [
         p
         for p, fils in enfants.items()
-        if len(fils) >= 2
+        if len(fils) >= _MIN_ENFANTS_ELIGIBLES
         and [s for s, _ in fils] != list(range(fils[0][0], fils[0][0] + len(fils)))
     ]
-    print(f"parents avec >= 2 enfants   : {sum(1 for f in enfants.values() if len(f) >= 2)}")
-    print(f"parents NON contigus        : {len(non_contigus)} sur {len(enfants)}")
+    # La POPULATION ÉLIGIBLE, et c'est une correction. La version précédente
+    # imprimait « 167 sur 763 », où 763 est le nombre de parents TOUS ENFANTS
+    # CONFONDUS : elle rapportait donc un numérateur compté sur les parents à
+    # deux enfants ou plus à un dénominateur compté sur tous les parents. Un
+    # parent à un seul enfant ne PEUT PAS être non contigu — la contiguïté d'une
+    # suite d'un élément est vraie par définition —, si bien que les 71 parents
+    # à un enfant unique ne faisaient que diluer le taux.
+    eligibles = sum(1 for f in enfants.values() if len(f) >= _MIN_ENFANTS_ELIGIBLES)
+    print(f"parents (tous, y compris à un enfant) : {len(enfants)}")
+    print(f"parents éligibles (>= 2 enfants)      : {eligibles}")
+    print(f"parents NON contigus                  : {len(non_contigus)} sur {eligibles}")
     cache: dict[str, int] = {}
     concordent = discordent = 0
     for fils in enfants.values():
@@ -233,7 +247,17 @@ def rapporter(aretes: list[tuple[str, str, int | None]], tags: dict[str, str]) -
     print(f"  profondeur en titres      : {dict(sorted(repartition.items()))}")
     print(f"  sauts max jusqu'à la racine, tous nœuds : {max(_hauteur(v, parent) for v in tags)}")
 
-    print("\n── _SIBLING_CANDIDATES : rang du premier frère en-tête ──")
+    # Le rang est compté 1-BASÉ : le frère immédiatement adjacent est au rang 1,
+    # pas au rang 0. La convention est nommée ici parce qu'elle ne l'était nulle
+    # part, et que le chiffre est PUBLIÉ — « le rang du premier frère en-tête
+    # vaut 1 au pire cas », §4.6 de `documentation/axes_amelioration.md`. La
+    # version précédente imprimait le même fait en 0-basé, et les deux écritures
+    # se lisaient donc comme deux mesures différentes du même graphe.
+    #
+    # 1-basé est la convention retenue parce que c'est celle qui rend le chiffre
+    # DIRECTEMENT comparable à `_SIBLING_CANDIDATES` : « rang max = 1 » et « un
+    # seul candidat suffit » sont alors la même phrase.
+    print("\n── _SIBLING_CANDIDATES : rang 1-basé du premier frère en-tête ──")
     sans_frere: dict[str, set[str]] = {}
     for direction in ("before", "after"):
         rang_max = 0
@@ -245,14 +269,25 @@ def rapporter(aretes: list[tuple[str, str, int | None]], tags: dict[str, str]) -
                 candidats = [c for s, c in sorted(fils, reverse=True) if s < propre]
             else:
                 candidats = [c for s, c in fils if s > propre]
-            rang = next(
-                (i for i, c in enumerate(candidats) if tags.get(c) == "SectionHeader"), None
+            # Nom distinct de la variable de boucle `rang` employée plus haut
+            # dans cette fonction : la réutiliser rendait `mypy scripts/`
+            # rouge, `int | None` étant affecté à un `int` déjà lié.
+            rang_trouve = next(
+                (
+                    i
+                    for i, c in enumerate(candidats, start=1)
+                    if tags.get(c) == "SectionHeader"
+                ),
+                None,
             )
-            if rang is None:
+            if rang_trouve is None:
                 sans.add(vid)
             else:
-                rang_max = max(rang_max, rang)
-        print(f"  {direction:7s} : rang max = {rang_max}, sans frère en-tête = {len(sans)}")
+                rang_max = max(rang_max, rang_trouve)
+        print(
+            f"  {direction:7s} : rang max (1-basé) = {rang_max}, "
+            f"sans frère en-tête = {len(sans)}"
+        )
         sans_frere[direction] = sans
     avant, apres = sans_frere["before"], sans_frere["after"]
     print(f"  ensembles identiques ?    : {avant == apres}")

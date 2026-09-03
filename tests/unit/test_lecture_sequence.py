@@ -55,6 +55,19 @@ _VID_HEX = re.compile(r"^[a-f0-9]{10}$")
 # refuserait littérales, et une règle muselée n'est pas une correction.
 _NB_ENFANTS = 15
 _RANG_ANCRE = 7
+# En deçà de deux lignes, aucun ordre n'est observable : une liste de zéro ou un
+# élément est triée quoi qu'on fasse, et la rotation du bouchon serait l'identité.
+_MIN_POUR_DESORDRE = 2
+# `LIMIT` de la SONDE d'atteignabilité de
+# `test_les_sections_voisines_ne_franchissent_pas_la_frontiere`, et non de la
+# production. Il est FIGÉ, et c'est une correction : la sonde empruntait
+# `graph_context._SIBLING_CANDIDATES`, si bien que régler la constante à 1 —
+# ce que son propre commentaire annonce comme suffisant — rendait la suite
+# rouge sur la PRÉCONDITION de la sonde, jamais sur la propriété gardée
+# (`mesuré` : `assert 'bbbbbbbb01' in ['ca00000000']`). Un garde dont le cas
+# n'est atteint que pour une valeur de réglage n'éprouve pas ce réglage : il
+# éprouve sa propre mise en scène.
+_LIMITE_DE_SONDE = 5
 _NB_ENFANTS_COURTE = 3
 # Écart entre deux frères du graphe factice. Il vaut plus que la demi-fenêtre,
 # donc un encadrement `sequence ∈ [s−6, s+6]` n'attrape que l'ancre elle-même.
@@ -107,14 +120,23 @@ class GrapheFactice:
             "page_no": 0,
         }
         self.enfants.setdefault(parent, []).append((sequence, vid))
-        self.enfants[parent].sort()
         self.parent[vid] = (parent, sequence)
         return vid
 
     # ── moteur de requêtes ──────────────────────────────────────────────────
 
     _VID = re.compile(r'GO FROM "((?:[^"\\]|\\.)*)"')
-    _FILTRE = re.compile(r"properties\(edge\)\.sequence\s*(>=|<=|!=|==|>|<)\s*(-?\d+)")
+    # Les deux ecritures qui nomment la `sequence` d'une arete PARENT_OF dans ce
+    # depot : la propriete de l'arete, et la colonne `seq` reprise en aval d'un
+    # tube. La seconde manquait, et son absence rendait le bouchon aveugle a
+    # `| YIELD … WHERE $-.seq >= …` — un encadrement aussi legitime que l'autre,
+    # qui recevait donc TOUTES les lignes et passait pour juste.
+    _REFERENCE = r"(?:properties\(edge\)\.sequence|\$-\.seq)"
+    _OPERATEUR = r"(>=|<=|!=|==|>|<)"
+    _ENTIER = r"(-?\d+)"
+    # `ref op N`, et `N op ref` — le meme encadrement, les operandes echangees.
+    _FILTRE = re.compile(rf"{_REFERENCE}\s*{_OPERATEUR}\s*{_ENTIER}")
+    _FILTRE_INVERSE = re.compile(rf"{_ENTIER}\s*{_OPERATEUR}\s*{_REFERENCE}")
     _ORDRE = re.compile(r"ORDER BY \$-\.seq (ASC|DESC)")
     _LIMITE = re.compile(r"LIMIT (\d+)")
 
@@ -126,6 +148,8 @@ class GrapheFactice:
         "==": lambda a, b: a == b,
         "!=": lambda a, b: a != b,
     }
+    # `N op sequence` equivaut a `sequence op' N` avec l'operateur retourne.
+    _RETOURNE = {">=": "<=", "<=": ">=", ">": "<", "<": ">", "==": "==", "!=": "!="}
 
     def _vid_de(self, nql: str) -> str | None:
         trouve = self._VID.search(nql)
@@ -140,6 +164,9 @@ class GrapheFactice:
         for operateur, valeur in self._FILTRE.findall(nql):
             compare = self._COMPARE[operateur]
             lignes = [(s, c) for s, c in lignes if compare(s, int(valeur))]
+        for valeur, operateur in self._FILTRE_INVERSE.findall(nql):
+            compare = self._COMPARE[self._RETOURNE[operateur]]
+            lignes = [(s, c) for s, c in lignes if compare(s, int(valeur))]
         return lignes
 
     def _applique_ordre_et_limite(
@@ -153,8 +180,41 @@ class GrapheFactice:
             lignes = lignes[: int(limite.group(1))]
         return lignes
 
+    @staticmethod
+    def _desordonne(lignes: list[tuple[int, str]]) -> list[tuple[int, str]]:
+        """Rend les lignes dans un ordre GARANTI non trié dès qu'il y en a deux.
+
+        C'EST LE CŒUR DU MONTAGE, et il a manqué à la première version de ce
+        fichier. NebulaGraph ne promet AUCUN ordre à un `GO FROM` sans
+        `ORDER BY` : `mesuré` le 3 septembre 2026 sur les 334 parents à treize
+        enfants ou plus du graphe en service, 80 sur 80 des parents testés
+        rendent leurs enfants dans un ordre non trié — un exemple commençant
+        `226, 157, 182, 224, 258…`. Commande et chiffres au §4.6 de
+        `documentation/axes_amelioration.md`.
+
+        Un bouchon qui rendrait ses enfants triés FABRIQUERAIT la précondition
+        que ce fichier doit éprouver : retirer le `| ORDER BY $-.seq ASC` de
+        `_get_children` ne changerait alors rien à ce qu'il rend, et le garde
+        serait décoratif. C'est exactement ce qui était arrivé — `mesuré` : sous
+        cette mutation, les 496 tests restaient verts.
+
+        POURQUOI UNE ROTATION, ET NON UN TIRAGE ALÉATOIRE
+
+        Une rotation d'une demi-longueur est non triée **par construction** pour
+        `n ≥ 2` : faire tourner une suite strictement croissante de `k` rangs,
+        avec `0 < k < n`, ne peut pas rendre une suite croissante. Un
+        `random.shuffle`, même à graine fixe, ne l'est que par constatation — et
+        un garde dont le cas n'est atteint que par chance n'est pas un garde.
+        La rotation est en outre distincte de l'ordre inverse dès `n ≥ 3`, donc
+        elle ne confond pas une mutation `ASC → DESC` avec elle-même.
+        """
+        if len(lignes) < _MIN_POUR_DESORDRE:
+            return lignes
+        milieu = len(lignes) // 2
+        return lignes[milieu:] + lignes[:milieu]
+
     def _portee(self, nql: str) -> list[tuple[int, str]]:
-        """Les arêtes que la requête balaie, AVANT filtrage.
+        """Les arêtes que la requête balaie, AVANT filtrage et AVANT tout ordre.
 
         Une requête ancrée (`GO FROM "<vid>"`) ne voit que les enfants de ce
         VID. Une requête NON ancrée — un `LOOKUP` sur l'arête, par exemple —
@@ -166,11 +226,16 @@ class GrapheFactice:
         Un bouchon qui rendrait une liste vide pour une requête non ancrée
         laisserait passer ce défaut-là en le faisant ressembler à « aucun
         voisin trouvé ».
+
+        L'ordre rendu est délibérément non trié — voir `_desordonne`. Seul un
+        `ORDER BY` porté par la requête trie, parce que c'est la seule chose qui
+        trie dans NebulaGraph.
         """
         vid = self._vid_de(nql)
         if vid is not None:
-            return list(self.enfants.get(vid, []))
-        return [paire for enfants in self.enfants.values() for paire in enfants]
+            return self._desordonne(list(self.enfants.get(vid, [])))
+        toutes = [paire for enfants in self.enfants.values() for paire in enfants]
+        return self._desordonne(toutes)
 
     def execute(self, nql: str) -> list[dict[str, object]]:
         """Le remplaçant de `graph_context._execute`."""
@@ -262,12 +327,158 @@ def graphe_non_contigu() -> tuple[GrapheFactice, list[str], str]:
     return g, elements, section
 
 
+@pytest.fixture
+def graphe_imbrique() -> tuple[GrapheFactice, list[str], dict[str, str]]:
+    """Un graphe où les en-têtes s'IMBRIQUENT, comme le graphe en service.
+
+    POURQUOI CETTE FIXTURE EXISTE
+
+    Aucune fixture du dépôt n'en construisait : les neuf `SectionHeader` des
+    fixtures existantes ont tous le `Document` pour parent. Le cas de **583
+    en-têtes sur 746** — ceux qui ont pour parent un autre `SectionHeader`,
+    `mesuré` le 3 septembre 2026, §4.6 de `documentation/axes_amelioration.md` —
+    n'était donc construit nulle part, dans un lot dont le sujet est précisément
+    que le graphe s'imbrique.
+
+    Conséquence `mesuré` avant qu'elle existe : remettre la prémisse morte dans
+    `_climb_to_section` — faire partir la recherche de voisine du `Document` au
+    lieu du parent réel — laissait les 500 tests VERTS, et `_MAX_DEPTH = 2` les
+    laissait verts aussi tout en reperdant le nom du document, c'est-à-dire en
+    réintroduisant le défaut du §1.2 du registre de pilotage.
+
+    LA FORME, ET CE QUE CHAQUE ARÊTE Y FAIT
+
+        Document « Livre.pdf »
+        ├── Chapitre 1                       (seq 0)   ← ce que la prémisse
+        │   ├── Section 1.1                  (seq 1)      morte trouverait
+        │   │   ├── Sous-section 1.1.1       (seq 2)   ← section de l'ancre
+        │   │   │   └── trois éléments
+        │   │   └── Sous-section 1.1.2       (seq 50)  ← la VRAIE voisine
+        │   │       └── trois éléments
+        │   └── Section 1.2                  (seq 200)
+        └── Chapitre 2                       (seq 300) ← ce que la prémisse
+            └── trois éléments                            morte trouverait
+
+    La forme est choisie pour que « voisine sous le parent réel » et « voisine
+    sous le Document » donnent des réponses DIFFÉRENTES dans les deux
+    directions — sans quoi la prémisse morte resterait invisible ici aussi :
+
+    - après : le parent réel donne `Sous-section 1.1.2`, le Document donne
+      `Chapitre 2` ;
+    - avant : le parent réel n'a AUCUN frère avant le rang 2, le Document donne
+      `Chapitre 1`.
+
+    L'ancre est à quatre sauts du `Document`, donc `_MAX_DEPTH = 2` ne l'atteint
+    plus et le nom du fichier se reperd.
+
+    Returns:
+        (graphe, éléments de la sous-section de l'ancre, VIDs nommés).
+    """
+    g = GrapheFactice()
+    doc = g.document("doc_essai/Ouvrage/Livre", "Livre.pdf", collection="Ouvrage")
+    ch1 = g.noeud("aaaaaaaa01", "SectionHeader", "section_header", "Chapitre 1", doc, 0)
+    s11 = g.noeud("aaaaaaaa02", "SectionHeader", "section_header", "Section 1.1", ch1, 1)
+    ss111 = g.noeud(
+        "aaaaaaaa03", "SectionHeader", "section_header", "Sous-section 1.1.1", s11, 2
+    )
+    ss112 = g.noeud(
+        "aaaaaaaa04", "SectionHeader", "section_header", "Sous-section 1.1.2", s11, 50
+    )
+    g.noeud("aaaaaaaa05", "SectionHeader", "section_header", "Section 1.2", ch1, 200)
+    ch2 = g.noeud("aaaaaaaa06", "SectionHeader", "section_header", "Chapitre 2", doc, 300)
+
+    elements = _section_espacee(g, doc, ss111, nb=_NB_ENFANTS_COURTE, depart=3, prefixe="da")
+    _section_espacee(g, doc, ss112, nb=_NB_ENFANTS_COURTE, depart=51, prefixe="db")
+    _section_espacee(g, doc, ch2, nb=_NB_ENFANTS_COURTE, depart=301, prefixe="dc")
+
+    vids = {
+        "doc": doc, "ch1": ch1, "s11": s11,
+        "ss111": ss111, "ss112": ss112, "ch2": ch2,
+    }
+    return g, elements, vids
+
+
+class TestLeGrapheSImbrique:
+    """Les propriétés que seul un graphe à en-têtes imbriqués peut éprouver.
+
+    Le code livré était JUSTE sur ces points — ces gardes ne corrigent aucun
+    défaut. Ils ferment un trou de COUVERTURE : sans eux, deux régressions
+    parmi les plus probables du module passaient en `rc=0`, dont celle qui
+    remet dans le code une prémisse qu'un commit venait d'en retirer.
+    """
+
+    def test_la_voisine_est_cherchee_sous_le_parent_reel_et_non_sous_le_document(
+        self, monkeypatch: pytest.MonkeyPatch, graphe_imbrique: tuple
+    ) -> None:
+        """La prémisse morte, gardée.
+
+        « Les en-têtes sont tous enfants directs du Document » était la prémisse
+        la plus fausse qu'ait portée ce module. Elle a été retirée de six sites
+        de commentaire ; rien n'empêchait de la remettre dans le CODE.
+        """
+        g, elements, vids = graphe_imbrique
+        _branche(monkeypatch, g)
+
+        # — le cas est-il atteint ? la section de l'ancre doit avoir pour parent
+        #   un SectionHeader, et non le Document.
+        parent_de_la_section, rang = g.parent[vids["ss111"]]
+        assert parent_de_la_section == vids["s11"]
+        assert g.noeuds[parent_de_la_section]["tag"] == "SectionHeader", (
+            "la fixture n'imbrique pas : le garde serait décoratif"
+        )
+        # — et les deux lectures doivent DIVERGER, sinon rien n'est éprouvé.
+        sous_le_parent = [c for sq, c in g.enfants[vids["s11"]] if sq > rang]
+        sous_le_document = [c for sq, c in g.enfants[vids["doc"]] if sq > rang]
+        assert sous_le_parent != sous_le_document
+
+        contexte = reconstruct_section(elements[1])
+
+        assert contexte.after_title == "Sous-section 1.1.2", (
+            "la voisine d'après est cherchée sous le Document : la prémisse "
+            "morte est de retour dans le code"
+        )
+        # Sous le parent réel, aucun frère en-tête ne précède le rang 2 — là où
+        # le Document en offrirait un (Chapitre 1, rang 0).
+        assert contexte.before == []
+        assert contexte.before_title == ""
+
+    def test_le_fil_d_ariane_traverse_les_quatre_niveaux(
+        self, monkeypatch: pytest.MonkeyPatch, graphe_imbrique: tuple
+    ) -> None:
+        """`_MAX_DEPTH` doit porter jusqu'au `Document`, gardé.
+
+        Le §1.2 du registre de pilotage : « les citations perdaient le nom du
+        document ». La cause était une remontée qui s'arrêtait trop tôt. Une
+        constante trop basse le réintroduit, et sur un graphe PLAT rien ne le
+        voit — deux sauts suffisent quand tout en-tête pend du Document.
+        """
+        g, elements, _ = graphe_imbrique
+        _branche(monkeypatch, g)
+
+        contexte = reconstruct_section(elements[1])
+
+        textes = [b.text for b in contexte.breadcrumbs]
+        assert textes == [
+            "Livre.pdf", "Chapitre 1", "Section 1.1", "Sous-section 1.1.1",
+        ], "le fil d'Ariane ne traverse pas l'imbrication entière"
+        assert contexte.filename == "Livre.pdf", (
+            "le nom du document est reperdu : le défaut du §1.2 est de retour"
+        )
+        assert contexte.collection == "Ouvrage"
+
+
 # ─── Le montage voit-il encore passer une mutation ? ──────────────────────────
 
 
 class TestLeGrapheFacticeVoitLesFiltres:
-    """Sans ces deux tests, tous les gardes de ce fichier pourraient être verts
-    parce que le bouchon ignore les filtres, et non parce que le code est juste.
+    """Sans ces tests, tous les gardes de ce fichier pourraient être verts parce
+    que le bouchon ignore ce que la requête demande, et non parce que le code
+    est juste.
+
+    Les trois derniers gardent la RÉPARATION elle-même : un bouchon qui se
+    remettrait à trier ses enfants, ou qui redeviendrait aveugle à un
+    encadrement écrit en aval d'un tube, rendrait décoratifs tous les autres
+    gardes du fichier — silencieusement, et sans qu'une ligne rougisse.
     """
 
     def test_un_encadrement_de_sequence_retire_bien_des_lignes(self) -> None:
@@ -302,8 +513,141 @@ class TestLeGrapheFacticeVoitLesFiltres:
 
         assert [r["seq"] for r in rows] == [90, 80]
 
+    def test_le_bouchon_ne_rend_pas_ses_enfants_tries(self) -> None:
+        """Le garde de la réparation de T1, et la contrepartie du précédent.
+
+        NebulaGraph ne trie pas sans `ORDER BY`. Si le bouchon triait — ce que
+        faisait la première version de ce fichier, en triant à l'insertion —
+        alors retirer le `| ORDER BY $-.seq ASC` de `_get_children` ne
+        changerait rien à ce qu'il rend, et les trois gardes de
+        `TestLaFenetreEstPositionnelle` seraient verts des deux côtés du défaut.
+
+        Le tri à l'insertion est la forme la plus facile à réintroduire : elle
+        rend le bouchon « plus réaliste » en apparence.
+        """
+        g = GrapheFactice()
+        doc = g.document("doc_x", "x.pdf")
+        _section_espacee(g, doc, doc, nb=_NB_ENFANTS, depart=0)
+
+        brut = g.execute('GO FROM "doc_x" OVER PARENT_OF YIELD dst(edge) AS child_id;')
+        seqs = [r["seq"] for r in brut]
+
+        assert len(seqs) == _NB_ENFANTS, "le cas n'est pas atteint : pas assez d'enfants"
+        assert seqs != sorted(seqs), (
+            "le bouchon rend ses enfants triés : il FABRIQUE la précondition "
+            "que ce fichier doit éprouver"
+        )
+        # …et il n'est pas non plus simplement inversé : sinon une mutation
+        # `ASC → DESC` se confondrait avec l'ordre naturel du bouchon.
+        assert seqs != sorted(seqs, reverse=True)
+        # L'ORDER BY, lui, trie pour de vrai — sans quoi l'assertion ci-dessus
+        # serait satisfaite par un bouchon qui ne trie JAMAIS rien.
+        trie = g.execute(
+            'GO FROM "doc_x" OVER PARENT_OF '
+            "YIELD dst(edge) AS child_id, properties(edge).sequence AS seq "
+            "| ORDER BY $-.seq ASC;"
+        )
+        assert [r["seq"] for r in trie] == sorted(seqs)
+
+    def test_un_encadrement_en_aval_d_un_tube_est_vu(self) -> None:
+        """Le garde de la réparation de T2.
+
+        `| YIELD … WHERE $-.seq >= …` est du nGQL aussi légitime que
+        `WHERE properties(edge).sequence >= …`, et `mesuré` le 3 septembre 2026
+        contre le graphe en service, les deux formes rendent le même ensemble de
+        lignes — 40 parents sur 40 testés. Le bouchon ne reconnaissait que la
+        seconde : la première recevait donc TOUTES les lignes, la fenêtre
+        paraissait juste, et la mutation passait en `rc=0`.
+        """
+        g = GrapheFactice()
+        doc = g.document("doc_x", "x.pdf")
+        _section_espacee(g, doc, doc, nb=_NB_ENFANTS, depart=0)
+
+        encadre = g.execute(
+            'GO FROM "doc_x" OVER PARENT_OF '
+            "YIELD dst(edge) AS child_id, properties(edge).sequence AS seq "
+            "| ORDER BY $-.seq ASC "
+            "| YIELD $-.child_id AS child_id, $-.seq AS seq "
+            "WHERE $-.seq >= 64 AND $-.seq <= 76;"
+        )
+
+        # Même encadrement que `test_un_encadrement_de_sequence_retire_bien_des
+        # _lignes`, écrit en aval d'un tube : il doit MORDRE pareil.
+        assert len(encadre) == 1
+        assert encadre[0]["seq"] == _RANG_ANCRE * _ECART
+
+    def test_un_encadrement_aux_operandes_echangees_est_vu(self) -> None:
+        """`64 <= properties(edge).sequence` est le même encadrement retourné.
+
+        Troisième écriture du même filtre. La borne de ce que le bouchon
+        reconnaît est donc : les deux références (`properties(edge).sequence` et
+        `$-.seq`) dans les deux ordres d'operandes, comparées à un littéral
+        entier. Ce qu'il ne reconnaît PAS, et c'est dit ici plutôt que supposé :
+        une comparaison entre deux colonnes, et un encadrement par `IN` sur une
+        liste de valeurs — aucune des deux n'écrit une fenêtre de lecture.
+        """
+        g = GrapheFactice()
+        doc = g.document("doc_x", "x.pdf")
+        _section_espacee(g, doc, doc, nb=_NB_ENFANTS, depart=0)
+
+        encadre = g.execute(
+            'GO FROM "doc_x" OVER PARENT_OF '
+            "WHERE 64 <= properties(edge).sequence "
+            "AND 76 >= properties(edge).sequence "
+            "YIELD dst(edge) AS child_id;"
+        )
+
+        assert len(encadre) == 1
+        assert encadre[0]["seq"] == _RANG_ANCRE * _ECART
+
 
 # ─── Réserve 2 et 3 : la fenêtre se découpe sur des POSITIONS ────────────────
+
+
+class TestLaCompositionADeuxMaillonsEtNonUn:
+    """Le maillon du milieu : « tous les enfants, ORDONNÉS, puis par position ».
+
+    La composition que garde ce fichier a TROIS maillons, et le fichier n'en
+    gardait que deux — aller chercher tous les enfants, et découper par
+    position. Que la liste soit ORDONNÉE entre les deux n'était éprouvé par
+    rien : `mesuré` le 3 septembre 2026, retirer le `| ORDER BY $-.seq ASC` de
+    `_get_children` laissait les 496 tests verts.
+
+    La conséquence en service n'est pas une amputation, c'est un contexte FAUX :
+    `_window_around` découpe par position, donc treize frères ARBITRAIRES
+    seraient présentés au modèle comme les voisins de lecture de l'ancre.
+    `mesuré` sur le graphe en service, 80 des 334 parents à treize enfants ou
+    plus testés : 80 sur 80 rendent leurs enfants non triés sans `ORDER BY`, 80
+    sur 80 triés avec. Commande et chiffres au §4.6 de
+    `documentation/axes_amelioration.md`.
+
+    C'est la mutation la plus probable des trois, et c'est pourquoi elle a son
+    garde nommé plutôt que le seul effet de bord des trois tests de fenêtre : un
+    développeur retire un `ORDER BY` jugé redondant — « les données arrivent
+    triées » — bien plus volontiers qu'il ne réécrit une requête.
+    """
+
+    def test_les_enfants_arrivent_ordonnes_avant_tout_decoupage(
+        self, monkeypatch: pytest.MonkeyPatch, graphe_non_contigu: tuple
+    ) -> None:
+        g, _, section = graphe_non_contigu
+        _branche(monkeypatch, g)
+
+        # — le cas est-il atteint ? le bouchon doit rendre du DÉSORDRE en amont,
+        #   sinon ce garde serait vert quoi que fasse la requête.
+        brut = [s for s, _ in g._portee(f'GO FROM "{section}" OVER PARENT_OF')]
+        assert len(brut) == _NB_ENFANTS
+        assert brut != sorted(brut), "le bouchon ne présente aucun désordre à trier"
+
+        rows = graph_context._get_children(section)
+
+        seqs = [r["seq"] for r in rows]
+        assert len(seqs) == _NB_ENFANTS, "la requête a perdu des enfants"
+        assert seqs == sorted(seqs), (
+            "`_get_children` rend les enfants dans l'ordre du graphe et non "
+            "dans l'ordre de lecture : le découpage positionnel qui suit "
+            "fabriquerait un contexte faux"
+        )
 
 
 class TestLaFenetreEstPositionnelle:
@@ -448,7 +792,7 @@ class TestLaLectureEstBorneeAuDocument:
         globales = g.execute(
             "LOOKUP ON PARENT_OF WHERE properties(edge).sequence > 0 "
             "YIELD dst(edge) AS sibling_id, properties(edge).sequence AS seq "
-            f"| ORDER BY $-.seq ASC | LIMIT {graph_context._SIBLING_CANDIDATES};"
+            f"| ORDER BY $-.seq ASC | LIMIT {_LIMITE_DE_SONDE};"
         )
         joignables = [r["sibling_id"] for r in globales]
         assert sect_b in joignables, "le montage ne peut pas franchir la frontière"

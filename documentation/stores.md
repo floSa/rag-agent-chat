@@ -142,8 +142,13 @@ de parent, jamais d'une valeur de `sequence` seule. Une comparaison non ancrée
 visible.
 
 **2. Elle n'est pas contiguë sous un parent, et ce n'est pas une perte.**
-`mesuré` le 3 septembre 2026 : **167** parents sur **763** portent des valeurs
-non contiguës. L'écart s'explique **entièrement** par la taille du sous-arbre
+`mesuré` le 3 septembre 2026 : **167** parents sur les **692** qui ont au moins
+deux enfants portent des valeurs non contiguës.
+Le dénominateur est la population
+**éligible**, et non les 763 parents du graphe : un parent à enfant unique ne peut
+pas être non contigu, et les **71** parents de ce genre ne faisaient que diluer le
+taux. La version précédente de cette page écrivait « 167 sur 763 », un numérateur
+compté sur une population et un dénominateur sur une autre. L'écart s'explique **entièrement** par la taille du sous-arbre
 du frère précédent — vérifié sur les **14 410** couples de frères consécutifs
 du graphe, **0** discordance. `sequence` numérote l'ordre de lecture de
 l'ouvrage entier, pas les enfants d'un parent : un frère dont le sous-arbre
@@ -178,12 +183,46 @@ par défaut (`CONTEXT_WINDOW_BEFORE=CONTEXT_WINDOW_AFTER=6`, soit 13 éléments)
 > peut pas en perdre plus de 12. L'écart de 994 mesure un **trou de
 > numérotation**, pas un nombre d'éléments manquants.
 
-**Ce découpage est gardé, pas seulement documenté** :
+**Ce découpage est gardé, pas seulement documenté — et voici jusqu'où.**
 `tests/unit/test_lecture_sequence.py` pilote `reconstruct_section` contre un
-graphe factice qui **honore** les clauses `WHERE` des requêtes, et rougit sur
-six mutations distinctes — dont l'encadrement ci-dessus. Le garde porte sur la
-**composition** « chercher sans filtre, puis découper par position » : les tests
-qui appellent `_window_around` seul restent verts des deux côtés du défaut.
+graphe factice qui **honore** les clauses `WHERE` des requêtes, et qui rend ses
+enfants dans un ordre **non trié**, comme le fait NebulaGraph sans `ORDER BY`.
+
+Ce que la phrase couvrait mal, et c'est mesuré, pas relu. Le garde porte sur une
+composition à **trois** maillons — « chercher tous les enfants, **ordonnés**,
+puis découper par position » — et le fichier n'en éprouvait que deux : son
+graphe factice triait ses enfants à l'insertion, donc il FABRIQUAIT
+l'ordonnancement au lieu de l'éprouver. `mesuré` le 3 septembre 2026 : retirer
+le `| ORDER BY $-.seq ASC` de `_get_children` laissait alors la suite entière
+verte, `rc=0`, 496 passés, zéro rouge. Et un encadrement écrit **en aval d'un
+tube** — `| YIELD … WHERE $-.seq >= …`, du nGQL aussi légitime que l'autre —
+était invisible au bouchon, qui rendait donc toutes les lignes.
+
+**La borne de ce qui est gardé aujourd'hui**, `mesuré` le 3 septembre 2026 dans
+un environnement monté par le protocole du §2.2 du registre de pilotage — huit
+mutations passées, huit rouges, sur le code sain `rc=0` et 502 passés :
+
+| mutation | `rc` | rouges |
+|---|---|---|
+| encadrement `sequence ∈ [s−k, s+k]` dans le `WHERE` de l'arête | 2 | 3 |
+| le `ORDER BY $-.seq ASC` retiré de `_get_children` | 2 | 4 |
+| ce même `ORDER BY` retourné en `DESC` | 2 | 3 |
+| encadrement écrit en aval d'un tube (`$-.seq`) | 2 | 3 |
+| encadrement aux opérandes échangées (`N <= …`) | 2 | 3 |
+| la prémisse morte remise dans le code — voisine cherchée sous le `Document` | 2 | 1 |
+| `_MAX_DEPTH` ramené à 2 | 2 | 1 |
+| la remontée s'arrête au premier en-tête | 2 | 2 |
+
+**Ce qui n'est PAS gardé, et il faut le lire avant de s'appuyer sur la phrase
+ci-dessus** : la définition de « section voisine » elle-même — « le frère
+en-tête sous le parent commun » — n'est éprouvée par aucun garde, parce que ce
+n'est pas un défaut mais une décision ouverte (les **381** en-têtes concernés,
+§4.6 de [`axes_amelioration.md`](axes_amelioration.md)). Le bouchon reconnaît
+les comparaisons de `sequence` à un littéral entier, dans les deux écritures
+(`properties(edge).sequence` et `$-.seq`) et les deux ordres d'opérandes ; il ne
+reconnaît ni une comparaison entre deux colonnes, ni un `IN` sur une liste —
+aucune des deux n'écrit une fenêtre de lecture. Les tests qui appellent
+`_window_around` seul, enfin, restent verts des deux côtés du défaut.
 
 Pour la forme du graphe elle-même — profondeur, imbrication des titres, et les
 214 en-têtes sans frère en-tête — le site canonique est le **§4.6** de
