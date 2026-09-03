@@ -1282,9 +1282,16 @@ lui.
 par une commande dont la sortie a été lue. Le mandat du chantier est
 [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
 
-### 4.1 Le garde-fou d'identité Git n'existe pas sur ce dépôt
+### 4.1 → FERMÉ par le lot 1 — le garde-fou d'identité Git n'existait pas sur ce dépôt
 
-**Gravité : la plus haute du chantier, parce qu'elle est irréversible.**
+> **Fermé le 3 septembre 2026** par le lot 1, fusionné en `9596720`. Le montage
+> éprouvé du dépôt jumeau a été porté, avec un drapeau que ce dépôt-ci exigeait
+> et que le jumeau n'a pas besoin — voir la fin de cette entrée. Le constat
+> ci-dessous est conservé parce qu'il dit **pourquoi**, et qu'un garde dont on a
+> oublié le motif finit par être retiré.
+
+**Gravité à l'ouverture : la plus haute du chantier, parce qu'elle est
+irréversible.**
 
 `mesuré` le 3 septembre 2026 :
 
@@ -1369,7 +1376,26 @@ copie figée, donc toute édition de la liste demande une réinstallation.
 Le geste du pilote, fait le 3 septembre 2026 en attendant le garde, est au §2.1
 de [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
 
-### 4.2 L'agent ne tourne pas : il n'a pas de `.env` — et l'exemple porte une valeur fausse pour ce poste
+### 4.2 → FERMÉ par le lot 1 — l'agent tourne, et l'exigence 5 est prouvée en marche
+
+> **Fermé le 3 septembre 2026**, lot 1, `9596720`. L'agent tourne (projet Compose
+> `rag-agent-chat`, ancré au **clone principal**), et `POST /reindex` a été
+> mesuré en service — par le lot, puis **indépendamment par son audit sur
+> l'agent vivant**. L'exigence 5 du contrat n'est plus « non éprouvée ».
+>
+> Ce que la preuve a établi au-delà de l'aller simple : le filet interne de
+> l'agent compare deux entiers, donc il est **aveugle** à une réingestion qui
+> retire autant de chunks qu'elle en ajoute — et dans cet état la recherche
+> lexicale rend **zéro résultat sur tout le corpus** pendant que la sonde annonce
+> un index prêt. C'est ce que le contrat répare, et c'est désormais gardé par un
+> test dont l'audit a mesuré qu'il est **le seul garde de deux mutations du
+> producteur**.
+>
+> **`.env.example` porte toujours `MINIO_ROOT_USER=minioadmin` là où ce poste
+> exige `admin`** : le lot ne l'a pas corrigé, c'était hors de son mandat. Reste
+> ouvert, petit, sans garde.
+
+Le constat d'ouverture, conservé pour son détail :
 
 C'est ce qui bloque la preuve de l'**exigence 5** du contrat (`POST /reindex`),
 la seule des cinq qui ne soit pas prouvée.
@@ -1716,3 +1742,120 @@ couverture de `git commit --amend` dans son test d'installation, alors que sa
 documentation l'annonce couvert ; et le fait qu'un `git bisect` atteignant son
 commit racine briquerait, ce commit étant le seul des 235 à ne pas porter la
 configuration du framework.
+
+### 4.11 Ce que la réparation du lot 1 a fermé, et les deux défauts qu'elle a trouvés en chemin
+
+**Le bloquant du §4.9 est fermé** (lot 1, `9596720`). `requirements-dev.txt` est
+devenu le **site unique** de la version du framework de hooks ; le groupe
+`[dependency-groups]` a disparu de `pyproject.toml` — vérifié en **parsant** le
+TOML, pas en cherchant la chaîne, qui subsiste dans un commentaire expliquant ce
+que le groupe a coûté ; et `uv.lock` est **redevenu identique à celui de `main`**,
+la réparation lui retirant les 96 lignes que le lot lui avait ajoutées.
+
+`mesuré` par le pilote le 3 septembre 2026, dans un **clone jetable** dont les
+hooks sont restés vierges et dont l'environnement a été monté comme celui de la
+CI — donc sans que `make install` soit passé :
+
+| | `make lint` | `make test` |
+|---|---|---|
+| `main` d'avant (`d526f6a`) | `rc=0` | `rc=0`, **461 passés** |
+| résultat de la fusion | `rc=0` | `rc=0`, **486 passés** |
+
+Et les deux gardes ajoutés **rougissent bien sous mutation**, mesuré séparément,
+chaque mutation prouvée par `git diff --numstat` : retirer l'appel à l'installeur
+de la recette laisse `make -n install` en `rc=0` — le défaut est bien silencieux
+— et rend **2 rouges** ; remplacer l'étape additive par une forme qui réconcilie
+l'environnement rend **5 rouges**. Le classifieur encode « **additif** » et non
+une liste noire : `uv sync --inexact` reste accepté, tandis que `uv sync`,
+`uv sync --only-group`, `uv pip install --exact` et `uv pip sync` sont refusés.
+
+**Ce que la forme retenue coûte, et c'est assumé** : `uv pip install` exige un
+`.venv` existant là où `uv sync` en créait un. Sur un poste nu, `make install`
+échoue en `rc≠0` sur « No virtual environment found; run `uv venv` » — un échec
+bruyant qui nomme sa cause et son geste, et l'ordre documenté du §2.2 est déjà
+« monter l'environnement, puis armer ».
+
+**Les deux défauts trouvés en chemin, et le second reste ouvert :**
+
+1. **la forme précédente déclassait un paquet en silence.** `uv sync` réconcilie
+   contre `uv.lock`, qui épinglait autre chose que ce que `requirements-dev.txt`
+   résout : `make install` faisait reculer `filelock` d'une version corrective.
+   `--inexact` protège des **retraits**, pas des **changements de version** —
+   une distinction que personne n'avait faite. Fermé par la forme retenue, qui
+   ne fait bouger aucune version ;
+2. **rien ne garde la cohérence entre `pyproject.toml` / `uv.lock` et les
+   `requirements*.txt`** — **OUVERT**. `uv lock --check` n'est appelé par aucune
+   cible ni aucune étape de CI, et les deux systèmes de déclaration du dépôt
+   peuvent donc diverger sans qu'un seul test rougisse. La divergence existe
+   déjà : `uv.lock` épingle une version de `torch` que `requirements.txt` ne
+   résout plus. C'est un angle mort de la même famille que « rien ne lit le
+   `Makefile` ni les documents » du dépôt jumeau.
+
+**Une correction de chiffre, et la façon de la faire vaut d'être notée.** Un
+docstring affirmait que l'inversion des deux gestes de l'installeur était vue par
+« DOUZE autres tests ». Le pilote en a mesuré 15 au total, la réparation 14
+« autres » — les deux lectures étaient justes, elles ne comptaient pas la même
+chose. Le chiffre est désormais **daté, rattaché à sa révision, et son périmètre
+est dit explicitement** ; et la propriété qui, elle, ne bouge pas — « au moins un
+autre test voit l'inversion complète » — est écrite à côté. *Un chiffre qui
+décrit un fichier vivant se borne ou se remplace par la propriété qu'il servait
+à établir.*
+
+### 4.12 Trois de mes propres expériences se sont révélées invalides — le pilote les consigne
+
+Le motif est celui du §12 du mandat, et il s'applique à la main qui l'écrit :
+**deviner un comportement au lieu de le relire.** Les trois ont été attrapées
+avant d'être écrites comme des trouvailles, et chaque fois par la même
+vérification — *le développeur avait raison les trois fois* :
+
+1. **une contre-mutation qui détruisait son propre antécédent.** Pour tester la
+   claim « le garde accepte encore `uv sync --inexact` », le pilote a écrit cette
+   forme **dans le vrai `Makefile`** et observé quatre rouges — donc, croyait-il,
+   une réfutation. En réalité tous les tests de cette classe commencent par
+   `assert source.count(ligne) == 1`, l'anti-vacuité : en changeant la recette, il
+   avait supprimé **l'ancre dont ils ont tous besoin**. Ils rougissaient sur leur
+   garde, pas sur leur propriété. La bonne expérience était de laisser le fichier
+   tranquille et de lancer le test, qui pose lui-même sa substitution ;
+2. **deux appels du classifieur avec le mauvais type.** `_etapes_qui_retirent`
+   prend une `list[list[str]]` — des listes de jetons. Le pilote lui a passé une
+   liste de **chaînes**, obtenu « aucune commande ne retire » sur tous les cas, et
+   failli en conclure que le garde était inerte. Le premier jeton valant la
+   commande entière, `Path(commande[0]).name != "uv"` renvoyait `False` partout.
+   Relire la signature a suffi.
+
+**La leçon transposable** : quand une mesure semble contredire un rapport, le
+premier suspect est le harnais de mesure, pas le rapport. Le mandat dit « vérifie
+ton harnais avant de croire ton rouge » — cette entrée est la preuve que la règle
+vaut aussi contre soi, et l'audit du lot 1 a consigné deux cas symétriques de son
+côté.
+
+### 4.13 `tests.md` a pris 25 tests de retard, et rien ne pouvait le voir
+
+`mesuré` le 3 septembre 2026 : `documentation/tests.md` annonçait « Unitaire —
+**461** tests » quand la suite en comptait **486** après le lot 1. Corrigé au
+site.
+
+**Ni le lot ni son audit ne l'ont vu, et c'est normal** : c'est le gibier de la
+famille que le dépôt jumeau a nommée — *son gibier naît dans les commits qui font
+bien leur travail*, parce que c'est là que personne ne relit la phrase qui
+décrivait l'ancien état. Un lot qui ajoute 25 tests a toutes les raisons de
+regarder ses tests, aucune de relire un titre de section.
+
+**Ce qui reste ouvert est le garde, pas le chiffre.** Ce dépôt possède déjà
+l'instrument : `tests/unit/test_coherence_depot.py` garde quatre accords que rien
+d'autre ne forçait — dont une **mesure** recopiée dans un docstring et deux
+documents. Le compte de la suite est exactement de cette espèce : un chiffre
+qu'un document affirme et que le dépôt connaît. Rien ne le rapproche.
+
+Deux autres retards du même commit, également ouverts :
+
+- **`tests.md` ne mentionne pas `test_installation_des_garde_fous.py`**, alors
+  que sa table nomme fichier par fichier ce que chacun protège — et que
+  celui-ci porte 24 gardes, le plus gros fichier de tests du dépôt ;
+- un chiffre **historique** de la même page — « les 390 tests verts » — était
+  écrit sans borne, donc lisible comme un état courant. Borné à son moment,
+  faute de pouvoir être remesuré.
+
+C'est le dernier angle mort de la méthode, et c'est le même que le **F7** du
+dépôt jumeau : *rien ne lit le `Makefile` ni les documents, donc la documentation
+peut dériver sans que rien ne rougisse.*
