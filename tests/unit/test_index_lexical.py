@@ -278,3 +278,65 @@ def test_des_reindexations_concurrentes_sont_fusionnees(collection) -> None:
     assert len(tailles) == 6, "les six appels doivent aboutir"  # noqa: PLR2004
     assert set(tailles) == {len(CORPUS_INITIAL)}, "tous rendent la taille de l'index"
     assert collection.lectures == lectures_apres_construction + 1
+
+
+# ─── Ce que POST /reindex fait et que le filet ne fait pas ────────────────────
+
+def test_reindex_repare_une_derive_que_le_compte_ne_peut_pas_voir(collection) -> None:
+    """Le contrat couvre le cas exact où le filet est aveugle, et rien ne le tenait.
+
+    Trois docstrings l'affirment — `retriever.lexical_stale`,
+    `api.main.reindex`, et `pipeline/reindex.py` du dépôt d'ingestion — et
+    AUCUN test ne l'assertait : « un corpus dont on a retiré autant de chunks
+    qu'on en a ajouté affiche le même compte ». Une phrase ne rougit pas.
+
+    Le scénario est celui d'une réingestion d'un corpus déjà présent : tous les
+    identifiants changent, le compte ne bouge pas. `lexical_stale()` compare
+    deux entiers, donc il ne voit rien, et `/health` continue d'annoncer un
+    index prêt — alors que la recherche lexicale ne rend PLUS RIEN, ses rangs
+    désignant des chunks que ChromaDB ne contient plus.
+
+    `mesuré` le 3 septembre 2026 contre un vrai ChromaDB 0.6.3 jetable et le
+    module de production, 100 chunks échangés à compte constant, 0 identifiant
+    commun : `lexical_stale()` reste `False` et `lexical_ready()` reste `True`
+    aux trois instants, tandis que les rangs BM25 résolus tombent de 20 à 0,
+    puis remontent à 20 après l'appel. Le compte rendu par l'appel est le même
+    (100) avant et après — c'est précisément pourquoi il ne peut pas se déduire
+    du compte.
+    """
+    retriever._lexical_search("ISO 27001", 5)
+    compte_avant = collection.count()
+
+    collection.documents.clear()
+    collection.documents.update(CORPUS_REMPLACE)
+
+    # Le test doit prouver qu'il a atteint SON cas : sans compte constant, la
+    # dérive serait visible du filet et ce test parlerait d'autre chose.
+    assert collection.count() == compte_avant, (
+        "le corpus de remplacement n'a pas la même taille : ce test ne mesure "
+        "plus la dérive à compte constant"
+    )
+    assert not set(CORPUS_REMPLACE) & set(CORPUS_INITIAL), (
+        "les deux corpus partagent un identifiant : la dérive est partielle"
+    )
+    # La prémisse, et non la propriété gardée : le filet ne peut pas voir ce
+    # cas-là. Si cette assertion devient fausse un jour, c'est que le filet a
+    # été renforcé — et il faudra relire ce test, pas le supprimer.
+    assert retriever.lexical_stale() is False, (
+        "le filet voit désormais cette dérive : la prémisse de ce test a changé"
+    )
+    assert retriever.lexical_ready() is True, "/health devrait encore annoncer un index prêt"
+
+    # L'amputation est réelle : les rangs de l'index désignent des chunks
+    # disparus, donc la résolution contre ChromaDB ne rend rien.
+    assert retriever._lexical_search("ISO 27001", 5) == [], (
+        "la recherche lexicale rend encore quelque chose : la dérive n'est pas installée"
+    )
+
+    taille = retriever.rebuild_lexical_index()
+
+    assert taille == compte_avant, "l'appel rend la taille du corpus courant"
+    retrouves = [chunk.chunk_id for chunk in retriever._lexical_search("ISO 27001", 5)]
+    assert retrouves == ["z9"], (
+        f"l'appel n'a pas rendu la recherche lexicale au corpus courant : {retrouves}"
+    )
