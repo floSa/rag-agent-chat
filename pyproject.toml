@@ -26,29 +26,34 @@ dependencies = [
     "aiosqlite==0.22.1",
 ]
 
-# Le framework `pre-commit` vit dans SON groupe, et pas avec les outils de la
-# porte qualite. Trois raisons, toutes mesurees le 3 septembre 2026 :
+# CE FICHIER NE DECLARE PAS LE FRAMEWORK DE HOOKS, ET C'EST DELIBERE.
 #
-#   1. `uv sync` sans borne installerait les dependances de PRODUCTION, dont
-#      `sentence-transformers`, donc `torch` — que `uv.lock` epingle en 2.13.0
-#      depuis PyPI, avec 43 paquets `nvidia-*` (`mesure` :
-#      `grep -c 'name = "nvidia' uv.lock`). La CI et le protocole d'installation
-#      local prennent tous deux la roue CPU depuis un index dedie
-#      (`.github/workflows/ci.yml`, `documentation/pilotage_du_chantier.md` §2.2) :
-#      armer un hook git ne doit pas telecharger la pile CUDA. D'ou
-#      `--only-group hooks` dans la cible `install` du Makefile ;
-#   2. les versions de `ruff`, `mypy` et `pytest` ont deja UN site,
-#      `requirements-dev.txt`, et c'est lui que la CI installe. Les recopier ici
-#      en ferait deux, qui divergeraient sans que rien ne rougisse ;
-#   3. `pre-commit`, lui, n'a aucun site : il n'est ni dans `requirements.txt`
-#      ni dans `requirements-dev.txt`, et la CI n'en a pas besoin — elle appelle
-#      `make lint` et `make test` directement, jamais les hooks git.
+# `pre-commit==4.6.2` est epingle dans `requirements-dev.txt`, avec les autres
+# outils de la porte qualite, et la-bas seulement. La contrainte qui l'y met :
 #
-# Version alignee sur celle du depot jumeau `rag-ingestion-pipeline`, dont le
-# montage de garde-fous est porte ici : deux frameworks de versions differentes
-# sur le meme poste rendraient deux verdicts.
-[dependency-groups]
-hooks = ["pre-commit==4.6.2"]
+#   ce que la CI installe doit contenir ce dont `make test` a besoin.
+#
+# `make test` vaut `pytest tests/unit/`, qui ramasse
+# `tests/unit/test_installation_des_garde_fous.py` : cette batterie lance le
+# framework dans un sous-processus. Et la CI n'installe que les
+# `requirements*.txt` (`.github/workflows/ci.yml`) — modifier ce workflow exige
+# un jeton avec le scope `workflow`, que le jeton de push n'a pas, donc la liste
+# de ce qu'elle installe n'est pas un levier disponible ici.
+#
+# CE QU'UN GROUPE `[dependency-groups]` A COUTE ICI. Le framework y a vecu le
+# 3 septembre 2026, dans un groupe `hooks` que rien dans la CI n'installait. La
+# justification d'alors tenait en « la CI n'appelle jamais les hooks git » : la
+# premisse etait vraie, et la conclusion fausse, parce que la CI appelle les
+# TESTS des hooks. `mesure` : `make test` rendait `rc=2` dans l'environnement du
+# protocole (§2.2 de `documentation/pilotage_du_chantier.md`) et `rc=0` dans un
+# `.venv` ou `make install` avait passe. Le raisonnement n'avait pas ete
+# incomplet par distraction : il avait ferme une enumeration des usages de la
+# CI, et l'usage manquant etait le seul qui comptait.
+#
+# Rajouter un groupe ici redonnerait DEUX sites a une meme version, qui
+# divergeraient sans que rien ne rougisse.
+# Garde : `tests/unit/test_installation_des_garde_fous.py`,
+# `TestLeFrameworkEstInstallableParLaCI`.
 
 [tool.ruff]
 target-version = "py312"

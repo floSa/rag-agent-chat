@@ -104,10 +104,12 @@ done
 # `--no-sync` n'est pas cosmetique. `uv run pre-commit` seul synchronise le
 # projet AVANT d'executer, donc installe les dependances de production : dont
 # `sentence-transformers`, donc `torch`, que `uv.lock` epingle depuis PyPI avec
-# 43 paquets `nvidia-*`. Armer un hook git telechargerait la pile CUDA. La cible
-# `install` du Makefile a deja mis `pre-commit` dans le `.venv` par
-# `uv sync --inexact --only-group hooks` : il n'y a plus rien a synchroniser
-# ici. Voir le commentaire du groupe `hooks` dans pyproject.toml.
+# 43 paquets `nvidia-*`. Armer un hook git telechargerait la pile CUDA. Il n'y a
+# de toute facon rien a synchroniser ici : la cible `install` du Makefile vient
+# de mettre `pre-commit` dans le `.venv` par
+# `uv pip install -r requirements-dev.txt`, ou sa version est epinglee — et
+# c'est son seul site, voir le commentaire en tete du groupe absent dans
+# pyproject.toml.
 pre_commit="${PRE_COMMIT:-uv run --no-sync pre-commit}"
 
 arguments=""
