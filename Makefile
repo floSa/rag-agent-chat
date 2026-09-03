@@ -1,4 +1,28 @@
-.PHONY: lint format typecheck test audit up down logs
+.PHONY: install lint format typecheck test audit up down logs
+
+# UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
+# celui-ci. Il ne remplace PAS l'installation de l'environnement de
+# developpement : la porte qualite (`make lint`, `make test`) appelle ses outils
+# NUS, depuis `requirements-dev.txt`, comme la CI — le protocole est au §2.2 de
+# documentation/pilotage_du_chantier.md. Cette cible-ci arme les hooks git, et
+# rien d'autre.
+#
+# `--only-group hooks` : le groupe ne porte que le framework `pre-commit`. Sans
+# cette borne, `uv sync` installerait les dependances de production, dont
+# `sentence-transformers`, donc `torch` — epingle depuis PyPI dans `uv.lock`
+# avec 43 paquets `nvidia-*`. Armer un hook git ne telecharge pas la pile CUDA.
+#
+# `--inexact` : sans lui, `uv sync` RETIRE du `.venv` tout ce qui n'est pas dans
+# le groupe demande, donc `ruff`, `mypy` et `pytest` que le protocole du §2.2 y
+# a installes. La cible armerait les hooks en desarmant la porte qualite.
+#
+# La seconde ligne fait ce que la premiere ne peut pas faire : git n'execute
+# jamais ce qui arrive avec un clone. Le script arme les hooks ET verifie qu'ils
+# le sont, en sortant en erreur sinon — un garde-fou qui repose sur la memoire
+# du suivant n'est pas un garde-fou.
+install:
+	uv sync --inexact --only-group hooks
+	sh scripts/installer-les-garde-fous.sh
 
 # La CI appelle `make lint` puis `make test`. Le typecheck est rattache au lint
 # — tous deux sont de l'analyse statique — parce que modifier le workflow exige

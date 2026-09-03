@@ -1,0 +1,87 @@
+# Les hooks de ce fichier sont INSTALLES par `make install`, et c'est le seul
+# geste : voir documentation/pilotage_du_chantier.md, §2.1.
+#
+# UN HOOK DECLARE ET NON INSTALLE EST PIRE QU'ABSENT : on croit l'avoir. Ce
+# fichier n'existait pas avant le 3 septembre 2026 — `mesure` :
+# `git rev-list main -- .pre-commit-config.yaml | wc -l` rend 0 sur les
+# 167 commits de `main` — et ce vide est precisement ce qui rend la couche
+# `<type>.legacy` indispensable : voir plus bas.
+#
+# CONSEQUENCE DIRECTE, ET ELLE A UN GESTE : puisque 167 des 167 commits de
+# `main` ne portent pas ce fichier (`mesure` le 3 septembre 2026, par
+# `git cat-file -e <commit>:.pre-commit-config.yaml` sur chaque commit de
+# `git rev-list main`), l'installeur passe `--allow-missing-config`. Sans lui,
+# tout `git checkout` d'un commit anterieur, tout `git bisect` et tout HEAD
+# detache refuserait TOUT commit sur « No .pre-commit-config.yaml file was
+# found ». Le controle d'identite, lui, continue de tenir : il vit dans
+# `<type>.legacy`, hors de l'arbre de travail. Voir
+# scripts/installer-les-garde-fous.sh.
+
+# Les types de hook a installer. Cette cle ne sert que si quelqu'un appelle
+# `pre-commit install` a la main : `scripts/installer-les-garde-fous.sh`, que
+# `make install` lance, passe les types EXPLICITEMENT — l'installation ne doit
+# rien devoir a la branche sortie au moment ou on l'execute, et cette cle vit
+# dans l'arbre de travail.
+#
+# `pre-merge-commit` n'est pas decoratif : `pre-commit` seul ne voit pas les
+# commits de fusion, et le mandat du chantier prescrit `--no-ff` pour chaque
+# fusion de lot.
+default_install_hook_types: [pre-commit, pre-merge-commit]
+
+repos:
+  # Le controle d'identite d'auteur passe AUSSI par le framework, et non
+  # seulement par la copie posee dans `.git/hooks`. Raison : ce fichier-la ne
+  # peut heberger QU'UN script, et `pre-commit install` l'ecrase. Le declarer
+  # ici rend `.git/hooks/pre-commit` au framework sans rien perdre.
+  #
+  # CE N'EST PAS LA COUCHE QUI PROTEGE, et il faut le savoir : le hook genere
+  # par le framework ouvre ce fichier en chemin RELATIF, donc ce controle-ci ne
+  # vaut que pour les arbres de travail dont la configuration le porte. La seule
+  # couche inconditionnelle est `<type>.legacy`, hors de l'arbre de travail.
+  # Garde : tests/unit/test_installation_des_garde_fous.py, qui monte un depot
+  # dont la configuration NE declare PAS ce hook et prouve que le refus tient
+  # quand meme.
+  #
+  # `entry` pointe le script VERSIONNE, celui-la meme que l'installeur copie a
+  # la main : les deux voies executent donc les MEMES octets au moment de
+  # l'installation. Elles peuvent ensuite diverger — `<type>.legacy` est une
+  # copie FIGEE — d'ou l'obligation de relancer `make install` apres toute
+  # edition de `ADRESSES_AUTORISEES`.
+  #
+  # `always_run` est indispensable : sans lui, un hook dont aucun fichier
+  # indexe ne matche est SAUTE, et le controle d'identite ne depend d'aucun
+  # fichier. `pass_filenames` est faux pour la meme raison — le script ne lit
+  # pas d'arguments, il lit `git var GIT_AUTHOR_IDENT`.
+  - repo: local
+    hooks:
+      - id: identite-auteur
+        name: "Identite d'auteur autorisee"
+        entry: scripts/git-hooks/pre-commit
+        language: script
+        # `pre-merge-commit` en plus de `pre-commit` : sans lui, le hook
+        # declare ici ne tournerait pas sur un `git merge --no-ff`, meme le
+        # type installe. Les deux couches — celle-ci et `<type>.legacy` —
+        # couvrent donc les memes gestes.
+        stages: [pre-commit, pre-merge-commit]
+        always_run: true
+        pass_filenames: false
+
+# CE QUE CE FICHIER NE DECLARE PAS, ET POURQUOI — perimetre du lot 1.
+#
+# Le depot jumeau `rag-ingestion-pipeline` declare en plus `ruff`,
+# `ruff-format`, `detect-secrets` et les hooks de `pre-commit-hooks`. Ils ne
+# sont PAS portes ici, et c'est une decision, pas un oubli :
+#
+#   - `ruff` : sa version est epinglee dans `requirements-dev.txt` (0.16.1 au
+#     3 septembre 2026), et c'est ce fichier que la CI installe avant d'appeler
+#     `make lint`. Un `rev:` de hook en serait un SECOND site : deux versions de
+#     ruff rendraient deux verdicts sur le meme arbre, et rien ne rougirait de
+#     leur divergence. La porte qualite couvre deja `src/ tests/ scripts/` ;
+#   - `detect-secrets` et les hooks de `pre-commit-hooks` sont des garde-fous
+#     reels mais etrangers a l'exigence de ce lot, et chacun demande sa propre
+#     mesure sur ce depot avant d'etre arme — `runs/`, `prompts/` et
+#     `tests/fixtures/` n'ont jamais ete confrontes a eux. Un hook arme sans
+#     mesure bloque un commit legitime, et c'est ainsi qu'on apprend a passer
+#     `--no-verify`.
+#
+# Les armer est un travail a part entiere, avec ses mesures. Il n'est pas fait.

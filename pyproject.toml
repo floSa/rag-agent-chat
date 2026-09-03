@@ -26,6 +26,30 @@ dependencies = [
     "aiosqlite==0.22.1",
 ]
 
+# Le framework `pre-commit` vit dans SON groupe, et pas avec les outils de la
+# porte qualite. Trois raisons, toutes mesurees le 3 septembre 2026 :
+#
+#   1. `uv sync` sans borne installerait les dependances de PRODUCTION, dont
+#      `sentence-transformers`, donc `torch` — que `uv.lock` epingle en 2.13.0
+#      depuis PyPI, avec 43 paquets `nvidia-*` (`mesure` :
+#      `grep -c 'name = "nvidia' uv.lock`). La CI et le protocole d'installation
+#      local prennent tous deux la roue CPU depuis un index dedie
+#      (`.github/workflows/ci.yml`, `documentation/pilotage_du_chantier.md` §2.2) :
+#      armer un hook git ne doit pas telecharger la pile CUDA. D'ou
+#      `--only-group hooks` dans la cible `install` du Makefile ;
+#   2. les versions de `ruff`, `mypy` et `pytest` ont deja UN site,
+#      `requirements-dev.txt`, et c'est lui que la CI installe. Les recopier ici
+#      en ferait deux, qui divergeraient sans que rien ne rougisse ;
+#   3. `pre-commit`, lui, n'a aucun site : il n'est ni dans `requirements.txt`
+#      ni dans `requirements-dev.txt`, et la CI n'en a pas besoin — elle appelle
+#      `make lint` et `make test` directement, jamais les hooks git.
+#
+# Version alignee sur celle du depot jumeau `rag-ingestion-pipeline`, dont le
+# montage de garde-fous est porte ici : deux frameworks de versions differentes
+# sur le meme poste rendraient deux verdicts.
+[dependency-groups]
+hooks = ["pre-commit==4.6.2"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
