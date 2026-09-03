@@ -1221,21 +1221,21 @@ la débloque, pour qu'on n'ait pas à redécouvrir la décision.
 
 À transmettre à `rag-ingestion-pipeline` ; rien n'est faisable côté agent.
 
-### 3.1 Le graphe est plat
+### 3.1 → FERMÉ par le pipeline — le graphe n'est plus plat, et cette entrée était le dernier à le croire
 
-Mesuré sur le graphe en production : **901** `SectionHeader` enfants d'un
-`Document`, **0** enfant d'un autre `SectionHeader`, et **0** chemin de
-longueur 3 depuis le `Document`. L'arbre fait exactement deux niveaux.
+**Cette entrée décrivait le graphe de production. Elle ne le décrit plus, et
+elle demandait au pipeline un travail qu'il a livré.** Ce qu'elle disait — 901
+`SectionHeader` enfants d'un `Document`, 0 enfant d'un autre `SectionHeader`, 0
+chemin de longueur 3 — était juste quand ce fut mesuré, et est **faux
+aujourd'hui**.
 
-En cause, `elements.py` : `reference_id = ROOT_REFERENCE` dès qu'un en-tête est
-rencontré. Docling expose pourtant le niveau des titres, que `TAG_MAP` écrase.
+La correction qu'elle réclamait est exactement celle que le pipeline a faite :
+stocker le niveau du titre sur le tag et chaîner les parents. Il l'a faite, avec
+la purge du space que cette entrée annonçait.
 
-Conséquence : le breadcrumb ne peut afficher qu'un seul titre — pas de
-`Chapitre 3 > 3.2 > 3.2.1`. Le « avant / après » n'en dépend pas (§1.9).
-
-Correction : stocker le niveau du titre sur le tag `SectionHeader` et chaîner
-les parents. **Impose une purge du space** — le schéma Nebula n'évolue pas en
-place.
+**Le nouveau constat, avec sa mesure, est au §4.6.** Il n'est pas « rien à
+faire » : la platitude servait de **justification** à des décisions prises de ce
+côté, et ces justifications sont mortes avec elle.
 
 ### 3.2 Modèle d'embedding — le monolingue est derrière nous, la contrainte reste
 
@@ -1267,3 +1267,330 @@ L'arête `DESCRIBES` couvre les visuels légendés dans le document d'origine. U
 figure sans légende reste muette : introuvable par la recherche sémantique, et
 impossible à juger pertinente par le LLM. Une description générée par VLM à
 l'ingestion, indexée dans ChromaDB, comblerait ce trou.
+
+---
+
+## 4. Chantier ouvert le 3 septembre 2026 — ce que la passation du pipeline a révélé
+
+Le pipeline d'ingestion a épuisé son plan, mené sa première campagne de
+référence le 2 septembre 2026, et écrit une passation. Ce dépôt-ci **n'a pas
+bougé depuis le 28 août 2026** (`mesuré` : `git log -1 --date=short`) : il a
+donc dormi pendant que le corpus était remplacé et le graphe restructuré sous
+lui.
+
+**Toutes les entrées ci-dessous ont été mesurées le 3 septembre 2026**, chacune
+par une commande dont la sortie a été lue. Le mandat du chantier est
+[`pilotage_du_chantier.md`](pilotage_du_chantier.md).
+
+### 4.1 Le garde-fou d'identité Git n'existe pas sur ce dépôt
+
+**Gravité : la plus haute du chantier, parce qu'elle est irréversible.**
+
+`mesuré` le 3 septembre 2026 :
+
+| Ce qui a été cherché | Commande | Résultat |
+|---|---|---|
+| une identité configurée | `git config --list --show-origin \| grep -i user` | `rc=1` — **rien**, ni local, ni global |
+| ce que git utiliserait | `git var GIT_AUTHOR_IDENT` | `rc≠0`, « Author identity unknown » |
+| des hooks armés | `ls .git/hooks/` | **uniquement des `*.sample`** |
+| le hook versionné du dépôt jumeau | `ls scripts/git-hooks/` | **absent** |
+| une cible d'installation | `grep install Makefile` | **absente** |
+
+Autrement dit : **rien ne protège ce dépôt**, et la seule raison pour laquelle
+aucun mauvais commit n'en est parti est qu'aucune identité n'était configurée du
+tout — un `fail-closed` par accident, pas par construction. Le geste qui le
+défait est une seule commande, et il n'y a rien derrière.
+
+Ce que ça a coûté sur le dépôt jumeau, où le même trou existait : sept commits
+partis avec une adresse **professionnelle** `@aosis.net` sur un dépôt
+**personnel**, puis 165 commits réécrits, puis **le dépôt GitHub détruit et
+recréé** — la liste des contributeurs, une fois constituée, ne se défait pas.
+
+**Ce que l'historique de CE dépôt porte, et il est sain** (`mesuré` :
+`git log --all --format='%ae | %ce' | sort | uniq -c`) : 165 commits, **deux
+adresses et elles seules** — `florian_horellou@laposte.net` (89) et
+`florian.horellou@gmail.com` (76) —, **0** occurrence de `@aosis.net`, et **0**
+attribution à un assistant de génération de code. Il n'y a rien à réparer :
+il y a un garde à poser avant que quelque chose soit à réparer.
+
+**La correction, et elle est à porter, pas à inventer :** le dépôt jumeau porte
+un montage éprouvé, avec son test — `scripts/git-hooks/pre-commit`,
+`scripts/installer-les-garde-fous.sh`, une cible `make install`, et
+`tests/unit/test_installation_des_garde_fous.py`. Deux propriétés de ce montage
+sont non négociables et se perdent si on l'écrit de zéro :
+
+1. **la copie `pre-commit.legacy` vit HORS de l'arbre de travail.** Le hook
+   généré par le framework `pre-commit` ouvre sa configuration en chemin
+   **relatif** : un contrôle déclaré dans `.pre-commit-config.yaml` ne vaut que
+   pour les arbres dont la configuration le porte. La copie figée est la seule
+   couche qui vaille pour tout commit, toute branche, tout `git bisect`, tout
+   HEAD détaché ;
+2. **`pre-commit install -f` supprime cette couche.** Le framework le suggère
+   lui-même dans sa sortie. Ne jamais le passer, et le vérifier.
+
+Et deux effets de bord à connaître avant de poser le montage : l'installation
+**grave un chemin absolu** vers le `.venv` de l'arbre d'où elle est lancée, et
+`.git/hooks` est partagé par tout le clone — donc lancer l'installation depuis
+le clone principal, et la relancer après tout retrait d'arbre de travail ; et la
+liste blanche d'adresses a **deux sites au runtime**, le fichier versionné et la
+copie figée, donc toute édition de la liste demande une réinstallation.
+
+Le geste du pilote, fait le 3 septembre 2026 en attendant le garde, est au §2.1
+de [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
+
+### 4.2 L'agent ne tourne pas : il n'a pas de `.env` — et l'exemple porte une valeur fausse pour ce poste
+
+C'est ce qui bloque la preuve de l'**exigence 5** du contrat (`POST /reindex`),
+la seule des cinq qui ne soit pas prouvée.
+
+`mesuré` le 3 septembre 2026 :
+
+- `ls .env` → **absent**. `.env.example` est versionné, complet, et
+  `.gitignore` couvre `.env` ;
+- `docker ps` → **aucun conteneur de l'agent**. La pile du pipeline est debout
+  (9 services, projet `rag-ingestion-pipeline`), `llm-service` aussi, et les
+  deux réseaux externes qu'attend `docker-compose.yml` existent :
+  `rag_network` et `llm-net` ;
+- `docker exec ollama-central ollama list` → `gemma4:e4b` **est servi**, et
+  c'est bien celui que `.env.example` nomme ;
+- ChromaDB sert la collection `rag_documents` avec **4 367** chunks, et
+  `.env.example` attend exactement ce nom.
+
+**Les deux valeurs qui ne se devinent pas depuis `.env.example`, et l'une y est
+fausse :**
+
+| Clé | Ce que `.env.example` propose | Ce que le poste exige |
+|---|---|---|
+| `MINIO_ROOT_USER` | `minioadmin` | **`admin`** — c'est ce que porte le `.env` du pipeline. La valeur de l'exemple est **fausse pour ce poste** |
+| `MINIO_ROOT_PASSWORD` | vide, avec le commentaire « même valeur que rag-ingestion-pipeline » | à recopier depuis le `.env` du pipeline. **Ne la recopie dans aucun document, aucun commit, aucun rapport** |
+
+`API_KEY` est vide de ce côté et `AGENT_API_KEY` est vide du côté pipeline
+(`mesuré`) : les deux s'accordent, aucun en-tête n'est envoyé et aucun n'est
+exigé. `require_api_key` ne fait rien quand la clé est vide
+(`src/api/main.py:147`).
+
+**Les deux moitiés de l'exigence 5 s'accordent à la lecture**, et c'est tout ce
+qui est établi — rien ne l'a jamais prouvée en marche :
+
+| | Côté pipeline (`src/pipeline/reindex.py`) | Côté agent (`src/api/main.py`) |
+|---|---|---|
+| cible | `f"{url}{REINDEX_PATH}"`, `REINDEX_PATH = "/reindex"`, `AGENT_SERVICE_URL=http://agent-api:8000` | `@app.post("/reindex")` |
+| en-tête | `API_KEY_HEADER = "X-API-Key"`, omis si la clé est vide | `x_api_key: str = Header(default="")` |
+| réponse lue | `_lire_compte` cherche `chunks_indexed` | `ReindexResponse(chunks_indexed=…, stale=…)` |
+
+### 4.3 `make eval` est hors service : son jeu doré désigne un corpus qui n'est plus là
+
+**Gravité : c'est la seule mesure de qualité du dépôt, et elle est morte.**
+
+`mesuré` le 3 septembre 2026, en confrontant
+`tests/fixtures/golden_qa_generated.json` au graphe NebulaGraph en service :
+
+| | |
+|---|---|
+| questions du jeu doré | **138** |
+| `gold_element_ids` distincts qu'elles désignent | **129** |
+| ceux qui existent dans le graphe | **0** |
+
+La cause n'est pas une dérive d'identifiants : **c'est un autre corpus.** Les
+`gold_documents` du jeu nomment `htms/Practical MLOps`,
+`htms/The Statistics and Calculus with Python Workshop`,
+`mds/Architectures de LLM`, `mds/Infrastructure & Inférence`,
+`mds/Multimodal & Agents` et `pdfs`. Le graphe en service porte **23**
+documents répartis en trois collections : `MLOps with Databricks` (11),
+`Practical MLflow for Generative AI on Databricks` (11), et une collection vide
+`""` (1 — le PDF). **Aucun ouvrage en commun.** La convention de chemin, elle,
+n'a pas changé : les VID de documents portent toujours le préfixe `htms/`.
+
+Trois conséquences, et la troisième est une phrase à corriger :
+
+1. **`make eval` ne peut rendre que des zéros de rappel.** Il n'est pas cassé au
+   sens d'une erreur : il tournerait, et rendrait un tableau faux ;
+2. **`runs/final.json` — la cible de `--compare`, commitée le 3 août 2026 — est
+   l'antécédent d'un corpus disparu.** Ses chiffres (`rappel_recherche = 0,985`,
+   `mrr = 0,963`) ne décrivent plus rien d'actuel, et toute comparaison appariée
+   contre lui confronte deux régimes ;
+3. **[`pour_le_pipeline_ingestion.md`](pour_le_pipeline_ingestion.md) promet le
+   contraire au pipeline**, et la promesse est maintenant démentie par la
+   mesure : « c'est ce qui permet au jeu doré de survivre à une réingestion ».
+   Le déterminisme de `element_id` est bien tenu par le pipeline — c'est le
+   **corpus** qui a été remplacé, ce que le déterminisme ne pouvait pas couvrir.
+   La phrase attribue au mauvais mécanisme une garantie qu'il n'a jamais donnée.
+
+**Ce que ce constat ne tranche pas.** Trois issues existent — retirer le jeu
+doré et adopter les 30 questions du pipeline comme seul instrument, régénérer le
+jeu depuis le nouveau corpus avec `scripts/generate_golden.py`, ou les deux. Le
+choix engage tout ce qui suit et **il n'appartient pas à une conversation** : il
+est au plan du pilote, en attente de décision.
+
+**Et l'instrument valide existe déjà** : le jeu de 30 questions du pipeline,
+`documentation/campagnes/2026-09-02-jeu-de-questions.yaml`, écrit **après**
+l'ingestion, désignant 44 identifiants réels. Il porte sa propre réserve, et
+elle interdit d'arbitrer un réglage avec lui — §5 de
+[`pilotage_du_chantier.md`](pilotage_du_chantier.md).
+
+### 4.4 Le modèle d'embedding n'est gardé que d'un seul côté — et le pipeline tend déjà de quoi fermer
+
+C'est l'**exigence 1** du contrat, et la panne la plus coûteuse du système :
+les deux modèles candidats rendent des vecteurs de **384 dimensions**, donc
+ChromaDB accepte sans broncher, aucune sonde ne voit rien, et la recherche rend
+des passages **plausibles et faux**. Vérifier la dimension ne protège de rien —
+c'est le **nom** qui discrimine.
+
+`mesuré` le 3 septembre 2026 :
+
+- **le pipeline garde les deux bouts** : il refuse de démarrer sur un autre
+  modèle, et refuse d'écrire dans une collection produite par un autre ;
+- **l'agent, qui LIT, n'a aucun garde.** `embedding_model_name` est un
+  `Field` de `settings.py` avec un défaut, et rien ne le confronte à quoi que
+  ce soit : `grep -n "model_validator\|field_validator" src/agent/settings.py`
+  ne rend **aucune ligne**. `retriever.py:30` charge ce que le réglage nomme et
+  interroge la collection avec ;
+- **et la comparaison est disponible en une lecture** : le pipeline **estampille
+  déjà la collection**. `collection.metadata` vaut
+  `{'embedding_model': 'paraphrase-multilingual-MiniLM-L12-v2'}`.
+
+Donc le garde manquant est une confrontation entre `settings.embedding_model_name`
+et `collection.metadata["embedding_model"]`, au démarrage ou dans `/health`. Le
+producteur a fait sa moitié ; le lecteur n'a pas fait la sienne.
+
+**Une correction de raisonnement, au passage.** Le §3.2 de ce registre prouvait
+la concordance des modèles par un détour : « `runs/final.json` porte
+`rappel_recherche = 0,985`, ce qui est impossible avec deux embedders
+différents ». Le raisonnement est juste, mais **son antécédent a péri** — ce run
+décrit un corpus qui n'est plus là (§4.3). Il prouve la concordance d'août sur
+le corpus d'août, et rien d'aujourd'hui. La preuve directe existe désormais, et
+c'est l'estampille de la collection ci-dessus.
+
+### 4.5 Les trois réserves de lecture de `sequence` ne sont écrites nulle part — et le code n'est juste que par construction
+
+Le pipeline garantit que `sequence` porte l'ordre et qu'elle est monotone
+(exigence 4). Ce qu'il ne peut pas écrire, parce que ça décrit comment l'agent
+*lit*, ce sont les trois réserves. **`grep -rn "sequence" documentation/`
+n'en rend aucune** (`mesuré`, 3 septembre 2026) : les 10 occurrences décrivent
+l'arête, jamais ses pièges.
+
+**Les trois réserves, reproduites de mes mains** sur les 15 173 arêtes
+`PARENT_OF` extraites du graphe en service — les trois chiffres du pipeline
+tombent à l'unité :
+
+| La réserve | `mesuré` le 3 septembre 2026 |
+|---|---|
+| **1. `sequence` repart à 0 dans chaque document** | tout « avant / après » doit être **borné au document** |
+| **2. elle n'est pas contiguë sous un parent**, par construction | **167** parents sur **763** ont des valeurs non contiguës, et l'écart s'explique par la taille du sous-arbre du frère précédent. **Ce n'est pas une perte** |
+| **3. le plus grand écart entre deux enfants d'un même parent vaut 994** (993 valeurs intercalaires) | site : `doc_htms/MLOps with Databricks/7. Foundation Models and Context Engineering`. Un agent qui implémente « la fenêtre d'éléments » comme « les enfants de P dont `sequence ∈ [s−k, s+k]` » rendrait **silencieusement moins** d'éléments que demandé |
+
+Également `mesuré` : **0** arête à `sequence` nulle sur les 15 173.
+
+**Ce que fait le code aujourd'hui, et c'est la partie qui compte.** Les trois
+réserves sont respectées, mais **par construction, et non par un garde** :
+
+- `_window_around` (`src/agent/graph_context.py:493`) découpe sur des
+  **positions de liste** — `rows[start:stop]`, après un `index` trouvé par
+  énumération — et **jamais sur des valeurs de `sequence`. `_get_children`
+  (`:398`) va chercher **tous** les enfants avec `ORDER BY $-.seq ASC`, sans
+  aucun filtre d'intervalle. **Le piège 3 ne mord donc pas** ;
+- `_get_children` et `_find_sibling` partent tous deux d'un VID de parent, donc
+  leur portée est **structurellement bornée à un document**. Le piège 1 ne mord
+  pas non plus.
+
+**Et c'est précisément ce qui rend le sujet dangereux.** Rien ne rougit si
+quelqu'un « optimise » `_window_around` en poussant la fenêtre dans la requête
+nGQL sous la forme d'un encadrement sur `sequence` — l'optimisation naturelle,
+celle qui économise un aller-retour. Le résultat serait juste sur la plupart des
+sections et **silencieusement amputé** sur les 167 parents non contigus, jusqu'à
+993 éléments manquants au pire site. **Le travail n'est donc pas d'écrire trois
+paragraphes : c'est d'écrire les trois réserves ET le garde qui rend le découpage
+positionnel non négociable.**
+
+### 4.6 Le graphe est imbriqué depuis le 2 septembre 2026, et ce dépôt le croit encore plat — en six sites
+
+**Gravité : c'est le constat le plus large du chantier, parce que ce n'est pas
+une phrase fausse mais une PRÉMISSE fausse, sur laquelle des décisions ont été
+prises.**
+
+Ce que le §3.1 affirmait, et qui était juste quand ce fut mesuré : 901
+`SectionHeader` enfants d'un `Document`, **0** enfant d'un autre
+`SectionHeader`, **0** chemin de longueur 3. Le pipeline a corrigé exactement
+cela.
+
+`mesuré` le 3 septembre 2026 sur le graphe en service :
+
+| | |
+|---|---|
+| `SectionHeader` dans le graphe | **746** |
+| dont parent direct = `Document` | **163** |
+| dont parent direct = un autre `SectionHeader` | **583**, soit **78,2 %** |
+| profondeur des `SectionHeader` | 0 → 163, 1 → 301, 2 → 234, 3 → 40, 4 → 8 |
+
+`Chapitre 3 > 3.2 > 3.2.1` est donc désormais **possible**, et l'était déjà
+avant que ce dépôt s'en aperçoive.
+
+**Les six sites qui portent encore la prémisse morte**, et ce que chacun en a
+tiré :
+
+| Le site | Ce qu'il affirme | Ce que ça a produit |
+|---|---|---|
+| `documentation/axes_amelioration.md` §3.1 | le graphe est plat, classé **« Ouvert — dépend de l'ingestion »** | demandait au pipeline un travail qu'il a livré. Amendé par ce lot |
+| `documentation/pour_le_pipeline_ingestion.md` §5.1 | idem, sous le titre « Le graphe est plat — mesuré » | **redemande au pipeline le même travail livré.** À rendre, sinon on fait perdre son temps à son pilote |
+| `documentation/axes_amelioration.md` §1.11 | « l'ingestion n'imbrique pas les titres, **il n'y a aucun niveau à remonter** (§3.1) » | c'est la **justification** de la suppression de `CONTEXT_DEPTH`. Le motif est mort ; la décision est à rouvrir |
+| `src/agent/graph_context.py:19-22` | « L'ingestion produit aujourd'hui un arbre à **deux niveaux** » | justifie `_MAX_DEPTH = 10`. **Sans conséquence** : 10 couvre la profondeur réelle, qui atteint 4 pour un titre et 5 pour un élément. La marge annoncée « pour une future imbrication » a effectivement absorbé le changement |
+| `src/agent/graph_context.py:24-26` | « Les enfants d'un `Document` ne sont pas tous des en-têtes » | justifie `_SIBLING_CANDIDATES = 5`. **Sans conséquence non plus, et pas pour la raison écrite** — voir la mesure ci-dessous |
+| `src/agent/graph_context.py:266-267` | « Les en-têtes sont **tous** enfants directs du `Document` (l'ingestion ne les imbrique pas) » | justifie toute la stratégie « la section voisine est un frère ». C'est la phrase la plus fausse des six : 78,2 % des en-têtes la contredisent |
+
+**Le constat de mesure qui a démenti le pilote, et il faut le lire avant de
+toucher à quoi que ce soit.** Le pilote a supposé que `_SIBLING_CANDIDATES = 5`,
+posé sous un commentaire faux, devait faire manquer des sections voisines dès
+que les en-têtes s'imbriquent. **La simulation de `_find_sibling` sur les 15 173
+arêtes le dément** : le rang du premier frère en-tête, dans la liste des frères
+triés par `sequence`, vaut **1 au pire cas**, dans les deux directions. Un
+frère en-tête, quand il existe, est **toujours immédiatement adjacent**. La
+constante 5 est donc largement suffisante — **le commentaire est faux, la
+constante est saine**, et la corriger serait une correction sans défaut.
+
+**Ce que la même simulation a trouvé, et qui reste ouvert** : sur les 746
+en-têtes, **214** n'ont aucun frère en-tête d'un côté donné (mêmes 214 dans les
+deux directions). Pour ceux-là `_find_sibling` rend `None`, alors qu'une section
+voisine existe **en ordre de lecture** — dans le sous-arbre de l'oncle, ou au
+chapitre suivant. Ce n'est pas un bug : c'est une **définition** de « section
+voisine » — le frère sous le parent commun — qui n'a jamais été rediscutée
+depuis qu'elle a cessé de coïncider avec « la section suivante du document ».
+**C'est une décision à prendre, pas une ligne à corriger.**
+
+**Ce qui n'est PAS un défaut, et qu'il faut dire pour que personne ne le
+« répare » :** la remontée `_climb_to_section` collecte l'intégralité de la
+chaîne jusqu'au tag racine, donc les fils d'Ariane multi-niveaux se construisent
+correctement **sans rien changer** ; et le budget de fenêtre de contexte
+**mesure l'encadrement source par source selon la profondeur du fil**
+(`source_framing_chars`), au lieu d'appliquer un forfait — un test le garde
+(`tests/unit/test_llm_budget.py`, `test_l_encadrement_est_mesure_source_par_source`).
+Le coût annoncé au contrat — 34 caractères sans fil, 275 à cinq niveaux — est
+donc **absorbé par construction**. Ce qui reste vrai, c'est que ce coût n'a
+jamais été **payé en campagne** : les sources coûtent désormais réellement plus
+de fenêtre, et aucune mesure ne dit ce que ça déplace.
+
+### 4.7 Le contrat d'interface ignore cinq métadonnées que le pipeline émet déjà
+
+`documentation/pour_le_pipeline_ingestion.md` énumère 13 métadonnées attendues
+par chunk. `mesuré` le 3 septembre 2026 sur un chunk réel de `rag_documents`,
+la collection en porte **18** : les 13 annoncées, plus `block_size`,
+`page_no_end`, `page_position`, `ref_position` et `reference_id`.
+
+Aucune n'est un défaut — c'est du signal disponible et non consommé, dont
+`page_no_end` (une plage de pages là où l'agent ne cite qu'une page) et
+`reference_id`. **Et l'énumération de 13 est une phrase d'exhaustivité** au sens
+du §8 du mandat : elle clôt une liste que personne ne rouvre, et c'est ainsi
+qu'elle a pris cinq entrées de retard.
+
+### 4.8 Un document sur 23 porte une collection vide
+
+`mesuré` le 3 septembre 2026 :
+`MATCH (d:Document) RETURN d.Document.collection, count(*)` rend
+`"MLOps with Databricks"` → 11, `"Practical MLflow for Generative AI on
+Databricks"` → 11, et `""` → **1**. C'est le PDF.
+
+L'agent lit `collection` sur le sommet `Document` au cours de sa remontée
+(`graph_context.py`, `_climb_to_section`) et la publie dans ses citations : les
+citations issues du PDF sortent donc sans nom de collection. **Le producteur est
+le pipeline** ; ce constat est **à lui rendre**, son registre étant le site
+canonique et son pilote tranchant. Rien n'est à corriger de ce côté avant sa
+réponse — sauf, éventuellement, à décider ce que l'agent affiche à la place.
