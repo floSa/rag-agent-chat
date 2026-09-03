@@ -1282,9 +1282,16 @@ lui.
 par une commande dont la sortie a été lue. Le mandat du chantier est
 [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
 
-### 4.1 Le garde-fou d'identité Git n'existe pas sur ce dépôt
+### 4.1 → FERMÉ par le lot 1 — le garde-fou d'identité Git n'existait pas sur ce dépôt
 
-**Gravité : la plus haute du chantier, parce qu'elle est irréversible.**
+> **Fermé le 3 septembre 2026** par le lot 1, fusionné en `9596720`. Le montage
+> éprouvé du dépôt jumeau a été porté, avec un drapeau que ce dépôt-ci exigeait
+> et que le jumeau n'a pas besoin — voir la fin de cette entrée. Le constat
+> ci-dessous est conservé parce qu'il dit **pourquoi**, et qu'un garde dont on a
+> oublié le motif finit par être retiré.
+
+**Gravité à l'ouverture : la plus haute du chantier, parce qu'elle est
+irréversible.**
 
 `mesuré` le 3 septembre 2026 :
 
@@ -1296,22 +1303,53 @@ par une commande dont la sortie a été lue. Le mandat du chantier est
 | le hook versionné du dépôt jumeau | `ls scripts/git-hooks/` | **absent** |
 | une cible d'installation | `grep install Makefile` | **absente** |
 
-Autrement dit : **rien ne protège ce dépôt**, et la seule raison pour laquelle
-aucun mauvais commit n'en est parti est qu'aucune identité n'était configurée du
-tout — un `fail-closed` par accident, pas par construction. Le geste qui le
-défait est une seule commande, et il n'y a rien derrière.
+Autrement dit : **rien ne protège ce dépôt**, et le geste qui le défait est une
+seule commande.
 
-Ce que ça a coûté sur le dépôt jumeau, où le même trou existait : sept commits
-partis avec une adresse **professionnelle** `@aosis.net` sur un dépôt
-**personnel**, puis 165 commits réécrits, puis **le dépôt GitHub détruit et
-recréé** — la liste des contributeurs, une fois constituée, ne se défait pas.
+**L'incident des sept commits est arrivé ICI, sur ce dépôt-ci — et cette entrée
+l'attribuait au dépôt jumeau.** C'était faux, et la correction change la nature
+du constat. Le lot 1 l'a relevé, et le pilote a reproduit ses trois mesures, qui
+concordent (`mesuré` le 3 septembre 2026) :
 
-**Ce que l'historique de CE dépôt porte, et il est sain** (`mesuré` :
-`git log --all --format='%ae | %ce' | sort | uniq -c`) : 165 commits, **deux
-adresses et elles seules** — `florian_horellou@laposte.net` (89) et
-`florian.horellou@gmail.com` (76) —, **0** occurrence de `@aosis.net`, et **0**
-attribution à un assistant de génération de code. Il n'y a rien à réparer :
-il y a un garde à poser avant que quelque chose soit à réparer.
+1. **la source primaire nomme ce dépôt.** `scripts/git-hooks/pre-commit` du
+   jumeau, versionné, porte en commentaire : « Sept commits sont partis avec
+   l'adresse professionnelle sur le dépôt personnel **`rag-agent-chat`**, et il
+   a fallu réécrire l'historique PUIS détruire et recréer le dépôt ». C'est le
+   développeur qui a fait le travail qui l'écrit, dans le fichier même du garde ;
+2. **le compte de commits désigne ce dépôt.** « 165 commits réécrits » : ce
+   dépôt-ci en portait exactement **165** à `a6b9c0c`. Le jumeau en portait
+   **111** au commit où il mesure lui-même ce chiffre (`a005172`), et **235** sur
+   `main` aujourd'hui — 165 n'a jamais été son compte ;
+3. **la date de création du dépôt distant le confirme.**
+   `api.github.com/repos/floSa/rag-agent-chat` rend
+   `created_at = 2026-08-28T07:47:48Z`, quand le plus ancien commit du clone est
+   du **30 avril 2026**. Un dépôt créé quatre mois après son premier commit est
+   un dépôt **recréé**. Pour comparaison, le jumeau rend
+   `created_at = 2026-07-12`, au milieu de son historique : aucune signature de
+   recréation.
+
+**Ce que ça change, et ce n'est pas une querelle d'attribution.** Cette entrée
+concluait « il n'y a rien à réparer : il y a un garde à poser avant que quelque
+chose soit à réparer », et expliquait l'absence de mauvais commit par un
+`fail-closed` par accident. **La vraie raison est que les mauvais commits ont
+déjà été purgés et le dépôt GitHub déjà détruit et recréé.** La gravité de ce
+constat n'est donc pas « ce qui pourrait arriver » : c'est **ce qui est arrivé
+ici**, et dont il ne reste aucune trace dans `git log` précisément parce que le
+prix a été payé. Le trou est resté ouvert après la réparation, et le garde n'a
+jamais été posé de ce côté.
+
+**Ce que l'historique de ce dépôt porte aujourd'hui, et il est sain** (`mesuré`
+le 3 septembre 2026 : `git log --all --format='%ae | %ce' | sort | uniq -c`) :
+**167** commits — 165 avant l'ouverture du chantier —, **deux adresses et elles
+seules**, `florian_horellou@laposte.net` (91) et `florian.horellou@gmail.com`
+(76), **0** occurrence de `@aosis.net`, et **0** attribution à un assistant de
+génération de code.
+
+**Ce compte est un état de poste, pas une propriété de l'historique**, et
+l'entrée le présentait comme une propriété. Le lot 1 l'a mesuré à 167 trois
+heures après que le pilote eut écrit 165 : l'écart était exactement les deux
+commits d'ouverture du chantier. Un chiffre qui bouge à chaque commit se borne à
+sa révision — d'où le `a6b9c0c` ci-dessus — ou ne s'écrit pas.
 
 **La correction, et elle est à porter, pas à inventer :** le dépôt jumeau porte
 un montage éprouvé, avec son test — `scripts/git-hooks/pre-commit`,
@@ -1338,7 +1376,26 @@ copie figée, donc toute édition de la liste demande une réinstallation.
 Le geste du pilote, fait le 3 septembre 2026 en attendant le garde, est au §2.1
 de [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
 
-### 4.2 L'agent ne tourne pas : il n'a pas de `.env` — et l'exemple porte une valeur fausse pour ce poste
+### 4.2 → FERMÉ par le lot 1 — l'agent tourne, et l'exigence 5 est prouvée en marche
+
+> **Fermé le 3 septembre 2026**, lot 1, `9596720`. L'agent tourne (projet Compose
+> `rag-agent-chat`, ancré au **clone principal**), et `POST /reindex` a été
+> mesuré en service — par le lot, puis **indépendamment par son audit sur
+> l'agent vivant**. L'exigence 5 du contrat n'est plus « non éprouvée ».
+>
+> Ce que la preuve a établi au-delà de l'aller simple : le filet interne de
+> l'agent compare deux entiers, donc il est **aveugle** à une réingestion qui
+> retire autant de chunks qu'elle en ajoute — et dans cet état la recherche
+> lexicale rend **zéro résultat sur tout le corpus** pendant que la sonde annonce
+> un index prêt. C'est ce que le contrat répare, et c'est désormais gardé par un
+> test dont l'audit a mesuré qu'il est **le seul garde de deux mutations du
+> producteur**.
+>
+> **`.env.example` porte toujours `MINIO_ROOT_USER=minioadmin` là où ce poste
+> exige `admin`** : le lot ne l'a pas corrigé, c'était hors de son mandat. Reste
+> ouvert, petit, sans garde.
+
+Le constat d'ouverture, conservé pour son détail :
 
 C'est ce qui bloque la preuve de l'**exigence 5** du contrat (`POST /reindex`),
 la seule des cinq qui ne soit pas prouvée.
@@ -1594,3 +1651,211 @@ citations issues du PDF sortent donc sans nom de collection. **Le producteur est
 le pipeline** ; ce constat est **à lui rendre**, son registre étant le site
 canonique et son pilote tranchant. Rien n'est à corriger de ce côté avant sa
 réponse — sauf, éventuellement, à décider ce que l'agent affiche à la place.
+
+### 4.9 L'audit du lot 1 — la porte qualité ne tourne pas là où le chantier la regarde
+
+L'audit indépendant du lot 1 a rendu **douze trouvailles**. Le rapport complet
+est archivé, expurgé, à
+[`audits/2026-09-03-audit-lot-1.md`](audits/2026-09-03-audit-lot-1.md) — **il est
+un instantané daté et canonique pour rien** ; les faits sont ici.
+
+**Le bloquant, et il est seul.** `make test` sur la branche du lot rend `rc≠0`
+dans l'environnement que la CI construit : **3 échecs, 12 erreurs, 464 passés**
+(`mesuré` le 3 septembre 2026, reproduit par le pilote sur les mêmes fichiers
+dans les deux environnements). Cause unique et suffisante : le framework
+`pre-commit` n'est déclaré **ni** dans `requirements.txt` **ni** dans
+`requirements-dev.txt` — seulement dans un groupe de `pyproject.toml` que la CI
+n'installe pas — alors que `make test` ramasse les tests du garde-fou, qui
+l'invoquent. Le même arbre rend **479 passés** dans le `.venv` de l'arbre du lot,
+qui le porte.
+
+**Ce que ça enseigne au pilote, et il l'a payé lui-même** : il avait mesuré
+« 479 passés, `rc=0` » en réutilisant le `.venv` de l'arbre du lot — **le seul
+environnement du poste où le vert existait**. Une porte qualité se mesure dans
+un environnement monté par le protocole documenté, jamais dans celui que le lot
+a laissé derrière lui. *Vérifie ton harnais avant de croire ton vert.*
+
+**Et une phrase d'exhaustivité l'a autorisé** : « la CI n'en a pas besoin — elle
+appelle `make lint` et `make test` directement, jamais les hooks git ». La
+prémisse est vraie, la conclusion fausse : la CI appelle les **tests** des hooks.
+C'est la forme qui a autorisé une régression réelle sur le dépôt jumeau.
+
+**Les trouvailles restantes, cotées par l'auditeur puis par le pilote :**
+
+| | Ce que c'est | Gravité |
+|---|---|---|
+| **a** | `make install` peut cesser d'armer, ou **désarmer la porte qualité**, sans un seul rouge — les deux mutations mesurées en clone fusionné | **moyenne** : c'est le défaut que le lot nomme lui-même (« on croit l'avoir »), dans son unique geste, et il ne le garde pas |
+| **b** | **`git tag -a` laisse partir un tagger interdit**, aucun hook déclenché — et le §9 du mandat **prescrit** les tags | **moyenne**, bornée : le tagger n'entre pas dans le graphe de contributeurs, et il faut pousser le tag |
+| **c** | les hooks sont armés **avant** la fusion, depuis du code que `main` ne porte pas. Si la fusion est refusée et la branche supprimée, tout commit du clone est refusé et **la réparation n'est écrite nulle part** | **moyenne**, *fail-closed* |
+| **d** | **`git am`** non couvert, quatrième élément d'une énumération fermée de trois | faible-moyenne |
+| **e** | la propriété dont dépend tout le flux d'arbres de travail (`--git-common-dir`) n'a **aucun test** — le harnais n'emploie que des arbres primaires, où les deux options coïncident | faible, *fail-closed* |
+| **f** | la liste blanche peut perdre l'adresse en usage sans un rouge ; le message de refus affiche alors une liste où elle n'est pas | faible, *fail-closed* |
+| **g** | **aucun test n'exerce le `.pre-commit-config.yaml` du dépôt** — le harnais monte toujours une configuration vide. Trois propriétés que ses propres commentaires disent indispensables sont non gardées | faible |
+| **h** | mode d'échec non nommé : le framework refuse tout commit tant que sa configuration est **modifiée non indexée** | faible |
+| **i** | une directive `shellcheck` dans un dépôt où **shellcheck ne tourne nulle part** | très faible |
+
+**Deux corrections dues au mandat du pilote, et non au lot :**
+
+1. **le §7 portait une condition d'ordre fausse.** Il prescrivait de réarmer les
+   garde-fous « **APRÈS** ce retrait » d'arbre de travail. Ce qui grave le chemin
+   absolu, c'est **l'arbre depuis lequel on lance l'installation**, pas celui
+   qu'on retire : le pas juste est « **depuis le clone principal** », avant comme
+   après. Corrigé au site ;
+2. **un pas manquait, que personne n'avait écrit** : entre la fusion et la
+   réinstallation, il existe une **fenêtre où tout commit du clone et de tous ses
+   arbres est refusé**, sur un message qui ne nomme ni la cause ni le remède.
+   *Fail-closed*, donc sans danger pour l'historique. Écrit au §7.
+
+**Ce que l'audit n'a pas contesté**, et qui vaut d'être consigné : la décision
+`--allow-missing-config` est juste, vérifiée dans les six cellules du croisement
+(configuration présente / présente sans le contrôle / absente × adresse
+autorisée / interdite) ; la couche figée est inconditionnelle ; les trois
+assertions de mutation à motif littéral du lot **portent leur garde** ; le
+pipeline d'ingestion est intact, vérifié indépendamment ; et le garde d'index
+lexical est **le seul garde de deux mutations du producteur** — il vaut mieux que
+ce que le lot en annonçait.
+
+### 4.10 Un secret vivant a fui hors du dépôt, et il est traité
+
+`mesuré` le 3 septembre 2026 : le mot de passe MinIO du pipeline subsistait **en
+clair** dans un fichier de travail hors dépôt, écrit par le lot 1 et non nettoyé.
+Exposition bornée au compte propriétaire, la chaîne de répertoires étant en
+`0700`. **Traité par le pilote le jour même** : fichier détruit, absence du
+secret vérifiée sur tout l'arbre temporaire, et le `.env` de l'agent passé de
+`0664` à `0600`.
+
+**Le dépôt est PUBLIC** (`mesuré` : `visibility = public`), et ce fait manquait
+au registre. Il change deux choses : il explique pourquoi la liste des
+contributeurs ne se défaisait pas au §4.1, et **il interdit d'archiver un
+rapport sans l'expurger** — l'audit du lot 1 citait l'empreinte du secret pour
+prouver sa méthode, à juste titre, et cette empreinte ne pouvait pas être
+publiée.
+
+**À rendre au dépôt jumeau, et ce n'est pas de notre ressort** : le même mot de
+passe, en usage des deux côtés, apparaît en clair dans **trois transcriptions de
+conversation** de son chantier. Son registre est le site canonique et son pilote
+tranche. Le `.env` du pipeline est également en `0664`.
+
+**Et trois défauts que le lot 1 et son audit rendent au jumeau** : une moitié
+décorative dans le bloc de vérification de son installeur ; l'absence totale de
+couverture de `git commit --amend` dans son test d'installation, alors que sa
+documentation l'annonce couvert ; et le fait qu'un `git bisect` atteignant son
+commit racine briquerait, ce commit étant le seul des 235 à ne pas porter la
+configuration du framework.
+
+### 4.11 Ce que la réparation du lot 1 a fermé, et les deux défauts qu'elle a trouvés en chemin
+
+**Le bloquant du §4.9 est fermé** (lot 1, `9596720`). `requirements-dev.txt` est
+devenu le **site unique** de la version du framework de hooks ; le groupe
+`[dependency-groups]` a disparu de `pyproject.toml` — vérifié en **parsant** le
+TOML, pas en cherchant la chaîne, qui subsiste dans un commentaire expliquant ce
+que le groupe a coûté ; et `uv.lock` est **redevenu identique à celui de `main`**,
+la réparation lui retirant les 96 lignes que le lot lui avait ajoutées.
+
+`mesuré` par le pilote le 3 septembre 2026, dans un **clone jetable** dont les
+hooks sont restés vierges et dont l'environnement a été monté comme celui de la
+CI — donc sans que `make install` soit passé :
+
+| | `make lint` | `make test` |
+|---|---|---|
+| `main` d'avant (`d526f6a`) | `rc=0` | `rc=0`, **461 passés** |
+| résultat de la fusion | `rc=0` | `rc=0`, **486 passés** |
+
+Et les deux gardes ajoutés **rougissent bien sous mutation**, mesuré séparément,
+chaque mutation prouvée par `git diff --numstat` : retirer l'appel à l'installeur
+de la recette laisse `make -n install` en `rc=0` — le défaut est bien silencieux
+— et rend **2 rouges** ; remplacer l'étape additive par une forme qui réconcilie
+l'environnement rend **5 rouges**. Le classifieur encode « **additif** » et non
+une liste noire : `uv sync --inexact` reste accepté, tandis que `uv sync`,
+`uv sync --only-group`, `uv pip install --exact` et `uv pip sync` sont refusés.
+
+**Ce que la forme retenue coûte, et c'est assumé** : `uv pip install` exige un
+`.venv` existant là où `uv sync` en créait un. Sur un poste nu, `make install`
+échoue en `rc≠0` sur « No virtual environment found; run `uv venv` » — un échec
+bruyant qui nomme sa cause et son geste, et l'ordre documenté du §2.2 est déjà
+« monter l'environnement, puis armer ».
+
+**Les deux défauts trouvés en chemin, et le second reste ouvert :**
+
+1. **la forme précédente déclassait un paquet en silence.** `uv sync` réconcilie
+   contre `uv.lock`, qui épinglait autre chose que ce que `requirements-dev.txt`
+   résout : `make install` faisait reculer `filelock` d'une version corrective.
+   `--inexact` protège des **retraits**, pas des **changements de version** —
+   une distinction que personne n'avait faite. Fermé par la forme retenue, qui
+   ne fait bouger aucune version ;
+2. **rien ne garde la cohérence entre `pyproject.toml` / `uv.lock` et les
+   `requirements*.txt`** — **OUVERT**. `uv lock --check` n'est appelé par aucune
+   cible ni aucune étape de CI, et les deux systèmes de déclaration du dépôt
+   peuvent donc diverger sans qu'un seul test rougisse. La divergence existe
+   déjà : `uv.lock` épingle une version de `torch` que `requirements.txt` ne
+   résout plus. C'est un angle mort de la même famille que « rien ne lit le
+   `Makefile` ni les documents » du dépôt jumeau.
+
+**Une correction de chiffre, et la façon de la faire vaut d'être notée.** Un
+docstring affirmait que l'inversion des deux gestes de l'installeur était vue par
+« DOUZE autres tests ». Le pilote en a mesuré 15 au total, la réparation 14
+« autres » — les deux lectures étaient justes, elles ne comptaient pas la même
+chose. Le chiffre est désormais **daté, rattaché à sa révision, et son périmètre
+est dit explicitement** ; et la propriété qui, elle, ne bouge pas — « au moins un
+autre test voit l'inversion complète » — est écrite à côté. *Un chiffre qui
+décrit un fichier vivant se borne ou se remplace par la propriété qu'il servait
+à établir.*
+
+### 4.12 Trois de mes propres expériences se sont révélées invalides — le pilote les consigne
+
+Le motif est celui du §12 du mandat, et il s'applique à la main qui l'écrit :
+**deviner un comportement au lieu de le relire.** Les trois ont été attrapées
+avant d'être écrites comme des trouvailles, et chaque fois par la même
+vérification — *le développeur avait raison les trois fois* :
+
+1. **une contre-mutation qui détruisait son propre antécédent.** Pour tester la
+   claim « le garde accepte encore `uv sync --inexact` », le pilote a écrit cette
+   forme **dans le vrai `Makefile`** et observé quatre rouges — donc, croyait-il,
+   une réfutation. En réalité tous les tests de cette classe commencent par
+   `assert source.count(ligne) == 1`, l'anti-vacuité : en changeant la recette, il
+   avait supprimé **l'ancre dont ils ont tous besoin**. Ils rougissaient sur leur
+   garde, pas sur leur propriété. La bonne expérience était de laisser le fichier
+   tranquille et de lancer le test, qui pose lui-même sa substitution ;
+2. **deux appels du classifieur avec le mauvais type.** `_etapes_qui_retirent`
+   prend une `list[list[str]]` — des listes de jetons. Le pilote lui a passé une
+   liste de **chaînes**, obtenu « aucune commande ne retire » sur tous les cas, et
+   failli en conclure que le garde était inerte. Le premier jeton valant la
+   commande entière, `Path(commande[0]).name != "uv"` renvoyait `False` partout.
+   Relire la signature a suffi.
+
+**La leçon transposable** : quand une mesure semble contredire un rapport, le
+premier suspect est le harnais de mesure, pas le rapport. Le mandat dit « vérifie
+ton harnais avant de croire ton rouge » — cette entrée est la preuve que la règle
+vaut aussi contre soi, et l'audit du lot 1 a consigné deux cas symétriques de son
+côté.
+
+### 4.13 `tests.md` a pris 25 tests de retard, et rien ne pouvait le voir
+
+`mesuré` le 3 septembre 2026 : `documentation/tests.md` annonçait « Unitaire —
+**461** tests » quand la suite en comptait **486** après le lot 1. Corrigé au
+site.
+
+**Ni le lot ni son audit ne l'ont vu, et c'est normal** : c'est le gibier de la
+famille que le dépôt jumeau a nommée — *son gibier naît dans les commits qui font
+bien leur travail*, parce que c'est là que personne ne relit la phrase qui
+décrivait l'ancien état. Un lot qui ajoute 25 tests a toutes les raisons de
+regarder ses tests, aucune de relire un titre de section.
+
+**Ce qui reste ouvert est le garde, pas le chiffre.** Ce dépôt possède déjà
+l'instrument : `tests/unit/test_coherence_depot.py` garde quatre accords que rien
+d'autre ne forçait — dont une **mesure** recopiée dans un docstring et deux
+documents. Le compte de la suite est exactement de cette espèce : un chiffre
+qu'un document affirme et que le dépôt connaît. Rien ne le rapproche.
+
+Deux autres retards du même commit, également ouverts :
+
+- **`tests.md` ne mentionne pas `test_installation_des_garde_fous.py`**, alors
+  que sa table nomme fichier par fichier ce que chacun protège — et que
+  celui-ci porte 24 gardes, le plus gros fichier de tests du dépôt ;
+- un chiffre **historique** de la même page — « les 390 tests verts » — était
+  écrit sans borne, donc lisible comme un état courant. Borné à son moment,
+  faute de pouvoir être remesuré.
+
+C'est le dernier angle mort de la méthode, et c'est le même que le **F7** du
+dépôt jumeau : *rien ne lit le `Makefile` ni les documents, donc la documentation
+peut dériver sans que rien ne rougisse.*

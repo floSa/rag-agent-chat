@@ -29,7 +29,7 @@ Il **pilote**. Il n'écrit pas de code de production.
 
 ## 2. Reprendre sur ce poste
 
-### 2.1 Le garde-fou d'identité Git — et il n'existe pas encore ici
+### 2.1 Le garde-fou d'identité Git — armé depuis le 3 septembre 2026
 
 **Le distant est un dépôt personnel** : `floSa/rag-agent-chat`. Deux adresses
 sont autorisées et elles seules :
@@ -38,14 +38,43 @@ sont autorisées et elles seules :
 - `florian_horellou@laposte.net`
 
 **Vérifie toujours une identité sur l'ADRESSE, jamais sur le nom** : deux
-identités portent le même nom, « Florian Horellou ». Sur le dépôt jumeau, sept
+identités portent le même nom, « Florian Horellou ». **Sur CE dépôt-ci**, sept
 commits sont partis avec une adresse **professionnelle** `@aosis.net` ; il a
-fallu réécrire 165 commits **puis détruire et recréer** le dépôt GitHub, la
-liste des contributeurs ne se défaisant pas. **Jamais de `--no-verify`.**
+fallu réécrire les 165 commits de l'époque **puis détruire et recréer** le dépôt
+GitHub, la liste des contributeurs ne se défaisant pas. Les trois mesures qui
+établissent que c'est bien ici, et non sur le dépôt jumeau, sont au §4.1 du
+registre. **Jamais de `--no-verify`.**
 
-**Ce dépôt n'a AUCUN garde-fou armé**, et c'est le premier constat du chantier —
-§4.1 du registre. Ce qui a été mesuré le 3 septembre 2026 est là-bas ; ce qui
-suit est le geste.
+**Le garde-fou est armé depuis le 3 septembre 2026** (lot 1, `9596720`) : c'était
+le premier constat du chantier, §4.1 du registre. **Un seul geste l'arme, et il
+se lance DEPUIS LE CLONE PRINCIPAL :**
+
+```bash
+make install
+```
+
+Il installe les outils de la porte, puis arme les hooks **et vérifie qu'ils le
+sont**, en sortant en erreur sinon. Il exige un `.venv` déjà monté — l'ordre est
+celui du §2.2 : monter l'environnement, puis armer.
+
+**Ce que le montage couvre**, `mesuré` : `git commit`, `git commit --amend` (y
+compris un auteur interdit **hérité**, git exportant l'auteur du commit amendé
+dans l'environnement du hook), `git commit --author=`, `git merge --no-ff` et
+`git merge --squash`. **Ce qu'il ne couvre PAS**, `mesuré` et ouvert au registre :
+`git revert`, `git cherry-pick`, `git rebase`, `git am` et **`git tag -a`** — ce
+dernier laissant partir un *tagger* interdit alors que le §9 prescrit les tags.
+Leur fermeture honnête est un hook `pre-push`, qui reste à trancher.
+
+**Et il porte un drapeau que le dépôt jumeau n'a pas besoin** : sans
+`--allow-missing-config`, le montage **briquerait ce dépôt**. La couche du
+framework ouvre sa configuration en chemin **relatif**, et `.pre-commit-config.yaml`
+n'existe sur **aucun** des 167 commits antérieurs à ce lot — contre 234 sur 235
+chez le jumeau. Tout `git bisect`, tout HEAD détaché, tout arbre sorti à un
+commit ancien serait refusé. Le drapeau rend muets les hooks du framework quand
+leur configuration manque ; **il ne touche jamais la couche qui protège**, et
+c'est vérifié dans les six cellules du croisement (§4.9).
+
+Ce qui suit est le geste d'identité, qui reste manuel : le script n'y touche pas.
 
 L'identité a été posée par le pilote le 3 septembre 2026, sur l'adresse en
 usage dans les 12 derniers commits :
@@ -81,7 +110,19 @@ jamais en intégration continue sans lui.
 `make test-integration` et `make eval` exigent la pile démarrée. **`make eval`
 est hors service** — §4.3 du registre.
 
-Les outils sont épinglés dans `requirements-dev.txt`. Sur un poste nu :
+**MESURE LA PORTE DANS UN ENVIRONNEMENT MONTÉ PAR LE PROTOCOLE CI-DESSOUS,
+jamais dans le `.venv` qu'un lot a laissé derrière lui.** Le pilote s'y est fait
+prendre au lot 1 : il a mesuré « `rc=0`, 479 passés » en réutilisant le `.venv`
+de l'arbre du lot — **le seul environnement du poste où ce vert existait**. Dans
+l'environnement que la CI construit, le même arbre rendait `rc≠0` (§4.9). Un
+`.venv` de lot porte ce que le lot y a installé, et c'est précisément ce que la
+CI n'aura pas.
+
+**La porte ne tourne PAS non plus sur un arbre de travail neuf**, et c'est une
+trouvaille du lot 1 : `which ruff mypy pytest` rend `rc=1` sur ce poste, aucun n'étant au
+`PATH`. Un `make lint` depuis un arbre neuf échoue donc sur
+`ruff: command not found`, et non sur une faute de code. Les outils sont épinglés
+dans `requirements-dev.txt`. Sur un arbre neuf comme sur un poste nu :
 
 ```bash
 uv venv --python 3.12 && uv pip install torch --index-url https://download.pytorch.org/whl/cpu && uv pip install -r requirements.txt -r requirements-dev.txt
@@ -89,10 +130,16 @@ uv venv --python 3.12 && uv pip install torch --index-url https://download.pytor
 
 ### 2.3 Le `.env`
 
-**Il n'y en a pas** (`mesuré`, 3 septembre 2026), et c'est ce qui empêche
-l'agent de démarrer. `.env.example` est versionné et complet. Deux valeurs ne
-peuvent pas se deviner depuis lui, et une d'elles y est **fausse pour ce
-poste** — §4.2 du registre.
+**Il existe depuis le 3 septembre 2026**, écrit par le lot 1 dans le **clone
+principal** — jamais dans un arbre de travail, parce que `docker-compose.yml`
+monte `./prompts` et qu'un `up` lancé depuis un arbre l'ancrerait. Passé en
+**`0600`** par le pilote (§4.10). `.env.example` est versionné et complet, mais
+**il porte encore `MINIO_ROOT_USER=minioadmin` là où ce poste exige `admin`** :
+ouvert, petit, sans garde — §4.2 du registre.
+
+**Ne recopie le mot de passe MinIO dans aucun document, aucun commit, aucun
+rapport.** Ce dépôt est **public**, et un secret a déjà fui une fois dans un
+fichier de travail non nettoyé (§4.10).
 
 ## 3. Le contrat avec le pipeline d'ingestion
 
@@ -106,7 +153,7 @@ chiffre : chaque constat renvoie à son entrée.
 | **2** | `element_id` déterministe, 10 hexadécimaux | ✅ tenue par le pipeline, et l'agent le valide (`^[a-f0-9]{10}$`, `graph_context.py`) |
 | **3** | `source_path` est l'identité d'un document | ✅ tenue |
 | **4** | `sequence` porte l'ordre, monotone | ✅ tenue — et **reproduite de mes mains** : §4.5 |
-| **5** | `POST /reindex` en fin de pipeline | ⚠️ **non éprouvée.** Les deux moitiés s'accordent à la lecture ; rien ne l'a jamais prouvé en marche, l'agent ne tournant pas. C'est le lot 1 |
+| **5** | `POST /reindex` en fin de pipeline | ✅ **tenue et prouvée en marche** par le lot 1 — mesurée par le lot, puis **indépendamment par son audit sur l'agent vivant**, et gardée par un test que l'audit a mesuré seul garde de deux mutations du producteur. §4.2 |
 
 **Ce que mes mesures ont changé au contrat.** Le pipeline a **fermé** un point
 que ce dépôt porte encore comme ouvert et qu'il lui redemande : la platitude du
@@ -123,15 +170,15 @@ le pilote croyait avoir supprimé.
 
 | | `mesuré` le 3 septembre 2026 |
 |---|---|
-| branches | **une seule** hors `main` : `claude/audit-rag-agent-chat-e8de9d`, l'arbre du pilote. `main` = `origin/main` = `a6b9c0c`, arbre propre, seul `.claude/` non suivi |
+| branches | **une seule** hors `main` : `claude/audit-rag-agent-chat-e8de9d`, l'arbre du pilote. `main` = `origin/main` = `9596720`. Les trois branches du lot 1 et leurs arbres ont été supprimés après fusion ; aucun répertoire mort ne subsiste |
 | dernier commit du dépôt | **28 août 2026** — le dépôt est resté immobile pendant que le pipeline réingérait le 2 septembre. C'est la cause matérielle de §4.3 et §4.6 |
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
-| garde-fou d'identité | **absent** — §4.1 |
-| historique | 165 commits, **deux adresses et elles seules** (89 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code |
-| porte qualité | `ruff check src/ tests/ scripts/` → `rc=0` ; `mypy src/` → `rc=0`, 18 fichiers ; `pytest tests/unit/` → `rc=0`, **461 passés**. Concordant avec `tests.md`, qui annonce 461 |
+| garde-fou d'identité | **armé** depuis le lot 1, `INSTALL_PYTHON` gravé vers le `.venv` du **clone principal** — donc stable. Vérifié de mes mains depuis l'arbre du pilote : adresse interdite → `rc=1`, HEAD immobile ; adresse autorisée → `rc=0`. Et le hook a tiré sur la fusion elle-même (« Identite d'auteur autorisee … Passed ») |
+| historique | **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
+| porte qualité | à `9596720`, dans le clone principal **et** dans un clone jetable monté comme la CI : `make lint` → `rc=0`, `make test` → `rc=0`, **486 passés** (461 avant le lot 1). ⚠️ `documentation/tests.md` annonce toujours **461** — il a pris 25 tests de retard |
 | tests désactivés | **0** `pytest.mark.skip`, **0** `xfail`. 3 `type: ignore` (frontière ChromaDB, `retriever.py`), 90 `noqa` presque tous `PLR2004` — antérieurs à ce chantier, non instruits |
-| pile Docker | projet `rag-ingestion-pipeline`, 9 services debout ; `llm-service`, 1 service. Réseaux `rag_network` et `llm-net` présents. **Aucun conteneur de l'agent** |
-| `dagster-daemon` | **arrêté** — et « arrêté » n'est PAS une propriété stable : il a démarré **trois fois** sur le dépôt jumeau sans qu'aucune conversation le décide, cause jamais cherchée |
+| pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
+| `dagster-daemon` | **arrêté** (`Exited (0)`), et il l'est resté pendant tout le lot 1, relevé à ses deux bouts. Mais « arrêté » n'est PAS une propriété stable : il a démarré **trois fois** sur le dépôt jumeau sans qu'aucune conversation le décide, cause jamais cherchée |
 | les stores | ChromaDB `rag_documents`, **4 367** chunks ; NebulaGraph `rag_space`, **15 173** arêtes `PARENT_OF`, **23** documents. Concordant à l'unité avec la campagne de référence du pipeline |
 | les LLM | `ollama-central` sert `gemma4:e4b` et `nomic-embed-text` — `gemma4:e4b` est bien celui qu'attend `.env.example` |
 
@@ -165,9 +212,9 @@ anglaise → document français » a disparu.
 
 | | Le lot | État |
 |---|---|---|
-| **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | distribué — `Conv' 21` |
-| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | à distribuer |
-| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — peut rejoindre le lot 1 si son diff reste lisible |
+| **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | ✅ **fusionné** `9596720` — livré (`Conv' 21`), audité (`Conv' 22`), réparé (`Conv' 23`), fusion tranchée par le pilote après vérification de ses deux gardes par mutation |
+| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | distribué — `Conv' 24` |
+| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — **le risque vivant du chantier** : une panne silencieuse qui rend des passages plausibles et faux |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
 | **5** | **trancher le sort du jeu doré** (§4.3) — décision de l'utilisateur avant tout lot | en attente de décision |
 
@@ -186,7 +233,15 @@ ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
 5. si fusion : `--no-ff`, **jamais `--ff-only`, jamais de rebase**. Puis
    vérifier qu'aucun projet Compose ni bind mount n'ancre l'arbre de travail
    avant de supprimer quoi que ce soit, supprimer la branche local **et**
-   distant, retirer l'arbre — et **réarmer les garde-fous APRÈS ce retrait** ;
+   distant, retirer l'arbre — et **relancer `make install` DEPUIS LE CLONE
+   PRINCIPAL**. Ce point a porté une condition fausse jusqu'au 3 septembre 2026 :
+   il disait « réarmer **après** ce retrait ». Ce qui grave le chemin absolu du
+   `.venv` dans `.git/hooks`, c'est **l'arbre depuis lequel on lance
+   l'installation**, pas celui qu'on retire — l'audit du lot 1 l'a mesuré
+   (§4.9). Et sache qu'entre le retrait et la réinstallation s'ouvre une
+   **fenêtre où tout commit du clone et de tous ses arbres est refusé**, sur un
+   message qui ne nomme ni la cause ni le remède. C'est *fail-closed*, donc sans
+   danger pour l'historique ;
 6. mettre le registre à jour ;
 7. écrire le prompt du lot suivant, et **le relire contre `git`**, pas contre sa
    mémoire. Un prompt prêt à distribuer périme.
