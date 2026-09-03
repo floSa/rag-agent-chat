@@ -100,9 +100,9 @@ borne les sessions en âge (`SESSION_TTL_SECONDS`) et en nombre
 
 ### 1.9 « Avant / après » — `graph_context.py`
 
-`reconstruct_section` ne récupérait que la section de l'élément. Les en-têtes
-étant frères sous le `Document` et ordonnés par la propriété `sequence` de
-l'arête, `_find_sibling` atteint la section précédente et la suivante : leur
+`reconstruct_section` ne récupérait que la section de l'élément. `_find_sibling`
+atteint la section précédente et la suivante en encadrant la propriété
+`sequence` de l'arête **sous le parent réel de la section** : leur
 queue et leur tête entrent dans le prompt, dans des blocs explicitement
 étiquetés pour que le LLM les distingue de la section trouvée.
 
@@ -115,10 +115,18 @@ au visuel dans le markdown.
 
 ### 1.11 `CONTEXT_DEPTH` sans effet — `settings.py`
 
-Le paramètre était lu nulle part, et ne pouvait rien faire : l'ingestion
-n'imbrique pas les titres, il n'y a aucun niveau à remonter (§3.1). Supprimé et
-remplacé par les bornes de fenêtrage, qui décrivent ce qui est réellement
-réglable.
+Le paramètre était lu nulle part, et ne pouvait rien faire. **Le motif écrit ici
+était « l'ingestion n'imbrique pas les titres, il n'y a aucun niveau à
+remonter » : il est MORT depuis le 2 septembre 2026** — le graphe imbrique, 583
+en-têtes sur 746 ont un en-tête pour parent (§4.6). Supprimé et remplacé par les
+bornes de fenêtrage, qui décrivent ce qui est réellement réglable.
+
+**Ce qui reste vrai** : le paramètre n'était lu nulle part, donc sa suppression
+n'a rien retiré au comportement. **Ce qui est à rouvrir** : il y a désormais des
+niveaux à remonter, et la question de savoir si l'agent doit pouvoir borner la
+profondeur du fil d'Ariane est une **décision de plan**, pas une ligne à écrire.
+*Une règle survit à son motif* — et celle-ci a survécu au sien pendant que
+personne ne relisait la phrase qui le portait.
 
 ### 1.12 Tests de la logique métier — `tests/unit/`
 
@@ -1649,10 +1657,27 @@ tiré :
 
 **Le lot 2 a trouvé trois sites de plus**, portant la même prémisse : le docstring
 de `_neighbour_elements`, les `Args` de `_find_sibling`, et **`src/api/schemas.py`
-— hors de `graph_context.py`, donc hors de la liste ci-dessus.** Six sites au
-total. *Une énumération de sites est une phrase d'exhaustivité comme une autre :
-celle-ci en avait manqué la moitié, faute d'avoir cherché ailleurs que dans le
-fichier évident.*
+— hors de `graph_context.py`, donc hors de la liste ci-dessus.**
+
+**Et son audit en a trouvé un septième, dans CE fichier — le §1.9**, qui portait
+**verbatim** la phrase que le lot venait de retirer d'un docstring : « les
+en-têtes étant frères sous le `Document` ». Corrigé, comme le §1.11 ci-dessus,
+qui était **listé** dans la table mais **jamais amendé** — le registre étant
+hors du périmètre des lots, c'était au pilote de le faire, et il ne l'avait pas
+fait.
+
+**Le compte n'est donc pas « six sites ».** `mesuré` le 3 septembre 2026 : **sept
+au moins**, dont **trois dans ce registre**. *Une énumération de sites est une
+phrase d'exhaustivité comme une autre — celle-ci a été fausse trois fois de
+suite : le pilote en nommait trois, le lot six, l'audit sept. La leçon n'est pas
+« compter mieux » : c'est que la phrase doit être **bornée à ce qui a été
+cherché**, et dire où.* Ce qui a été cherché ici : `graph_context.py`, les
+schémas, les documents de `documentation/` et ce registre, par recherche des
+formes « plat », « deux niveaux », « imbriqu », « frères sous », « tous enfants
+directs ». **Le pilote a ensuite balayé les trois endroits qui restaient** —
+`prompts/`, le `README` et `tests/` : **0 occurrence** (`mesuré` le 3 septembre
+2026). Le compte de sept est donc borné à une recherche qui couvre désormais tout
+le dépôt, et c'est cette borne-là qui vaut, pas le chiffre.
 
 **La nuance de profondeur, et elle décide de ce que `_MAX_DEPTH` doit couvrir.**
 Cette entrée écrivait que la profondeur « atteint 4 pour un titre et 5 pour un
@@ -1944,3 +1969,68 @@ Deux autres retards du même commit, également ouverts :
 C'est le dernier angle mort de la méthode, et c'est le même que le **F7** du
 dépôt jumeau : *rien ne lit le `Makefile` ni les documents, donc la documentation
 peut dériver sans que rien ne rougisse.*
+
+### 4.14 L'audit du lot 2 — le maillon que le bouchon fabriquait au lieu de l'éprouver
+
+L'audit indépendant du lot 2 a rendu **huit trouvailles**, dont **deux
+bloquantes**. Le rapport sera archivé sous `audits/` à la fusion. Sa
+recommandation — fusionner après correction — est suivie par le pilote.
+
+**T1, la trouvaille grave, et elle est de la meilleure espèce.** Le lot 2 livre un
+fichier de tests dont l'objet déclaré est de garder la composition « chercher
+tous les enfants, **ordonnés**, puis découper par position ». `mesuré` par
+l'auditeur et **reproduit par le pilote** : retirer le `| ORDER BY $-.seq ASC` de
+`_get_children` laisse la suite **entièrement verte — `rc=0`, 496 passés, 0
+rouge**, y compris les 10 tests neufs.
+
+**Et l'`ORDER BY` est porteur sur le graphe réel.** `mesuré` le 3 septembre 2026
+sur 80 des 334 parents à 13 enfants ou plus : sans lui, NebulaGraph rend les
+enfants dans un ordre arbitraire — **80 sur 80** non triés, un exemple
+commençant `904, 906, 916, 915, 907…` ; avec lui, triés. La conséquence en
+service n'est donc pas une amputation mais un contexte **faux** : treize frères
+arbitraires présentés au modèle comme les voisins de lecture.
+
+**La cause est un bouchon qui fabrique la précondition qu'il devrait éprouver** :
+le graphe factice trie ses enfants **à l'insertion**, et n'applique un tri
+conditionnel que lorsqu'un `ORDER BY` est présent. La composition a **trois**
+maillons ; le lot en garde deux. *Un montage de test qui bouchonne trop haut rend
+intestable ce qu'il prétend vérifier* — et ici il le rend intestable sur
+exactement le maillon dont l'échec est le plus probable, un développeur retirant
+plus volontiers un `ORDER BY` jugé redondant qu'il ne réécrit une requête.
+
+**T2, la seconde bloquante : une forme nGQL aussi légitime échappe au garde.** La
+détection d'encadrement ne reconnaît que `properties(edge).sequence <op> N`. Un
+encadrement écrit en aval d'un tube — `| YIELD … WHERE $-.seq >= …` — n'est vu
+ni par le bouchon, qui rend alors toutes les lignes, ni par le garde structurel
+de la réserve 1, **qui réutilise la même expression**. Une seule cécité défait
+deux gardes. Vérifié contre le graphe réel par l'auditeur : les deux formes
+rendent les mêmes lignes, donc la même amputation.
+
+**Les six autres, non bloquantes :**
+
+| | Ce que c'est | Gravité |
+|---|---|---|
+| **c** | **aucune fixture du dépôt ne construit d'en-tête imbriqué** — les 9 `SectionHeader` des fixtures ont tous le `Document` pour parent. Remettre la prémisse morte dans le code laisse **0 rouge**, et `_MAX_DEPTH = 2` reperd le nom du document, c'est-à-dire réintroduit le §1.2 sans un rouge. Le code livré est **juste** — l'auditeur l'a vérifié sur un graphe imbriqué monté à la main : c'est un trou de couverture, pas un défaut | sérieuse |
+| **d** | `_SIBLING_CANDIDATES = 1` rend la suite rouge, alors que le commentaire livré écrit « un seul candidat suffirait ». L'assertion qui tombe est la **précondition d'atteignabilité** d'une sonde qui emprunte la constante réglable ; le message est juste, l'étiquette pytest trompeuse | mineure |
+| **e** | « le plus gros fichier de tests du dépôt » : premier en octets **de 21 octets**, deuxième en lignes, **cinquième en nombre de tests**. C'est l'erreur que le lot venait de diagnostiquer chez le pilote — deux écritures justes sous des définitions différentes — commise trois commits plus tard | mineure |
+| **f** | **cinq chiffres à deux sites** après fusion (`167/763`, `994`, `1 141`, `7,5 %`, `162`), et un troisième site sans renvoi. Et `pour_le_pipeline_ingestion.md` §5.1 recopie une distribution entière trois lignes au-dessus d'écrire « celui-ci y renvoie plutôt que de les recopier ». **Le doublon naît de la FUSION, pas du diff** : invisible à toute relecture de branche | mineure |
+| **g** | `mypy scripts/mesurer_le_graphe.py` rend `rc=1`. Il passe la porte parce que **`make typecheck` fait `mypy src/` seul** quand `make lint` fait `ruff check src/ tests/ scripts/` — une asymétrie du `Makefile` **antérieure au lot**, que le lot rend visible pour la première fois, et qui rendra la porte rouge le jour où quelqu'un aligne les deux périmètres | mineure |
+| **h** | trois réserves sur l'instrument de mesure : `167 sur 763` mélange deux populations (seuls **692** parents ont ≥ 2 enfants, et un parent à un enfant ne peut pas être non contigu) ; il imprime un rang 0-basé là où le registre le lit 1-basé, sans que ni l'un ni l'autre ne nomme sa convention ; et il pagine un `MATCH` non ordonné — **mesuré stable** à trois tailles de page, donc risque signalé et non défaut | mineure |
+
+**Ce que l'audit n'a pas contesté, et qui vaut d'être écrit** : le diff de
+production est **documentaire à 100 %** — dépouillement de tokens à l'appui, le
+code exécutable de `graph_context.py` et de `schemas.py` est **identique** à
+`main`. Il n'y a donc **aucun risque de régression fonctionnelle** à fusionner ce
+lot, et tout son risque est dans ce que ses phrases autoriseront à croire. Les
+deux constantes sont saines et les marges reproduites à l'unité. L'instrument est
+**en lecture seule**, confirmé, et n'imprime aucun secret. Les stores sont
+identiques aux deux bouts de l'audit. Et **chacun des dix-huit chiffres que
+l'auditeur a pu reproduire tombe à l'unité**, dont deux que le pilote n'avait pas
+vérifiés.
+
+**Un mot sur la cotation de T1, parce que la tentation était de la classer avec
+(c).** Ce n'est pas un trou de couverture : le fichier existe pour garder cette
+composition, il le dit dans son titre et son docstring, et le maillon manquant
+est celui dont l'échec produit non pas *moins* de contexte mais du contexte
+**faux**. Un bouchon qui fabrique la précondition qu'il éprouve est la définition
+du garde décoratif — sur ce maillon-là, et sur lui seul.
