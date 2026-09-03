@@ -83,8 +83,16 @@ jamais en intégration continue sans lui.
 `make test-integration` et `make eval` exigent la pile démarrée. **`make eval`
 est hors service** — §4.3 du registre.
 
-**La porte ne tourne PAS sur un arbre de travail neuf**, et c'est une trouvaille
-du lot 1 : `which ruff mypy pytest` rend `rc=1` sur ce poste, aucun n'étant au
+**MESURE LA PORTE DANS UN ENVIRONNEMENT MONTÉ PAR LE PROTOCOLE CI-DESSOUS,
+jamais dans le `.venv` qu'un lot a laissé derrière lui.** Le pilote s'y est fait
+prendre au lot 1 : il a mesuré « `rc=0`, 479 passés » en réutilisant le `.venv`
+de l'arbre du lot — **le seul environnement du poste où ce vert existait**. Dans
+l'environnement que la CI construit, le même arbre rendait `rc≠0` (§4.9). Un
+`.venv` de lot porte ce que le lot y a installé, et c'est précisément ce que la
+CI n'aura pas.
+
+**La porte ne tourne PAS non plus sur un arbre de travail neuf**, et c'est une
+trouvaille du lot 1 : `which ruff mypy pytest` rend `rc=1` sur ce poste, aucun n'étant au
 `PATH`. Un `make lint` depuis un arbre neuf échoue donc sur
 `ruff: command not found`, et non sur une faute de code. Les outils sont épinglés
 dans `requirements-dev.txt`. Sur un arbre neuf comme sur un poste nu :
@@ -171,7 +179,7 @@ anglaise → document français » a disparu.
 
 | | Le lot | État |
 |---|---|---|
-| **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | distribué — `Conv' 21` |
+| **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | livré (`Conv' 21`), audité (`Conv' 22`), **fusion refusée en l'état** — un seul bloquant, §4.9. Réparation distribuée à `Conv' 23` |
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | à distribuer |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — peut rejoindre le lot 1 si son diff reste lisible |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
@@ -192,7 +200,15 @@ ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
 5. si fusion : `--no-ff`, **jamais `--ff-only`, jamais de rebase**. Puis
    vérifier qu'aucun projet Compose ni bind mount n'ancre l'arbre de travail
    avant de supprimer quoi que ce soit, supprimer la branche local **et**
-   distant, retirer l'arbre — et **réarmer les garde-fous APRÈS ce retrait** ;
+   distant, retirer l'arbre — et **relancer `make install` DEPUIS LE CLONE
+   PRINCIPAL**. Ce point a porté une condition fausse jusqu'au 3 septembre 2026 :
+   il disait « réarmer **après** ce retrait ». Ce qui grave le chemin absolu du
+   `.venv` dans `.git/hooks`, c'est **l'arbre depuis lequel on lance
+   l'installation**, pas celui qu'on retire — l'audit du lot 1 l'a mesuré
+   (§4.9). Et sache qu'entre le retrait et la réinstallation s'ouvre une
+   **fenêtre où tout commit du clone et de tous ses arbres est refusé**, sur un
+   message qui ne nomme ni la cause ni le remède. C'est *fail-closed*, donc sans
+   danger pour l'historique ;
 6. mettre le registre à jour ;
 7. écrire le prompt du lot suivant, et **le relire contre `git`**, pas contre sa
    mémoire. Un prompt prêt à distribuer périme.

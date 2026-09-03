@@ -1625,3 +1625,94 @@ citations issues du PDF sortent donc sans nom de collection. **Le producteur est
 le pipeline** ; ce constat est **à lui rendre**, son registre étant le site
 canonique et son pilote tranchant. Rien n'est à corriger de ce côté avant sa
 réponse — sauf, éventuellement, à décider ce que l'agent affiche à la place.
+
+### 4.9 L'audit du lot 1 — la porte qualité ne tourne pas là où le chantier la regarde
+
+L'audit indépendant du lot 1 a rendu **douze trouvailles**. Le rapport complet
+est archivé, expurgé, à
+[`audits/2026-09-03-audit-lot-1.md`](audits/2026-09-03-audit-lot-1.md) — **il est
+un instantané daté et canonique pour rien** ; les faits sont ici.
+
+**Le bloquant, et il est seul.** `make test` sur la branche du lot rend `rc≠0`
+dans l'environnement que la CI construit : **3 échecs, 12 erreurs, 464 passés**
+(`mesuré` le 3 septembre 2026, reproduit par le pilote sur les mêmes fichiers
+dans les deux environnements). Cause unique et suffisante : le framework
+`pre-commit` n'est déclaré **ni** dans `requirements.txt` **ni** dans
+`requirements-dev.txt` — seulement dans un groupe de `pyproject.toml` que la CI
+n'installe pas — alors que `make test` ramasse les tests du garde-fou, qui
+l'invoquent. Le même arbre rend **479 passés** dans le `.venv` de l'arbre du lot,
+qui le porte.
+
+**Ce que ça enseigne au pilote, et il l'a payé lui-même** : il avait mesuré
+« 479 passés, `rc=0` » en réutilisant le `.venv` de l'arbre du lot — **le seul
+environnement du poste où le vert existait**. Une porte qualité se mesure dans
+un environnement monté par le protocole documenté, jamais dans celui que le lot
+a laissé derrière lui. *Vérifie ton harnais avant de croire ton vert.*
+
+**Et une phrase d'exhaustivité l'a autorisé** : « la CI n'en a pas besoin — elle
+appelle `make lint` et `make test` directement, jamais les hooks git ». La
+prémisse est vraie, la conclusion fausse : la CI appelle les **tests** des hooks.
+C'est la forme qui a autorisé une régression réelle sur le dépôt jumeau.
+
+**Les trouvailles restantes, cotées par l'auditeur puis par le pilote :**
+
+| | Ce que c'est | Gravité |
+|---|---|---|
+| **a** | `make install` peut cesser d'armer, ou **désarmer la porte qualité**, sans un seul rouge — les deux mutations mesurées en clone fusionné | **moyenne** : c'est le défaut que le lot nomme lui-même (« on croit l'avoir »), dans son unique geste, et il ne le garde pas |
+| **b** | **`git tag -a` laisse partir un tagger interdit**, aucun hook déclenché — et le §9 du mandat **prescrit** les tags | **moyenne**, bornée : le tagger n'entre pas dans le graphe de contributeurs, et il faut pousser le tag |
+| **c** | les hooks sont armés **avant** la fusion, depuis du code que `main` ne porte pas. Si la fusion est refusée et la branche supprimée, tout commit du clone est refusé et **la réparation n'est écrite nulle part** | **moyenne**, *fail-closed* |
+| **d** | **`git am`** non couvert, quatrième élément d'une énumération fermée de trois | faible-moyenne |
+| **e** | la propriété dont dépend tout le flux d'arbres de travail (`--git-common-dir`) n'a **aucun test** — le harnais n'emploie que des arbres primaires, où les deux options coïncident | faible, *fail-closed* |
+| **f** | la liste blanche peut perdre l'adresse en usage sans un rouge ; le message de refus affiche alors une liste où elle n'est pas | faible, *fail-closed* |
+| **g** | **aucun test n'exerce le `.pre-commit-config.yaml` du dépôt** — le harnais monte toujours une configuration vide. Trois propriétés que ses propres commentaires disent indispensables sont non gardées | faible |
+| **h** | mode d'échec non nommé : le framework refuse tout commit tant que sa configuration est **modifiée non indexée** | faible |
+| **i** | une directive `shellcheck` dans un dépôt où **shellcheck ne tourne nulle part** | très faible |
+
+**Deux corrections dues au mandat du pilote, et non au lot :**
+
+1. **le §7 portait une condition d'ordre fausse.** Il prescrivait de réarmer les
+   garde-fous « **APRÈS** ce retrait » d'arbre de travail. Ce qui grave le chemin
+   absolu, c'est **l'arbre depuis lequel on lance l'installation**, pas celui
+   qu'on retire : le pas juste est « **depuis le clone principal** », avant comme
+   après. Corrigé au site ;
+2. **un pas manquait, que personne n'avait écrit** : entre la fusion et la
+   réinstallation, il existe une **fenêtre où tout commit du clone et de tous ses
+   arbres est refusé**, sur un message qui ne nomme ni la cause ni le remède.
+   *Fail-closed*, donc sans danger pour l'historique. Écrit au §7.
+
+**Ce que l'audit n'a pas contesté**, et qui vaut d'être consigné : la décision
+`--allow-missing-config` est juste, vérifiée dans les six cellules du croisement
+(configuration présente / présente sans le contrôle / absente × adresse
+autorisée / interdite) ; la couche figée est inconditionnelle ; les trois
+assertions de mutation à motif littéral du lot **portent leur garde** ; le
+pipeline d'ingestion est intact, vérifié indépendamment ; et le garde d'index
+lexical est **le seul garde de deux mutations du producteur** — il vaut mieux que
+ce que le lot en annonçait.
+
+### 4.10 Un secret vivant a fui hors du dépôt, et il est traité
+
+`mesuré` le 3 septembre 2026 : le mot de passe MinIO du pipeline subsistait **en
+clair** dans un fichier de travail hors dépôt, écrit par le lot 1 et non nettoyé.
+Exposition bornée au compte propriétaire, la chaîne de répertoires étant en
+`0700`. **Traité par le pilote le jour même** : fichier détruit, absence du
+secret vérifiée sur tout l'arbre temporaire, et le `.env` de l'agent passé de
+`0664` à `0600`.
+
+**Le dépôt est PUBLIC** (`mesuré` : `visibility = public`), et ce fait manquait
+au registre. Il change deux choses : il explique pourquoi la liste des
+contributeurs ne se défaisait pas au §4.1, et **il interdit d'archiver un
+rapport sans l'expurger** — l'audit du lot 1 citait l'empreinte du secret pour
+prouver sa méthode, à juste titre, et cette empreinte ne pouvait pas être
+publiée.
+
+**À rendre au dépôt jumeau, et ce n'est pas de notre ressort** : le même mot de
+passe, en usage des deux côtés, apparaît en clair dans **trois transcriptions de
+conversation** de son chantier. Son registre est le site canonique et son pilote
+tranche. Le `.env` du pipeline est également en `0664`.
+
+**Et trois défauts que le lot 1 et son audit rendent au jumeau** : une moitié
+décorative dans le bloc de vérification de son installeur ; l'absence totale de
+couverture de `git commit --amend` dans son test d'installation, alors que sa
+documentation l'annonce couvert ; et le fait qu'un `git bisect` atteignant son
+commit racine briquerait, ce commit étant le seul des 235 à ne pas porter la
+configuration du framework.
