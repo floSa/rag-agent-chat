@@ -1473,11 +1473,38 @@ Trois conséquences, et la troisième est une phrase à corriger :
    **corpus** qui a été remplacé, ce que le déterminisme ne pouvait pas couvrir.
    La phrase attribue au mauvais mécanisme une garantie qu'il n'a jamais donnée.
 
-**Ce que ce constat ne tranche pas.** Trois issues existent — retirer le jeu
-doré et adopter les 30 questions du pipeline comme seul instrument, régénérer le
-jeu depuis le nouveau corpus avec `scripts/generate_golden.py`, ou les deux. Le
-choix engage tout ce qui suit et **il n'appartient pas à une conversation** : il
-est au plan du pilote, en attente de décision.
+**LA DÉCISION EST PRISE — 3 septembre 2026, par l'utilisateur.** Trois issues
+avaient été posées : retirer le jeu doré au profit des 30 questions du pipeline,
+régénérer le jeu depuis le nouveau corpus, ou **les deux**. **Retenu : les
+deux.**
+
+Le motif, et il est le cœur du choix : les deux instruments **ne mesurent pas la
+même chose**, et c'est précisément l'intérêt de les garder ensemble.
+
+| | Le jeu régénéré (138) | Les 30 du pipeline |
+|---|---|---|
+| origine | `scripts/generate_golden.py`, écrit **depuis** les passages | écrites **à la main** après ingestion |
+| ce qu'il donne | du **volume de réglage** — assez de questions pour qu'un écart sorte du bruit | un **contrôle indépendant** du générateur |
+| sa faiblesse | **auto-référentiel** : la question est écrite POUR le passage qu'elle désigne, donc il ne révèle pas un défaut de retrieval que le générateur partage. Et il n'est **pas relu par un humain** | **trop peu nombreuses pour arbitrer un réglage** — leur propre réserve le dit : un écart de deux points est du bruit |
+
+Aucun des deux seul ne suffit : le régénéré ne sait pas se contredire, les 30 ne
+savent pas décider. **Le régénéré règle, les 30 contrôlent.**
+
+Ce que la décision implique, et qui n'est pas gratuit :
+
+- **`runs/final.json` est perdu comme antécédent**, définitivement — il décrit un
+  corpus qui n'existe plus. Une **nouvelle campagne de référence** est à établir
+  sur le corpus actuel, et c'est elle qui deviendra la cible de `--compare` ;
+- **aucune comparaison historique n'est possible** à travers le remplacement de
+  corpus. Ce n'est pas une perte qu'on choisit : elle est déjà consommée ;
+- la strate « de suivi » et l'axe translinguistique portent les **deux bornes
+  mesurées** du côté pipeline — la question encodée sans son historique, et un
+  corpus entièrement anglais. Elles valent pour les 30, et il faudra décider si
+  le jeu régénéré les reproduit.
+
+C'est un lot à part entière, et il vient **après** les lots de gardes : mesurer
+sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le
+bruit des corrections à venir.
 
 **Et l'instrument valide existe déjà** : le jeu de 30 questions du pipeline,
 `documentation/campagnes/2026-09-02-jeu-de-questions.yaml`, écrit **après**

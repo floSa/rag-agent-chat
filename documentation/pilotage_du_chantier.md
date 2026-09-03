@@ -216,7 +216,7 @@ anglaise → document français » a disparu.
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | distribué — `Conv' 24` |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — **le risque vivant du chantier** : une panne silencieuse qui rend des passages plausibles et faux |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
-| **5** | **trancher le sort du jeu doré** (§4.3) — décision de l'utilisateur avant tout lot | en attente de décision |
+| **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
 
 **Le rang 1 est un prérequis, pas un choix** : sans garde-fou, aucun commit de
 ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
