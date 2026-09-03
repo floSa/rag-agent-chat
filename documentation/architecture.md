@@ -317,6 +317,9 @@ Voir [llm_integration_plan.md](llm_integration_plan.md). Points clés :
 - **NebulaGraph** `rag_space` : `Document → SectionHeader → SectionHeader → …`
   via `PARENT_OF(sequence)`, plus `DESCRIBES` de chaque légende vers son
   illustration. VIDs = sha256[:10] (éléments) ou `doc_{chemin}` (documents).
+  `sequence` porte trois réserves de lecture qui décident de la forme du
+  fenêtrage — site canonique
+  [stores.md](stores.md#les-trois-réserves-de-lecture-de-sequence).
 - **MinIO** bucket `documents` : crops PNG sous `images/{stem}/{id}_{type}.png`.
 - **Embedding** : `paraphrase-multilingual-MiniLM-L12-v2` (384 dim) —
   obligatoirement le même des deux côtés. En changer impose une réingestion
