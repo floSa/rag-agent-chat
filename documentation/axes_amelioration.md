@@ -2034,3 +2034,131 @@ composition, il le dit dans son titre et son docstring, et le maillon manquant
 est celui dont l'échec produit non pas *moins* de contexte mais du contexte
 **faux**. Un bouchon qui fabrique la précondition qu'il éprouve est la définition
 du garde décoratif — sur ce maillon-là, et sur lui seul.
+
+### 4.15 Les deux bloquants du lot 2, mesurés par le pilote des deux côtés de la réparation
+
+Le pilote a tranché T1 et T2 **de ses mains**, dans un arbre de travail dédié,
+sur un environnement monté par le protocole du §2.2 du registre de pilotage
+(`uv venv` neuf, `torch` CPU, `requirements.txt` + `requirements-dev.txt`) —
+jamais le `.venv` que le lot a laissé derrière lui. `rc` du processus, jamais
+derrière un tube ni un `grep`.
+
+**Pourquoi cette entrée existe.** Le premier harnais du pilote avait rendu, sur
+la réparation, `RC_T2=0` et zéro rouge — donc *garde décoratif*, donc *ne pas
+fusionner*. **Ce verdict était faux, et la cause est la mutation, pas le garde.**
+Une mutation T2 n'injecte le défaut que si sa borne **ampute réellement** la
+fixture : une borne permissive change le texte de la requête sans rien retirer
+au résultat, et rend un vert qui se lit comme un garde creux. *Vérifier que le
+texte a changé ne suffit pas : il faut vérifier que le comportement a changé.*
+
+#### La mesure qui tranche — même mutation, même site, deux révisions
+
+Mutation posée au site unique de `_get_children` : le `| ORDER BY $-.seq ASC;`
+est remplacé par un encadrement **en aval d'un tube**,
+`| YIELD … WHERE $-.seq >= 65 AND $-.seq <= 77 | ORDER BY $-.seq ASC;`. Sur la
+fixture `graphe_non_contigu` — 15 enfants aux `sequence` 1, 11, … 141, ancre à
+71 — cet encadrement n'attrape que l'ancre là où le découpage positionnel rend
+13 éléments. `mesuré` le 4 septembre 2026, `make test` :
+
+| révision | `rc` | rouges | passés |
+|---|---|---|---|
+| `9435657` — lot 2 **avant** réparation | **0** | **0** | 496 |
+| `d5b2c3c` — **après** réparation | **2** | **5** | 497 |
+
+C'est la paire qui prouve quelque chose, et non l'une des deux lignes seule : le
+garde **était** décoratif sur cette forme nGQL, il ne l'est plus. Le `rc=2` est
+celui de `make`, pas de `pytest` — `make` rend 2 quand une recette échoue, et
+`pytest` rendait 1. C'est la même mesure que la batterie du réparateur, qui
+publie ses huit `rc` en 2 pour la même raison.
+
+T1 reproduit au même endroit — `| ORDER BY $-.seq ASC` retiré de
+`_get_children` : `rc=2`, **4 rouges**, les quatre que la batterie du réparateur
+nomme. Arbre vérifié propre après chaque restauration.
+
+#### Ce que le pilote a sondé en plus, et qui tient
+
+Le garde structurel de la réserve 1
+(`test_aucune_requete_ne_filtre_sequence_sans_ancre`) n'emploie que
+`GrapheFactice._FILTRE`, **jamais `_FILTRE_INVERSE`**. Il est donc aveugle à un
+encadrement aux opérandes échangées — la cécité exacte que T2 reprochait au
+bouchon. Cette cécité est réelle, et elle **ne produit pas un garde décoratif** :
+`mesuré` le 4 septembre 2026, une requête de frères rendue **non ancrée ET aux
+opérandes échangées** (`LOOKUP ON PARENT_OF WHERE {n} > properties(edge).sequence`)
+rend `rc=2` et **4 rouges**, dont le garde lui-même. Sa précondition
+d'atteignabilité — `assert comparaisons, "aucune requête ne compare sequence :
+garde vide"` — rougit quand son propre motif ne voit plus rien. **Le garde est
+fail-closed par construction**, et c'est la bonne forme : un garde dont la
+cécité produit un vert est décoratif, un garde dont la cécité produit un rouge
+est seulement bruyant.
+
+#### Ce que le pilote a vérifié d'autre avant de trancher
+
+- **le code exécutable de production est identique à `main`** — `calculé` le
+  4 septembre 2026 en comparant les AST de `src/agent/graph_context.py` et
+  `src/api/schemas.py` **hors docstrings** : identiques aux deux révisions, pour
+  765 → 815 et 481 → 484 lignes. L'affirmation « diff documentaire à 100 % » du
+  §4.14 est donc mesurée, et non plus seulement dépouillée. Le lot ne porte
+  **aucun risque de régression fonctionnelle** ;
+- **porte qualité sur la réparation** : `make lint` `rc=0`, `make test` `rc=0`,
+  **502 passés** ;
+- **fusion sans conflit** : `git merge-tree --write-tree --messages main d5b2c3c`
+  rend `rc=0` et aucun message. La même commande **sans** `--write-tree` rend
+  `rc=0` en cas de conflit comme en cas de succès : elle ne répond pas à la
+  question posée ;
+- **identités** : les 7 commits du lot portent `florian_horellou@laposte.net` en
+  auteur **et** en committer — vérifié sur l'adresse, jamais sur le nom. Aucune
+  attribution à un assistant de génération de code, ni en auteur, ni en
+  committer, ni en pied de message ;
+- **aucune désactivation ajoutée** : zéro ligne ajoutée par le lot ne porte
+  `noqa`, `skip`, `xfail`, `type: ignore` ni `pragma`, et `pyproject.toml`,
+  `Makefile` et `.pre-commit-config.yaml` ne sont pas touchés.
+
+#### Ce qui reste à faire auditer, et pourquoi la fusion attend
+
+Les deux bloquants sont fermés, mais **la réparation elle-même est 451 lignes de
+matière neuve qu'aucune conversation indépendante n'a lue**, et elle publie des
+chiffres neufs — la population de 692 parents éligibles, les 14 410 couples de
+frères, la convention de rang 1-basée, la table des huit mutations. *Une phrase
+ne rougit pas* : c'est exactement la famille qu'il faut faire reproduire. La
+fusion attend `Conv' 27`.
+
+### 4.16 Ce que ce dépôt rend au pipeline — trois constats, et son registre tranche
+
+**Le site canonique de ces trois points est le registre du pipeline, pas
+celui-ci.** Ce dépôt les mesure et les rend ; son pilote les cote. Ils sont
+recopiés dans `documentation/pour_le_pipeline_ingestion.md` — la page de
+liaison — **après la fusion du lot 2**, qui la modifie déjà.
+
+**a — le démon d'orchestration s'est rallumé, et c'est la quatrième fois.**
+`mesuré` le 4 septembre 2026 : `rag-ingestion-pipeline-dagster-daemon-1` est
+`Up`, là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du
+lot 1. Le dépôt jumeau en compte trois occurrences, cause jamais cherchée ; en
+voici une quatrième, sur un poste où aucune conversation ne l'a décidé. Ce qui
+protège l'index de la campagne de référence n'est donc **pas** l'arrêt du
+démon : c'est le défaut §4.32.a du pipeline — la clé de run déjà consommée —
+c'est-à-dire le défaut que son plan met au **rang 1**. *Le jour où il le
+corrige, l'état des capteurs cesse d'être sans conséquence*, et son propre §6 le
+dit. Ce dépôt n'y touche pas.
+
+**b — son `etat_des_lieux.md` est périmé sur l'exigence 5, et c'est la seule
+qu'il donnait comme non tenue.** Sa page dit, au 3 septembre : *« ⚠️ non
+éprouvée — l'appel part, mais l'agent ne tourne pas sur ce poste »*, et son §8
+range « prouver l'exigence 5 » au rang 2 de ce qui reste. **C'est fait.** Le
+lot 1 de ce dépôt l'a prouvée en marche, son audit indépendant l'a reproduite
+sur l'agent vivant, et un test la garde — §4.2. `mesuré` le 4 septembre 2026 :
+`rag-agent-api` est `healthy`, `GET /health` rend HTTP **200** et `status: ok`,
+et `POST /reindex` est exposé dans l'`openapi.json` servi. **Les cinq exigences
+du contrat sont donc tenues**, et son tableau du §4 comme son §8 sont à amender.
+
+**c — la cause matérielle qu'il donnait a disparu.** Sa page explique que
+l'agent ne tourne pas parce qu'il est *« sans `.env` »*. Ce `.env` existe depuis
+le 3 septembre 2026, écrit par le lot 1 dans le **clone principal** — jamais
+dans un arbre de travail, parce que `docker-compose.yml` monte `./prompts` et
+qu'un `up` lancé depuis un arbre l'y ancrerait. `mesuré` le 4 septembre 2026 :
+présent, en `0600`.
+
+**Ce que ce dépôt ne rend pas, et pourquoi.** Le rang 3 de son §8 — écrire les
+trois réserves de `sequence` côté agent — est le **lot 2**, en instance de
+fusion ici. Il ne sera rendu qu'une fois fusionné : *un artefact qu'on cite doit
+exister avant qu'on le cite*, et le pilote du dépôt jumeau s'est fait prendre à
+annoncer un prompt « prêt, dans tel fichier » sans l'avoir produit.

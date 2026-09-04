@@ -160,7 +160,7 @@ que ce dépôt porte encore comme ouvert et qu'il lui redemande : la platitude d
 graphe. Le graphe est désormais imbriqué, et l'agent ne le sait pas — c'est le
 constat le plus large du chantier, §4.6.
 
-## 4. L'état du poste — `mesuré` le 3 septembre 2026
+## 4. L'état du poste — chaque ligne porte SA date de mesure
 
 **Tout ce qui suit est un ÉTAT DE POSTE : il périme. Mesure-le, ne le lis pas.**
 Sur le dépôt jumeau, cette consigne a attrapé un poste qu'on croyait être le
@@ -168,19 +168,20 @@ poste d'origine, une colonne apparue dans le graphe pendant qu'un lot
 travaillait, un démon rallumé trois fois tout seul, et un arbre de travail que
 le pilote croyait avoir supprimé.
 
-| | `mesuré` le 3 septembre 2026 |
+| | l'état, et la date à laquelle il a été relevé |
 |---|---|
-| branches | **une seule** hors `main` : `claude/audit-rag-agent-chat-e8de9d`, l'arbre du pilote. `main` = `origin/main` = `9596720`. Les trois branches du lot 1 et leurs arbres ont été supprimés après fusion ; aucun répertoire mort ne subsiste |
+| branches | `mesuré` le **4 septembre 2026** : `main` = `origin/main` = **`7bcd346`**. **Cinq** branches hors `main`, et deux d'entre elles sont **errantes** — `claude/connexion-coupee-551a87` et `claude/quirky-williamson-8fda89`, issues de sessions abandonnées, leurs arbres propres et sans travail à sauver. Les deux branches en vol du lot 2 : `claude/agent-graph-reading-140a97` (`9435657`) et `claude/conv26-repar2-blocants-0b3707` (`d5b2c3c`). Plus l'arbre du pilote, `claude/audit-rag-agent-chat-eefc61`. **La règle « une branche par lot en vol » est en dette de nettoyage, et elle se paie à la fusion du lot 2** |
 | dernier commit du dépôt | **28 août 2026** — le dépôt est resté immobile pendant que le pipeline réingérait le 2 septembre. C'est la cause matérielle de §4.3 et §4.6 |
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
 | garde-fou d'identité | **armé** depuis le lot 1, `INSTALL_PYTHON` gravé vers le `.venv` du **clone principal** — donc stable. Vérifié de mes mains depuis l'arbre du pilote : adresse interdite → `rc=1`, HEAD immobile ; adresse autorisée → `rc=0`. Et le hook a tiré sur la fusion elle-même (« Identite d'auteur autorisee … Passed ») |
-| historique | **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
-| porte qualité | à `9596720`, dans le clone principal **et** dans un clone jetable monté comme la CI : `make lint` → `rc=0`, `make test` → `rc=0`, **486 passés** (461 avant le lot 1). ⚠️ `documentation/tests.md` annonce toujours **461** — il a pris 25 tests de retard |
-| tests désactivés | **0** `pytest.mark.skip`, **0** `xfail`. 3 `type: ignore` (frontière ChromaDB, `retriever.py`), 90 `noqa` presque tous `PLR2004` — antérieurs à ce chantier, non instruits |
+| historique | `mesuré` le **4 septembre 2026** : **184** commits à `7bcd346`, **deux adresses et elles seules** (216 + 152 occurrences auteur+committer), **0** `@aosis.net`, **0** attribution à un assistant. Relevé antérieur : **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
+| porte qualité | `mesuré` le **4 septembre 2026** sur `d5b2c3c`, dans un arbre dédié monté par le protocole du §2.2 : `make lint` → `rc=0`, `make test` → `rc=0`, **502 passés**. Relevé du lot 1, à `9596720` : **486 passés** (461 avant lui). Le retard de `documentation/tests.md` est traité par le lot 2 — §4.13 |
+| tests désactivés | `mesuré` le **4 septembre 2026** sur `d5b2c3c` : **0** `pytest.mark.skip`, **0** `xfail`, **3** `type: ignore`, **90** `noqa` dont **10** hors `PLR2004`. Tous antérieurs à ce chantier, non instruits. **Le lot 2 n'en ajoute aucun** — vérifié sur les lignes ajoutées de son diff, et `pyproject.toml`, `Makefile` et `.pre-commit-config.yaml` ne sont pas touchés |
 | pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
-| `dagster-daemon` | **arrêté** (`Exited (0)`), et il l'est resté pendant tout le lot 1, relevé à ses deux bouts. Mais « arrêté » n'est PAS une propriété stable : il a démarré **trois fois** sur le dépôt jumeau sans qu'aucune conversation le décide, cause jamais cherchée |
+| `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
 | les stores | ChromaDB `rag_documents`, **4 367** chunks ; NebulaGraph `rag_space`, **15 173** arêtes `PARENT_OF`, **23** documents. Concordant à l'unité avec la campagne de référence du pipeline |
 | les LLM | `ollama-central` sert `gemma4:e4b` et `nomic-embed-text` — `gemma4:e4b` est bien celui qu'attend `.env.example` |
+| l'agent | `mesuré` le **4 septembre 2026** : `rag-agent-api` **en marche et `healthy`**, `GET /health` → HTTP **200**, `status: ok`, les quatre dépendances à `true`. Le port est **8011** sur l'hôte, jamais 8000. `POST /reindex` est **exposé** — vérifié dans l'`openapi.json` servi, aux côtés de `/answer`, `/search`, `/context/{element_id}`, `/sources`, `/media/{object_name}`, `/feedback` et des trois routes `/chat/*` |
 
 **Les gestes interdits, et ils viennent du pipeline :** ne renomme aucun fichier
 de son corpus (le chemin entre dans le calcul des `element_id`) ; ne change pas
@@ -213,13 +214,36 @@ anglaise → document français » a disparu.
 | | Le lot | État |
 |---|---|---|
 | **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | ✅ **fusionné** `9596720` — livré (`Conv' 21`), audité (`Conv' 22`), réparé (`Conv' 23`), fusion tranchée par le pilote après vérification de ses deux gardes par mutation |
-| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | distribué — `Conv' 24` |
+| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | livré (`Conv' 24`, `9435657`), audité (`Conv' 25`, **8 trouvailles, 2 bloquantes**), réparé (`Conv' 26`, `d5b2c3c`). **Les deux bloquants sont fermés, mesurés par le pilote des deux côtés de la réparation — §4.15.** La fusion attend l'audit de la réparation, `Conv' 27` |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — **le risque vivant du chantier** : une panne silencieuse qui rend des passages plausibles et faux |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
 | **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
 
 **Le rang 1 est un prérequis, pas un choix** : sans garde-fou, aucun commit de
 ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
+
+### 6.1 Le journal des conversations — un numéro ne se réutilise JAMAIS
+
+**Ce journal est le seul état du chantier qui ne vive pas dans `git`, donc le
+seul qui puisse être perdu — et il l'a été.** `Conv' 20`, la conversation de
+pilotage ouverte le 3 septembre 2026 à 09:08 UTC, a été **supprimée par erreur**
+le 4 septembre vers 07:20 UTC ; son transcript a été récupéré et son état de
+sortie reversé ici. La leçon est écrite au §12 : *tiens le journal dans le
+dépôt, pas dans la conversation.*
+
+| `Conv'` | Rôle | Sortie |
+|---|---|---|
+| **20** | AGENT-1 — pilote | perdue le 4 septembre 2026, reprise par `Conv' 20-bis` |
+| **21** | LOT-1 — garde-fou d'identité + exigence 5 | 2 commits, `e80969a` + `ff000f7` |
+| **22** | AUDIT-1 — audit du lot 1 | rapport rendu. Réserve consignée : le rapport du lot ne lui est pas parvenu |
+| **23** | REPAR-1 — le bloquant du lot 1 | rapport rendu, porte verte à 486 passés |
+| **24** | LOT-2 — lecture du graphe par l'agent | 5 commits, `9435657`, 496 passés |
+| **25** | AUDIT-2 — audit du lot 2 | 18 chiffres reproduits, 8 trouvailles, 2 bloquantes — §4.14 |
+| **26** | REPAR-2 — fermer T1, T2 et le maillon | `d5b2c3c`, porte verte à 502 passés, rien poussé |
+| **20-bis** | AGENT-1 (reprise) — pilote | tranche T2 de ses mains — §4.15 — et distribue `Conv' 27` |
+| **27** | AUDIT-REPAR-2 — audit de la réparation du lot 2 | distribué le 4 septembre 2026 |
+
+**Prochain numéro libre : 28.**
 
 ## 7. L'ordre invariable d'un lot
 
@@ -399,6 +423,35 @@ parce qu'elle illustre la règle mieux qu'un principe :
   manquer, le premier frère en-tête étant toujours immédiatement adjacent
   (§4.6). Le commentaire est faux, la constante est saine. Si cette attente
   était partie dans un prompt, un développeur l'aurait « corrigée ».
+
+Celles que la reprise du 4 septembre 2026 a ajoutées, et chacune a coûté
+quelque chose :
+
+- **Une mutation mal posée rend un faux verdict de garde décoratif — et le
+  garde-fou contre le faux zéro ne l'attrape pas.** Le harnais du pilote avait
+  rendu, sur la réparation du lot 2, `RC_T2=0` et zéro rouge, avec la mutation
+  **bien** posée au sens du dépôt : `git diff --numstat` montrait 4 lignes
+  ajoutées, donc le texte avait changé. Le verdict — *garde décoratif, ne pas
+  fusionner* — était **faux** : remesuré à la main, la même famille de mutation
+  rend `rc=2` et 5 rouges (§4.15). *Vérifier que le texte a changé n'est que la
+  moitié du garde-fou : il faut vérifier que le **comportement** a changé.* Une
+  mutation dont la borne n'ampute rien — un encadrement permissif, un
+  `WHERE seq >= 0` — réécrit la requête sans rien retirer au résultat, et son
+  vert se lit exactement comme un garde creux. **Le geste juste : mesurer la
+  mutation des DEUX côtés de la correction.** Un vert avant et un rouge après
+  prouvent quelque chose ; un vert seul ne distingue pas un garde creux d'une
+  mutation inerte.
+- **Un `rc` peut appartenir à un autre programme que celui qu'on croit
+  interroger.** `make test` rend **2** quand une recette échoue, là où `pytest`
+  rend **1**. Deux mesures justes du même échec se lisent donc comme un
+  désaccord, et le pilote a d'abord lu la batterie du réparateur — huit `rc=2` —
+  comme suspecte. *Nomme le programme dont tu relèves le code de retour.*
+- **Le journal des conversations est le seul état du chantier qui ne vive pas
+  dans `git`.** `Conv' 20` a été supprimée par erreur, et avec elle la seule
+  trace des numéros consommés, des rapports reçus et des mesures non encore
+  reversées. Le dépôt a survécu sans une égratignure ; le pilotage, non. **Le
+  journal vit désormais au §6.1 de cette page**, et toute mesure reçue d'un lot
+  se reverse au registre **avant** d'écrire le prompt suivant, pas après.
 
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te
