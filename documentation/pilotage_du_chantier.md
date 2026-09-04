@@ -214,7 +214,7 @@ anglaise → document français » a disparu.
 | | Le lot | État |
 |---|---|---|
 | **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | ✅ **fusionné** `9596720` — livré (`Conv' 21`), audité (`Conv' 22`), réparé (`Conv' 23`), fusion tranchée par le pilote après vérification de ses deux gardes par mutation |
-| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | livré (`Conv' 24`, `9435657`), audité (`Conv' 25`, **8 trouvailles, 2 bloquantes**), réparé (`Conv' 26`, `d5b2c3c`). **Les deux bloquants sont fermés, mesurés par le pilote des deux côtés de la réparation — §4.15.** La fusion attend l'audit de la réparation, `Conv' 27` |
+| **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | livré (`Conv' 24`, `9435657`), audité (`Conv' 25`, **8 trouvailles, 2 bloquantes**), réparé (`Conv' 26`, `d5b2c3c`). **Les deux bloquants sont fermés, mesurés par le pilote des deux côtés de la réparation — §4.15.** La réparation a été auditée (`Conv' 27`) : huit mutations et dix-sept chiffres reproduits, aucune mesure du pilote renversée, **une trouvaille bloquante — la cécité de T2 est déplacée, pas fermée, et une phrase la déclare close (§4.17)**. La fusion attend `Conv' 28` |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | à distribuer — **le risque vivant du chantier** : une panne silencieuse qui rend des passages plausibles et faux |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
 | **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
@@ -241,9 +241,19 @@ dépôt, pas dans la conversation.*
 | **25** | AUDIT-2 — audit du lot 2 | 18 chiffres reproduits, 8 trouvailles, 2 bloquantes — §4.14 |
 | **26** | REPAR-2 — fermer T1, T2 et le maillon | `d5b2c3c`, porte verte à 502 passés, rien poussé |
 | **20-bis** | AGENT-1 (reprise) — pilote | tranche T2 de ses mains — §4.15 — et distribue `Conv' 27` |
-| **27** | AUDIT-REPAR-2 — audit de la réparation du lot 2 | distribué le 4 septembre 2026 |
+| **27** | AUDIT-REPAR-2 — audit de la réparation du lot 2 | 8 mutations + 17 chiffres reproduits, **aucune mesure du pilote renversée** ; 1 bloquante (B1), 1 sérieuse (A1), 6 mineures — §4.17. Recommandation : fusionner après correction |
+| **28** | REPAR-3 — fermer B1, A3 et A6 sur la branche du lot 2 | distribué le 4 septembre 2026 |
 
-**Prochain numéro libre : 28.**
+**Prochain numéro libre : 29.**
+
+**Ce que ce journal apprend sur la méthode, au bout de neuf conversations.**
+Trois audits indépendants, **trois trouvailles matérielles**, dont deux sur du
+code que le lot précédent venait de réparer en croyant fermer le sujet. Le
+compte du dépôt jumeau était de quinze sur quinze ; celui-ci est de trois sur
+trois. **Aucun lot de ce chantier n'a encore été fusionné sans qu'un audit
+indépendant y trouve quelque chose**, et le pilote a été borné ou corrigé à
+chacun d'eux — la dernière fois sur sa propre phrase « fail-closed par
+construction » (§4.17).
 
 ## 7. L'ordre invariable d'un lot
 
