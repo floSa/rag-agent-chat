@@ -1553,7 +1553,7 @@ décrit un corpus qui n'est plus là (§4.3). Il prouve la concordance d'août s
 le corpus d'août, et rien d'aujourd'hui. La preuve directe existe désormais, et
 c'est l'estampille de la collection ci-dessus.
 
-### 4.5 Les trois réserves de lecture de `sequence` ne sont écrites nulle part — et le code n'est juste que par construction
+### 4.5 → FERMÉ par le lot 2 — les trois réserves étaient écrites nulle part, et le code n'était juste que par construction
 
 Le pipeline garantit que `sequence` porte l'ordre et qu'elle est monotone
 (exigence 4). Ce qu'il ne peut pas écrire, parce que ça décrit comment l'agent
@@ -1563,7 +1563,15 @@ l'arête, jamais ses pièges.
 
 **Les trois réserves, reproduites de mes mains** sur les 15 173 arêtes
 `PARENT_OF` extraites du graphe en service — les trois chiffres du pipeline
-tombent à l'unité :
+tombent à l'unité.
+
+> **Site canonique de tous les taux publiés ci-dessous** — le `167 sur 692`, le
+> `994`, les `1 141` / `7,5 %` / `162` et la perte maximale de `12 sur 13` :
+> [`stores.md`](stores.md), au § « Ce que ces trois réserves interdisent ». Cette
+> entrée-ci les reprend pour raconter **comment ils ont été trouvés** ; elle n'en
+> est pas le site. Tous sont rejouables par
+> `scripts/mesurer_le_graphe.py`, qui les imprime — c'est ce qui les empêche de
+> devenir faux en silence. **La famille (f) du §4.14 se ferme ici.**
 
 | La réserve | `mesuré` |
 |---|---|
@@ -1620,7 +1628,7 @@ gonfle un défaut au lieu de le décrire.* **Le travail n'est donc pas d'écrire
 paragraphes : c'est d'écrire les trois réserves ET le garde qui rend le découpage
 positionnel non négociable.**
 
-### 4.6 Le graphe est imbriqué depuis le 2 septembre 2026, et ce dépôt le croit encore plat — en six sites
+### 4.6 Le graphe est imbriqué depuis le 2 septembre 2026 — la prémisse morte est retirée par le lot 2, les six sites fermés, la forme du graphe reste le site canonique
 
 **Gravité : c'est le constat le plus large du chantier, parce que ce n'est pas
 une phrase fausse mais une PRÉMISSE fausse, sur laquelle des décisions ont été
@@ -2278,3 +2286,72 @@ ancrée. La propriété reste défendue — six autres rouges tombent — mais *
 d'autres gardes, pas par celui-là**. « Fail-closed par construction » est donc
 juste **dans la scène mesurée**, pas en général : la phrase du §4.15 se lit
 bornée à sa scène.
+
+### 4.18 → FERMÉ — B1 refermé, le lot 2 fusionné, et ce que le pilote n'a PAS fait auditer
+
+`Conv' 28` a refermé B1, A3 et A6. **Le pilote a vérifié de ses mains, sur
+`e33c076` puis sur le résultat de la fusion, dans un arbre dédié monté par le
+protocole du §2.2** — `rc` du processus, jamais derrière un tube :
+
+| ce qui a été mesuré | `mesuré` le 4 septembre 2026 |
+|---|---|
+| porte qualité, sur la branche **et** sur la fusion | `make lint` `rc=0`, `make test` `rc=0`, **520 passés** |
+| **B1 refermé** — la mutation `IN` qui passait à zéro rouge | `rc=2`, **11 rouges** (elle en rendait **0** sur `d5b2c3c`) |
+| **le serrage excessif est gardé** — la liste `YIELD` n'est plus séparée du `WHERE`, donc le bouchon lève sur du code juste | `rc=2`, **16 rouges**, dont `test_la_requete_reelle_de_get_children_ne_leve_pas` |
+| **les gardes « ça lève » ne sont pas vides** — le fail-closed redevient laxiste | `rc=2`, **14 rouges** — les 8 écritures × les 2 gardes |
+| **aucune assertion retirée** du fichier de tests, 16 → 20 définitions | diff dépouillé ligne à ligne |
+| **le code exécutable de production est identique à `main` d'avant le lot** | AST hors docstrings de `graph_context.py` et `schemas.py`, `7bcd346` contre `db05162` : identiques |
+| **tous les chiffres publiés sont imprimés par l'instrument** | `rc=0` : 692, 167/692, 994, 162, 746, 583 (78,2 %), rang 1-basé, 214/214, 47/381, 334, et cinq équivalences à 80/80 |
+
+**La classe de B1 est fermée par nature, et le pilote a cherché à la rouvrir.**
+Le bouchon détecte **large** — `\bsequence\b`, le mot nu — et évalue **étroit** —
+`re.fullmatch` sur la conjonction entière. C'est cette asymétrie qui ferme la
+classe, là où une liste de motifs l'aurait laissée ouverte au membre suivant.
+`mesuré` le 4 septembre 2026 : **quatre écritures inventées par le pilote pour
+lui échapper lèvent toutes les quatre** — nommage par alias d'arête
+(`e.sequence`), par nom de type d'arête (`PARENT_OF.sequence`), enveloppement
+dans une fonction (`abs(… - 70) <= 10`), et `BETWEEN`. Et la projection saine —
+`properties(edge).sequence AS seq` dans un `YIELD` — ne lève pas.
+
+**La phrase a changé de nature, et c'est ce qui compte.** Elle n'énumère plus des
+exceptions (« ni …, ni … ») : elle énonce une **propriété** — une conjonction de
+comparaisons entre la `sequence` de l'arête, ou une colonne d'amont qui la
+porte, et un littéral entier ; tout le reste lève — et cette propriété est
+**gardée par quatre tests**, dont un qui pilote la requête réelle de
+`_get_children` au lieu de la recopier. *Un trou nommé se rouvre ; une
+énumération close ne se rouvre pas.*
+
+#### Ce que le pilote a décidé, et ce qu'il assume
+
+**La fusion a été tranchée sans quatrième audit indépendant**, et le motif est
+écrit ici pour être contesté. Le lot a été audité (`Conv' 25`), sa première
+réparation auditée (`Conv' 27` — c'est elle qui a produit B1), et cette seconde
+réparation vérifiée par le pilote sur les deux directions dangereuses : la
+vacuité du garde et son serrage excessif. Le dépôt jumeau a le même précédent —
+son lot 0b a été *livré, audité, réparé, réaudité, réparé, fusionné*, sa seconde
+réparation tranchée par le pilote. Et le risque résiduel est **borné par
+construction** : `src/` est inchangé, mesuré, donc aucune régression
+fonctionnelle n'est possible.
+
+**Ce qui n'a donc PAS été audité indépendamment, et qui reste ouvert :**
+
+- **la décoration individuelle de chacun des 18 gardes neufs.** Le pilote a
+  éprouvé le **moteur** du bouchon dans ses deux directions, et non chaque garde
+  un par un. Un garde décoratif parmi les dix-huit resterait invisible à ce qu'il
+  a mesuré. *C'est nommé ici précisément pour rester rouvrable* : le prochain
+  audit qui touche `test_lecture_sequence.py` commence par là ;
+- **la fidélité du moteur au nGQL réel** hors des formes éprouvées — parenthèses
+  imbriquées, littéraux de chaîne contenant `WHERE`, étages multiples. Un défaut
+  de modélisation y ferait rougir du code juste, ce qui est **bruyant et non
+  dangereux** ; le pilote l'accepte à ce titre, et pas à un autre.
+
+#### Les résidus, tous nommés, aucun clos
+
+| | Ce que c'est | État |
+|---|---|---|
+| **A2** | le message de `d5b2c3c` omet deux trouvailles que son diff ferme | consigné, non corrigeable sans réécrire un commit audité |
+| **A4** | les titres §4.5 et §4.6 | **fait à la fusion** — marqués `→ FERMÉ par le lot 2` |
+| **famille (f)** | `994`, `1 141`/`7,5 %`, `162`, `12 sur 13` à deux sites | **fermée** — `stores.md` est nommé site canonique unique au §4.5, et l'instrument les imprime |
+| **A7** | `mypy scripts/` reste `rc=1`, **26 erreurs dans 3 fichiers** — donc aligner les périmètres du `Makefile` rendrait la porte rouge ; et le `MATCH` paginé sans `ORDER BY` de l'instrument, **mesuré stable** à quatre tailles de page | **ouvert**, antérieurs au lot |
+| **§4.13** | rien ne lit le compte de tests ni les documents. Le lot a corrigé le chiffre au site ; **le garde reste absent**, et c'est lui la trouvaille | **ouvert** — c'est le F7 du dépôt jumeau |
+| **la borne sur « fail-closed par construction »** | la précondition d'atteignabilité de `test_aucune_requete_ne_filtre_sequence_sans_ancre` reste satisfiable par une autre requête évaluable de la même scène : le garde n'est fail-closed **que dans sa scène**. Relevé par `Conv' 27`, confirmé par `Conv' 28`, non fermé — c'est la forme du garde qu'il faudrait changer | **ouvert**, borné au site |

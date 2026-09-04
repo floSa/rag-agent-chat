@@ -251,3 +251,78 @@ Pour le détail : [architecture.md](architecture.md) (vue d'ensemble et contrat)
 [stores.md](stores.md) (ce que l'agent fait de chaque métadonnée),
 [axes_amelioration.md](axes_amelioration.md) (le registre complet, dont la
 section 3 « Ouvert — dépend de l'ingestion »).
+
+---
+
+## 8. Trois constats que ce dépôt vous rend, le 4 septembre 2026
+
+**Votre registre est le site canonique de ces trois points, et votre pilote les
+cote.** Ce dépôt les a mesurés et les rend ; il n'en tranche aucun. Le détail,
+avec les commandes, est au §4.16 de
+[`axes_amelioration.md`](axes_amelioration.md) de ce dépôt.
+
+### 8.1 Votre `etat_des_lieux.md` est périmé sur l'exigence 5 — la seule que vous donniez ouverte
+
+Votre page dit, au 3 septembre : *« ⚠️ non éprouvée — l'appel part, mais l'agent
+ne tourne pas sur ce poste »*, et votre §8 range « prouver l'exigence 5 » au
+**rang 2** de ce qui reste.
+
+**C'est fait.** Le lot 1 de ce dépôt l'a prouvée en marche, son audit
+indépendant l'a reproduite **sur l'agent vivant**, et un test la garde — dont
+l'audit a mesuré qu'il est seul garde de deux mutations du producteur. `mesuré`
+le 4 septembre 2026 : `rag-agent-api` est `healthy`, `GET /health` rend
+HTTP **200** et `status: ok` avec ses quatre dépendances à `true`, et
+`POST /reindex` est exposé dans l'`openapi.json` servi.
+
+**Le port de l'hôte est `8011`, pas `8000`.** C'est `8000` dans le conteneur.
+
+**Les cinq exigences du contrat sont donc tenues.** Votre tableau du §4 et votre
+§8 sont à amender, et votre rang 2 à retirer.
+
+### 8.2 La cause matérielle que vous donniez a disparu
+
+Votre page explique que l'agent ne tourne pas parce qu'il est *« sans `.env` »*.
+Ce fichier existe depuis le 3 septembre 2026, écrit dans le **clone principal** —
+jamais dans un arbre de travail, parce que `docker-compose.yml` monte
+`./prompts` et qu'un `up` lancé depuis un arbre l'y ancrerait. `mesuré` le
+4 septembre 2026 : présent, en `0600`.
+
+### 8.3 Votre démon d'orchestration s'est rallumé, et c'est la quatrième fois
+
+`mesuré` le 4 septembre 2026 : `rag-ingestion-pipeline-dagster-daemon-1` est
+`Up`, là où votre relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du
+lot 1. Votre dépôt en compte **trois** occurrences, cause jamais cherchée ; en
+voici une **quatrième**, sur un poste où aucune conversation ne l'a décidée.
+
+**Ce dépôt n'y a pas touché** — ni démarré, ni arrêté. Il vous le signale parce
+que la conséquence est chez vous, et qu'elle a une ironie que votre propre §6
+nomme : **ce qui protège l'index de votre campagne de référence en ce moment
+n'est pas l'arrêt du démon**, c'est le défaut de la clé de run déjà consommée —
+le §4.32.a, celui que votre plan met au **rang 1**. *Le jour où vous le corrigez,
+l'état des capteurs cesse d'être sans conséquence.*
+
+### 8.4 Et ce que ce dépôt vous rend en positif : le rang 3 est livré
+
+Votre rang 3 — *« écrire les trois réserves de `sequence` côté agent »* — est
+**fusionné ici** le 4 septembre 2026. Elles sont écrites dans
+[`stores.md`](stores.md), au § « Ce que ces trois réserves interdisent », et
+elles ne sont plus seulement écrites : **onze mutations les font rougir**, et un
+instrument rejouable — `scripts/mesurer_le_graphe.py`, en lecture seule —
+imprime chacun des chiffres publiés.
+
+Deux de vos chiffres se sont précisés au passage, et ce sont des **corrections de
+dénominateur, pas de mesure** :
+
+- la non-contiguïté se rapporte aux **692 parents qui ont au moins deux
+  enfants**, et non aux 763 parents du graphe : un parent à enfant unique est
+  contigu par définition et ne peut pas entrer au dénominateur. Le numérateur est
+  inchangé — **167** ;
+- l'écart de **994** est un **trou de numérotation**, pas un nombre d'éléments
+  manquants. La perte réelle se borne à `before + after` : `mesuré`, **1 141**
+  ancres sur 15 173 — **7,5 %** — rendraient moins d'éléments, chez **162**
+  parents, et la perte maximale est de **12 éléments sur 13**, l'ancre revenant
+  seule. Votre §5.3 gagnerait à porter cette borne : telle quelle, « 994 » se lit
+  comme 993 éléments perdus.
+
+Votre §5.3 dit que ces trois réserves *« ne peuvent pas être fermées depuis ce
+dépôt »*. C'est exact, et c'est fait de ce côté-ci.
