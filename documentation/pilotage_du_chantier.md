@@ -244,10 +244,17 @@ dépôt, pas dans la conversation.*
 | **27** | AUDIT-REPAR-2 — audit de la réparation du lot 2 | 8 mutations + 17 chiffres reproduits, **aucune mesure du pilote renversée** ; 1 bloquante (B1), 1 sérieuse (A1), 6 mineures — §4.17. Recommandation : fusionner après correction |
 | **28** | REPAR-3 — fermer B1, A3 et A6 sur la branche du lot 2 | `e33c076` : bouchon **fail-closed**, 11 mutations / 11 rouges, 520 passés, **zéro ligne de production touchée**. Vérifié par le pilote, fusionné — §4.18 |
 
-| **29** | LOT-3 — le garde du modèle d'embedding côté lecteur | `c5c38d5`, 3 commits, **non poussés**. 539 passés, 12 mutations dont un **témoin inerte**, zéro désactivation. Vérifié par le pilote — §4.19 |
-| **30** | AUDIT-3 — audit du lot 3 | distribué le 4 septembre 2026 |
+| **29** | LOT-3 — le garde du modèle d'embedding côté lecteur | `c5c38d5`, 3 commits, **non poussés**. 539 passés (+19), un **témoin inerte** dans sa batterie, zéro désactivation. Son rapport tabule **douze** mutations là où son §4.4 en annonce **onze** — écart relevé par l'audit, à trancher par `Conv' 31`. Vérifié par le pilote — §4.19 |
 
-**Prochain numéro libre : 31.**
+| **30** | AUDIT-3 — audit du lot 3 | **21 mutations dont 2 témoins**, 18 mordent. **2 bloquantes** (B1, B2), 1 mesure du pilote **renversée** (N1), 9 non bloquantes — §4.20. Recommandation : fusionner après correction |
+| **31** | REPAR-4 — fermer B1, B2, N1 et N2 sur la branche du lot 3 | distribué le 4 septembre 2026 |
+
+**Prochain numéro libre : 32.**
+
+**Le compte des audits, au bout de onze conversations : quatre audits
+indépendants, quatre trouvailles matérielles bloquantes.** Aucun lot de ce
+chantier n'a été fusionné sans qu'un audit y trouve quelque chose, et le pilote a
+été borné, corrigé ou **renversé** à chacun d'eux.
 
 **Ce que ce journal apprend sur la méthode, au bout de neuf conversations.**
 Trois audits indépendants, **trois trouvailles matérielles**, dont deux sur du
