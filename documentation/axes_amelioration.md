@@ -2455,3 +2455,30 @@ mauvais lieu.** Un validateur Pydantic s'exécute à l'import de `settings`, ava
 toute connexion à ChromaDB : il n'a rien à confronter. Ce `grep` rendra donc
 toujours `rc=1`, et ce n'est pas un symptôme de défaut. Le symptôme
 reproductible de ce point reste à choisir — ouvert.
+
+#### Amendement au §4.19 — la quatrième route, et un faux vert que le pilote s'est fabriqué
+
+**`/chat/start` refuse aussi, et la sonde le PROUVE.** `mesuré` le 4 septembre
+2026, `lifespan` monté pour que le graphe existe : HTTP **503**, et le corps
+nomme **les deux** modèles. Les quatre routes qui portent une recherche
+vectorielle — `/search`, `/sources`, `/answer`, `/chat/start` — refusent donc
+toutes.
+
+Les deux routes qui **streament** (`/chat/simple`, `/chat/resume`) ne font
+**aucune** recherche vectorielle : elles partent de `selected_element_ids` et
+reconstruisent depuis le graphe. Le souci que le pilote redoutait — un
+gestionnaire d'exception ne pouvant plus poser un 503 après le premier octet du
+flux — **n'a donc pas de site** dans ce code. C'est une propriété de la forme
+actuelle des routes, pas un garde : *si une route SSE se met un jour à chercher,
+elle échappera au 503*, et cela n'est éprouvé par aucun test.
+
+**Et le pilote s'est fabriqué un faux vert en cherchant ce trou** — il le
+consigne parce que c'est la démonstration la plus courte de sa propre règle.
+Sa première sonde affirmait `/chat/start` conforme sur un `status_code == 503`
+qui disait en réalité *« Service en cours de démarrage »* : le `lifespan` n'était
+pas monté, le graphe n'existait pas, et la sonde n'avait jamais atteint le garde.
+Deux 503 pour deux causes, indiscernables par le seul code. La sonde refaite
+**prouve son atteinte** en exigeant le nom du modèle divergent dans le corps
+avant d'affirmer quoi que ce soit. *Un test qui choisit lui-même son cas doit
+prouver qu'il l'a atteint* — et un code de retour peut répondre à une autre
+question que la sienne.
