@@ -767,8 +767,12 @@ soupçonnait de lire SQLite était fausse : `sessions.py:110-117` et `101-107`.)
 leurs pannes, donc une exception qui remonte est un défaut de programmation : elle
 est journalisée **avec son type**, jamais tue, et publiée `false` — ce n'est pas
 un inconnu, la sonde a répondu, en levant. La propager ferait rendre 500 à
-`/health`, donc redémarrer le service en boucle : précisément ce que cette route
-existe pour éviter. Effet de bord acquis : un `OLLAMA_HOST` mal formé lève
+`/health`, ce que cette route existe pour éviter. **Le motif exact, corrigé le
+4 septembre 2026** : ce n'est pas une boucle de redémarrage — `mesuré`, un
+healthcheck en échec ne redéclenche aucun conteneur sous Docker Compose (§4.19).
+C'est que le conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+`condition: service_healthy`, ne lève pas au démarrage à froid — et qu'un 500 ne
+dit pas **laquelle** des sondes a échoué, là où un 200 dégradé le dit. Effet de bord acquis : un `OLLAMA_HOST` mal formé lève
 `httpx.InvalidURL`, qui n'hérite pas de `HTTPError` et n'est donc pas rattrapée
 par la sonde (§1.26) ; elle faisait rendre **500** à `/health`, elle rend
 maintenant 200 `degraded` avec le type de l'erreur au journal. Vérifié sur `main`
@@ -2482,3 +2486,142 @@ Deux 503 pour deux causes, indiscernables par le seul code. La sonde refaite
 avant d'affirmer quoi que ce soit. *Un test qui choisit lui-même son cas doit
 prouver qu'il l'a atteint* — et un code de retour peut répondre à une autre
 question que la sienne.
+
+### 4.20 L'audit du lot 3 — deux contre-exemples au garde, et une mesure du pilote renversée
+
+L'audit indépendant de `c5c38d5` (`Conv' 30`) a construit **21 mutations dont
+deux témoins**, reproduit la porte et les quatre routes, et rendu **deux
+trouvailles bloquantes**. Sa recommandation — fusionner après correction — est
+suivie. **Le pilote a vérifié les deux bloquants de ses mains avant de les
+accepter**, et il a été **renversé sur une de ses propres mesures**.
+
+#### B1 — BLOQUANT : la reprise de `_dense_search` sert une collection jamais vérifiée
+
+`src/agent/retriever.py`, dans la reprise sur ChromaDB injoignable :
+`reset_connection()` puis `results = _query(_get_chroma_collection())`. Le
+réarmement remet le verdict à `False`, mais **la requête en cours ne repasse pas
+le garde** : la collection rouverte peut être une autre collection, et elle est
+interrogée sans vérification.
+
+`mesuré` par le pilote le 4 septembre 2026, bouchon **fidèle au `lru_cache`** —
+la collection ne change qu'au `cache_clear`, donc seule la reprise la change :
+
+| | `mesuré` |
+|---|---|
+| requêtes servies par la collection divergente | **1** |
+| ce qui est rendu | `['passage plausible et FAUX']` |
+| l'appel **suivant** | refuse — le verdict a bien été remis à `False` |
+
+**Une réponse complète, fausse, sans exception ni ligne de journal.** C'est
+exactement la panne que le lot existe pour empêcher, sur le seul chemin où
+l'objet collection change d'identité en vol — et une coupure de ChromaDB est
+précisément le moment où une réingestion a pu passer dessous. Les trois chiffres
+de l'auditeur tombent à l'unité.
+
+**Et le pilote s'est fait prendre par son propre harnais avant d'y arriver.** Sa
+première sonde faisait avancer la collection à **chaque appel**, là où le vrai
+`_get_chroma_collection` est mémoïsé : elle a donc rendu un « faux servi » qui
+ne venait pas de la reprise mais du bouchon lui-même, et un « l'appel suivant ne
+refuse pas » qui contredisait l'auditeur. *Un harnais de mesure peut muter ce
+qu'il observe* — la leçon est au §10, elle a sauvé un lot entier sur le dépôt
+jumeau, et elle vient de coûter une fausse contradiction au pilote. La sonde
+refaite modélise la mémoïsation, et elle reproduit l'auditeur exactement.
+
+#### B2 — BLOQUANT : le réarmement concurrent est perdu, et le garde reste désarmé
+
+Le lot écrit au site que « le pire cas est une vérification faite deux fois — un
+verrou coûterait plus cher que ce qu'il éviterait ». **C'est faux**, et
+l'auditeur l'a rendu déterministe. `verifier_modele_embedding()` lit
+l'estampille, puis écrit `_concordance_etablie = True` **à la fin**. Qu'un autre
+fil appelle `reset_connection()` entre les deux, et l'écriture de `True` **écrase
+le réarmement** — perte de mise à jour classique. Confirmé par le pilote à la
+lecture du site.
+
+La conséquence est **pire que B1** : le garde est désarmé pour toute la vie du
+processus, et chaque recherche sert des passages plausibles et faux en silence.
+Atteignable — `reset_connection()` tourne dans un fil du threadpool depuis le
+`ping()` du healthcheck, toutes les 20 s, et depuis la reprise de B1, pendant que
+d'autres fils vérifient. *C'est une réserve nommée par son auteur et mesurée
+fausse* : exactement ce que le mandat demande de ne pas croire.
+
+#### N1 — le pilote est renversé : `/chat/resume` cherche DÉJÀ, et après le premier octet
+
+Le pilote avait mesuré que les deux routes qui streament ne font aucune recherche
+vectorielle, et il avait noté le risque **au futur** — « si une route SSE se met
+un jour à chercher ». **C'est déjà le présent**, et l'auditeur l'a mesuré.
+Vérifié par le pilote à la lecture : `src/agent/graph.py` porte
+`add_conditional_edges("postprocess", should_search_more, {True: "retrieve",
+False: END})` — le graphe **reboucle vers `retrieve` après `generate`** — et
+`/chat/resume` fait tourner `astream` **à l'intérieur** de son
+`stream_generator`, rendu dans un `EventSourceResponse`. Le garde est donc
+atteint alors que la réponse a commencé.
+
+Conséquences mesurées par l'auditeur : **pas de 503, pas de motif dans le corps,
+et pas même la ligne `ERROR`** — Starlette lève avant d'appeler le gestionnaire,
+dont la docstring affirme pourtant être « le seul endroit où l'exploitant verra
+que des requêtes réelles se cassent sur cette panne-là ». Le flux meurt tronqué,
+sans trace. `NATIVE_TOOL_CALLING=true` et `MAX_SEARCH_ITERATIONS=3` sont les
+défauts : ce n'est pas un chemin exotique.
+
+**La sûreté est préservée** — rien de faux n'est servi, la levée est fail-closed.
+Ce qui ne l'est pas, c'est la phrase : quatre documents affirment sans réserve
+« toute recherche est refusée en 503 », **mesurablement faux sur une route sur
+six**. C'est la famille qui a bloqué le lot 2 (§4.18), et elle bloque en écriture
+ici aussi. `/chat/simple`, en revanche, ne cherche jamais — la mesure du pilote
+tient pour celle-là.
+
+#### N2 — la prémisse Docker fausse gagne un site neuf, et un est chez le pilote
+
+L'auditeur a **reproduit** la mesure du §4.19 — 21 échecs consécutifs de
+healthcheck, `RestartCount=0`, `StartedAt` inchangé — et il a mesuré le **vrai**
+coût dans le même projet isolé : le service dépendant en
+`condition: service_healthy` est resté `created`, sur
+`dependency failed to start: container … is unhealthy`.
+
+`mesuré` le 4 septembre 2026, la prémisse fausse vit à **trois** sites :
+
+| site | qui |
+|---|---|
+| `src/agent/retriever.py:182` | **ajouté par le lot 3** — à retirer avant fusion |
+| `src/api/main.py:383` | antérieur, sur `main` — production, ouvert |
+| `documentation/axes_amelioration.md` §1.27 | **antérieur, et c'est le registre du pilote** — corrigé le 4 septembre 2026, motif remplacé par le mécanisme mesuré |
+
+**L'arbitrage de l'auditeur, que le pilote suit** : une fois le motif corrigé, le
+trou reste acceptable — mais **pour l'autre raison**. Rendre 503 ne provoquerait
+aucune boucle ; cela empêcherait le frontend de lever au démarrage à froid et
+transformerait une panne lisible en une pile muette. *Le trou tient sur ce
+motif-là, pas sur celui qui est écrit.* Et l'auditeur a éprouvé la troisième
+voie contre le `/health` en service : `curl -sf …/health` rend `rc=0` là où
+`curl -sf …/health | grep -q '"status":"degraded"'` rend `rc=1`. Un `CMD-SHELL`
+discrimine donc sans toucher au code HTTP — même arbitrage, déplacé du code vers
+le `compose`, où il se lit.
+
+#### Les sept non bloquantes, et deux verts que le lot n'avait pas prévus
+
+| | Ce que c'est | Suite |
+|---|---|---|
+| **N3** | le champ `embedding_model` de la réponse `/health` est **non optionnel**, décision longuement argumentée dans `schemas.py` — et **gardée par rien** : le rendre optionnel laisse la suite verte | `Conv' 31` |
+| **N4** | la fixture `autouse` de `conftest.py` est **inerte** : retirée, 539 verts, `rc=0`. Son motif est juste et prospectif, mais rien ne la retient | `Conv' 31` |
+| **N5** | **41 tests ouvrent une vraie connexion `chromadb`** (48 tentatives) contre **0** sur `main`, toutes depuis `_lire_estampille`. Le lot a traité deux fichiers, il en reste cinq. Rejoué avec l'hôte résolu sur trois estampilles : `rc=0` dans les trois cas — *le montage tient par absorption, pas par construction* | ouvert |
+| **N6** | l'inventaire documentaire rougit bien **dans les deux sens** — c'est un vrai garde. Mais il ne balaie que `documentation/*.md` **non récursif** + `README.md` : échappent `documentation/audits/`, `.env.example`, `src/`, `scripts/`. Ironique, la trouvaille qu'il consigne étant *« une ligne de `.env` d'apparence exécutable »* | `Conv' 31` |
+| **N7** | aucun test ne garde le drapeau « en vol » de la sonde neuve | ouvert |
+| **N8** | la mémoïsation du verdict n'est gardée par rien — un refactor qui la retire ne rougit pas | ouvert |
+| **N9** | l'`except Exception` d'`etat_modele_embedding` : **justification recevable**, avec une réserve — il absorbe aussi un défaut de programmation, qui devient un `unknown`, lequel ne dégrade pas et ne journalise rien en régime établi | consigné |
+
+**Le témoin inerte du lot est vérifiablement inerte** — l'auditeur l'a rejoué et
+il déplace autant de lignes que deux mutations qui mordent. **18 des 21 mutations
+mordent**, et les trois verts sont les deux témoins plus N3/N4.
+
+#### Ce que l'audit a corrigé dans le prompt du pilote
+
+Trois chiffres, et le pilote les reprend : `retriever.py` gagne **+154** lignes
+et non 157, `main.py` **+138** et non 143 ; les tests neufs sont **+19** — 520 →
+539 cas collectés — et non 37, le pilote ayant additionné des tests et des
+mutations ; et le §4.4 annonce **onze** mutations là où le rapport du lot en
+tabulait douze — écart entre le rapport et la page, à trancher par `Conv' 31`.
+
+**La fusion a été vérifiée en CONTENU et non seulement en `rc`**, par l'auditeur :
+le §4.19 survit intact — 126 lignes sur `main`, 126 dans l'arbre fusionné, 0 dans
+le lot — rien n'est réintroduit ni perdu dans aucun sens. La seule incohérence que
+la fusion créerait est **N2** : le §4.19 démontre la prémisse fausse pendant que
+`retriever.py:182` l'affirme.
