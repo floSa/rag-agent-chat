@@ -110,3 +110,64 @@ def test_la_mesure_du_remplissage_est_la_meme_aux_trois_endroits() -> None:
             "remesurer avec le protocole de documentation/llm.md et recopier sa "
             "sortie aux trois endroits"
         )
+
+
+# ─── Le nom du modèle anglais, et où il a le droit de vivre ───────────────────
+
+# Inventaire des documents qui portent encore `all-MiniLM-L6-v2`, avec le nombre
+# d'occurrences et le MOTIF qui l'autorise. Ce nom est celui de l'autre candidat
+# d'embedding : il rend des vecteurs de la même largeur que celui en service
+# (384, `mesuré` — site canonique `documentation/axes_amelioration.md` §4.4),
+# donc une conversation d'ingestion qui le recopierait produirait un index que
+# l'agent refuse — et, avant le lot 3, une recherche silencieusement fausse.
+#
+# CE QUE CE TEST REMPLACE. `pour_le_pipeline_ingestion.md` affirmait que « toutes
+# les mentions ont été corrigées ». C'était faux : sept vivaient dans
+# `llm_integration_plan.md`, dont une ligne de `.env` d'apparence exécutable.
+# Une affirmation de cette forme — « toutes », « aucune », « il n'y a plus » —
+# survit indéfiniment quand elle est fausse, contrairement à un bug. Celle-ci est
+# désormais un compte, et le compte rougit.
+_VESTIGES_AUTORISES = {
+    # Document historique, dont le bandeau de tête nomme explicitement cet écart
+    # comme le plus dangereux du fichier.
+    "documentation/llm_integration_plan.md": 7,
+    # Décrit le vestige au lieu de le prescrire.
+    "documentation/pour_le_pipeline_ingestion.md": 1,
+    # Le §3.2 raconte la correction, le §4.4 nomme les deux candidats et publie
+    # la mesure de leur largeur commune.
+    "documentation/axes_amelioration.md": 3,
+    # Dit que ce document l'a annoncé et que c'était faux.
+    "documentation/agent_architecture.md": 1,
+}
+
+_MODELE_ANGLAIS = "all-MiniLM-L6-v2"
+
+
+def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
+    """Un inventaire qui rougit, plutôt qu'une phrase qui vieillit en silence.
+
+    Le test échoue dans les deux sens, et c'est ce qui en fait un garde :
+
+    - une occurrence NOUVELLE dans un fichier absent de la table, ou un compte
+      qui monte, signale une mention non justifiée — c'est le cas dangereux,
+      celui qu'une réingestion recopierait ;
+    - un compte qui DESCEND signale que la table décrit un état révolu. La
+      corriger est alors le geste attendu, et ce rouge-là est le prix de
+      l'autre : sans lui, la table pourrait autoriser n'importe quoi.
+
+    Ce test est le site canonique de ces comptes. Les documents y renvoient au
+    lieu de les recopier.
+    """
+    trouves: dict[str, int] = {}
+    for chemin in sorted((_RACINE / "documentation").glob("*.md")) + [_RACINE / "README.md"]:
+        compte = chemin.read_text(encoding="utf-8").count(_MODELE_ANGLAIS)
+        if compte:
+            trouves[str(chemin.relative_to(_RACINE))] = compte
+
+    assert trouves == _VESTIGES_AUTORISES, (
+        f"l'inventaire de '{_MODELE_ANGLAIS}' dans la documentation a bougé : "
+        f"attendu {_VESTIGES_AUTORISES}, trouvé {trouves}. Une mention de ce nom "
+        "hors de cette table est une instruction que quelqu'un peut suivre — les "
+        "deux candidats rendent des vecteurs de même largeur, et le mauvais "
+        "produit un index que l'agent refuse."
+    )

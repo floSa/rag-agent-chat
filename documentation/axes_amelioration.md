@@ -1520,38 +1520,109 @@ l'ingestion, désignant 44 identifiants réels. Il porte sa propre réserve, et
 elle interdit d'arbitrer un réglage avec lui — §5 de
 [`pilotage_du_chantier.md`](pilotage_du_chantier.md).
 
-### 4.4 Le modèle d'embedding n'est gardé que d'un seul côté — et le pipeline tend déjà de quoi fermer
+### 4.4 → FERMÉ par le lot 3 — le lecteur confronte enfin son réglage à l'estampille de la collection
 
-C'est l'**exigence 1** du contrat, et la panne la plus coûteuse du système :
+C'était l'**exigence 1** du contrat, et la panne la plus coûteuse du système :
 les deux modèles candidats rendent des vecteurs de **384 dimensions**, donc
-ChromaDB accepte sans broncher, aucune sonde ne voit rien, et la recherche rend
-des passages **plausibles et faux**. Vérifier la dimension ne protège de rien —
-c'est le **nom** qui discrimine.
+ChromaDB accepte sans broncher, aucune sonde de forme ne voit rien, et la
+recherche rend des passages **plausibles et faux**. Vérifier la dimension ne
+protège de rien — c'est le **nom** qui discrimine.
 
-`mesuré` le 3 septembre 2026 :
+**Site canonique de la largeur des deux candidats**, et il est ici. `mesuré` le
+4 septembre 2026, en lisant la seule configuration de pooling depuis le Hub —
+quelques kilo-octets, aucun poids rapatrié :
 
-- **le pipeline garde les deux bouts** : il refuse de démarrer sur un autre
-  modèle, et refuse d'écrire dans une collection produite par un autre ;
-- **l'agent, qui LIT, n'a aucun garde.** `embedding_model_name` est un
-  `Field` de `settings.py` avec un défaut, et rien ne le confronte à quoi que
-  ce soit : `grep -n "model_validator\|field_validator" src/agent/settings.py`
-  ne rend **aucune ligne**. `retriever.py:30` charge ce que le réglage nomme et
-  interroge la collection avec ;
-- **et la comparaison est disponible en une lecture** : le pipeline **estampille
-  déjà la collection**. `collection.metadata` vaut
-  `{'embedding_model': 'paraphrase-multilingual-MiniLM-L12-v2'}`.
+```
+huggingface_hub.hf_hub_download("sentence-transformers/<nom>", "1_Pooling/config.json")
+  paraphrase-multilingual-MiniLM-L12-v2 -> word_embedding_dimension = 384
+  all-MiniLM-L6-v2                      -> word_embedding_dimension = 384
+```
 
-Donc le garde manquant est une confrontation entre `settings.embedding_model_name`
-et `collection.metadata["embedding_model"]`, au démarrage ou dans `/health`. Le
-producteur a fait sa moitié ; le lecteur n'a pas fait la sienne.
+Les deux nombres sont **égaux**, et c'est tout le problème : il n'existe, dans
+la forme des vecteurs, rien qui distingue un index produit par l'un d'un index
+produit par l'autre.
 
-**Une correction de raisonnement, au passage.** Le §3.2 de ce registre prouvait
-la concordance des modèles par un détour : « `runs/final.json` porte
+**L'état d'avant, `mesuré` le 3 puis le 4 septembre 2026.** Le pipeline gardait
+les deux bouts — il refusait de démarrer sur un autre modèle et d'écrire dans
+une collection produite par un autre — pendant que l'agent, qui LIT, ne
+confrontait son réglage à rien : `grep -n "model_validator\|field_validator"
+src/agent/settings.py` rendait `rc=1` et aucune ligne. Et la comparaison était
+disponible en une lecture, parce que le pipeline **estampille déjà la
+collection**.
+
+**Ce qui a été mesuré contre les stores en service**, `mesuré` le 4 septembre
+2026, en lecture seule — `chromadb.HttpClient(...).get_collection("rag_documents")`
+puis `.metadata` et `.count()`, sans aucun `add` / `upsert` / `modify` :
+
+| | valeur |
+|---|---|
+| `collection.metadata` | `{'embedding_model': 'paraphrase-multilingual-MiniLM-L12-v2'}` |
+| `collection.count()` | 4 367 chunks |
+
+**Ce que le lot 3 a écrit.** Une confrontation entre
+`settings.embedding_model_name` et `collection.metadata["embedding_model"]`,
+avec **deux décisions qui n'étaient pas tranchées** et qui le sont désormais au
+site.
+
+**Décision 1 — où le garde vit.** Le garde qui REFUSE est dans
+`retriever._dense_search`, en **tête**, avant `_get_embedding_model()`. Trois
+raisons, et la première est un piège payé ailleurs :
+
+- `SentenceTransformer(nom)` **télécharge** le modèle absent du cache. Un garde
+  placé après le chargement paierait le rapatriement du **mauvais** modèle avant
+  de le refuser. `mesuré` le 4 septembre 2026 contre le vrai ChromaDB, réglage
+  forcé en mémoire sur `all-MiniLM-L6-v2` : la recherche est refusée et la liste
+  des modèles chargés est **vide** ;
+- c'est le site qui **produit** le comportement à empêcher, et le seul que tout
+  chemin de recherche traverse — `/search`, `/sources` et le nœud
+  `node_retrieve` du graphe passent tous par `retrieve` ;
+- un garde de démarrage seul ne couvre pas l'agent démarré **avant** une
+  réingestion divergente, ni celui démarré pendant que ChromaDB ne répondait pas.
+
+Le démarrage et `/health` en sont la **voix**, pas le garde. Et **le démarrage
+ne lève pas** : `frontend` attend `agent-api` en `service_healthy`
+(`docker-compose.yml`), donc un agent qui meurt laisse l'exploitant devant un
+frontend absent, sans un mot sur le modèle d'embedding — exactement la
+pathologie que `tests/unit/test_health_parallele.py` existe pour interdire. Le
+processus reste debout pour expliquer ; toute recherche rend **503** avec les
+deux noms dans le corps.
+
+**Décision 2 — l'estampille absente est refusée**, au même titre qu'une
+divergence. Un garde qui ne comparerait que lorsque l'estampille est présente
+serait **décoratif sur exactement le cas où l'on ne sait pas ce qui a indexé**.
+Le prix est réel et payé sciemment : une collection produite par un pipeline
+plus ancien, qui n'estampillait pas, sera refusée. Le geste de réparation est
+nommé dans le message d'erreur.
+
+**Ce qui n'est refusé ni d'un côté ni de l'autre : l'estampille illisible.**
+« Je n'ai pas pu lire » n'est ni « ça concorde » ni « ça diverge ». L'erreur du
+store remonte telle quelle côté recherche, `/health` publie `unknown`, et cet
+état-là ne dégrade pas le statut à lui seul — la sonde `chromadb` porte déjà ce
+fait, et le publier deux fois ferait croire à deux pannes.
+
+**Ce que la lecture coûte, et sa contrepartie.** `Collection.metadata` est une
+propriété **locale** du client `chromadb==1.5.9` (`return self._model.metadata`),
+remplie au `get_collection` : la lire ne fait **aucun** aller-retour, ce qui rend
+la vérification tenable sur le chemin de chaque recherche. En retour, l'estampille
+lue est celle capturée à l'**ouverture** de la collection : une réingestion qui
+changerait de modèle pendant que l'agent tourne ne serait vue qu'après un
+`reset_connection()` — donc après une panne de Chroma, ou un redémarrage. C'est
+la réserve de ce garde, et elle est écrite au site.
+
+**Comment on sait que c'est un garde et pas un ornement.** Onze mutations,
+`mesuré` le 4 septembre 2026, chacune restaurée et l'arbre vérifié propre après ;
+`git diff --numstat` confirme que le texte a bougé à chaque fois, et le rc relevé
+est celui de `pytest` (`make`, lui, rend 2). Dix rougissent, la onzième est un
+**témoin inerte** — un commentaire réécrit — qui reste vert : sans lui, un vert
+ne se distinguerait pas d'une mutation qui n'a rien touché. Le détail est au
+rapport du lot 3.
+
+**Une correction de raisonnement, conservée.** Le §3.2 de ce registre prouvait la
+concordance des modèles par un détour : « `runs/final.json` porte
 `rappel_recherche = 0,985`, ce qui est impossible avec deux embedders
 différents ». Le raisonnement est juste, mais **son antécédent a péri** — ce run
-décrit un corpus qui n'est plus là (§4.3). Il prouve la concordance d'août sur
-le corpus d'août, et rien d'aujourd'hui. La preuve directe existe désormais, et
-c'est l'estampille de la collection ci-dessus.
+décrit un corpus qui n'est plus là (§4.3). La preuve directe est désormais
+l'estampille ci-dessus, et elle est **gardée par un test** plutôt que relue.
 
 ### 4.5 → FERMÉ par le lot 2 — les trois réserves étaient écrites nulle part, et le code n'était juste que par construction
 

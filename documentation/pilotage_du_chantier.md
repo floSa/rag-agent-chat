@@ -149,7 +149,7 @@ chiffre : chaque constat renvoie à son entrée.
 
 | | L'exigence | État vu d'ici |
 |---|---|---|
-| **1** | modèle d'embedding `paraphrase-multilingual-MiniLM-L12-v2`, identique des deux côtés | ⚠️ **gardée d'un seul côté.** Le pipeline refuse de démarrer hors contrat ; **l'agent, qui LIT, n'a aucun garde** — et le pipeline lui tend déjà de quoi le construire. §4.4 |
+| **1** | modèle d'embedding `paraphrase-multilingual-MiniLM-L12-v2`, identique des deux côtés | ✅ **gardée des deux côtés** depuis le lot 3, livré le 4 septembre 2026 et **pas encore audité ni fusionné**. Le lecteur confronte son réglage à l'estampille de la collection avant chaque recherche dense, refuse aussi l'estampille absente, et rend 503 sans avoir chargé le moindre modèle. §4.4 |
 | **2** | `element_id` déterministe, 10 hexadécimaux | ✅ tenue par le pipeline, et l'agent le valide (`^[a-f0-9]{10}$`, `graph_context.py`) |
 | **3** | `source_path` est l'identité d'un document | ✅ tenue |
 | **4** | `sequence` porte l'ordre, monotone | ✅ tenue — et **reproduite de mes mains** : §4.5 |
@@ -215,7 +215,7 @@ anglaise → document français » a disparu.
 |---|---|---|
 | **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | ✅ **fusionné** `9596720` — livré (`Conv' 21`), audité (`Conv' 22`), réparé (`Conv' 23`), fusion tranchée par le pilote après vérification de ses deux gardes par mutation |
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | ✅ **fusionné** `db05162` — livré (`Conv' 24`), audité (`Conv' 25`, 8 trouvailles dont 2 bloquantes), réparé (`Conv' 26`), **sa réparation auditée à son tour** (`Conv' 27`, 1 bloquante), réparée une seconde fois (`Conv' 28`). Fusion tranchée par le pilote après vérification des deux directions dangereuses du garde — §4.18. **Trois audits, trois trouvailles matérielles** |
-| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | **à distribuer — c'est l'action suivante**, et **le risque vivant du chantier** : une panne silencieuse qui rend des passages plausibles et faux. Les deux candidats rendent 384 dimensions, donc aucune sonde de forme ne la voit ; c'est le **nom** qui discrimine |
+| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | 🚧 **livré** le 4 septembre 2026 (`Conv' 29`) sur `claude/embedding-model-validation-e6c6c3`, **non poussé, non audité, non fusionné**. Les deux candidats rendent 384 dimensions — `mesuré`, §4.4 — donc aucune sonde de forme ne voit cette panne ; c'est le **nom** qui discrimine, et c'est le nom que le garde confronte. Deux décisions prises et motivées au site : le refus vit sur le chemin de la recherche (pas au démarrage, qui ne fait que le dire), et l'estampille absente est refusée comme une divergence |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
 | **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
 
