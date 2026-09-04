@@ -16,14 +16,37 @@ logger = logging.getLogger(__name__)
 _SECTION_TAGS = {"SectionHeader"}
 # Tags racine (on s'arrête avant de remonter au-delà)
 _ROOT_TAGS = {"Document"}
-# Profondeur max de remontée pour éviter les boucles. L'ingestion produit
-# aujourd'hui un arbre à deux niveaux (Document > SectionHeader > éléments),
-# donc deux sauts suffisent ; la marge couvre une future imbrication réelle
-# des titres sans rien changer ici.
+# Profondeur max de remontée pour éviter les boucles.
+#
+# L'ingestion IMBRIQUE les titres depuis la réingestion du 2 septembre 2026 :
+# `Document > SectionHeader > SectionHeader > … > élément` est le cas courant,
+# pas l'exception. Le commentaire précédent annonçait « un arbre à deux
+# niveaux » et n'en tirait que deux sauts nécessaires ; c'était juste quand ce
+# fut écrit, et c'est faux depuis. La marge qu'il s'accordait « pour une future
+# imbrication » a effectivement absorbé le changement — la constante est saine,
+# c'était sa justification qui était morte.
+#
+# Ce que la remontée demande réellement, `mesuré` le 3 septembre 2026 sur les
+# 15 173 arêtes PARENT_OF du graphe en service : **6 sauts** pour le nœud le
+# plus profond, 5 pour le `SectionHeader` le plus profond. 10 laisse donc 4
+# sauts de marge. Chiffres et commande au §4.6 de
+# `documentation/axes_amelioration.md`, leur site canonique.
 _MAX_DEPTH = 10
 # Frères examinés de chaque côté avant d'abandonner la recherche d'une section
-# voisine. Les enfants d'un Document ne sont pas tous des en-têtes : quelques
-# candidats suffisent pour tomber sur le premier vrai SectionHeader.
+# voisine.
+#
+# La raison écrite ici était fausse elle aussi — elle supposait les en-têtes
+# tous enfants directs du `Document`. La vraie raison est plus simple, et elle
+# est `mesuré`e (§4.6, même site canonique) : quand un frère en-tête existe, il
+# est **immédiatement adjacent** dans l'ordre de `sequence`, dans les deux
+# directions et sans exception sur les 746 en-têtes. Un seul candidat suffirait
+# donc ; 5 est de la marge, et elle ne fait rien manquer.
+#
+# Ce que la limite ne peut PAS rattraper, et qui n'est pas un défaut : 214
+# en-têtes n'ont aucun frère en-tête dans une direction donnée, et
+# `_find_sibling` y rend `None`. Élargir la recherche au-delà du parent commun
+# franchirait la frontière du document — voir la réserve 1 de `sequence`,
+# gardée par `tests/unit/test_lecture_sequence.py`.
 _SIBLING_CANDIDATES = 5
 # Marge sous la limite de troncature en deçà de laquelle on ne soupçonne pas de
 # coupure : un texte nettement plus court que la limite est forcément entier.
@@ -263,14 +286,33 @@ def _find_parent(node_id: str) -> tuple[str | None, int]:
 def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
     """Retourne le SectionHeader frère juste avant ou juste après `sequence`.
 
-    Les en-têtes sont tous enfants directs du Document (l'ingestion ne les
-    imbrique pas) : la section voisine est donc un frère, atteint par un
-    encadrement sur la propriété `sequence` de l'arête. Le LIMIT borne le coût
-    sur un ouvrage de plusieurs centaines de sections.
+    « Section voisine » est ici DÉFINIE comme « le frère en-tête sous le parent
+    commun ». Cette définition coïncidait avec « la section suivante du
+    document » tant que l'ingestion ne produisait pas de titres imbriqués. Ce
+    n'est plus le cas : `mesuré` le 3 septembre 2026, **583 des 746**
+    `SectionHeader` ont pour parent un autre `SectionHeader` (§4.6 de
+    `documentation/axes_amelioration.md`, site canonique de ces chiffres). Le
+    commentaire précédent affirmait l'inverse — « les en-têtes sont tous enfants
+    directs du Document » — et c'est la prémisse la plus fausse qu'ait portée ce
+    module.
+
+    Ce que ça change, et ce que ça ne change pas :
+
+    - la recherche reste JUSTE, parce qu'elle part du parent réel de la section
+      (`_climb_to_section` le remonte) et non d'un Document supposé ;
+    - mais elle est désormais bornée au SOUS-ARBRE du parent. Pour les 214
+      en-têtes sans frère en-tête d'un côté donné, elle rend `None` là où une
+      section voisine existe en ordre de lecture — dans le sous-arbre de
+      l'oncle, ou au chapitre suivant. C'est une définition à rediscuter, pas
+      un défaut, et l'élargir demanderait de rester borné au document.
+
+    L'encadrement porte sur la propriété `sequence` de l'arête, et il est
+    ANCRÉ sur `parent_id` : `sequence` repart à 0 dans chaque document, donc une
+    comparaison non ancrée rapprocherait deux ouvrages. Le LIMIT borne le coût.
 
     Args:
-        parent_id: VID du parent commun (en pratique, le Document).
-        sequence: Rang de la section de départ.
+        parent_id: VID du parent commun — un `Document` ou un `SectionHeader`.
+        sequence: Rang de la section de départ, sous ce parent.
         direction: "before" ou "after".
     """
     if direction == "before":
@@ -426,15 +468,17 @@ class _Ancestry(NamedTuple):
 def _climb_to_section(element_id: str) -> _Ancestry:
     """Remonte de l'élément jusqu'au Document, en notant sa section au passage.
 
-    La version précédente s'arrêtait au premier SectionHeader rencontré. Comme
-    l'ingestion rattache tout élément à son en-tête et tout en-tête au
-    Document, la remontée s'arrêtait donc systématiquement au premier saut : le
-    nœud Document n'était jamais atteint, et le nom du fichier — que le
-    post-processing des citations y cherchait — restait vide. Toutes les
-    citations issues du graphe s'affichaient sans document source.
+    La version précédente s'arrêtait au premier SectionHeader rencontré. Sur le
+    graphe de l'époque — plat, où tout élément pendait de son en-tête et tout
+    en-tête du Document — la remontée s'arrêtait donc systématiquement au
+    premier saut : le nœud Document n'était jamais atteint, et le nom du
+    fichier — que le post-processing des citations y cherchait — restait vide.
+    Toutes les citations issues du graphe s'affichaient sans document source.
 
     On mémorise désormais la première section traversée, puis on poursuit
-    jusqu'au tag racine.
+    jusqu'au tag racine. C'est ce qui rend les fils d'Ariane multi-niveaux
+    corrects sans rien changer depuis que l'ingestion imbrique les titres : la
+    chaîne entière est collectée, pas seulement les deux premiers sauts.
     """
     breadcrumbs_reversed: list[BreadcrumbEntry] = []
     current_id = element_id
@@ -666,9 +710,15 @@ def _neighbour_elements(
 ) -> tuple[list[SectionElement], str]:
     """Retourne la queue de la section précédente, ou la tête de la suivante.
 
-    Répond au besoin « récupérer les informations avant et après » : les
-    en-têtes étant frères sous le Document et ordonnés par `sequence`, la
-    section voisine s'atteint sans imbrication réelle des titres.
+    Répond au besoin « récupérer les informations avant et après ». La section
+    voisine est le frère en-tête sous le parent commun — voir `_find_sibling`
+    pour ce que cette définition couvre depuis que l'ingestion imbrique les
+    titres, et ce qu'elle laisse de côté.
+
+    Le découpage est POSITIONNEL — `rows[-budget:]` et `rows[:budget]` — et il
+    doit le rester : `sequence` n'est pas contiguë sous un parent, donc un
+    encadrement sur ses valeurs rendrait moins d'éléments que demandé. C'est la
+    réserve 3, gardée par `tests/unit/test_lecture_sequence.py`.
     """
     if budget <= 0 or not ancestry.section_parent_id:
         return [], ""
