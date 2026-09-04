@@ -244,7 +244,10 @@ dépôt, pas dans la conversation.*
 | **27** | AUDIT-REPAR-2 — audit de la réparation du lot 2 | 8 mutations + 17 chiffres reproduits, **aucune mesure du pilote renversée** ; 1 bloquante (B1), 1 sérieuse (A1), 6 mineures — §4.17. Recommandation : fusionner après correction |
 | **28** | REPAR-3 — fermer B1, A3 et A6 sur la branche du lot 2 | `e33c076` : bouchon **fail-closed**, 11 mutations / 11 rouges, 520 passés, **zéro ligne de production touchée**. Vérifié par le pilote, fusionné — §4.18 |
 
-**Prochain numéro libre : 29.**
+| **29** | LOT-3 — le garde du modèle d'embedding côté lecteur | `c5c38d5`, 3 commits, **non poussés**. 539 passés, 12 mutations dont un **témoin inerte**, zéro désactivation. Vérifié par le pilote — §4.19 |
+| **30** | AUDIT-3 — audit du lot 3 | distribué le 4 septembre 2026 |
+
+**Prochain numéro libre : 31.**
 
 **Ce que ce journal apprend sur la méthode, au bout de neuf conversations.**
 Trois audits indépendants, **trois trouvailles matérielles**, dont deux sur du
@@ -462,6 +465,37 @@ quelque chose :
   reversées. Le dépôt a survécu sans une égratignure ; le pilotage, non. **Le
   journal vit désormais au §6.1 de cette page**, et toute mesure reçue d'un lot
   se reverse au registre **avant** d'écrire le prompt suivant, pas après.
+
+Celles que le lot 3 a ajoutées, et la première est une erreur du pilote dans
+son propre prompt :
+
+- **Poser un choix dont toutes les branches sont fausses.** Le pilote demandait
+  au lot 3 où son garde devait vivre : « au démarrage, dans `/health`, ou aux
+  deux ». **Le lot a contesté la question, et il avait raison : aucune des trois
+  n'est un garde — les trois sont des rapports.** Un rapport ne protège de rien
+  entre le moment où la divergence devient lisible et celui où quelqu'un la lit.
+  Le garde devait vivre sur le chemin qui PRODUIT le comportement — la recherche
+  dense — et le démarrage comme `/health` n'en sont que la voix. *Un choix bien
+  posé nomme le critère, pas les options* : la question juste était « quel site
+  produit le comportement à empêcher ? », et elle avait une seule réponse.
+- **Commiter avant de muter.** Le lot a écrasé une correction non commitée de
+  `README.md` en restaurant ce fichier après une mutation. Détectée et refaite,
+  sans dégât — et la leçon est générale : une batterie de mutations restaure par
+  `git checkout --`, qui ne distingue pas ce qu'on voulait garder de ce qu'on
+  voulait défaire. **Le travail se commite d'abord, on mute ensuite.**
+- **Un rouge « le symbole n'existe pas » n'est pas un rouge de comportement.**
+  Le lot a qualifié son propre rouge-d'abord de faible et renvoyé à sa table de
+  mutations comme preuve réelle. C'est la bonne lecture : un `AttributeError` sur
+  une fonction pas encore écrite prouve que le test appelle quelque chose, pas
+  qu'il discrimine quoi que ce soit.
+- **Vérifier une affirmation de comportement d'OUTIL comme on vérifie le code.**
+  Le lot justifiait un trou accepté par « rendre 503 sur `/health` ferait
+  redémarrer le service en boucle ». **Mesuré faux** : un healthcheck en échec ne
+  redéclenche pas un conteneur sous Docker Compose, `restart:` répondant à la
+  sortie du processus et non à la santé (§4.19). Le raisonnement était de bonne
+  foi et bien écrit ; son antécédent était faux. *La règle « cherche l'antécédent
+  avant d'auditer le raisonnement » ne vaut pas que pour le code du dépôt : elle
+  vaut pour ce qu'on croit savoir de Docker, de pytest et de git.*
 
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te

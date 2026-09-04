@@ -2355,3 +2355,103 @@ fonctionnelle n'est possible.
 | **A7** | `mypy scripts/` reste `rc=1`, **26 erreurs dans 3 fichiers** — donc aligner les périmètres du `Makefile` rendrait la porte rouge ; et le `MATCH` paginé sans `ORDER BY` de l'instrument, **mesuré stable** à quatre tailles de page | **ouvert**, antérieurs au lot |
 | **§4.13** | rien ne lit le compte de tests ni les documents. Le lot a corrigé le chiffre au site ; **le garde reste absent**, et c'est lui la trouvaille | **ouvert** — c'est le F7 du dépôt jumeau |
 | **la borne sur « fail-closed par construction »** | la précondition d'atteignabilité de `test_aucune_requete_ne_filtre_sequence_sans_ancre` reste satisfiable par une autre requête évaluable de la même scène : le garde n'est fail-closed **que dans sa scène**. Relevé par `Conv' 27`, confirmé par `Conv' 28`, non fermé — c'est la forme du garde qu'il faudrait changer | **ouvert**, borné au site |
+
+### 4.19 Le lot 3 vérifié par le pilote — et une prémisse Docker qui ne tient pas à la mesure
+
+**État : livré (`Conv' 29`, `c5c38d5`), NON poussé, NON fusionné, audit distribué
+(`Conv' 30`).** Ce lot touche `src/` — `retriever.py` et `main.py` — donc sa
+catégorie de risque n'a rien à voir avec celle du lot 2, dont le code exécutable
+de production était inchangé. Il ne se fusionnera pas sans audit indépendant.
+
+#### Ce que le pilote a mesuré de ses mains, le 4 septembre 2026
+
+Arbre dédié à `c5c38d5`, environnement monté par le protocole du §2.2, `rc` du
+processus, jamais derrière un tube :
+
+| | `mesuré` |
+|---|---|
+| porte qualité | `make lint` `rc=0`, `make test` `rc=0`, **539 passés** (520 avant le lot) |
+| identités des 3 commits | `florian_horellou@laposte.net` en auteur **et** committer ; aucune attribution à un assistant |
+| **le refus traverse le graphe** | sonde **écrite par le pilote**, indépendante de celles du lot : collection bouchonnée à `all-MiniLM-L6-v2`, `/search` → **503**, `/sources` → **503**, **`/answer` → 503** — c'est-à-dire à travers LangGraph, qui encapsule volontiers les exceptions — et `/health` → **200 `degraded`** |
+| **aucun modèle n'est chargé** | la même sonde remplace `_get_embedding_model` par une assertion qui échoue si elle est appelée : elle **n'a jamais tiré** |
+| `_dense_search` n'est enveloppé dans aucun `try` | ses deux sites d'appel dans `retrieve` sont nus sous un `with chrono.mesurer(...)` — le refus remonte, il n'est pas absorbé par le repli lexical |
+| le test de sécurité modifié est **renforcé, non affaibli** | il branche la sonde neuve sur l'état sain, là où il ne tenait plus que par l'échec de résolution DNS de l'hôte `chromadb` |
+
+#### La trouvaille du pilote : la prémisse du healthcheck est fausse
+
+Le lot accepte sciemment un trou, et l'écrit — c'est la bonne pratique. Mais
+**son motif ne tient pas.** Il justifie de ne pas rendre 503 sur `/health` par :
+*« rendre 503 ferait redémarrer le service en boucle sur une panne qu'un
+redémarrage ne répare pas »*.
+
+`mesuré` le 4 septembre 2026, dans un projet Compose **isolé** monté puis démonté
+pour cela — un conteneur `alpine` à healthcheck échouant toutes les 3 s, avec
+`restart: unless-stopped`, exactement le réglage d'`agent-api` :
+
+| | `mesuré` sur 47 secondes |
+|---|---|
+| `State.Health.Status` | `unhealthy` dès le premier tour, et le reste |
+| `State.StartedAt` | **inchangé** — `2026-09-04T12:11:19.716901842Z` au début comme à la fin |
+| ce que `docker ps` affiche | `Up 47 seconds (unhealthy)` |
+
+**Un healthcheck en échec ne redéclenche pas le conteneur sous Docker Compose.**
+`restart:` répond à la *sortie* du processus, pas à la santé. La boucle de
+redémarrage que le lot redoute appartient à un orchestrateur qui sonde la
+vivacité — Swarm, Kubernetes — pas à ce fichier-ci.
+
+**Le vrai arbitrage est donc autre**, et il n'a pas été pesé :
+
+- rendre 503 sur une divergence ferait apparaître `(unhealthy)` dans
+  `docker ps` — l'endroit exact où un exploitant regarde en premier ;
+- son coût réel est ailleurs : `frontend` dépend d'`agent-api` en
+  `condition: service_healthy`, donc **un démarrage à froid sur un index
+  divergent ne lèverait pas le frontend**. C'est un coût réel, et il se discute ;
+- et il existe une troisième voie que ni le lot ni le pilote n'ont éprouvée :
+  laisser `/health` en 200 et faire lire le **corps** par le healkcheck de
+  Compose, ce qui découplerait la visibilité Docker du code HTTP.
+
+*Le pilote ne tranche pas la conception : il n'écrit pas de code de production.*
+Il rend le fait, et il le rend **avant** l'audit pour que l'auditeur le
+reproduise ou le renverse. Le raisonnement du lot était de bonne foi et
+soigneusement écrit ; c'est son antécédent qui était faux, et *un raisonnement
+juste sur un antécédent faux produit une conclusion fausse, et il se relit comme
+une preuve.*
+
+#### Ce que le lot a lui-même déclaré, et qui vaut d'être lu
+
+Ce rapport est le plus autocritique du chantier, et trois de ses aveux sont des
+gestes de méthode que le registre retient :
+
+1. **il a posé un témoin inerte dans sa batterie** — une mutation qui change
+   autant de texte qu'une autre et ne change aucun comportement, `rc=0`, zéro
+   rouge. Sans témoin, un vert ne se distingue pas d'une mutation qui n'a rien
+   touché. C'est le garde-fou dont l'absence a coûté un faux verdict au pilote au
+   §4.15 ;
+2. **il a qualifié son propre rouge-d'abord de « faible »** — un rouge
+   « le symbole n'existe pas », qui ne prouve pas qu'un test discrimine, et il
+   renvoie à sa table de mutations comme étant la vraie preuve ;
+3. **il a déclaré une erreur de manœuvre** : en restaurant `README.md` après une
+   mutation, il a écrasé une correction non commitée du même fichier. Détectée,
+   refaite, porte relancée. La leçon qu'il en tire est juste — *commiter avant de
+   muter* — et elle entre au §12 du mandat.
+
+Il a aussi contesté la question du pilote, à raison : *« au démarrage ou dans
+`/health` » n'offrait que des rapports, et un rapport ne protège de rien.* Le
+garde vit sur le chemin de la recherche ; le démarrage et `/health` en sont la
+voix. **Le pilote avait mal posé le choix**, et il le consigne au §12.
+
+#### Ce que le lot n'a pas fermé, et qu'il nomme
+
+La réserve du cache — l'estampille lue est celle capturée à l'ouverture de la
+collection, donc une réingestion divergente survenue **pendant** que l'agent
+tourne ne serait vue qu'après un `reset_connection()`. Écrit au site et rendu au
+pipeline. Le garde **n'est pas actif en service** : `rag-agent-api` n'a pas été
+redémarré, et ce redémarrage est une décision de pilotage à prendre après
+l'audit, depuis le clone principal et jamais depuis un arbre de travail.
+
+Et une remarque du lot qui corrige le registre : **le `grep -n
+"model_validator\|field_validator" src/agent/settings.py` du §4.4 désignait le
+mauvais lieu.** Un validateur Pydantic s'exécute à l'import de `settings`, avant
+toute connexion à ChromaDB : il n'a rien à confronter. Ce `grep` rendra donc
+toujours `rc=1`, et ce n'est pas un symptôme de défaut. Le symptôme
+reproductible de ce point reste à choisir — ouvert.
