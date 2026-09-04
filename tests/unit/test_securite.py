@@ -147,6 +147,30 @@ def _ollama_repond(disponible: bool):
     return lambda **_kwargs: Client()
 
 
+def _concordance_ok(monkeypatch) -> None:
+    """Branche la lecture de l'estampille du modèle d'embedding sur l'état sain.
+
+    Depuis le lot 3, /health la lit et une concordance REFUSÉE dégrade le statut.
+    Non branchée, cette lecture ouvrirait une vraie connexion vers l'hôte
+    `chromadb` : un test qui attend « ok » ne tiendrait plus que par l'échec de
+    résolution de ce nom. Ce que /health publie de la concordance est gardé dans
+    `tests/unit/test_garde_modele_embedding.py`.
+    """
+    from src.agent.settings import settings
+    from src.api import main
+    from src.api.schemas import EmbeddingModelHealth
+
+    monkeypatch.setattr(
+        main,
+        "etat_modele_embedding",
+        lambda: EmbeddingModelHealth(
+            status="ok",
+            expected=settings.embedding_model_name,
+            collection=settings.embedding_model_name,
+        ),
+    )
+
+
 def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
     """Son absence dégrade la recherche, elle ne l'empêche pas.
 
@@ -155,6 +179,7 @@ def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
     """
     from src.api import main
 
+    _concordance_ok(monkeypatch)
     monkeypatch.setattr(main.settings, "api_key", "")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
