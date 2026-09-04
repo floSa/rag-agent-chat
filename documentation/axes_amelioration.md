@@ -1565,10 +1565,10 @@ l'arête, jamais ses pièges.
 `PARENT_OF` extraites du graphe en service — les trois chiffres du pipeline
 tombent à l'unité :
 
-| La réserve | `mesuré` le 3 septembre 2026 |
+| La réserve | `mesuré` |
 |---|---|
 | **1. `sequence` repart à 0 dans chaque document** | tout « avant / après » doit être **borné au document** |
-| **2. elle n'est pas contiguë sous un parent**, par construction | **167** parents sur **763** ont des valeurs non contiguës, et l'écart s'explique par la taille du sous-arbre du frère précédent. **Ce n'est pas une perte** |
+| **2. elle n'est pas contiguë sous un parent**, par construction | **167** parents sur les **692** qui ont **au moins deux enfants** — un parent à enfant unique est contigu par définition, et ne peut donc pas entrer au dénominateur. L'écart s'explique par la taille du sous-arbre du frère précédent : **0** discordance sur les 14 410 couples de frères consécutifs. **Ce n'est pas une perte.** Site canonique du taux : `documentation/stores.md` |
 | **3. le plus grand écart entre deux enfants d'un même parent vaut 994** (993 valeurs intercalaires) | site : `doc_htms/MLOps with Databricks/7. Foundation Models and Context Engineering`. Un agent qui implémente « la fenêtre d'éléments » comme « les enfants de P dont `sequence ∈ [s−k, s+k]` » rendrait **silencieusement moins** d'éléments que demandé |
 
 Également `mesuré` : **0** arête à `sequence` nulle sur les 15 173.
@@ -2053,7 +2053,12 @@ texte a changé ne suffit pas : il faut vérifier que le comportement a changé.
 
 #### La mesure qui tranche — même mutation, même site, deux révisions
 
-Mutation posée au site unique de `_get_children` : le `| ORDER BY $-.seq ASC;`
+Mutation posée au site unique de `_get_children` — appelée ici **T2-bornes-figées**,
+et ce n'est PAS la mutation `M2` de la batterie du réparateur : celle-ci dérive
+ses bornes de l'ancre, la mienne les fige, donc la mienne ampute aussi les
+requêtes de sections **voisines** et fait tomber deux tests de plus. Deux corps
+différents sous un même nom dans deux pages qui fusionnent se lisent comme un
+désaccord ; les deux mesures sont justes. Le `| ORDER BY $-.seq ASC;`
 est remplacé par un encadrement **en aval d'un tube**,
 `| YIELD … WHERE $-.seq >= 65 AND $-.seq <= 77 | ORDER BY $-.seq ASC;`. Sur la
 fixture `graphe_non_contigu` — 15 enfants aux `sequence` 1, 11, … 141, ancre à
@@ -2162,3 +2167,114 @@ trois réserves de `sequence` côté agent — est le **lot 2**, en instance de
 fusion ici. Il ne sera rendu qu'une fois fusionné : *un artefact qu'on cite doit
 exister avant qu'on le cite*, et le pilote du dépôt jumeau s'est fait prendre à
 annoncer un prompt « prêt, dans tel fichier » sans l'avoir produit.
+
+### 4.17 L'audit de la réparation du lot 2 — la cécité de T2 n'est pas fermée, elle est déplacée
+
+L'audit indépendant de `d5b2c3c` (`Conv' 27`) a **reproduit les huit mutations
+de la batterie, les dix-sept chiffres publiés, et les cinq mesures du §4.15 —
+sans en renverser une seule**. Il rend une trouvaille **bloquante**, une
+sérieuse et six mineures. Sa recommandation — fusionner après correction — est
+suivie par le pilote, et sa cotation du bloquant est **maintenue par le pilote
+après remesure de ses propres mains**, non acceptée sur parole.
+
+**Ce qu'il confirme, et qui vaut d'être écrit.** Les huit mutations mordent aux
+`rc` et aux comptes de rouges publiés, à l'unité. Et il ajoute la moitié de
+mesure qui manquait à la batterie : **cinq des huit mutations étaient vertes
+avant la réparation et sont rouges après** (`M1`, `M2`, `M2b`, `M3`, `M4`) ;
+les trois autres mordaient déjà et le lot les renforce. *C'est la paire qui
+prouve, jamais une ligne seule.* Les trouvailles (c), (d) et (e) du §4.14 sont
+fermées sans réserve, (e) juste à l'unité — 21 octets d'écart, deuxième en
+lignes, cinquième en nombre de tests.
+
+#### B1 — BLOQUANT : la phrase d'exhaustivité de la borne est fausse
+
+`stores.md` et le docstring de `test_un_encadrement_aux_operandes_echangees_est_vu`
+affirment que le bouchon ne reconnaît ni une comparaison entre colonnes ni un
+`IN` sur une liste, *« aucune des deux n'écrit une fenêtre de lecture »*.
+**La moitié `IN` est fausse.**
+
+`mesuré` par le pilote le 4 septembre 2026, aux **mêmes bornes `[65, 77]` et au
+même site** que la mutation `T2-bornes-figées` du §4.15 :
+
+| l'encadrement, écrit ainsi | `rc` (`make test`) | rouges |
+|---|---|---|
+| `$-.seq >= 65 AND $-.seq <= 77`, en aval d'un tube | **2** | **5** |
+| `properties(edge).sequence IN [65…77]` | **0** | **0** — 502 passés |
+
+Et ce n'est pas une forme théorique. `mesuré` en **lecture seule** contre
+NebulaGraph en service le 4 septembre 2026, sur une ancre réellement amputée
+(parent `cde213aee4`, `sequence` 341, fenêtre `[335, 347]`) : les deux écritures
+sont **acceptées** par nGQL et rendent l'**ensemble identique**, avec la **même
+perte** — 12 éléments là où le découpage positionnel en rend 13. L'auditeur l'a
+mesuré sur une ancre à perte de 12 sur 13.
+
+**Au niveau du motif, la cécité est double et la seconde moitié est pire que la
+première** — `calculé` le 4 septembre 2026 sur les expressions du bouchon :
+
+| l'écriture | ce que `_FILTRE` en tire |
+|---|---|
+| `sequence >= 64 AND sequence <= 76` | `[('>=', '64'), ('<=', '76')]` — vue, appliquée |
+| `sequence IN [64…76]` | `[]` — **invisible**, le bouchon rend toutes les lignes |
+| `sequence - 64 >= 0 AND 76 - sequence >= 0` | `[('>=', '0')]` — **mal lue**, un filtre qui ne retire rien |
+
+La forme arithmétique est la plus insidieuse : le bouchon ne « ne reconnaît
+pas », il **mésinterprète silencieusement**, et son vert se lit comme un garde
+juste. Et `_FILTRE` ne voyant pas la forme `IN`, le **garde structurel de la
+réserve 1 est aveugle à la même requête** : une cécité, deux gardes — le critère
+exact qui a fait coter T2 bloquante au §4.14.
+
+**Pourquoi le pilote maintient bloquant, alors que le code de production est
+inchangé et qu'aucune régression n'est possible.** Ce n'est pas le trou de
+couverture qui bloque : c'est la **phrase**. La règle du chantier est que toute
+phrase du genre « aucun », « les deux seules », « il n'y a plus » est soit
+**bornée**, soit **gardée par un test** ; celle-ci n'est ni l'une ni l'autre, et
+elle est **fausse**. Le §4.14 avait écrit que tout le risque de ce lot était
+« dans ce que ses phrases autoriseront à croire » — c'en est une, et elle
+autorise à croire gardé ce qui est mesuré non gardé. *Un trou nommé se rouvre ;
+une énumération close ne se rouvre pas.*
+
+**La cause est de nature, pas d'énumération.** `GrapheFactice` modélise une
+clause `WHERE` nGQL par **recherche de sous-chaîne dans une expression**, et
+ignore la liste `YIELD`. Une grammaire d'expressions ne se borne pas par une
+liste de deux exceptions. La correction retenue est donc de rendre le bouchon
+**fail-closed** : lever sur toute clause portant `sequence` qu'il ne sait pas
+évaluer entièrement, au lieu de rendre toutes les lignes. C'est la forme que le
+§4.15 salue déjà sur le garde de la réserve 1 — *un garde dont la cécité produit
+un rouge est seulement bruyant*.
+
+#### A1 — SÉRIEUSE : le dénominateur de la non-contiguïté se contredisait d'une page à l'autre
+
+`stores.md` publiait `167 sur 692`, le §4.5 de ce registre `167 sur 763`, tous
+deux étiquetés `mesuré`, aucun ne renvoyant à l'autre. **Avant la réparation les
+deux s'accordaient** ; elle a corrigé son site et laissé l'autre. C'est la
+famille (f) du §4.14, et `167 sur 763` est la forme que sa propre trouvaille (h)
+avait déclarée fautive — *le registre portait donc la correction au §4.14 et
+l'erreur au §4.5.* **Corrigé par le pilote au site, avec renvoi au site
+canonique.** Les quatre autres chiffres de (f) — `994`, `1 141`/`7,5 %`, `162`,
+`12 sur 13` — restent à deux sites et sont traités à la fusion.
+
+C'est la troisième fois que ce chantier paie la même leçon : *une correction
+bornée au motif qu'on a tapé n'est pas une correction, c'est un échantillon.*
+
+#### Les six mineures, et qui les porte
+
+| | Ce que c'est | Qui |
+|---|---|---|
+| **A2** | le message de `d5b2c3c` **omet deux trouvailles que son diff ferme** — (e) et la recopie de `pour_le_pipeline_ingestion.md`. Un pilote qui clôt le registre sur le message clôt moins que ce qui est fait. Historique, non corrigeable sans réécrire un commit | consigné, sans action |
+| **A3** | **trois chiffres à renvoi faux et sans site rejouable** : les docstrings envoient chercher `334` et `80 sur 80` au « §4.6 » — ils sont au **§4.14**, `mesuré` — et le `40 parents sur 40` n'a **aucun site** dans `documentation/`, ni dans l'instrument. Or le docstring de l'instrument dit exister parce qu'« une page qui les affirme sans laisser de quoi les rejouer devient fausse en silence » | `Conv' 28` |
+| **A4** | **deux titres de ce registre deviennent faux à la fusion** — §4.5 « ne sont écrites nulle part » et §4.6 « le croit encore plat » — sans être marqués `→ FERMÉ par le lot 2`, alors que la convention existe au §4.1 et au §4.2 | le pilote, **à la fusion** |
+| **A5** | « encadrement en aval d'un tube » **nommait deux mutations différentes**, à 5 et 3 rouges, dans deux pages qui fusionnent. Les deux mesures sont justes ; c'est le nom partagé qui trompe. **Corrigé** : la mienne s'appelle `T2-bornes-figées` au §4.15 | fait |
+| **A6** | **le bouchon ignore la liste `YIELD`** : une réécriture qui renomme la colonne projetée rend **0 ligne** sur le vrai graphe — nGQL refuse l'alias en entrée du `WHERE` du même `YIELD` — et **toutes les lignes** dans le bouchon, suite verte. Même racine que B1, et la correction fail-closed la couvre | `Conv' 28` |
+| **A7** | (g) et (h) gardent chacun un résidu, tous deux **antérieurs au lot** et mesurés inoffensifs : `mypy scripts/` reste `rc=1`, **26 erreurs dans 3 fichiers** — donc aligner les périmètres du `Makefile` rendrait toujours la porte rouge ; et le `MATCH` paginé sans `ORDER BY` de l'instrument rend une sortie **identique octet pour octet** à `_PAGE` = 500, 3 000, 5 000 et 20 000 | ouvert, hors périmètre |
+
+#### La borne que l'audit pose sur une affirmation du pilote, et il a raison
+
+Le §4.15 écrit que le garde structurel de la réserve 1 est **« fail-closed par
+construction »**. L'auditeur borne : cela ne tient que si **aucune** requête de
+la scène ne matche `_FILTRE`. En présence d'un encadrement classique ailleurs
+dans la même scène, la précondition d'atteignabilité est satisfaite par cette
+autre requête, et le garde passe **vert** sur une comparaison de `sequence` non
+ancrée. La propriété reste défendue — six autres rouges tombent — mais **par
+d'autres gardes, pas par celui-là**. « Fail-closed par construction » est donc
+juste **dans la scène mesurée**, pas en général : la phrase du §4.15 se lit
+bornée à sa scène.
