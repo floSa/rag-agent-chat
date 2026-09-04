@@ -17,7 +17,17 @@ Ce qu'il rend, et où ça vit :
 - les trois réserves de `sequence` → `documentation/stores.md` ;
 - la forme du graphe (profondeur, imbrication des titres) → §4.6 de
   `documentation/axes_amelioration.md` ;
-- ce qu'un encadrement `sequence ∈ [s−k, s+k]` amputerait → `stores.md`.
+- ce qu'un encadrement `sequence ∈ [s−k, s+k]` amputerait → `stores.md` ;
+- les écritures d'un même encadrement, et l'ordre rendu avec et sans
+  `ORDER BY` → `stores.md`, section « Ce que le bouchon modélise ».
+
+LA DERNIÈRE SECTION A ÉTÉ AJOUTÉE PARCE QUE TROIS CHIFFRES PUBLIÉS N'AVAIENT
+PAS DE SITE REJOUABLE. Les `334` parents à treize enfants ou plus, le `80 sur
+80` de l'ordre non trié, et l'accord entre deux écritures d'un même encadrement
+étaient affirmés dans des docstrings et dans le registre, et aucun instrument ne
+les imprimait — le dernier n'était même publié nulle part. C'est exactement ce
+que le paragraphe ci-dessus interdit ; il valait aussi pour ce que ce fichier ne
+mesurait pas encore.
 
 Le garde qui rend le découpage positionnel non négociable est ailleurs, et il
 ne dépend pas de ce script : `tests/unit/test_lecture_sequence.py`.
@@ -41,6 +51,11 @@ _PAGE = 5000
 # définition. C'est la population sur laquelle le taux de non-contiguïté se
 # mesure, et la nommer évite de la reconfondre avec « tous les parents ».
 _MIN_ENFANTS_ELIGIBLES = 2
+# Nombre de parents confrontes par `rapporter_les_ecritures`. Borne parce que
+# chaque parent coute six aller-retours nGQL ; c'est la meme taille que celle
+# des chiffres publies au §4.14 de `documentation/axes_amelioration.md`, ce qui
+# rend les deux mesures directement comparables.
+_ECHANTILLON = 80
 
 
 def _pool() -> Any:
@@ -294,10 +309,103 @@ def rapporter(aretes: list[tuple[str, str, int | None]], tags: dict[str, str]) -
     print(f"  intersection / union      : {len(avant & apres)} / {len(avant | apres)}")
 
 
+def rapporter_les_ecritures(pool: Any, aretes: list[tuple[str, str, int | None]]) -> None:
+    """Les écritures d'un même encadrement, confrontées sur le graphe EN SERVICE.
+
+    CETTE SECTION EXISTE PARCE QUE TROIS CHIFFRES ÉTAIENT PUBLIÉS SANS SITE
+    REJOUABLE. Le docstring en tête de ce fichier dit qu'« une page qui les
+    affirme sans laisser de quoi les rejouer devient fausse en silence » ; la
+    phrase valait aussi pour ce qu'elle ne mesurait pas encore.
+
+    Ce qui est confronté, et pourquoi c'est cette question-là : le graphe
+    factice de `tests/unit/test_lecture_sequence.py` doit se comporter comme
+    NebulaGraph sur les écritures d'un encadrement de `sequence`. S'il en
+    ignore une, une mutation qui l'emploie passe en vert. Les quatre écritures
+    ci-dessous sont donc mesurées ICI, sur le vrai moteur, et c'est ce qui
+    interdit de les traiter comme des formes de laboratoire.
+
+    LECTURE SEULE : quatre `GO FROM`, aucun `INSERT`, aucun `MATCH` d'écriture.
+    """
+    enfants: dict[str, list[tuple[int, str]]] = {}
+    for parent_id, enfant, seq in aretes:
+        if seq is not None:
+            enfants.setdefault(parent_id, []).append((seq, enfant))
+
+    eligibles = sorted(
+        p for p, fils in enfants.items() if len(fils) >= _AVANT + _APRES + 1
+    )
+    echantillon = eligibles[:_ECHANTILLON]
+    print("\n── Les écritures d'un même encadrement, sur le graphe en service ──")
+    print(f"parents à {_AVANT + _APRES + 1} enfants ou plus : {len(eligibles)}")
+    print(f"parents testés                : {len(echantillon)}")
+
+    accords = dict.fromkeys(("tube", "in", "arithmetique"), 0)
+    lignes_alias = 0
+    tries_sans_ordre = 0
+    tries_avec_ordre = 0
+    for parent_id in echantillon:
+        fils = sorted(enfants[parent_id])
+        milieu = fils[len(fils) // 2]
+        bas, haut = milieu[0] - _AVANT, milieu[0] + _APRES
+        depart = f'GO FROM "{parent_id}" OVER PARENT_OF '
+        projection = "YIELD dst(edge) AS child_id, properties(edge).sequence AS seq "
+        liste = ", ".join(str(v) for v in range(bas, haut + 1))
+        formes = {
+            "classique": depart
+            + f"WHERE properties(edge).sequence >= {bas} "
+            + f"AND properties(edge).sequence <= {haut} "
+            + projection,
+            "tube": depart
+            + projection
+            + "| YIELD $-.child_id AS child_id, $-.seq AS seq "
+            + f"WHERE $-.seq >= {bas} AND $-.seq <= {haut}",
+            "in": depart
+            + f"WHERE properties(edge).sequence IN [{liste}] "
+            + projection,
+            "arithmetique": depart
+            + f"WHERE properties(edge).sequence - {bas} >= 0 "
+            + f"AND {haut} - properties(edge).sequence >= 0 "
+            + projection,
+            "alias": depart
+            + projection
+            + "| YIELD $-.child_id AS child_id, $-.seq AS rang "
+            + f"WHERE $-.rang >= {bas} AND $-.rang <= {haut}",
+        }
+        rendus = {}
+        for nom, nql in formes.items():
+            resultat = _run(pool, nql + ";")
+            rendus[nom] = {
+                resultat.row_values(i)[0].as_string() for i in range(resultat.row_size())
+            }
+        for nom in accords:
+            if rendus[nom] == rendus["classique"]:
+                accords[nom] += 1
+        lignes_alias += len(rendus["alias"])
+
+        # …et l'ordre que NebulaGraph rend, avec et sans `ORDER BY`. C'est le
+        # second chiffre qui n'avait pas de site : le bouchon ne doit pas
+        # FABRIQUER un ordre que le moteur ne promet pas.
+        brut = _run(pool, depart + projection + ";")
+        seqs = [int(brut.row_values(i)[1].as_int()) for i in range(brut.row_size())]
+        trie = _run(pool, depart + projection + "| ORDER BY $-.seq ASC;")
+        seqs_tries = [int(trie.row_values(i)[1].as_int()) for i in range(trie.row_size())]
+        tries_sans_ordre += seqs == sorted(seqs)
+        tries_avec_ordre += seqs_tries == sorted(seqs_tries)
+
+    n = len(echantillon)
+    print(f"  classique == aval d'un tube ($-.seq)   : {accords['tube']} sur {n}")
+    print(f"  classique == IN sur une liste          : {accords['in']} sur {n}")
+    print(f"  classique == forme arithmétique        : {accords['arithmetique']} sur {n}")
+    print(f"  alias de YIELD : lignes rendues au total : {lignes_alias}")
+    print(f"  enfants NON triés sans `ORDER BY`      : {n - tries_sans_ordre} sur {n}")
+    print(f"  enfants triés avec `ORDER BY`          : {tries_avec_ordre} sur {n}")
+
+
 def main() -> int:
     pool = _pool()
     aretes, tags = lire_le_graphe(pool)
     rapporter(aretes, tags)
+    rapporter_les_ecritures(pool, aretes)
     return 0
 
 

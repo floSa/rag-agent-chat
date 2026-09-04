@@ -198,9 +198,10 @@ verte, `rc=0`, 496 passés, zéro rouge. Et un encadrement écrit **en aval d'un
 tube** — `| YIELD … WHERE $-.seq >= …`, du nGQL aussi légitime que l'autre —
 était invisible au bouchon, qui rendait donc toutes les lignes.
 
-**La borne de ce qui est gardé aujourd'hui**, `mesuré` le 3 septembre 2026 dans
-un environnement monté par le protocole du §2.2 du registre de pilotage — huit
-mutations passées, huit rouges, sur le code sain `rc=0` et 502 passés :
+**La borne de ce qui est gardé aujourd'hui**, `mesuré` le 4 septembre 2026 dans
+un environnement monté par le protocole du §2.2 du registre de pilotage — onze
+mutations passées, onze rouges, sur le code sain `rc=0` et 520 passés. Le `rc`
+est celui du processus `make`, qui rend 2 là où `pytest` rend 1 :
 
 | mutation | `rc` | rouges |
 |---|---|---|
@@ -209,20 +210,73 @@ mutations passées, huit rouges, sur le code sain `rc=0` et 502 passés :
 | ce même `ORDER BY` retourné en `DESC` | 2 | 3 |
 | encadrement écrit en aval d'un tube (`$-.seq`) | 2 | 3 |
 | encadrement aux opérandes échangées (`N <= …`) | 2 | 3 |
+| encadrement par `IN` sur une liste | 2 | 9 |
+| encadrement sous forme arithmétique (`sequence − B >= 0`) | 2 | 9 |
+| alias de la liste `YIELD` filtré dans le `WHERE` du même `YIELD` | 2 | 9 |
 | la prémisse morte remise dans le code — voisine cherchée sous le `Document` | 2 | 1 |
 | `_MAX_DEPTH` ramené à 2 | 2 | 1 |
 | la remontée s'arrête au premier en-tête | 2 | 2 |
+
+> Les trois mutations du milieu sont NEUVES, et **les trois étaient vertes**
+> avant le 4 septembre 2026 — `rc=0`, zéro rouge, 502 passés, le texte de la
+> requête pourtant changé (`git diff --numstat` : 13 à 14 lignes). C'est la
+> paire qui prouve, jamais une ligne seule.
 
 **Ce qui n'est PAS gardé, et il faut le lire avant de s'appuyer sur la phrase
 ci-dessus** : la définition de « section voisine » elle-même — « le frère
 en-tête sous le parent commun » — n'est éprouvée par aucun garde, parce que ce
 n'est pas un défaut mais une décision ouverte (les **381** en-têtes concernés,
-§4.6 de [`axes_amelioration.md`](axes_amelioration.md)). Le bouchon reconnaît
-les comparaisons de `sequence` à un littéral entier, dans les deux écritures
-(`properties(edge).sequence` et `$-.seq`) et les deux ordres d'opérandes ; il ne
-reconnaît ni une comparaison entre deux colonnes, ni un `IN` sur une liste —
-aucune des deux n'écrit une fenêtre de lecture. Les tests qui appellent
-`_window_around` seul, enfin, restent verts des deux côtés du défaut.
+§4.6 de [`axes_amelioration.md`](axes_amelioration.md)). Les tests qui appellent
+`_window_around` seul, enfin, restent verts des deux côtés du défaut. Ce que le
+bouchon évalue — et ce qu'il fait de tout le reste — est dit juste en dessous,
+et cette phrase-là est gardée par un test.
+
+### Ce que le bouchon modélise, et ce qu'il fait de tout le reste
+
+**La phrase qui se trouvait ici était fausse, et sa fausseté était mesurable.**
+Elle affirmait que le bouchon « ne reconnaît ni une comparaison entre deux
+colonnes, ni un `IN` sur une liste — aucune des deux n'écrit une fenêtre de
+lecture ». Un `IN` sur une liste écrit exactement une fenêtre de lecture :
+`mesuré` en **lecture seule** contre NebulaGraph en service le 4 septembre 2026,
+sur une ancre réellement amputée — parent `cde213aee4`, `sequence` 341, fenêtre
+`[335, 347]` — nGQL l'accepte et rend l'**ensemble identique** à l'encadrement
+classique, avec la **même perte** : 12 éléments là où le découpage positionnel
+en rend 13.
+
+`rejoué` le 4 septembre 2026 par `scripts/mesurer_le_graphe.py`, sur les 80
+premiers des 334 parents à treize enfants ou plus :
+
+| l'écriture de l'encadrement | rend le même ensemble que l'écriture classique |
+|---|---|
+| en aval d'un tube — `\| YIELD … WHERE $-.seq >= …` | **80 sur 80** |
+| `IN` sur une liste de valeurs | **80 sur 80** |
+| arithmétique — `sequence − B >= 0 AND H − sequence >= 0` | **80 sur 80** |
+| alias de la liste `YIELD` — `$-.seq AS rang WHERE $-.rang >= …` | **0 ligne rendue** : nGQL refuse l'alias en entrée du `WHERE` du même `YIELD` |
+
+**Ce que le bouchon fait aujourd'hui, et c'est une propriété, pas une
+énumération.** Il évalue une clause `WHERE` réduite à une conjonction (`AND`) de
+comparaisons entre la `sequence` de l'arête — ou une colonne d'amont qui la
+porte — et un **littéral entier**. Sur tout le reste qui touche à `sequence`, il
+**lève** (`ClauseNonEvaluableError`) au lieu de rendre toutes les lignes.
+
+*Une grammaire d'expressions ne se borne pas par une liste de deux exceptions* :
+la classe resterait ouverte sur le membre suivant, et la phrase redeviendrait
+fausse. Un garde dont la cécité produit un rouge est seulement bruyant ; un
+garde dont la cécité produit un vert est décoratif.
+
+**Et cette phrase-ci est GARDÉE, elle**, par
+`tests/unit/test_lecture_sequence.py` :
+
+| ce qui est gardé | par |
+|---|---|
+| huit écritures que le bouchon ne sait pas évaluer LÈVENT | `TestLeBouchonLeveSurCeQuIlNeSaitPasEvaluer::test_le_bouchon_leve` |
+| le garde structurel de la réserve 1 lève sur les mêmes — *une cécité ne défait plus deux gardes en silence* | `…::test_le_garde_structurel_leve_sur_les_memes` |
+| la requête RÉELLE de `_get_children`, qui NOMME `sequence` dans sa liste `YIELD` sans la comparer, ne lève PAS | `TestLeBouchonNeLevePasSurLeCodeSain::test_la_requete_reelle_de_get_children_ne_leve_pas` |
+| un prédicat étranger à `sequence` est ignoré, et non refusé — la borne de la borne | `…::test_un_predicat_etranger_a_sequence_est_ignore_et_non_leve` |
+
+Les deux derniers ne sont pas décoratifs : sans eux, la borne pourrait se
+resserrer jusqu'à rougir sur du code juste sans qu'une ligne le dise. Le code de
+production nomme bel et bien `properties(edge).sequence` — dans une PROJECTION.
 
 Pour la forme du graphe elle-même — profondeur, imbrication des titres, et les
 214 en-têtes sans frère en-tête — le site canonique est le **§4.6** de
