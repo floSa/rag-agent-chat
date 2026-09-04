@@ -147,6 +147,35 @@ def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _concordance_du_modele_embedding_neutre(monkeypatch):
+    """Ce fichier mesure le parallélisme de /health, pas la concordance.
+
+    Depuis le lot 3, /health lit aussi l'estampille du modèle d'embedding de la
+    collection. Non branchée, cette lecture ouvrirait une VRAIE connexion vers
+    l'hôte `chromadb` : ces tests dépendraient alors d'un échec de résolution DNS
+    pour rester rapides et verts — un montage qui tient par accident et qui
+    changerait de comportement le jour où ce nom se résout.
+
+    Branchée sur l'état concordant, elle ne dégrade rien et ne coûte rien. Ce que
+    /health publie de la concordance est gardé dans
+    `tests/unit/test_garde_modele_embedding.py`, pas ici.
+    """
+    from src.agent.settings import settings
+    from src.api import main
+    from src.api.schemas import EmbeddingModelHealth
+
+    monkeypatch.setattr(
+        main,
+        "etat_modele_embedding",
+        lambda: EmbeddingModelHealth(
+            status="ok",
+            expected=settings.embedding_model_name,
+            collection=settings.embedding_model_name,
+        ),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _sans_sonde_en_vol():
     """Les drapeaux « en vol » sont un état de module : un test qui abandonne une
     sonde le laisse posé, et le test suivant croirait la sonde encore en vol.

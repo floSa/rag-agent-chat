@@ -9,11 +9,18 @@ savoir oublier son cache et retenter une fois.
 import pytest
 
 from src.agent import graph_context, minio_client, retriever
+from src.agent.settings import settings
 
 # ─── ChromaDB ─────────────────────────────────────────────────────────────────
 
 def test_chroma_rouvre_la_collection_et_retente(monkeypatch) -> None:
     class DeadThenAlive:
+        # L'estampille du modèle d'embedding, concordante : depuis le lot 3, la
+        # recherche dense la confronte au réglage avant de partir. Une collection
+        # qui n'en porte pas est REFUSÉE — c'est le garde, pas un accident de
+        # montage — et ce test-ci mesure la réouverture, pas la concordance.
+        metadata = {"embedding_model": settings.embedding_model_name}
+
         def __init__(self) -> None:
             self.calls = 0
 

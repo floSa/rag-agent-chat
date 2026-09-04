@@ -10,8 +10,9 @@ from typing import Any
 
 import httpx
 from anyio import to_thread
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_core.runnables import RunnableConfig
 from sse_starlette.sse import EventSourceResponse
 
@@ -30,6 +31,8 @@ from src.agent.graph_context import reconstruct_section
 from src.agent.llm import PromptFit, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import (
+    EmbeddingModelMismatchError,
+    etat_modele_embedding,
     group_by_document,
     lexical_ready,
     lexical_stale,
@@ -50,6 +53,7 @@ from src.api.schemas import (
     ChatRequest,
     ChatResponse,
     Citation,
+    EmbeddingModelHealth,
     FeedbackRequest,
     FeedbackResponse,
     GenerationMeasure,
@@ -84,6 +88,85 @@ def interactive_graph() -> Any:
     return _interactive
 
 
+# ─── Concordance du modèle d'embedding ───────────────────────────────────────
+#
+# OÙ LE GARDE VIT, ET POURQUOI PAS ICI. Le garde qui REFUSE est dans
+# `retriever._dense_search` : c'est le site qui produit le comportement à
+# empêcher, et le seul que tout chemin de recherche traverse. Ce qui suit est sa
+# VOIX — le démarrage la dit tôt, `/health` la dit en continu — et non le garde
+# lui-même. Un rapport ne protège de rien : entre le moment où la divergence
+# devient lisible dans `/health` et celui où quelqu'un la lit, un agent qui
+# continuerait de chercher servirait des réponses fausses.
+#
+# CE QUE LE DÉMARRAGE NE FAIT PAS, ET C'EST UNE DÉCISION. Il ne lève pas. Lever
+# ici tuerait le processus : `frontend` attend `agent-api` en `service_healthy`
+# (`docker-compose.yml`), donc un agent qui ne démarre pas laisse l'exploitant
+# devant un frontend absent, sans un mot sur le modèle d'embedding. Ce dépôt a
+# déjà payé cette forme-là une fois, pour une autre cause — c'est tout le sujet
+# de `tests/unit/test_health_parallele.py` — et la reproduire serait défaire une
+# décision mesurée. Le refus est donc porté par la recherche, qui rend 503 en
+# nommant les deux modèles, pendant que le processus reste debout pour l'expliquer.
+
+def _embedding_inconnu() -> EmbeddingModelHealth:
+    """Ce qu'on publie quand la sonde n'est pas revenue ou a levé."""
+    return EmbeddingModelHealth(
+        status="unknown", expected=settings.embedding_model_name, collection=None
+    )
+
+
+def _journaliser_concordance(etat: EmbeddingModelHealth) -> None:
+    """Dit au journal ce que la sonde a trouvé, au niveau que ça mérite."""
+    if etat.status == "ok":
+        logger.info(
+            "Modèle d'embedding : la collection '%s' est estampillée '%s', "
+            "conforme au réglage.",
+            settings.chroma_collection,
+            etat.collection,
+        )
+    elif etat.status == "mismatch":
+        logger.error(
+            "MODÈLE D'EMBEDDING DIVERGENT : la collection '%s' a été indexée avec '%s' "
+            "et le réglage nomme '%s'. Les deux rendent des vecteurs de même largeur, "
+            "donc la recherche rendrait des passages plausibles et FAUX. Toute recherche "
+            "est refusée en 503 jusqu'à ce que les deux côtés s'accordent.",
+            settings.chroma_collection,
+            etat.collection,
+            etat.expected,
+        )
+    elif etat.status == "missing":
+        logger.error(
+            "MODÈLE D'EMBEDDING INVÉRIFIABLE : la collection '%s' ne porte aucune "
+            "estampille `embedding_model`, donc rien ne dit avec quel modèle elle a été "
+            "indexée, et l'agent la lirait avec '%s'. Toute recherche est refusée en "
+            "503 : réingérer avec le pipeline courant, qui estampille.",
+            settings.chroma_collection,
+            etat.expected,
+        )
+    else:
+        logger.warning(
+            "Modèle d'embedding : estampille de la collection '%s' illisible (ChromaDB "
+            "muet ou injoignable). La concordance sera revérifiée à la première "
+            "recherche ; le réglage nomme '%s'.",
+            settings.chroma_collection,
+            settings.embedding_model_name,
+        )
+
+
+async def _concordance_embedding() -> EmbeddingModelHealth:
+    """Lit l'estampille sous le plafond des sondes, et sans lâcher plus d'un fil.
+
+    Sous le MÊME plafond que les sondes de `/health`, et par le MÊME garde « en
+    vol » : la lecture est locale une fois la collection ouverte, mais l'ouvrir
+    est un aller-retour réseau, et un ChromaDB muet bloquerait le fil. Employée
+    aussi au démarrage, où un plafond est tout aussi nécessaire — sans lui, un
+    store muet empêcherait l'agent de démarrer, ce que ce lot a précisément
+    décidé de ne pas faire.
+    """
+    tache = asyncio.create_task(_sonder("modele_embedding", etat_modele_embedding))
+    await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
+    return _relever("modele_embedding", tache, si_levee=None) or _embedding_inconnu()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Ouvre le checkpointer avant de servir, le referme à l'arrêt."""
@@ -113,6 +196,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         capture.size_bytes // 1024,
         capture.path,
     )
+    # La concordance du modèle d'embedding, dite AVANT la première question
+    # plutôt qu'à la première recherche. Elle ne bloque pas le démarrage — voir
+    # le commentaire en tête de cette section — mais la taire jusqu'à ce qu'un
+    # utilisateur cherche laisserait un agent inutilisable passer pour sain.
+    _journaliser_concordance(await _concordance_embedding())
     try:
         yield
     finally:
@@ -148,6 +236,28 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
         return
     if not secrets.compare_digest(x_api_key, settings.api_key):
         raise HTTPException(status_code=401, detail="Clé d'API absente ou invalide.")
+
+# ─── Refus de servir sur un index qu'un autre modèle a produit ───────────────
+
+@app.exception_handler(EmbeddingModelMismatchError)
+async def _refus_modele_embedding(
+    _request: Request, exc: EmbeddingModelMismatchError
+) -> JSONResponse:
+    """503, et le motif dans le corps.
+
+    503 se lit « je ne peux pas servir dans cet état », ce qui est vrai et
+    actionnable. 500 se lirait « j'ai un bug » et enverrait chercher au mauvais
+    endroit : le code est intact, c'est l'accord entre le réglage et l'index qui
+    ne l'est pas. Le motif voyage dans le corps parce que les journaux d'un
+    conteneur ne sont pas toujours à portée de qui lit la réponse.
+
+    Journalisé en ERROR à chaque refus, et non une fois : ce n'est pas une
+    nuisance de journal, c'est le seul endroit où l'exploitant verra que des
+    requêtes réelles se cassent sur cette panne-là.
+    """
+    logger.error("Recherche refusée — %s", exc)
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
 
 # ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -186,7 +296,7 @@ _PLAFOND_SONDES_S = 3.0
 _sondes_en_vol: set[str] = set()
 
 
-def _executer_sonde(nom: str, sonde: Callable[[], bool]) -> bool:
+def _executer_sonde[T](nom: str, sonde: Callable[[], T]) -> T:
     """Exécute une sonde synchrone DANS le fil du threadpool.
 
     Le drapeau « en vol » est posé et retiré ici, par le fil lui-même, et non par
@@ -201,7 +311,7 @@ def _executer_sonde(nom: str, sonde: Callable[[], bool]) -> bool:
         _sondes_en_vol.discard(nom)
 
 
-async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
+async def _sonder[T](nom: str, sonde: Callable[[], T]) -> T | None:
     """Lance une sonde synchrone, ou renonce si son fil précédent tourne encore.
 
     Le plafond, lui, ne vient PAS de `abandon_on_cancel` : il vient de
@@ -223,6 +333,11 @@ async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
     observable ici : consigné comme tel au registre (§1.27).
 
     Rend None pour « pas de réponse », qui n'est pas « le service est tombé ».
+
+    Générique sur le retour, et pas seulement booléenne : la lecture de
+    l'estampille du modèle d'embedding passe par le même mécanisme et rend un
+    rapport à quatre états. Le drapeau « en vol », lui, ne dépend pas du type de
+    ce que la sonde rend.
     """
     if nom in _sondes_en_vol:
         logger.debug("/health: sonde %s encore en vol, aucun second fil lancé", nom)
@@ -327,10 +442,16 @@ async def health() -> HealthResponse:
     # et la connexion abandonnée le ferme en se faisant collecter — au plus une à
     # la fois, le healthcheck ne passant que toutes les 20 s.
     tache_usage = asyncio.create_task(usage_stats())
+    # Sous le même plafond et le même garde « en vol » que les quatre sondes,
+    # mais HORS de `services` : ce dict est un `dict[str, bool]`, et un booléen
+    # ne sait pas dire lequel des quatre états est en cause — surtout pas
+    # distinguer « la collection ne porte pas d'estampille » de « je n'ai pas pu
+    # la lire », qui ne se soignent pas pareil.
+    tache_embedding = asyncio.create_task(_sonder("modele_embedding", etat_modele_embedding))
 
     # Liste typée `Future[Any]` : les tâches n'ont pas toutes le même type de
     # résultat, et c'est bien la même attente qui les borne toutes.
-    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage]
+    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage, tache_embedding]
     await asyncio.wait(attente, timeout=_PLAFOND_SONDES_S)
 
     services: dict[str, bool] = {}
@@ -350,7 +471,18 @@ async def health() -> HealthResponse:
     # recherche, elle ne l'empêche pas. Le healthcheck Docker ne doit pas
     # redémarrer le service pour ça.
     essentiels = {k: v for k, v in services.items() if k != "index_lexical"}
-    status = "ok" if all(essentiels.values()) else "degraded"
+    # Une concordance REFUSÉE dégrade à elle seule, quatre sondes vertes ou non :
+    # l'agent répond, les stores répondent, et pourtant toute recherche rend 503.
+    # Un statut « ok » décrirait alors un service qui ne sert rien.
+    #
+    # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
+    # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier
+    # « degraded » sur une sonde qui n'est pas revenue reviendrait aussi à faire
+    # dire à l'agent « ça diverge » quand il n'en sait rien — la distinction que
+    # `services_unknown` tient déjà par ailleurs.
+    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
+    concordance_refusee = embedding.status in {"mismatch", "missing"}
+    status = "ok" if all(essentiels.values()) and not concordance_refusee else "degraded"
     # Hors du plafond, et borné : `sessions.stats()` et `sessions.durable()` ne
     # lisent que des compteurs en mémoire et un réglage — aucune entrée-sortie,
     # donc rien qui puisse attendre. `stats` absorbe ses propres échecs et rend
@@ -371,6 +503,7 @@ async def health() -> HealthResponse:
             purged=purgees,
             failures=echecs,
         ),
+        embedding_model=embedding,
     )
 
 

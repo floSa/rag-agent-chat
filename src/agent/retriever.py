@@ -10,7 +10,7 @@ from sentence_transformers import CrossEncoder, SentenceTransformer
 from src.agent.chronometrie import Chrono
 from src.agent.lexical import LexicalIndex, chunk_from_record, fuse
 from src.agent.settings import settings
-from src.api.schemas import ChunkResult, SourceGroup
+from src.api.schemas import ChunkResult, EmbeddingModelHealth, SourceGroup
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,150 @@ def _get_chroma_collection() -> chromadb.Collection:
 
 
 def reset_connection() -> None:
-    """Oublie la collection mise en cache, pour la rouvrir au prochain appel."""
+    """Oublie la collection mise en cache, pour la rouvrir au prochain appel.
+
+    Réarme aussi le verdict de concordance : la collection rouverte peut être
+    une AUTRE collection — une réingestion a pu passer entre-temps — donc un
+    verdict établi sur la précédente ne vaut plus rien.
+    """
     _get_chroma_collection.cache_clear()
+    rearmer_verification_modele()
+
+
+# ─── Le garde du modèle d'embedding ──────────────────────────────────────────
+#
+# LA PANNE. Les deux modèles candidats du projet rendent des vecteurs de la même
+# largeur — 384 dimensions, site canonique `documentation/axes_amelioration.md`
+# §4.4. ChromaDB accepte donc sans broncher un index produit par l'un et
+# interrogé par l'autre : pas d'exception, pas de ligne de journal, aucune sonde
+# de forme qui voie quoi que ce soit. La recherche rend simplement des passages
+# PLAUSIBLES ET FAUX. Vérifier la dimension ne protège de rien ; c'est le NOM
+# qui discrimine, et c'est déjà arrivé une fois sur ce système.
+#
+# CE QUI REND LE GARDE POSSIBLE. Le pipeline d'ingestion estampille la
+# collection : `collection.metadata["embedding_model"]` porte le nom du modèle
+# qui a produit les vecteurs. Le producteur avait fait sa moitié ; ceci est
+# celle du lecteur.
+#
+# CE QUE LA LECTURE COÛTE, ET C'EST POURQUOI ELLE PEUT VIVRE SUR LE CHEMIN DE
+# CHAQUE RECHERCHE. `Collection.metadata` est une propriété LOCALE du client
+# chromadb (1.5.9 : `return self._model.metadata`), remplie au `get_collection`.
+# La lire ne fait aucun aller-retour — contrairement à `count()`, qui en fait un
+# et dont `lexical_stale` paie le prix à chaque appel.
+#
+# CE QUE CETTE ÉCONOMIE COÛTE EN RETOUR, et c'est une réserve, pas un détail :
+# l'estampille lue est celle capturée à l'ouverture de la collection. Une
+# réingestion qui changerait de modèle pendant que l'agent tourne ne serait vue
+# qu'après `reset_connection()` — donc après une panne de Chroma, ou un
+# redémarrage. Le pipeline ne réingère pas sous l'agent sans que quelqu'un le
+# sache ; ce qui reste ouvert est consigné dans le rapport du lot.
+
+class EmbeddingModelMismatchError(RuntimeError):
+    """La collection n'a pas été produite par le modèle avec lequel on la lit.
+
+    Ou bien on ne sait pas ce qui l'a produite, ce qui revient au même : dans les
+    deux cas, rien ne permet d'affirmer que les vecteurs de la question et ceux
+    de l'index vivent dans le même espace.
+    """
+
+
+# Verdict favorable déjà établi. Un bool de module : plusieurs fils du threadpool
+# peuvent le lire et l'écrire, et le pire cas est une vérification faite deux
+# fois — sans entrée-sortie, l'estampille étant locale. Un verrou coûterait plus
+# cher que ce qu'il éviterait. Seul le verdict FAVORABLE est retenu : un refus
+# est re-mesuré à chaque appel, pour qu'une réparation soit visible sans avoir à
+# redémarrer, et parce qu'on ne sert rien pendant ce temps de toute façon.
+_concordance_etablie = False
+
+
+def rearmer_verification_modele() -> None:
+    """Oublie le verdict favorable, pour que la prochaine lecture le refasse."""
+    global _concordance_etablie
+    _concordance_etablie = False
+
+
+def _lire_estampille() -> str | None:
+    """Le nom du modèle qui a produit la collection, None s'il n'est pas inscrit.
+
+    LÈVE si le store est illisible, et c'est voulu : « je n'ai pas pu lire » ne
+    doit jamais se confondre avec « la collection ne porte pas d'estampille ».
+    Le premier est un fait sur ChromaDB, le second un fait sur ce qui a indexé.
+    """
+    metadata = _get_chroma_collection().metadata or {}
+    estampille = metadata.get("embedding_model")
+    return str(estampille) if estampille is not None else None
+
+
+def verifier_modele_embedding() -> None:
+    """Refuse de lire une collection qu'un autre modèle a produite.
+
+    Appelée en tête de la recherche dense, AVANT tout chargement de modèle : le
+    constructeur `SentenceTransformer` télécharge ce qui manque au cache, et un
+    garde placé après paierait le rapatriement du mauvais modèle avant de le
+    refuser.
+
+    Une estampille ABSENTE est refusée comme une divergence. C'est la décision du
+    lot, et c'est le cœur du problème : un garde qui ne comparerait que lorsque
+    l'estampille est présente serait décoratif sur exactement le cas où l'on ne
+    sait pas ce qui a indexé. Le prix est réel — une collection produite par un
+    pipeline plus ancien n'en porte pas, et l'agent la refusera — et il est
+    payé sciemment : le geste de réparation est court et nommé dans le message,
+    alors qu'un index lu de travers ne se voit qu'en relisant les réponses une
+    par une.
+
+    Une estampille ILLISIBLE n'est pas refusée ici : l'erreur du store remonte
+    telle quelle. La recherche échouera de toute façon, et masquer une panne de
+    ChromaDB derrière une erreur de configuration enverrait chercher au mauvais
+    endroit.
+    """
+    global _concordance_etablie
+    if _concordance_etablie:
+        return
+    attendu = settings.embedding_model_name
+    estampille = _lire_estampille()
+    if estampille is None:
+        raise EmbeddingModelMismatchError(
+            f"La collection '{settings.chroma_collection}' ne porte aucune estampille "
+            f"`embedding_model` : rien ne dit avec quel modèle elle a été indexée, et "
+            f"l'agent s'apprête à la lire avec '{attendu}'. Les modèles candidats de ce "
+            f"projet rendent des vecteurs de même largeur, donc une erreur ici ne "
+            f"produirait aucune exception, seulement des passages plausibles et faux. "
+            f"Réparation : réingérer avec le pipeline courant, qui estampille, ou "
+            f"inscrire l'estampille sur la collection si l'on sait ce qui l'a produite."
+        )
+    if estampille != attendu:
+        raise EmbeddingModelMismatchError(
+            f"La collection '{settings.chroma_collection}' a été indexée avec "
+            f"'{estampille}', et l'agent s'apprête à la lire avec '{attendu}'. Les deux "
+            f"rendent des vecteurs de même largeur : ChromaDB ne s'en plaindra pas et la "
+            f"recherche rendra des passages plausibles et faux. Réparation : aligner "
+            f"EMBEDDING_MODEL_NAME sur '{estampille}', ou réingérer avec '{attendu}'."
+        )
+    _concordance_etablie = True
+
+
+def etat_modele_embedding() -> EmbeddingModelHealth:
+    """Le même fait, sous la forme d'un rapport plutôt que d'un refus.
+
+    Sert `/health` et le démarrage. Ne lève JAMAIS : une sonde qui tombe fait
+    tomber la route qui la porte, et `/health` doit répondre 200 même dégradé
+    sous peine de faire redémarrer le service en boucle.
+
+    L'absorption est LARGE — le client chromadb remonte des erreurs de transport,
+    de sérialisation et de schéma sans ancêtre commun, cf. `_taille_collection` —
+    et elle n'est pas muette : ce qu'elle attrape devient `unknown`, publié comme
+    tel dans la réponse, et le démarrage le journalise en WARNING.
+    """
+    attendu = settings.embedding_model_name
+    try:
+        estampille = _lire_estampille()
+    except Exception:
+        return EmbeddingModelHealth(status="unknown", expected=attendu, collection=None)
+    if estampille is None:
+        return EmbeddingModelHealth(status="missing", expected=attendu, collection=None)
+    if estampille != attendu:
+        return EmbeddingModelHealth(status="mismatch", expected=attendu, collection=estampille)
+    return EmbeddingModelHealth(status="ok", expected=attendu, collection=estampille)
 
 
 # ─── Index lexical BM25 ───────────────────────────────────────────────────────
@@ -415,7 +557,16 @@ def retrieve(
 
 
 def _dense_search(question: str, k: int) -> list[ChunkResult]:
-    """Recherche vectorielle seule."""
+    """Recherche vectorielle seule.
+
+    La concordance du modèle est vérifiée ICI, avant le moindre chargement : ce
+    site est celui qui PRODUIT le comportement à empêcher — une collection
+    interrogée avec le mauvais embedder — et il est le seul que tout chemin de
+    recherche traverse. Un agent démarré avant une réingestion divergente, ou
+    démarré alors que ChromaDB ne répondait pas, ne passe par aucun garde de
+    démarrage ; il passe par celui-ci.
+    """
+    verifier_modele_embedding()
     embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
