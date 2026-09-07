@@ -99,19 +99,48 @@ class EmbeddingModelMismatchError(RuntimeError):
     """
 
 
-# Verdict favorable déjà établi. Un bool de module : plusieurs fils du threadpool
-# peuvent le lire et l'écrire, et le pire cas est une vérification faite deux
-# fois — sans entrée-sortie, l'estampille étant locale. Un verrou coûterait plus
-# cher que ce qu'il éviterait. Seul le verdict FAVORABLE est retenu : un refus
-# est re-mesuré à chaque appel, pour qu'une réparation soit visible sans avoir à
+# Verdict favorable déjà établi. Seul le FAVORABLE est retenu : un refus est
+# re-mesuré à chaque appel, pour qu'une réparation soit visible sans avoir à
 # redémarrer, et parce qu'on ne sert rien pendant ce temps de toute façon.
+#
+# CE QUE CE SITE A AFFIRMÉ, ET QUI ÉTAIT FAUX. Il portait que « le pire cas est
+# une vérification faite deux fois — un verrou coûterait plus cher que ce qu'il
+# éviterait ». C'est une PERTE DE MISE À JOUR, mesurée :
+# `verifier_modele_embedding()` lit l'estampille, puis écrit le verdict À LA
+# FIN ; un `rearmer_verification_modele()` arrivé entre les deux était écrasé par
+# cette écriture. La conséquence n'est pas une vérification en trop, c'est un
+# garde DÉSARMÉ pour toute la vie du processus, servant des passages plausibles
+# et faux en silence. Site canonique :
+# `documentation/axes_amelioration.md` §4.20, trouvaille B2.
+#
+# ATTEIGNABLE, et c'est ce qui en faisait un bloquant : `reset_connection()`
+# tourne dans un fil du threadpool depuis le `ping()` du healthcheck, toutes les
+# 20 s, et depuis la reprise de `_dense_search`, pendant que d'autres fils
+# vérifient.
+#
+# CE QUI TIENT LA PLACE DU VERROU SUR LE CHEMIN CHAUD. Une GÉNÉRATION, incrémentée
+# à chaque réarmement. La vérification la relève avant de lire, et n'inscrit son
+# verdict favorable que si elle n'a pas bougé — un compare-et-échange. Le verrou
+# ne couvre donc que deux affectations en mémoire, jamais la lecture : un
+# réarmement concurrent n'attend pas derrière l'ouverture d'une collection, et un
+# réarmement survenu pendant la lecture fait JETER le verdict plutôt que l'écraser.
+# Se tromper dans ce sens-là coûte une relecture locale ; se tromper dans l'autre
+# coûte le garde.
+_verrou_concordance = threading.Lock()
 _concordance_etablie = False
+_generation_concordance = 0
 
 
 def rearmer_verification_modele() -> None:
-    """Oublie le verdict favorable, pour que la prochaine lecture le refasse."""
-    global _concordance_etablie
-    _concordance_etablie = False
+    """Oublie le verdict favorable, pour que la prochaine lecture le refasse.
+
+    Incrémente la génération : une vérification déjà en cours de lecture verra
+    que le monde a bougé sous elle et renoncera à inscrire son verdict.
+    """
+    global _concordance_etablie, _generation_concordance
+    with _verrou_concordance:
+        _concordance_etablie = False
+        _generation_concordance += 1
 
 
 def _lire_estampille() -> str | None:
@@ -149,8 +178,10 @@ def verifier_modele_embedding() -> None:
     endroit.
     """
     global _concordance_etablie
-    if _concordance_etablie:
-        return
+    with _verrou_concordance:
+        if _concordance_etablie:
+            return
+        generation = _generation_concordance
     attendu = settings.embedding_model_name
     estampille = _lire_estampille()
     if estampille is None:
@@ -171,15 +202,33 @@ def verifier_modele_embedding() -> None:
             f"recherche rendra des passages plausibles et faux. Réparation : aligner "
             f"EMBEDDING_MODEL_NAME sur '{estampille}', ou réingérer avec '{attendu}'."
         )
-    _concordance_etablie = True
+    with _verrou_concordance:
+        # Le compare-et-échange. Si la génération a bougé pendant la lecture,
+        # un `reset_connection()` est passé : le verdict qu'on tient décrit une
+        # collection dont plus rien ne garantit qu'elle est encore celle-là, et
+        # l'inscrire ÉCRASERAIT le réarmement. On le jette, la prochaine
+        # recherche relira — c'est une lecture locale, elle ne coûte rien.
+        if generation == _generation_concordance:
+            _concordance_etablie = True
 
 
 def etat_modele_embedding() -> EmbeddingModelHealth:
     """Le même fait, sous la forme d'un rapport plutôt que d'un refus.
 
     Sert `/health` et le démarrage. Ne lève JAMAIS : une sonde qui tombe fait
-    tomber la route qui la porte, et `/health` doit répondre 200 même dégradé
-    sous peine de faire redémarrer le service en boucle.
+    tomber la route qui la porte, et `/health` doit répondre 200 même dégradé.
+
+    LE MOTIF, ET C'EST LE VRAI. Ce docstring a porté que `/health` devait rendre
+    200 « sous peine de faire redémarrer le service en boucle ». C'est FAUX,
+    mesuré deux fois indépendamment : un healthcheck en échec ne redéclenche
+    aucun conteneur sous Docker Compose — `restart:` répond à la SORTIE du
+    processus, pas à la santé — et 21 échecs consécutifs laissent
+    `RestartCount=0` et `StartedAt` inchangé. Ce qui arrive vraiment est que le
+    conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+    `condition: service_healthy` (`docker-compose.yml`), ne lève pas au démarrage
+    à froid : une panne lisible deviendrait une pile muette. Le trou reste
+    acceptable, mais sur ce motif-là. Site canonique :
+    `documentation/axes_amelioration.md` §1.27 et §4.20, trouvaille N2.
 
     L'absorption est LARGE — le client chromadb remonte des erreurs de transport,
     de sérialisation et de schéma sans ancêtre commun, cf. `_taille_collection` —
@@ -590,6 +639,18 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
         # en WARNING, et un second échec remonte à l'appelant.
         logger.warning("ChromaDB injoignable, réouverture de la connexion et nouvel essai.")
         reset_connection()
+        # LE GARDE EST REPASSÉ ICI, et ce n'est pas une précaution abstraite.
+        # `reset_connection()` a désarmé le verdict précisément parce que la
+        # collection rouverte peut être une AUTRE collection — et une coupure de
+        # ChromaDB est exactement le moment où une réingestion a pu passer
+        # dessous. Sans cette ligne, la requête en cours interrogeait la
+        # collection neuve SANS repasser le garde : une réponse complète et
+        # FAUSSE, sans exception ni ligne de journal, sur le seul chemin où
+        # l'objet collection change d'identité en vol. Mesuré, et site canonique
+        # `documentation/axes_amelioration.md` §4.20, trouvaille B1.
+        # Garde : tests/unit/test_garde_modele_embedding.py,
+        # `test_la_reprise_apres_reouverture_repasse_le_garde`.
+        verifier_modele_embedding()
         results = _query(_get_chroma_collection())
 
     chunks: list[ChunkResult] = []

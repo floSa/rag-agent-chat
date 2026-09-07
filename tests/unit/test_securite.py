@@ -174,8 +174,15 @@ def _concordance_ok(monkeypatch) -> None:
 def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
     """Son absence dégrade la recherche, elle ne l'empêche pas.
 
-    Le healthcheck Docker s'appuie sur ce statut : le passer à « degraded »
-    ferait redémarrer le service en boucle pendant la construction de l'index.
+    Ce qui est gardé est le SENS du statut. Le healthcheck de
+    `docker-compose.yml` est `curl -sf .../health` : il ne lit que le code HTTP,
+    et `degraded` est un 200 — ce champ lui est donc invisible, contrairement à
+    ce que ce docstring a affirmé. Et un healthcheck en échec ne redémarrerait
+    rien : `restart:` répond à la sortie du processus, pas à la santé (`mesuré`,
+    cf. `documentation/axes_amelioration.md` §1.27). Ce que coûterait une
+    dégradation ici est plus simple et bien réel : l'index se construit
+    normalement au démarrage, et dégrader sur un état transitoire ordinaire
+    rendrait « degraded » illisible le jour où une dépendance tombe vraiment.
     """
     from src.api import main
 

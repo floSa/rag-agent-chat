@@ -467,8 +467,11 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
 
     La sonde ne l'attrape donc pas, et c'est voulu : un OLLAMA_HOST mal formé est
     une erreur de configuration, pas une panne de service. Mais /health ne doit
-    pas tomber pour autant, sinon le service redémarre en boucle sur une faute de
-    frappe dans un `.env`.
+    pas tomber pour autant : une faute de frappe dans un `.env` ferait échouer le
+    healthcheck, donc passer le conteneur `unhealthy` — et `frontend`, qui attend
+    `agent-api` en `condition: service_healthy`, ne lèverait pas. Ce n'est PAS un
+    redémarrage en boucle : `restart:` répond à la sortie du processus, pas à la
+    santé (`mesuré`, cf. `documentation/axes_amelioration.md` §1.27).
 
     Le host est choisi pour lever cette exception-là, et l'épinglage ci-dessous
     est ce qui rend ce test honnête : une URL sans schéma lève

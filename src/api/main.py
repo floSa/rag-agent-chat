@@ -39,6 +39,7 @@ from src.agent.retriever import (
     rebuild_lexical_index,
     rerank,
     retrieve,
+    verifier_modele_embedding,
 )
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
@@ -252,8 +253,16 @@ async def _refus_modele_embedding(
     conteneur ne sont pas toujours à portée de qui lit la réponse.
 
     Journalisé en ERROR à chaque refus, et non une fois : ce n'est pas une
-    nuisance de journal, c'est le seul endroit où l'exploitant verra que des
-    requêtes réelles se cassent sur cette panne-là.
+    nuisance de journal, c'est là que l'exploitant voit que des requêtes RÉELLES
+    se cassent sur cette panne-là.
+
+    CE DOCSTRING A ÉCRIT « LE SEUL ENDROIT », ET C'ÉTAIT FAUX. Ce gestionnaire
+    n'est appelé que si la réponse n'a pas commencé : une divergence survenue
+    pendant un flux SSE ne l'atteint jamais — Starlette rend « Caught handled
+    exception, but response already started » — et le flux mourait alors sans
+    une seule ligne. Il y a donc DEUX chemins de refus journalisés, et le second
+    est dans le `stream_generator` de `/chat/resume`. Site canonique :
+    `documentation/axes_amelioration.md` §4.20, trouvaille N1.
     """
     logger.error("Recherche refusée — %s", exc)
     return JSONResponse(status_code=503, content={"detail": str(exc)})
@@ -380,7 +389,7 @@ def _relever[T](nom: str, tache: asyncio.Task[T], *, si_levee: T | None) -> T | 
       exception ici est un défaut de programmation. Elle est journalisée avec son
       type — ce n'est pas une absorption muette — et publiée fausse : /health n'a
       aucune preuve que le service répond. La propager ferait rendre 500 à
-      /health, donc redémarrer le service en boucle, ce que cette route existe
+      /health, donc passer le conteneur `unhealthy`, ce que cette route existe
       précisément pour éviter. `si_levee` dit ce qui est publié alors, et il est
       nommé à l'appel : faux pour une sonde, qui a répondu par une panne ; rien
       pour la base de capture, dont l'absence se dit déjà en null.
@@ -411,8 +420,17 @@ async def health() -> HealthResponse:
     elles dépassaient le délai du healthcheck et empêchaient le frontend de
     démarrer (voir `_PLAFOND_SONDES_S`).
 
-    Retourne toujours 200 (pour ne pas déclencher de restart en boucle) avec
-    le détail par service ; status passe à "degraded" si l'une est down.
+    Retourne toujours 200 avec le détail par service ; status passe à
+    "degraded" si l'une est down.
+
+    POURQUOI 200 MÊME DÉGRADÉ, et le motif est mesuré. Un code d'erreur ferait
+    échouer le healthcheck de `docker-compose.yml`, ce qui ne REDÉMARRE rien —
+    `restart:` répond à la sortie du processus, pas à la santé, et 21 échecs
+    consécutifs laissent `RestartCount=0` et `StartedAt` inchangé. Ce qui arrive
+    est que le conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+    `condition: service_healthy`, ne lève pas au démarrage à froid : l'exploitant
+    perd la seule route qui lui aurait dit ce qui ne va pas. Site canonique :
+    `documentation/axes_amelioration.md` §1.27.
     """
     # Table construite à l'appel, pas au chargement du module : les sondes sont
     # des noms de module, et une table figée à l'import ne verrait plus leur
@@ -1041,18 +1059,87 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         config, {"selected_element_ids": req.selected_element_ids}
     )
 
+    # ─── La concordance, vérifiée AVANT d'ouvrir le flux ─────────────────────
+    #
+    # CETTE ROUTE CHERCHE, ET APRÈS LE PREMIER OCTET. `src/agent/graph.py` porte
+    # `add_conditional_edges("postprocess", should_search_more, {True:
+    # "retrieve", False: END})` : le graphe reboucle vers `retrieve` après
+    # `generate`, et `astream` tourne DANS le `stream_generator` ci-dessous,
+    # rendu dans un `EventSourceResponse`. Le garde de `_dense_search` était donc
+    # atteint alors que la réponse avait commencé — et une levée survenue là
+    # n'atteint JAMAIS `_refus_modele_embedding` : Starlette rend « Caught
+    # handled exception, but response already started ». Mesuré : pas de 503,
+    # pas de motif dans le corps, et pas même la ligne ERROR. Le flux mourait
+    # tronqué et muet, pendant que quatre documents affirmaient « toute
+    # recherche est refusée en 503 ». Site canonique :
+    # `documentation/axes_amelioration.md` §4.20, trouvaille N1.
+    #
+    # `to_thread` parce que la lecture est synchrone et que l'ouverture de la
+    # collection est un aller-retour réseau : l'appeler nu bloquerait la boucle.
+    #
+    # `/chat/simple` ne reçoit pas cette vérification, et c'est mesuré, pas
+    # supposé : il ne passe pas par le graphe et ne cherche jamais.
+    try:
+        await asyncio.to_thread(verifier_modele_embedding)
+    except EmbeddingModelMismatchError:
+        # Avant le premier octet, donc le gestionnaire de l'application rend
+        # bien 503 avec les deux noms de modèles dans le corps.
+        raise
+    except Exception:
+        # ABSORPTION LARGE, ET VOICI SA JUSTIFICATION. Ce qui passe ici est une
+        # estampille ILLISIBLE — ChromaDB muet ou injoignable — et non une
+        # divergence : le client chromadb remonte ce cas par des erreurs de
+        # transport, de sérialisation et de schéma sans ancêtre commun (cf.
+        # `_taille_collection`). Refuser dessus ferait dépendre de ChromaDB une
+        # route qui, la plupart du temps, ne cherche PAS : elle reconstruit un
+        # contexte depuis Nebula et génère. On transformerait une requête qui
+        # aboutit en 500. Le garde reste donc en place à l'intérieur du flux,
+        # fail-closed, et la seule chose qu'on perd ici est l'anticipation.
+        # L'absorption n'est pas muette.
+        logger.warning(
+            "/chat/resume : estampille du modèle d'embedding illisible avant "
+            "l'ouverture du flux ; la concordance sera revérifiée si le graphe "
+            "reboucle vers une recherche.",
+            exc_info=True,
+        )
+
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             final_state: dict[str, Any] = {}
-            # "custom" : tokens émis par node_generate ; "values" : état complet
-            # après chaque nœud (le dernier reçu = état final).
-            async for mode, chunk in interactive_graph().astream(
-                None, config, stream_mode=["custom", "values"]
-            ):
-                if mode == "custom":
-                    yield {"data": json.dumps(chunk)}
-                elif mode == "values" and isinstance(chunk, dict):
-                    final_state = chunk
+            try:
+                # "custom" : tokens émis par node_generate ; "values" : état
+                # complet après chaque nœud (le dernier reçu = état final).
+                async for mode, chunk in interactive_graph().astream(
+                    None, config, stream_mode=["custom", "values"]
+                ):
+                    if mode == "custom":
+                        yield {"data": json.dumps(chunk)}
+                    elif mode == "values" and isinstance(chunk, dict):
+                        final_state = chunk
+            except EmbeddingModelMismatchError as exc:
+                # LE RÉSIDU DE N1, et il est tracé plutôt que caché. La
+                # vérification ci-dessus ne peut pas couvrir une divergence
+                # apparue APRÈS : `reset_connection()` tourne toutes les 20 s
+                # depuis le `ping()` du healthcheck, et une réingestion peut
+                # passer entre la vérification et le rebouclage. Le code HTTP est
+                # déjà parti en 200 — aucune correction ne le reprend, et le flux
+                # meurt tronqué, ce qui est fail-closed. Ce qui ne doit PAS
+                # arriver est qu'il meure MUET : le gestionnaire d'exception de
+                # l'application n'étant jamais appelé après le premier octet,
+                # c'est ICI le seul endroit où l'exploitant peut l'apprendre.
+                # Garde : tests/unit/test_garde_modele_embedding.py,
+                # `test_une_divergence_apparue_en_vol_laisse_une_ligne_error`.
+                # Le motif est sur la LIGNE, et pas seulement dans la pile :
+                # c'est ce que fait déjà `_refus_modele_embedding`, et un
+                # exploitant qui grep le nom d'un modèle doit trouver les deux
+                # chemins de refus, pas un seul.
+                logger.exception(
+                    "Flux /chat/resume interrompu, le modèle d'embedding a "
+                    "divergé pendant la réponse — %s Le flux est tronqué et la "
+                    "réponse partielle n'a pas été enregistrée.",
+                    exc,
+                )
+                raise
             yield {
                 "data": json.dumps({
                     "done": True,

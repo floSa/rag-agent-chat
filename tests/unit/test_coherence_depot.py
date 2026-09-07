@@ -7,6 +7,7 @@ constante mais sur une **mesure** recopiée à trois endroits.
 """
 
 import importlib.util
+import subprocess
 from pathlib import Path
 
 from src.agent.chronometrie import ETAGES
@@ -138,9 +139,38 @@ _VESTIGES_AUTORISES = {
     "documentation/axes_amelioration.md": 3,
     # Dit que ce document l'a annoncé et que c'était faux.
     "documentation/agent_architecture.md": 1,
+    # Le site canonique de cet inventaire, qui porte forcément son aiguille.
+    "tests/unit/test_coherence_depot.py": 2,
+    # Le garde du modèle d'embedding : ce nom EST le cas de test.
+    "tests/unit/test_garde_modele_embedding.py": 1,
 }
 
 _MODELE_ANGLAIS = "all-MiniLM-L6-v2"
+
+
+def _fichiers_suivis() -> list[str]:
+    """Tous les fichiers SUIVIS par git, et c'est la bonne borne.
+
+    CE QUE CE BALAYAGE REMPLACE. Il ne regardait que `documentation/*.md` **non
+    récursif** plus `README.md`. Échappaient `documentation/audits/` (qui
+    existe), `.env.example`, `src/`, `scripts/` et `tests/` — et c'était
+    ironique, la trouvaille que cet inventaire consigne étant précisément *« une
+    ligne de `.env` d'apparence exécutable »*. Un inventaire avec un angle mort
+    autorise n'importe quoi dans cet angle.
+
+    « Suivi par git » plutôt qu'une liste de répertoires : ce dépôt est PUBLIC,
+    donc l'ensemble des fichiers suivis est exactement ce qu'un lecteur peut
+    copier — la borne décrit le risque au lieu de décrire l'arborescence, et elle
+    n'a aucun angle mort à tenir à jour. Un répertoire neuf y entre tout seul.
+    """
+    acheve = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=_RACINE,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [nom for nom in acheve.stdout.split("\0") if nom]
 
 
 def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
@@ -159,10 +189,13 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
     lieu de les recopier.
     """
     trouves: dict[str, int] = {}
-    for chemin in sorted((_RACINE / "documentation").glob("*.md")) + [_RACINE / "README.md"]:
-        compte = chemin.read_text(encoding="utf-8").count(_MODELE_ANGLAIS)
+    for relatif in _fichiers_suivis():
+        chemin = _RACINE / relatif
+        if not chemin.is_file():
+            continue
+        compte = chemin.read_text(encoding="utf-8", errors="ignore").count(_MODELE_ANGLAIS)
         if compte:
-            trouves[str(chemin.relative_to(_RACINE))] = compte
+            trouves[relatif] = compte
 
     assert trouves == _VESTIGES_AUTORISES, (
         f"l'inventaire de '{_MODELE_ANGLAIS}' dans la documentation a bougé : "
@@ -170,4 +203,81 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
         "hors de cette table est une instruction que quelqu'un peut suivre — les "
         "deux candidats rendent des vecteurs de même largeur, et le mauvais "
         "produit un index que l'agent refuse."
+    )
+
+
+# ─── La prémisse Docker fausse, et où elle a le droit d'être citée ────────────
+
+# CE QUE CETTE PRÉMISSE AFFIRME, ET POURQUOI ELLE EST FAUSSE. Cinq sites de ce
+# dépôt ont écrit qu'un `/health` en erreur ferait « redémarrer le service en
+# boucle ». `mesuré` deux fois indépendamment : un healthcheck en échec ne
+# redéclenche AUCUN conteneur sous Docker Compose — `restart:` répond à la sortie
+# du processus, pas à la santé — et 21 échecs consécutifs laissent
+# `RestartCount=0` et `StartedAt` inchangé. Ce qui arrive vraiment est que le
+# conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+# `condition: service_healthy`, ne lève pas au démarrage à froid.
+#
+# POURQUOI UN GARDE ET PAS SEULEMENT UNE CORRECTION. Les décisions de `/health`
+# restent les mêmes ; c'est leur MOTIF qui change. Un raisonnement juste sur un
+# antécédent faux se relit comme une preuve, et se recopie comme telle — ce nom
+# de panne a essaimé sur cinq sites sans que personne ne le remesure. Une
+# affirmation de cette famille ne se recopie plus : elle se compte, et le compte
+# rougit. Site canonique : `documentation/axes_amelioration.md` §1.27.
+#
+# POURQUOI LA BORNE S'ARRÊTE À `src/` ET `tests/`. C'est là que la prémisse
+# TROMPE : elle y sert de motif à une décision qu'on relit. Le registre, lui, a
+# pour métier de citer une affirmation pour la démentir, et ses comptes sont
+# gouvernés par l'historique du dépôt, pas par cette branche — les y inventorier
+# rendrait ce test rouge à chaque fusion, pour une raison qui n'est pas la
+# bonne.
+_PREMISSE_DOCKER_FAUSSE = (
+    "redémarrer le service en boucle",
+    "redémarre en boucle",
+    "restart en boucle",
+    "redémarrage en boucle",
+)
+
+# Une CITATION n'est pas une prémisse : les trois entrées ci-dessous portent
+# l'aiguille sans fonder quoi que ce soit dessus. Elles sont inventoriées quand
+# même, et c'est le prix de l'autre sens — sans elles, la table autoriserait
+# n'importe quoi. Écrire une réfutation sans l'aiguille aurait rendu ce dépôt
+# ingrepable sur exactement le nom qu'on vient de mesurer faux.
+_CITATIONS_AUTORISEES = {
+    # Cite la prémisse pour la DÉMENTIR, et nomme le mécanisme mesuré à la place.
+    "src/agent/retriever.py": 1,
+    # Idem : le docstring dit désormais ce qui arrive vraiment, en nommant ce que
+    # ce n'est pas.
+    "tests/unit/test_health_parallele.py": 1,
+    # Le site canonique de cet inventaire, qui porte forcément ses aiguilles.
+    "tests/unit/test_coherence_depot.py": 4,
+}
+
+
+def test_la_premisse_docker_fausse_ne_sert_de_motif_a_rien() -> None:
+    """Aucun site de `src/` ou `tests/` ne fonde une décision sur cette prémisse.
+
+    Le test rougit dans les deux sens, comme l'inventaire du modèle anglais :
+    une citation NOUVELLE est une prémisse fausse qui repart, et un compte qui
+    DESCEND dit que cette table décrit un état révolu.
+    """
+    trouves: dict[str, int] = {}
+    for relatif in _fichiers_suivis():
+        if not (relatif.startswith("src/") or relatif.startswith("tests/")):
+            continue
+        chemin = _RACINE / relatif
+        if not chemin.is_file():
+            continue
+        texte = chemin.read_text(encoding="utf-8", errors="ignore")
+        compte = sum(texte.count(aiguille) for aiguille in _PREMISSE_DOCKER_FAUSSE)
+        if compte:
+            trouves[relatif] = compte
+
+    assert trouves == _CITATIONS_AUTORISEES, (
+        f"l'inventaire de la prémisse Docker fausse a bougé : attendu "
+        f"{_CITATIONS_AUTORISEES}, trouvé {trouves}. Un healthcheck en échec ne "
+        "redémarre RIEN sous Docker Compose — `restart:` répond à la sortie du "
+        "processus, pas à la santé — et fonder une décision sur ce mécanisme "
+        "inexistant se relit comme une preuve. Le vrai motif est que le "
+        "conteneur passe `unhealthy`, donc que `frontend` ne lève pas au "
+        "démarrage à froid : cf. documentation/axes_amelioration.md §1.27."
     )
