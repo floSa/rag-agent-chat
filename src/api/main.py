@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import secrets
+import threading
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -163,7 +164,9 @@ async def _concordance_embedding() -> EmbeddingModelHealth:
     store muet empêcherait l'agent de démarrer, ce que ce lot a précisément
     décidé de ne pas faire.
     """
-    tache = asyncio.create_task(_sonder("modele_embedding", etat_modele_embedding))
+    tache = asyncio.create_task(
+        _sonder("modele_embedding", etat_modele_embedding, appelant="/health")
+    )
     await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
     return _relever("modele_embedding", tache, si_levee=None) or _embedding_inconnu()
 
@@ -240,15 +243,19 @@ async def _concordance_avant_le_flux() -> None:
     normale la contention est nulle : la lecture est locale une fois la
     collection ouverte.
     """
-    tache = asyncio.create_task(_sonder("modele_embedding", verifier_modele_embedding))
+    tache = asyncio.create_task(
+        _sonder("modele_embedding", verifier_modele_embedding, appelant="/chat/resume")
+    )
     await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
     if not tache.done():
         logger.warning(
             "/chat/resume : la concordance du modèle d'embedding n'a pas répondu en "
             "%.1f s ; on renonce à l'attendre, et la concordance sera revérifiée si le "
             "graphe reboucle vers une recherche. Le fil est LÂCHÉ, pas interrompu — le "
-            "garde « en vol » de `_sonder` borne la fuite à un fil, quelle que soit la "
-            "durée de la panne.",
+            "garde « en vol » de `_sonder` borne la fuite à UN fil par panne, que la "
+            "panne dure et qu'une rafale simultanée la frappe. Le fil n'est pas démon : "
+            "il retiendra l'interpréteur jusqu'à ce que le store rende la main, et un "
+            "arrêt du conteneur ira au bout de sa grâce avant d'être tué.",
             _PLAFOND_SONDES_S,
         )
         tache.cancel()
@@ -382,38 +389,80 @@ _PLAFOND_SONDES_S = 3.0
 # un appel réseau, et renoncer à l'attendre ne fait que LÂCHER le fil, qui
 # continue de tourner. Sans ce garde, un healthcheck toutes les 20 s contre un
 # store muet lâcherait un fil de plus par sonde à chaque passage, dans le
-# threadpool que les endpoints de recherche partagent. Avec lui, une sonde déjà
-# en vol n'est pas relancée, donc un fil lâché par sonde à la fois — quelle que
-# soit la durée de la panne.
+# réservoir que les endpoints de recherche partagent.
 #
-# Reste un résidu, assumé : le drapeau est posé par le FIL, et la décision de
-# lancer est prise par la boucle. Deux /health VRAIMENT simultanés peuvent donc
-# doubler une sonde, le temps que le premier fil démarre. Poser le drapeau côté
-# boucle fermerait cette fenêtre et en ouvrirait une pire : si la tâche est
-# annulée avant que le fil ne démarre (threadpool saturé), plus personne ne
-# retire le drapeau et la sonde reste « en vol » à jamais — une panne remplacée
-# par une cécité définitive. Le healthcheck passe toutes les 20 s ; la fenêtre
-# ici dure le temps d'un démarrage de fil.
+# CE QUE LE GARDE BORNE, ET C'EST MESURÉ AUX DEUX BOUTS : un fil lâché par sonde
+# et par panne — que la panne dure, et qu'elle soit frappée par une RAFALE
+# simultanée. La seconde moitié de cette phrase est la trouvaille bloquante de
+# l'audit étroit de la couche async (§4.25, B-2), et elle était FAUSSE ici d'un
+# facteur 26 : le test `if nom in _sondes_en_vol` se faisait sur la boucle et la
+# POSE du drapeau dans le fil, de part et d'autre d'un `await`. Une rafale
+# arrivant dans la même boucle franchissait donc le test avant qu'aucun fil
+# n'ait posé le drapeau. `mesuré` le 7 septembre 2026, forme de production, une
+# seule boucle et aucun entrelacement forcé, collection qui pend :
+#
+#   avant — rafale de  1 → 1/1 rendue  en 3,00 s →  1 fil lâché
+#   avant — rafale de  8 → 8/8 rendues en 3,00 s →  8 fils lâchés
+#   avant — rafale de 26 → 26/26       en 3,00 s → 26 fils lâchés
+#   après — rafale de 26 → 26/26       en 3,00 s →  1 fil lâché
+#
+# La pose est donc passée CÔTÉ BOUCLE (`_sonder`) et le retrait est resté CÔTÉ
+# FIL (`_executer_sonde`). Le test-et-pose n'a aucun `await` entre ses deux
+# moitiés : sur une boucle asyncio il est donc atomique, et c'est ce qui borne
+# la rafale.
+#
+# L'OBJECTION QUE CE SITE OPPOSAIT À CETTE POSE est traitée, et non plus
+# invoquée pour refuser : « tâche annulée avant que le fil démarre → drapeau
+# posé à jamais ». Elle ne pouvait de toute façon pas servir de motif, le code
+# d'avant atteignant DÉJÀ la cécité définitive dès qu'un fil pend pour de bon.
+# `_sonder` la ferme avec un accusé de démarrage posé par le fil : si l'offload
+# se termine par une exception SANS que le fil ait démarré, la boucle retire le
+# drapeau elle-même.
+#
+# Résidu restant, assumé et borné : entre l'instant où le fil est ordonnancé et
+# celui où il exécute sa première instruction, une annulation ferait retirer le
+# drapeau par la boucle alors que le fil va tourner. Une rafale suivante pourrait
+# alors lâcher un fil de plus. La panne remplacée est « un fil de trop », pas
+# « aveugle à jamais » — l'échange va dans le bon sens.
 _sondes_en_vol: set[str] = set()
 
 
-def _executer_sonde[T](nom: str, sonde: Callable[[], T]) -> T:
-    """Exécute une sonde synchrone DANS le fil du threadpool.
+def _executer_sonde[T](
+    nom: str, sonde: Callable[[], T], demarre: threading.Event
+) -> T:
+    """Exécute une sonde synchrone DANS le fil du réservoir.
 
-    Le drapeau « en vol » est posé et retiré ici, par le fil lui-même, et non par
-    la tâche qui l'attend : celle-ci rend la main au plafond, alors que le fil
-    tourne encore. Retiré côté tâche, le garde laisserait repartir un second fil
-    à chaque appel de /health — exactement ce qu'il existe pour empêcher.
+    Le drapeau « en vol » est RETIRÉ ici, par le fil lui-même, et non par la
+    tâche qui l'attend : celle-ci rend la main au plafond alors que le fil tourne
+    encore. Retiré côté tâche, le garde laisserait repartir un second fil à
+    chaque appel — exactement ce qu'il existe pour empêcher.
+
+    Il n'est PAS posé ici, et c'est la correction de §4.25 B-2 : posé dans le
+    fil, il arrivait trop tard pour une rafale déjà passée par le test de
+    `_sonder`. La pose est côté boucle ; voir le commentaire de `_sondes_en_vol`.
+
+    `demarre` est l'accusé de démarrage que `_sonder` attend pour savoir si
+    quelqu'un retirera le drapeau. Il est posé AVANT tout le reste : ce qui suit
+    peut bloquer pour toujours, et c'est précisément le cas qu'on garde.
     """
-    _sondes_en_vol.add(nom)
+    demarre.set()
     try:
         return sonde()
     finally:
         _sondes_en_vol.discard(nom)
 
 
-async def _sonder[T](nom: str, sonde: Callable[[], T]) -> T | None:
+async def _sonder[T](
+    nom: str, sonde: Callable[[], T], *, appelant: str
+) -> T | None:
     """Lance une sonde synchrone, ou renonce si son fil précédent tourne encore.
+
+    `appelant` nomme la route qui sonde, et il n'est pas décoratif : cette
+    fonction est PARTAGÉE entre `/health` et `/chat/resume` depuis que
+    l'anticipation de concordance l'emploie, et sa ligne de journal était restée
+    écrite pour un seul appelant — elle annonçait `/health` depuis
+    `/chat/resume`. Un exploitant qui lit « /health » ne va pas chercher la
+    latence d'une requête utilisateur.
 
     Le plafond, lui, ne vient PAS de `abandon_on_cancel` : il vient de
     `asyncio.wait(timeout=…)` et du fait qu'on n'attend pas l'annulation.
@@ -440,10 +489,46 @@ async def _sonder[T](nom: str, sonde: Callable[[], T]) -> T | None:
     rapport à quatre états. Le drapeau « en vol », lui, ne dépend pas du type de
     ce que la sonde rend.
     """
+    # TEST-ET-POSE, et les deux moitiés sont côté BOUCLE, sans `await` entre
+    # elles : c'est ce qui le rend atomique sur une boucle asyncio, et c'est la
+    # correction de §4.25 B-2. Voir le commentaire de `_sondes_en_vol` pour la
+    # rafale mesurée avant et après.
     if nom in _sondes_en_vol:
-        logger.debug("/health: sonde %s encore en vol, aucun second fil lancé", nom)
+        # WARNING, et non DEBUG. Cette ligne dit qu'une sonde a été SAUTÉE parce
+        # qu'un store ne rend pas la main : c'est la panne, pas une trace de
+        # mise au point. En DEBUG, l'absorption était muette dès le deuxième
+        # passage — `mesuré` : sur 6 requêtes contre un store qui pend, 1 seule
+        # ligne WARNING et 5 en DEBUG, alors que ce fichier écrit que
+        # « l'absorption n'est pas muette ». Le cadenceur de `/health` est un
+        # tick toutes les 20 s : le débit de cette ligne est borné par lui, et
+        # une panne de store MÉRITE une ligne toutes les 20 s.
+        logger.warning(
+            "%s : sonde %s encore en vol, aucun second fil lancé — un fil est déjà "
+            "lâché sur cette sonde et le store n'a pas rendu la main ; ce passage "
+            "renonce à son verdict",
+            appelant,
+            nom,
+        )
         return None
-    return await to_thread.run_sync(_executer_sonde, nom, sonde, abandon_on_cancel=True)
+    _sondes_en_vol.add(nom)
+    demarre = threading.Event()
+    try:
+        return await to_thread.run_sync(
+            _executer_sonde, nom, sonde, demarre, abandon_on_cancel=True
+        )
+    except BaseException:
+        # `BaseException` parce que `CancelledError` est le cas VISÉ, et qu'elle
+        # n'hérite pas d'`Exception`. Justification de l'élargissement : ce bloc
+        # ne rattrape rien, il RÉPARE un état de module avant de relever.
+        #
+        # Le drapeau n'est retiré que si le fil n'a JAMAIS démarré : sinon c'est
+        # lui qui le retirera en revenant, et le retirer ici rouvrirait la fuite
+        # d'un fil par requête que ce garde existe pour fermer. C'est la fenêtre
+        # que ce site opposait autrefois à la pose côté boucle ; elle est traitée
+        # au lieu d'être invoquée.
+        if not demarre.is_set():
+            _sondes_en_vol.discard(nom)
+        raise
 
 
 async def _sonder_ollama() -> bool:
@@ -540,7 +625,8 @@ async def health() -> HealthResponse:
         "index_lexical": lexical_ready,
     }
     taches: dict[str, asyncio.Task[bool | None]] = {
-        nom: asyncio.create_task(_sonder(nom, sonde)) for nom, sonde in sondes.items()
+        nom: asyncio.create_task(_sonder(nom, sonde, appelant="/health"))
+        for nom, sonde in sondes.items()
     }
     taches["ollama"] = asyncio.create_task(_sonder_ollama())
     # Sous le MÊME plafond : `usage_stats` ouvre SQLite avec un busy_timeout de
@@ -557,7 +643,9 @@ async def health() -> HealthResponse:
     # ne sait pas dire lequel des quatre états est en cause — surtout pas
     # distinguer « la collection ne porte pas d'estampille » de « je n'ai pas pu
     # la lire », qui ne se soignent pas pareil.
-    tache_embedding = asyncio.create_task(_sonder("modele_embedding", etat_modele_embedding))
+    tache_embedding = asyncio.create_task(
+        _sonder("modele_embedding", etat_modele_embedding, appelant="/health")
+    )
 
     # Liste typée `Future[Any]` : les tâches n'ont pas toutes le même type de
     # résultat, et c'est bien la même attente qui les borne toutes.
@@ -1186,9 +1274,23 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
     # `_concordance_avant_le_flux()` emploie donc ce que ce fichier possédait :
     # le plafond `_PLAFOND_SONDES_S`, le garde « en vol », et
     # `to_thread.run_sync(…, abandon_on_cancel=True)` — la primitive ANNULABLE,
-    # dont le fil de réservoir est démon et ne retient plus l'interpréteur. Les
-    # deux décisions que ce choix demandait — la sémantique du dépassement, et
-    # le drapeau — sont argumentées dans son docstring.
+    # dont l'annulation rend la main à la BOUCLE sans attendre le fil. C'est là
+    # toute la différence avec `asyncio.to_thread`, et c'est tout ce qu'elle
+    # est : ce site a écrit un temps que le fil de réservoir d'anyio « est démon
+    # et ne retient plus l'interpréteur », et c'est FAUX. `mesuré` le 7 septembre
+    # 2026 sur anyio 4.15.1 : le fil lâché porte `nom='AnyIO worker thread'` et
+    # `daemon=False`, et un processus qui sort en le laissant bloqué est tué par
+    # son échéance — `rc=124`, l'interpréteur est RETENU. Le test de ce garde
+    # l'écrivait déjà juste, dans un `finally` :
+    # `tests/unit/test_garde_modele_embedding.py`.
+    #
+    # CONSÉQUENCE, à dire plutôt qu'à taire : un `docker stop` sur une API
+    # portant un fil lâché n'aboutit pas à la demande — il ira au bout de sa
+    # grâce, puis le conteneur sera TUÉ. Ce que la primitive achète est la
+    # disponibilité de la route, pas la propreté de l'arrêt.
+    #
+    # Les deux décisions que ce choix demandait — la sémantique du dépassement,
+    # et le drapeau — sont argumentées dans son docstring.
     #
     # `/chat/simple` ne reçoit pas cette vérification, et c'est mesuré, pas
     # supposé : il ne passe pas par le graphe et ne cherche jamais.

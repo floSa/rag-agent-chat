@@ -967,16 +967,23 @@ def test_la_reponse_health_exige_le_champ_de_concordance() -> None:
 #
 # Le plafond de sécurité n'est pas une commodité : `to_thread.run_sync(…,
 # abandon_on_cancel=True)` ABANDONNE un fil de réservoir anyio qui n'est PAS
-# démon — `mesuré`, le nom du fil survivant est `AnyIO worker thread` — donc un
-# `wait()` sans borne retiendrait l'interpréteur à la fin de toute la campagne.
+# démon — `mesuré` sur anyio 4.15.1, le fil survivant porte
+# `nom='AnyIO worker thread'` et `daemon=False`, et un processus qui sort en le
+# laissant bloqué est tué par son échéance en `rc=124` — donc un `wait()` sans
+# borne retiendrait l'interpréteur à la fin de toute la campagne. C'est CE
+# fichier qui l'écrivait juste quand `src/api/main.py` écrivait le contraire ;
+# le site est désormais d'accord avec lui.
 # Même motif et même valeur qu'à `tests/unit/test_health_parallele.py`, recopiés
 # parce que les modules de test de ce dépôt ne s'importent pas entre eux.
 _ECHEANCE_REQUETE_S = 5.0
 _CAP_SECURITE_S = 8.0
-# La charge de la sonde du drapeau. L'audit a mesuré qu'il faut 26 requêtes
-# bloquées pour épuiser le réservoir asyncio ; ici le chiffre n'a pas à
-# l'atteindre, l'invariant gardé étant « un fil, quelle que soit la charge ».
-_CHARGE = 8
+# La charge de la sonde du drapeau, et elle vaut le chiffre que le registre
+# PUBLIE. Elle a tourné à 8 pendant un lot alors que la mesure citée partout
+# était 26 : un garde qui tourne sous la charge qu'il ne nomme pas laisse
+# croire que le chiffre publié est celui qui est tenu. 26 est la charge qui
+# épuise le réservoir asyncio, et c'est celle à laquelle la rafale de §4.25 B-2
+# lâchait 26 fils.
+_CHARGE = 26
 
 
 class _CollectionQuiPend:
@@ -986,14 +993,21 @@ class _CollectionQuiPend:
     `_lire_estampille` touche, et c'est là que le vrai client paie son
     aller-retour d'ouverture.
 
-    Compte ses entrées ET les noms des fils qui y passent : le drapeau « en vol »
-    ne s'observe nulle part ailleurs. Un second fil lancé se verrait ici.
+    Compte ses entrées ET les IDENTITÉS des fils qui y passent : le drapeau « en
+    vol » ne s'observe nulle part ailleurs. Un second fil lancé se verrait ici.
+
+    PAR IDENTITÉ, ET LE NOM NE SUFFIT PAS — `mesuré` le 7 septembre 2026, et
+    c'est ce qui rendait le garde de la rafale structurellement aveugle : TOUS
+    les fils du réservoir anyio portent le même `name`,
+    `'AnyIO worker thread'`. Un ensemble de NOMS vaut donc 1 même quand 26 fils
+    distincts sont passés, et une assertion sur sa taille est verte sur le
+    défaut. `ident` est unique par fil vivant ; c'est lui qui compte.
     """
 
     def __init__(self, plafond: float = _CAP_SECURITE_S) -> None:
         self.debloquer = threading.Event()
         self.entrees = 0
-        self.fils: set[str] = set()
+        self.fils: set[int] = set()
         self._verrou = threading.Lock()
         self._plafond = plafond
 
@@ -1001,7 +1015,9 @@ class _CollectionQuiPend:
     def metadata(self) -> dict[str, str]:
         with self._verrou:
             self.entrees += 1
-            self.fils.add(threading.current_thread().name)
+            ident = threading.current_thread().ident
+            assert ident is not None
+            self.fils.add(ident)
         self.debloquer.wait(self._plafond)
         return {"embedding_model": _MODELE_QUI_A_INDEXE}
 
@@ -1116,27 +1132,38 @@ def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
 
 
 @pytest.mark.asyncio
-async def test_le_silence_du_store_ne_lache_qu_un_fil_quelle_que_soit_la_charge(
+async def test_le_silence_du_store_ne_lache_qu_un_fil_meme_en_rafale_simultanee(
     monkeypatch, _drapeau_en_vol_neuf
 ) -> None:
-    """LA SECONDE DÉCISION, gardée : le drapeau « en vol » vaut aussi ici.
+    """LA SECONDE DÉCISION, gardée — et gardée sous la forme QUE LA PRODUCTION A.
 
     Un fil bloqué dans un appel réseau ne s'interrompt pas : renoncer à
     l'attendre le LÂCHE. À `/health` le cadenceur est un tick toutes les 20 s ;
     ici c'est le débit des requêtes utilisateur, que rien ne borne. Sans le
     drapeau, la fuite est d'un fil PAR REQUÊTE.
 
-    **CETTE SONDE ATTEINT SON CAS, et c'est mesuré hors campagne des deux côtés**
-    avec les 26 requêtes de l'audit : le motif d'avant lâche **26** fils et n'en
-    rend **aucune** en 6 s ; le site corrigé lâche **1** fil et rend **26/26** au
-    plafond. Une sonde qui ne rougit pas sur le défaut connu ne prouverait rien
-    ici.
+    CE GARDE A ÉTÉ DÉCORATIF, ET IL FAUT LE DIRE ICI PARCE QUE C'EST ICI QU'ON
+    LE CROIRAIT. Dans sa forme d'avant il ATTENDAIT que le drapeau soit posé
+    avant de lancer les autres tâches — « l'entrelacement est forcé, et non
+    espéré » — donc il CONSTRUISAIT une sérialisation que la production n'a
+    jamais, et il restait vert sur un défaut qui lâchait 26 fils. Trouvaille
+    bloquante de l'audit étroit de la couche async, §4.25 B-2. Il portait un
+    second aveuglement, indépendant du premier : il comptait les fils par NOM,
+    et tous les fils du réservoir anyio portent le même. Son assertion aurait
+    donc lu « 1 fil » même sous l'entrelacement réel.
 
-    L'ENTRELACEMENT EST FORCÉ, et non espéré : la première requête part seule et
-    le test ATTEND que le drapeau soit posé avant de lancer les autres. Sans
-    cela, la mesure heurterait le résidu déjà nommé au site — deux appels
-    vraiment simultanés peuvent doubler la sonde le temps qu'un fil démarre — et
-    rendrait un test rouge au hasard.
+    LA FORME EST DONC CELLE DE LA PRODUCTION : la rafale part d'un seul coup,
+    dans la MÊME boucle, sans aucune attente entre les tâches — c'est ce que
+    font N requêtes HTTP simultanées — et les fils sont comptés par `ident`.
+
+    **CETTE SONDE ATTEINT SON CAS, et c'est mesuré des deux côtés** avec les
+    26 requêtes du registre, forme de production, plafond du site à 3,0 s :
+
+        avant §4.25 B-2 — 26/26 rendues en 3,00 s → **26** fils lâchés
+        après           — 26/26 rendues en 3,00 s → **1** fil lâché
+
+    et elle a été retournée contre le site d'avant DANS SA FORME DE TEST, où
+    elle rougit sur les deux assertions : 26 fils et 26 entrées.
     """
     from src.api import main
 
@@ -1146,37 +1173,343 @@ async def test_le_silence_du_store_ne_lache_qu_un_fil_quelle_que_soit_la_charge(
     _brancher_collection(monkeypatch, pend)
 
     try:
-        premiere = asyncio.create_task(main._concordance_avant_le_flux())
-        for _ in range(400):
-            if "modele_embedding" in main._sondes_en_vol:
-                break
-            await asyncio.sleep(0.01)
-        assert "modele_embedding" in main._sondes_en_vol, (
-            "le drapeau « en vol » n'a jamais été posé. Deux causes, et les deux "
-            "comptent : soit il a été retiré du chemin — c'est la panne, la fuite "
-            "redevient d'un fil par requête — soit cette sonde n'atteint pas son "
-            "cas. Dans les deux cas son vert ne prouverait rien."
-        )
-
-        autres = [asyncio.create_task(main._concordance_avant_le_flux()) for _ in range(_CHARGE)]
-        rendues, restantes = await asyncio.wait(
-            [premiere, *autres], timeout=_ECHEANCE_REQUETE_S
-        )
+        # AUCUNE attente ici, et c'est tout le sujet : la rafale est créée en un
+        # seul passage, et rien ne laisse à un fil le temps de poser le drapeau.
+        rafale = [
+            asyncio.create_task(main._concordance_avant_le_flux()) for _ in range(_CHARGE)
+        ]
+        rendues, restantes = await asyncio.wait(rafale, timeout=_ECHEANCE_REQUETE_S)
         for tache in restantes:
             tache.cancel()
 
         assert not restantes, (
-            f"{len(restantes)} requêtes sur {_CHARGE + 1} n'ont pas rendu la main : "
+            f"{len(restantes)} requêtes sur {_CHARGE} n'ont pas rendu la main : "
             "le plafond ne borne rien"
         )
         assert len(pend.fils) == 1, (
-            f"{len(pend.fils)} fils lâchés pour {_CHARGE + 1} requêtes bloquées : "
-            "sans le drapeau « en vol », la fuite est d'un fil par requête, et "
-            "l'audit a mesuré que 26 suffisent à épuiser le réservoir"
+            f"{len(pend.fils)} fils lâchés pour une rafale de {_CHARGE} requêtes "
+            "simultanées. Le test-et-pose du drapeau doit être ENTIER du côté de "
+            "la boucle : posé dans le fil, il arrive après qu'une rafale de la "
+            "même boucle a déjà franchi le test, et la fuite redevient d'un fil "
+            "par requête — l'audit a mesuré que 26 suffisent à épuiser le "
+            "réservoir"
         )
-        assert pend.entrees == 1, "un seul fil, donc une seule entrée dans la lecture"
+        assert pend.entrees == 1, (
+            f"{pend.entrees} entrées dans la lecture bloquée pour {_CHARGE} "
+            "requêtes : un seul fil doit y passer. Cette assertion est celle qui "
+            "voit la rafale même si le compte des fils se trompe"
+        )
+        assert "modele_embedding" in main._sondes_en_vol, (
+            "le drapeau doit rester POSÉ après la rafale : le fil est lâché, pas "
+            "interrompu, et c'est lui qui le retirera en revenant. S'il n'y est "
+            "plus, soit il n'a jamais été posé — la fuite redevient d'un fil par "
+            "requête — soit cette sonde n'atteint pas son cas"
+        )
     finally:
         pend.debloquer.set()
+
+
+# Budget d'attente qu'une requête utilisateur de `/chat/resume` peut payer pour
+# une vérification qu'elle n'a pas demandée. Ce n'est PAS le délai du
+# healthcheck : les deux gardes qui bornaient `_PLAFOND_SONDES_S` sont tous deux
+# du côté de `/health` — ils exigent `délai du healthcheck > plafond`, soit
+# `5 > plafond` —, et la direction dangereuse pour CETTE route est justement
+# celle qu'ils laissent libre. `mesuré` : porter `_PLAFOND_SONDES_S` à 4,9 s
+# laisse la suite ENTIÈREMENT verte, donc le budget d'une requête utilisateur
+# peut passer de 3,0 à 4,9 s — +63 % — sans un seul rouge. La borne existait
+# par ACCIDENT, pas par un garde qui la nomme.
+_BUDGET_REQUETE_UTILISATEUR_S = 3.0
+
+
+def test_le_plafond_ne_depasse_pas_le_budget_d_une_requete_utilisateur() -> None:
+    """Le plafond des sondes est AUSSI le budget d'une requête, et il est borné ici.
+
+    `_PLAFOND_SONDES_S` a deux emplois depuis que l'anticipation de concordance
+    l'emprunte : la latence que `/health` s'accorde, et **le temps qu'une requête
+    utilisateur attend pour une vérification qu'elle n'a pas demandée**. Le
+    second n'était borné par rien dans la bande sous 5 s.
+
+    Ce garde nomme la direction dangereuse pour la route. Relever le plafond est
+    une modification tout à fait plausible — c'est le geste naturel quand une
+    sonde devient lente — et elle doit heurter une ligne qui dit ce qu'elle
+    coûte, pas passer inaperçue parce que `/health` a encore sa marge.
+
+    Il est délibérément SÉPARÉ du garde de `/health` : les deux bornes se lisent
+    en sens inverse et une seule assertion ne peut pas les tenir toutes deux.
+    """
+    from src.api import main
+
+    assert main._PLAFOND_SONDES_S <= _BUDGET_REQUETE_UTILISATEUR_S, (
+        f"le plafond des sondes vaut {main._PLAFOND_SONDES_S} s, et c'est ce "
+        f"qu'une requête `/chat/resume` attend pour une vérification qu'elle n'a "
+        f"pas demandée. Au-delà de {_BUDGET_REQUETE_UTILISATEUR_S} s la décision "
+        "n'est plus « borner une sonde » mais « faire payer l'utilisateur », et "
+        "elle demande d'être écrite. La marge du healthcheck (5 s) n'autorise "
+        "pas cette hausse : elle ne parle pas de cette route"
+    )
+
+
+@pytest.mark.asyncio
+async def test_le_depassement_rend_son_jeton_au_reservoir(
+    monkeypatch, _drapeau_en_vol_neuf
+) -> None:
+    """`tache.cancel()` au dépassement, et ce que son absence coûterait.
+
+    Ce que cette ligne achète n'est pas le délai — il vient d'`asyncio.wait` —
+    mais la RESTITUTION du jeton de réservoir anyio. Sans elle, la tâche reste
+    en attente et son jeton avec elle : `borrowed` ne retombe pas, et le
+    réservoir que les endpoints de recherche partagent se vide pour de bon au
+    bout de 40 dépassements.
+
+    `mesuré` : à l'annulation, `borrowed` retombe à **0** alors que le fil tourne
+    TOUJOURS — c'est bien le jeton qui est rendu, pas le fil qui est mort.
+
+    LA RESTITUTION N'EST PAS SYNCHRONE, et ce test a commencé par échouer
+    là-dessus : `tache.cancel()` ne fait que DEMANDER l'annulation, qui est
+    délivrée au tour de boucle suivant. Le jeton revient donc après un `await`,
+    pas au retour de la route. C'est sans conséquence en production — la route
+    rend la main aussitôt après — mais il faut le dire, sans quoi la boucle
+    d'attente ci-dessous ressemblerait à une commodité.
+
+    Rien ne gardait cet appel : le supprimer laissait la suite verte, alors que
+    c'est lui qui rend la route survivable à répétition.
+    """
+    from anyio import to_thread
+
+    from src.api import main
+
+    pend = _CollectionQuiPend()
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    _brancher_collection(monkeypatch, pend)
+
+    limiteur = to_thread.current_default_thread_limiter()
+    try:
+        await main._concordance_avant_le_flux()
+
+        assert pend.entrees == 1, (
+            "la lecture bloquée n'a pas été atteinte : sans jeton emprunté, ce "
+            "test ne mesure rien"
+        )
+        # L'annulation est délivrée au tour de boucle suivant ; on lui laisse des
+        # tours, bornés, plutôt qu'un délai en dur.
+        for _ in range(100):
+            if limiteur.borrowed_tokens == 0:
+                break
+            await asyncio.sleep(0.01)
+
+        # Le fil tourne toujours — c'est la condition de validité : ce qui est
+        # asserté est que le JETON est rendu malgré un fil vivant.
+        assert pend.debloquer.is_set() is False, (
+            "le fil doit être ENCORE bloqué : si la lecture avait rendu d'elle-même, "
+            "le jeton serait revenu sans que `tache.cancel()` y soit pour rien"
+        )
+        assert limiteur.borrowed_tokens == 0, (
+            f"{limiteur.borrowed_tokens} jeton(s) de réservoir encore emprunté(s) "
+            "après le dépassement. `tache.cancel()` est ce qui les rend : sans "
+            "lui, 40 dépassements épuisent le réservoir partagé et plus aucune "
+            "recherche ne peut s'offloader"
+        )
+        assert limiteur.statistics().tasks_waiting == 0, (
+            "une tâche attend encore une place : le dépassement n'a pas relâché "
+            "son attente"
+        )
+    finally:
+        pend.debloquer.set()
+
+
+@pytest.mark.asyncio
+async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
+    monkeypatch, _drapeau_en_vol_neuf
+) -> None:
+    """L'OBJECTION QUE LE SITE OPPOSAIT À LA POSE CÔTÉ BOUCLE, gardée.
+
+    Poser le drapeau côté boucle ouvre une fenêtre que le site nommait pour
+    refuser cette pose : *si la tâche est annulée avant que le fil ne démarre —
+    réservoir saturé —, plus personne ne retire le drapeau et la sonde reste
+    « en vol » à jamais.* L'objection ne pouvait pas servir de motif de refus, le
+    code d'avant atteignant déjà la cécité définitive dès qu'un fil pend pour de
+    bon ; mais elle est réelle, et elle est traitée plutôt que laissée ouverte.
+
+    `_sonder` la ferme avec l'accusé de démarrage que le fil pose : si l'offload
+    se termine par une exception SANS que le fil ait démarré, la boucle retire le
+    drapeau elle-même. Sans ce retrait, la sonde serait morte pour la vie du
+    processus.
+
+    CETTE SONDE ATTEINT SON CAS, et deux assertions le vérifient AVANT celle qui
+    porte : le réservoir est ramené à une seule place et cette place est
+    occupée, donc `tasks_waiting == 1` — le fil ne peut PAS démarrer. Retournée
+    contre la suppression du retrait, elle rougit : le drapeau reste posé.
+    """
+    from anyio import to_thread
+
+    from src.api import main
+
+    limiteur = to_thread.current_default_thread_limiter()
+    jetons_initiaux = limiteur.total_tokens
+    occupe = threading.Event()
+    dedans = threading.Event()
+
+    def _squatteur() -> None:
+        dedans.set()
+        occupe.wait(_CAP_SECURITE_S)
+
+    try:
+        # Une seule place, et elle sera prise : le fil de la sonde ne démarrera
+        # pas, quoi qu'il arrive.
+        limiteur.total_tokens = 1
+        squat = asyncio.create_task(
+            to_thread.run_sync(_squatteur, abandon_on_cancel=True)
+        )
+        for _ in range(400):
+            if dedans.is_set():
+                break
+            await asyncio.sleep(0.01)
+        assert dedans.is_set(), (
+            "le squatteur n'a jamais pris la place du réservoir : cette sonde "
+            "n'atteint pas son cas et son vert ne prouverait rien"
+        )
+
+        sonde = asyncio.create_task(
+            main._sonder("sonde_du_montage", lambda: True, appelant="/montage")
+        )
+        for _ in range(400):
+            if limiteur.statistics().tasks_waiting == 1:
+                break
+            await asyncio.sleep(0.01)
+        assert limiteur.statistics().tasks_waiting == 1, (
+            "la sonde n'attend PAS une place de réservoir : son fil a pu démarrer, "
+            "donc ce test ne mesure pas la fenêtre qu'il existe pour garder"
+        )
+        assert "sonde_du_montage" in main._sondes_en_vol, (
+            "le drapeau doit être posé par la BOUCLE avant que le fil démarre — "
+            "c'est la correction de §4.25 B-2 ; s'il n'y est pas, la rafale n'est "
+            "plus bornée"
+        )
+
+        sonde.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await sonde
+
+        assert "sonde_du_montage" not in main._sondes_en_vol, (
+            "le fil n'a JAMAIS démarré, donc personne ne retirera le drapeau : la "
+            "sonde est morte pour la vie du processus. `/health` publierait "
+            "`unknown` à jamais et l'anticipation de `/chat/resume` ne "
+            "reprendrait plus. C'est la fenêtre que la pose côté boucle ouvre, et "
+            "que la boucle doit refermer elle-même"
+        )
+    finally:
+        occupe.set()
+        squat.cancel()
+        limiteur.total_tokens = jetons_initiaux
+
+
+@pytest.mark.asyncio
+async def test_l_absorption_n_est_pas_muette_au_deuxieme_passage(
+    monkeypatch, caplog, _drapeau_en_vol_neuf
+) -> None:
+    """« L'absorption n'est pas muette » — et elle l'était, dès le passage 2.
+
+    `mesuré` : sur 6 requêtes contre un store qui pend, le site n'émettait
+    **1 seule** ligne `WARNING` — celle du premier dépassement — et 5 en `DEBUG`.
+    Les passages 2..N sautaient leur anticipation SANS trace exploitable, alors
+    que le site écrit que l'absorption n'est pas muette. Un exploitant qui ne
+    monte pas le niveau à DEBUG en production — c'est-à-dire tous — voyait une
+    seule ligne pour une panne qui dure.
+
+    Et la ligne NOMME SA ROUTE. `_sonder` est partagée entre `/health` et
+    `/chat/resume` depuis l'anticipation de concordance, et son journal était
+    resté écrit pour un seul appelant : émise depuis `/chat/resume`, elle
+    annonçait `/health`. Un exploitant qui lit « /health » ne va pas chercher la
+    latence d'une requête utilisateur.
+    """
+    from src.api import main
+
+    pend = _CollectionQuiPend()
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    _brancher_collection(monkeypatch, pend)
+
+    passages = 6
+    try:
+        with caplog.at_level(logging.WARNING, logger="src.api.main"):
+            for _ in range(passages):
+                await main._concordance_avant_le_flux()
+
+        assert pend.entrees == 1, (
+            "le drapeau doit avoir fait sauter les passages 2..N — sinon ce test "
+            f"ne mesure pas le silence de l'absorption (entrées : {pend.entrees})"
+        )
+
+        renonces = [m for m in caplog.messages if "encore en vol" in m]
+        assert len(renonces) == passages - 1, (
+            f"{len(renonces)} ligne(s) WARNING pour {passages - 1} passages qui "
+            "ont renoncé à leur verdict. En DEBUG, ces passages sont muets pour "
+            "l'exploitant : la panne dure et le journal n'en dit plus rien"
+        )
+        assert all("/chat/resume" in m for m in renonces), (
+            "la ligne doit nommer la route qui sonde. `_sonder` est partagée ; "
+            f"un journal qui annonce la mauvaise route égare : {renonces[:1]}"
+        )
+        assert not any("/health" in m for m in renonces), (
+            "émise depuis `/chat/resume`, cette ligne annonçait `/health` — le "
+            "journal de `_sonder` était resté écrit pour un seul appelant"
+        )
+    finally:
+        pend.debloquer.set()
+
+
+@pytest.mark.asyncio
+async def test_le_drapeau_est_retire_quand_le_store_rend_la_main(
+    monkeypatch, _drapeau_en_vol_neuf
+) -> None:
+    """LE TÉMOIN DE LA CORRECTION DE B-2 : borner la rafale sans acheter la cécité.
+
+    Poser le drapeau côté boucle borne la rafale ; le poser SANS que personne ne
+    le retire échangerait une fuite bornée contre une sonde morte à jamais —
+    `/health` publierait `unknown` pour toujours et l'anticipation de
+    `/chat/resume` ne reprendrait jamais. C'est l'objection que le site opposait
+    à cette pose, et ce test est ce qui autorise à ne plus l'invoquer.
+
+    Le retrait est resté CÔTÉ FIL, donc il arrive quand le store rend la main —
+    et pas au plafond, où le fil tourne encore.
+    """
+    from src.api import main
+
+    pend = _CollectionQuiPend()
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    _brancher_collection(monkeypatch, pend)
+
+    try:
+        await main._concordance_avant_le_flux()
+        assert "modele_embedding" in main._sondes_en_vol, (
+            "sans drapeau posé pendant que le fil tourne, ce test ne mesure rien"
+        )
+
+        pend.debloquer.set()
+        for _ in range(400):
+            if "modele_embedding" not in main._sondes_en_vol:
+                break
+            await asyncio.sleep(0.01)
+        assert "modele_embedding" not in main._sondes_en_vol, (
+            "le store a rendu la main et le drapeau est TOUJOURS posé : la sonde "
+            "est morte pour la vie du processus, et la fuite bornée a été payée "
+            "d'une cécité définitive"
+        )
+    finally:
+        pend.debloquer.set()
+
+    # Et la sonde repart pour de bon : le drapeau retiré ne suffit pas à le dire,
+    # encore faut-il qu'une lecture neuve soit RÉELLEMENT effectuée.
+    revenue = _CollectionQuiPend()
+    revenue.debloquer.set()
+    _brancher_collection(monkeypatch, revenue)
+    await main._concordance_avant_le_flux()
+    assert revenue.entrees == 1, (
+        "après réparation du store, la sonde suivante doit lire à nouveau "
+        f"(entrées : {revenue.entrees})"
+    )
 
 
 @pytest.mark.asyncio

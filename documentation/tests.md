@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 557 tests, aucune dépendance
+## Unitaire — 562 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,7 +20,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 7 septembre 2026 : **557** tests sur **38** fichiers, et les deux
+> `mesuré` le 7 septembre 2026 : **562** tests sur **38** fichiers, et les deux
 > comptes de la recette — la somme par fichier et le total que `pytest` annonce
 > — concordent.
 >
@@ -44,7 +44,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > qui relève le titre ET la note séparément — deux sites qui s'accordent entre
 > eux peuvent être faux ensemble, et c'est exactement ce qui est arrivé. La
 > mesure passe par `pytest` et non par un comptage des `def test_*` : `mesuré`,
-> l'AST en rend **527** là où `pytest` en collecte **557**, huit `parametrize` en
+> l'AST en rend **532** là où `pytest` en collecte **562**, huit `parametrize` en
 > dépliant trente de plus. **Ce sont deux grandeurs différentes**, et ce chantier
 > en a déjà payé deux confusions du même genre.
 
