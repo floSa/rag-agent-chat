@@ -1614,8 +1614,27 @@ la réserve de ce garde, et elle est écrite au site.
 `git diff --numstat` confirme que le texte a bougé à chaque fois, et le rc relevé
 est celui de `pytest` (`make`, lui, rend 2). Dix rougissent, la onzième est un
 **témoin inerte** — un commentaire réécrit — qui reste vert : sans lui, un vert
-ne se distinguerait pas d'une mutation qui n'a rien touché. Le détail est au
-rapport du lot 3.
+ne se distinguerait pas d'une mutation qui n'a rien touché.
+
+> **L'ÉCART DE COMPTES, TRANCHÉ LE 7 SEPTEMBRE 2026, ET IL NE SE TRANCHE PAS
+> COMME LE PILOTE L'A DEMANDÉ.** L'audit du lot 3 a relevé que cette page
+> annonçait **onze** mutations là où le rapport du lot en tabulait **douze**, et
+> a demandé à `Conv' 31` de dire *lequel était juste*. Ce n'est pas décidable :
+> **le rapport du lot 3 n'a jamais été un artefact du dépôt** — il a été rendu
+> dans une conversation, `git log --all --grep` n'en retrouve rien et
+> `documentation/audits/` ne porte que l'audit du lot 1. Aucune des deux
+> tabulations n'est donc relisible aujourd'hui, et désigner une gagnante serait
+> exactement le geste que ce chantier sanctionne : conclure sans mesure. La
+> seule chose que la page peut dire est ce qu'elle peut prouver, et
+> l'affirmation ci-dessus est désormais **le site canonique du compte** — le
+> onze est interne à ce paragraphe, où il se vérifie (dix plus le témoin).
+>
+> **La leçon est structurelle, et elle vaut plus que le chiffre.** Un compte qui
+> ne vit que dans une conversation n'est pas vérifiable, donc n'est pas un
+> compte : c'est la même famille que les affirmations « toutes / aucune / il n'y
+> a plus » que le §4.4 a remplacées par un inventaire gardé. Les batteries de
+> mutations doivent atterrir dans le dépôt pour compter. Celle de la réparation
+> des deux bloquants est au **§4.21**, dans cette page.
 
 **Une correction de raisonnement, conservée.** Le §3.2 de ce registre prouvait la
 concordance des modèles par un détour : « `runs/final.json` porte
@@ -2426,3 +2445,247 @@ fonctionnelle n'est possible.
 | **A7** | `mypy scripts/` reste `rc=1`, **26 erreurs dans 3 fichiers** — donc aligner les périmètres du `Makefile` rendrait la porte rouge ; et le `MATCH` paginé sans `ORDER BY` de l'instrument, **mesuré stable** à quatre tailles de page | **ouvert**, antérieurs au lot |
 | **§4.13** | rien ne lit le compte de tests ni les documents. Le lot a corrigé le chiffre au site ; **le garde reste absent**, et c'est lui la trouvaille | **ouvert** — c'est le F7 du dépôt jumeau |
 | **la borne sur « fail-closed par construction »** | la précondition d'atteignabilité de `test_aucune_requete_ne_filtre_sequence_sans_ancre` reste satisfiable par une autre requête évaluable de la même scène : le garde n'est fail-closed **que dans sa scène**. Relevé par `Conv' 27`, confirmé par `Conv' 28`, non fermé — c'est la forme du garde qu'il faudrait changer | **ouvert**, borné au site |
+
+### 4.21 La réparation des deux bloquants du lot 3 — et une réserve nommée par son auteur, mesurée fausse
+
+`Conv' 31`, le 7 septembre 2026, sur la branche du lot 3. Les deux bloquants de
+l'audit (§4.20) sont refermés, N1 et N2 le sont aussi, et **quatre des sept non
+bloquantes** sont fermées. La porte : `make lint` **rc=0**, `make test`
+**rc=0**, **552 passés** — 539 avant, **+13** cas neufs — et le rc relevé est
+celui **du processus**, hors tube : `cmd 2>&1 | tail` rendrait celui de `tail`.
+
+**La batterie : onze mutations, dix mordent, le onzième est un témoin inerte.**
+Chacune restaurée, et la restauration **vérifiée par empreinte SHA-256** et non
+par `git diff` — l'arbre portait du travail non commité, donc `git diff` y est
+légitimement non vide et **ne prouve rien**. Le rc relevé est celui de `pytest` ;
+`make`, lui, rend 2.
+
+| | mutation | site | texte | `rc` | rouges |
+|---|---|---|---|---|---|
+| **M1** | la reprise ne repasse plus le garde | `retriever.py` | +0/-1 | **1** | 1 |
+| **M2** | le verdict est inscrit sans compare-et-échange | `retriever.py` | +1/-2 | **1** | 2 |
+| **M3** | le réarmement n'incrémente plus la génération | `retriever.py` | +0/-1 | **1** | 2 |
+| **M4** | plus de vérification avant l'ouverture du flux | `main.py` | +1/-1 | **1** | 1 |
+| **M5** | la divergence en vol redevient muette | `main.py` | +1/-1 | **1** | 1 |
+| **M6** | la prémisse Docker fausse repart dans `src/` | `main.py` | +1/-1 | **1** | 1 |
+| **M7** | le champ de concordance devient optionnel | `schemas.py` | +1/-1 | **1** | 1 |
+| **M8** | la fixture `autouse` ne réarme plus | `tests/conftest.py` | +0/-2 | **1** | 1 |
+| **M9** | la barrière réseau ne pose plus rien | `tests/unit/conftest.py` | +1/-1 | **1** | 2 |
+| **M10** | l'inventaire documentaire retrouve son angle mort | `test_coherence_depot.py` | +2/-2 | **1** | 1 |
+| **T1** | **témoin inerte** — un commentaire réécrit | `retriever.py` | +1/-1 | **0** | **0** |
+
+#### B1 — la reprise de `_dense_search` repasse le garde
+
+`reset_connection()` désarmait bien le verdict, mais la requête en cours
+interrogeait la collection rouverte **sans repasser le garde**. Un
+`verifier_modele_embedding()` est désormais appelé entre la réouverture et la
+retentative, et le motif est écrit au site.
+
+**Le rouge d'avant, `mesuré`** : `DID NOT RAISE EmbeddingModelMismatchError`, la
+collection divergente **servie**, une seule ligne au journal — le `WARNING` de
+réouverture. Après : la levée porte le nom du modèle divergent et
+`divergente.requetes == 0`.
+
+**Le bouchon modélise la mémoïsation, et c'est la condition de validité de la
+mesure.** `_ouverture_memoisee` ne fait avancer la collection **qu'au
+`cache_clear()`**, comme le vrai `lru_cache` : c'est le piège qui a coûté au
+pilote une contradiction inexistante (§4.20), et le seul montage où le « faux
+servi » vient bien de la reprise. Un **témoin** l'accompagne —
+`test_la_reprise_sert_bien_ce_qu_une_collection_concordante_rend` — parce qu'un
+garde qui refuserait aussi la réouverture légitime transformerait la résilience
+en panne.
+
+#### B2 — le réarmement concurrent n'est plus écrasé, et le site ne ment plus
+
+La réserve écrite au site — « le pire cas est une vérification faite deux fois ;
+un verrou coûterait plus cher que ce qu'il éviterait » — était **fausse**, et
+c'est une réserve que l'auteur du lot avait nommée lui-même.
+
+**La forme retenue n'est pas un verrou sur le chemin chaud, c'est une
+GÉNÉRATION.** Elle est incrémentée à chaque réarmement ; la vérification la
+relève avant de lire et n'inscrit son verdict favorable **que si elle n'a pas
+bougé** — un compare-et-échange. Le verrou ne couvre donc que deux affectations
+en mémoire, **jamais la lecture** : un réarmement concurrent n'attend pas
+derrière l'ouverture d'une collection, et un réarmement survenu pendant la
+lecture fait **jeter** le verdict au lieu de l'écraser. Se tromper dans ce
+sens-là coûte une relecture locale ; se tromper dans l'autre coûte le garde.
+
+**COMMENT LA COURSE EST RENDUE DÉTERMINISTE, et c'est la partie qui compte.**
+Deux fils lancés en espérant un entrelacement donnent un test vert par chance et
+rouge au hasard — *un garde dont le cas n'est atteint que par chance n'est pas un
+garde*. Le réarmement est donc déclenché **depuis le point observable de la
+lecture** : `_lire_estampille` est substituée par une lecture qui, avant de
+rendre, démarre un **vrai autre fil** appelant `reset_connection()` et le
+**joint**. L'écriture concurrente est réelle, elle traverse une vraie frontière
+de fil, et son ordonnancement est **certain** : quand la lecture rend, le
+réarmement a eu lieu. Aucun `sleep`, aucune attente d'ordonnanceur.
+
+Deux tests, et le second est celui qui dit pourquoi B2 est **pire que B1** :
+l'état écrasé ne se répare pas tout seul, donc une collection divergente passait
+ensuite pour **toute la vie du processus**.
+
+#### N1 — tranché en CODE, et la phrase redevient vraie au lieu d'être bornée
+
+**La décision : vérifier la concordance AVANT d'ouvrir le flux**, la seconde des
+deux voies proposées. Trois raisons, et la troisième a décidé :
+
+- elle ferme aussi le **trou d'observabilité**, que borner la phrase laissait
+  entier ;
+- elle rend **vraie** l'affirmation des quatre documents — « toute recherche est
+  refusée en 503 » — au lieu de la restreindre. Borner aurait demandé de
+  maintenir à quatre endroits une exception dont plus rien n'aurait rappelé la
+  cause ;
+- **la borne aurait vieilli du mauvais côté.** La phrase n'était fausse que
+  parce qu'une route s'était mise à chercher sans que personne le remarque ;
+  écrire « sauf `/chat/resume` » aurait daté du jour où une cinquième route
+  reboucle. Le code, lui, refuse par construction.
+
+`await asyncio.to_thread(verifier_modele_embedding)` — `to_thread` parce que la
+lecture est synchrone et que l'ouverture de la collection est un aller-retour
+réseau : l'appeler nu bloquerait la boucle. `mesuré` après correction : **503**,
+les **deux noms de modèles dans le corps**, la ligne **ERROR**, et **zéro octet**
+servi.
+
+**Le test prouve qu'il atteint son cas**, et c'est exigé : sans `lifespan` monté,
+`/chat/resume` rend un 503 qui dit « Service en cours de démarrage » et **n'a
+jamais vu le garde**. Deux 503 de causes différentes étant indiscernables par le
+seul code, le test **exige le motif dans le corps** et branche le graphe pour que
+ce 503-là ne puisse pas être celui du démarrage.
+
+**CE QUE CETTE CORRECTION NE FERME PAS, et c'est écrit au site plutôt que
+passé sous silence.** Une divergence apparue **après** l'ouverture du flux — `reset_connection()`
+tourne toutes les 20 s depuis le `ping()` du healthcheck — tue toujours le flux
+**tronqué** : le 200 est déjà parti, et aucune correction ne le reprend. Ce qui
+change est qu'il ne meurt plus **muet** : le gestionnaire d'exception de
+l'application n'étant jamais appelé après le premier octet, le
+`stream_generator` journalise lui-même en **ERROR** avec les deux noms **sur la
+ligne**, puis relaie. Le test qui garde ce résidu monte un `TestClient` en
+`raise_server_exceptions=False` — un client qui relève l'exception donnerait à ce
+test une forme que l'exploitant ne voit jamais.
+
+**Une absorption large a été ajoutée, et voici sa justification** : la
+vérification anticipée n'échoue pas seulement sur une divergence, elle échoue
+aussi sur une estampille **illisible** (ChromaDB muet). Refuser dessus ferait
+dépendre de ChromaDB une route qui, la plupart du temps, **ne cherche pas** —
+elle reconstruit un contexte depuis Nebula et génère — et transformerait une
+requête qui aboutit en 500. L'illisible est donc journalisé en `WARNING` et
+laissé passer, le garde restant en place **à l'intérieur** du flux.
+`EmbeddingModelMismatchError` est re-levée avant, donc l'absorption ne mange
+jamais une divergence.
+
+`/chat/simple` ne reçoit pas cette vérification, et c'est **mesuré** : il ne
+passe pas par le graphe et ne cherche jamais. C'est la seule autre route qui
+streame.
+
+#### N2 — la prémisse Docker fausse : cinq sites, pas trois, et un garde plutôt qu'une correction
+
+**L'inventaire de l'audit était incomplet, et c'est ma trouvaille.** Le §4.20
+nommait trois sites. `mesuré` le 7 septembre 2026, la prémisse vivait à **cinq**
+sites de code, plus les deux du registre :
+
+| site | qui | fait |
+|---|---|---|
+| `src/agent/retriever.py:182` | ajouté par le lot 3 | **corrigé** — mandaté |
+| `src/api/main.py:383` | antérieur | **corrigé** — élargissement déclaré par le pilote |
+| `src/api/main.py:414` | antérieur, **hors inventaire de l'audit** | **corrigé** |
+| `tests/unit/test_garde_modele_embedding.py:302` | **ajouté par le lot 3**, hors inventaire | **corrigé** |
+| `tests/unit/test_health_parallele.py:470` | antérieur, hors inventaire | **corrigé** |
+| `tests/unit/test_securite.py:178` | antérieur, hors inventaire | **corrigé** |
+| `documentation/axes_amelioration.md` §1.27 | antérieur | **laissé tel quel** — déjà corrigé sur `main`, et l'y toucher fabriquerait un conflit dans la fusion que le pilote résout |
+
+**`test_securite.py:178` était faux deux fois.** Il affirmait que « le
+healthcheck Docker s'appuie sur ce statut ». Le healthcheck est
+`curl -sf .../health` : il ne lit que le **code HTTP**, et `degraded` est un
+**200** — ce champ lui est donc invisible. Le vrai motif est écrit à la place :
+l'index se construit normalement au démarrage, et dégrader sur un état
+transitoire ordinaire rendrait « degraded » illisible le jour où une dépendance
+tombe vraiment.
+
+**ET SURTOUT : la prémisse est désormais GARDÉE, pas seulement corrigée.** Une
+correction sans garde se refait — ce nom de panne a essaimé sur cinq sites sans
+que personne ne le remesure, et *un raisonnement juste sur un antécédent faux se
+relit comme une preuve*. `test_coherence_depot.py` porte donc un **inventaire**
+de la famille de phrases, borné à `src/` et `tests/` — là où la prémisse sert de
+**motif** à une décision qu'on relit ; le registre, lui, a pour métier de citer
+une affirmation pour la démentir, et y inventorier ses comptes rendrait ce test
+rouge à chaque fusion pour une raison qui n'est pas la bonne. **Ce garde a
+trouvé un site que mon propre `grep` avait manqué** dès sa première exécution.
+
+#### Les non bloquantes : quatre fermées, trois ouvertes
+
+**N3 — fermé.** Le champ `embedding_model` de `/health` reste non optionnel, et
+la décision est maintenant gardée : le rendre optionnel rend **1 rouge** (M7).
+Asserté depuis le côté qui produit la garantie — la validation du modèle — et
+non depuis l'annotation, qu'un `| None` suffit à démentir.
+
+**N4 — fermé.** La fixture `autouse` de `tests/conftest.py` n'est plus inerte :
+deux tests **ordonnés** de `tests/unit/test_montage_des_tests.py` l'encadrent —
+le premier établit le verdict, le second exige de ne pas en hériter. Retirer le
+réarmement rend **1 rouge** (M8). Le mécanisme repose sur l'ordre de déclaration
+dans un module, ce que pytest garantit, et c'est **écrit au site** pour que
+personne ne réordonne ces deux tests sans le savoir.
+
+**N5 — fermé, et par CONSTRUCTION.** `mesuré` de mes mains, et la mesure de
+l'audit est reproduite à l'unité : **48 tentatives de connexion `chromadb` sur
+41 tests**, toutes depuis `_lire_estampille` ← `etat_modele_embedding` ←
+`_executer_sonde`, dans un fil du threadpool — donc **un seul site structurel**,
+la sonde de concordance de `/health`. Cinq fichiers restaient :
+`test_capture_branchement.py`, `test_purge_sessions.py`, `test_absorptions.py`,
+`test_flux_interactif.py`, `test_securite.py`.
+
+> **La sonde de mesure a dû changer de couche, et c'est une leçon.** Une première
+> sonde posée sur `socket.socket.connect` rendait **0 dans les deux sens** — avec
+> et sans correction. Elle mentait : ces 48 tentatives **ne parviennent jamais à
+> `connect`**, elles meurent à `getaddrinfo`, l'hôte `chromadb` ne se résolvant
+> pas depuis un poste de développement. C'est exactement ce que l'auditeur
+> voulait dire par *« le montage tient par absorption, pas par construction »* —
+> et une sonde placée trop bas aurait signé un faux zéro. Mesuré à la bonne
+> couche : **63 résolutions vers `chromadb` sur 44 tests** sans la barrière,
+> **0** avec.
+
+Le remède n'est **pas** un branchement fichier par fichier : un branchement ne
+couvre que les tests déjà écrits. `tests/unit/conftest.py` — **séparé** de
+`tests/conftest.py`, parce que `tests/integration/` ouvre de vraies connexions
+et qu'une barrière posée à la racine l'aurait cassé — interdit
+`chromadb.HttpClient` et lève un message qui **nomme le geste**. La barrière est
+elle-même gardée (M9, **2 rouges**) : une fixture non gardée est précisément le
+défaut de N4.
+
+**N6 — fermé.** L'inventaire ne balayait que `documentation/*.md` **non
+récursif** plus `README.md`. Il balaie désormais **tous les fichiers suivis par
+git**, et cette borne-là est choisie : ce dépôt est **public**, donc l'ensemble
+des fichiers suivis est exactement ce qu'un lecteur peut copier — la borne décrit
+le **risque** au lieu de décrire l'arborescence, et un répertoire neuf y entre
+tout seul. Les deux fichiers de test qui portent légitimement ce nom sont entrés
+dans la table. **Coverage prouvée dans le sens montant** : une occurrence plantée
+dans `.env.example`, `src/agent/settings.py`,
+`documentation/audits/2026-09-03-audit-lot-1.md` et `scripts/evaluate.py` rend
+`rc=1` **dans les quatre cas** — quatre angles morts, quatre rouges. Et dans le
+sens descendant par M10.
+
+**Restent ouvertes** : **N7** (aucun test ne garde le drapeau « en vol » de la
+sonde neuve), **N8** (la mémoïsation du verdict n'est gardée par rien — un
+refactor qui la retire ne rougit pas), **N9** (l'`except Exception`
+d'`etat_modele_embedding`, consigné et recevable).
+
+#### Ce que cette réparation a trouvé et n'a PAS fermé
+
+**`tests.md` annonçait un compte faux DANS LE COMMIT QUI LE CORRIGEAIT.**
+`mesuré` : à `c5c38d5`, la page annonçait **520** tests sur **36** fichiers
+quand le dépôt en portait **539** sur **37** — 19 tests et un fichier de retard,
+écrits par le commit même qui prétendait rattraper le retard, et ni le lot ni
+son audit ne l'ont vu. C'est la **démonstration** du §4.13 plutôt qu'une
+nouvelle entrée : *rien ne pouvait le voir*. Le chiffre est remis à **552 sur
+38** et la note porte désormais l'épisode. **Le garde reste ouvert** — c'est lui
+la trouvaille, pas le chiffre, et le corriger une troisième fois sans garde
+serait le geste que ce §4.13 sanctionne.
+
+**Deux tests unitaires résolvent encore l'hôte `ollama`** — `mesuré` :
+`test_purge_sessions.py::test_health_publie_les_suppressions_reelles_et_les_echecs`
+et `test_securite.py::test_health_reste_interrogeable_sans_cle`, deux
+résolutions vers `ollama:11434` depuis un fil du threadpool. **Même classe de
+défaut que N5**, autre dépendance : ces deux-là ne tiennent verts que parce que
+`ollama` ne se résout pas non plus. La barrière de `tests/unit/conftest.py` ne
+couvre que `chromadb`, et l'étendre à `httpx` demande de décider ce que
+`_sonder_ollama` doit voir — une décision, pas un geste. **Non fermé, nommé
+ici.**

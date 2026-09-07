@@ -81,6 +81,16 @@ reste la plus coûteuse — elle est simplement devenue bruyante de ce côté-ci
 Raisonnement complet, décisions et réserves :
 [axes_amelioration.md](axes_amelioration.md), §4.4.
 
+> **La seule réserve sur ce `503`, et elle est étroite.** Les six routes le
+> rendent pour une divergence connue à l'arrivée de la requête —
+> `/chat/resume`, qui **streame** et dont le graphe reboucle vers `retrieve`
+> après `generate`, vérifie la concordance **avant** d'ouvrir le flux depuis le
+> 7 septembre 2026. Ce que le `503` ne peut pas couvrir est une divergence
+> apparue **pendant** une réponse déjà commencée : le code HTTP est parti en
+> 200, donc le flux meurt **tronqué**. Rien de faux n'est servi — c'est
+> fail-closed — et la cause est journalisée en `ERROR` avec les deux noms de
+> modèles. Détail et mesure : §4.20 (trouvaille N1) et §4.21.
+
 Un élément long est réparti sur plusieurs chunks (`abc#0`, `abc#1`) partageant
 leur `element_id`. L'agent déduplique **avant** de couper au top-K ; sans cela,
 plusieurs fenêtres d'un même passage occupent plusieurs places, et le frontend
