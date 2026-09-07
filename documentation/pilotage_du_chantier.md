@@ -249,9 +249,24 @@ dépôt, pas dans la conversation.*
 | **30** | AUDIT-3 — audit du lot 3 | **21 mutations dont 2 témoins**, 18 mordent. **2 bloquantes** (B1, B2), 1 mesure du pilote **renversée** (N1), 9 non bloquantes — §4.20. Recommandation : fusionner après correction |
 | **31** | REPAR-4 — fermer B1, B2, N1 et N2 sur la branche du lot 3 | distribué le 4 septembre, livré le **7** : `19f7cec`, 552 passés, **11 mutations dont un témoin inerte**. B1, B2 et N1 vérifiés par le pilote — §4.22. A **refusé de trancher** l'écart de comptes, avec une mesure, et il avait raison |
 | **32** | AUDIT-REPAR-4 — audit de la réparation du lot 3 | **11 mutations reproduites à l'identique**, 6 mutations propres, concurrence réelle avec une sonde **prouvée capable**. **1 bloquante** (B-1), 4 non bloquantes, **aucune mesure du pilote renversée** — §4.23. Recommandation : ne pas fusionner en l'état |
-| **33** | REPAR-5 — fermer B-1 et NB-1 sur la branche du lot 3 | distribué le 7 septembre 2026 |
+| **33** | REPAR-5 — fermer B-1 et NB-1 sur la branche du lot 3 | `c8cb37d` : **557 passés**, 8 mutations dont un témoin inerte. B-1 et NB-1 vérifiés par le pilote — §4.24. A fermé **hors mandat** le garde du compte de tests, et **a corrigé le pilote** sur `abandon_on_cancel` |
+| **34** | AUDIT-ASYNC-3 — audit **étroit**, borné à la couche async du lot 3 | distribué le 7 septembre 2026 |
 
-**Prochain numéro libre : 34.**
+**Prochain numéro libre : 35.**
+
+**`main` est poussé.** `7bcd346..a2ec58b`, 31 commits, le 7 septembre 2026, sur
+décision de l'utilisateur, après vérification manuelle des 62 signatures
+auteur+committer, de l'absence d'`@aosis.net`, d'attribution d'assistant et de
+tout secret. `main` = `origin/main` = `a2ec58b`. **Le garde-fou d'identité ne
+couvre PAS `push`** : cette vérification était manuelle, et un hook `pre-push`
+monte au plan.
+
+**Cinq audits, cinq trouvailles bloquantes — et le lot 3 en a consommé trois.**
+C'est le lot le plus cher du chantier, et c'est le seul qui touche le chemin de
+chaque recherche. Les deux dernières bloquantes vivaient toutes deux dans la
+**couche async/concurrence** : c'est la raison pour laquelle l'audit `Conv' 34`
+est **borné à cette couche** au lieu d'être un troisième passage complet. *On
+cible là où le taux de trouvaille est mesuré.*
 
 **Cinq audits, cinq trouvailles bloquantes.** Le lot 3 en a consommé trois à lui
 seul — livré, audité, réparé, réaudité, à réparer une seconde fois — et chaque
