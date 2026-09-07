@@ -2731,3 +2731,124 @@ concurrence réelle ; ce que la vérification synchrone avant le flux coûte à
 de `tests/unit/conftest.py` — le réparateur signale lui-même que **deux tests
 résolvent encore l'hôte `ollama`**, même classe, autre dépendance ; et la
 décoration éventuelle de chacun des **13** tests neufs.
+
+### 4.23 L'audit de la réparation du lot 3 — une route qui pend, et un ordre de deux lignes que rien ne garde
+
+L'audit indépendant de `19f7cec` (`Conv' 32`) a **reproduit les onze mutations à
+l'identique**, les comptes, les deux bloquants refermés, et **aucune mesure du
+pilote n'a été renversée**. Il rend **une trouvaille bloquante** et quatre non
+bloquantes. Sa recommandation — ne pas fusionner en l'état — est suivie.
+
+#### B-1 — BLOQUANT : `/chat/resume` dépend de ChromaDB sans plafond, et le fil ne se récupère pas
+
+Le site neuf est `await asyncio.to_thread(verifier_modele_embedding)`, **nu**.
+`mesuré` par le pilote le 7 septembre 2026, collection bouchonnée qui **pend** —
+un `Event` jamais posé, aucun accès réel à ChromaDB :
+
+| | `mesuré` |
+|---|---|
+| le motif du site neuf | **toujours bloqué après 6 s**, et le pilote avait *ajouté* un `wait_for` que le site réel **n'a pas** : il attendrait indéfiniment |
+| `_concordance_embedding()` — la version **bornée que le même fichier possède déjà** | **rendue en 3,0 s**, `status='unknown'`, avec sa ligne « n'a pas répondu en 3.0 s ; on renonce à l'attendre » |
+| le processus de la sonde | **`rc=124`**, tué par `timeout` **après** avoir tout imprimé — le fil non-démon empêche l'interpréteur de sortir, ce qui corrobore la fuite de fil |
+
+**Ce qui rend la trouvaille grave n'est pas la panne, c'est que le fichier avait
+déjà écrit le remède.** Il borne la **même lecture** sous `_PLAFOND_SONDES_S = 3.0`
+à deux sites, il emploie ailleurs `anyio.to_thread.run_sync(…,
+abandon_on_cancel=True)` — la primitive **annulable** — et le docstring de
+`_sonder` note explicitement que *« la lecture de l'estampille du modèle
+d'embedding passe par le même mécanisme »*. Le site neuf a choisi
+`asyncio.to_thread`, qui n'est **ni borné ni annulable**, sur cette
+opération-là.
+
+**Et le commentaire du site nomme l'objectif que le code n'atteint pas** :
+l'absorption large dit exister pour ne pas *« faire dépendre de ChromaDB une
+route qui, la plupart du temps, ne cherche PAS »*. Elle protège d'un ChromaDB qui
+**lève**. Elle ne peut rien contre un ChromaDB qui **pend** — la panne la plus
+banale d'un store réseau, et précisément celle que la reprise de `_dense_search`
+existe pour rattraper. *La dépendance est sur l'appel, pas sur l'exception.*
+
+Chiffres de l'auditeur, non remesurés par le pilote : `chromadb 1.5.9` n'a **aucun
+délai par défaut** (>400 s sur un serveur muet) ; au niveau de la route, une
+requête qui **ne cherche pas** passait de **0,07 s** à **aucune réponse** ; le fil
+fuit à l'annulation ; **26** requêtes bloquées épuisent l'executor asyncio. Le
+rayon est **borné à sa décharge** : le réservoir anyio est distinct, donc
+`/health` survit, et ce site est le **seul** `asyncio.to_thread` du dépôt.
+
+**L'absorption large, elle, est correcte** : `except EmbeddingModelMismatchError`
+vient en premier, et la mutation X2 de l'auditeur — la faire avaler la divergence
+— rend `rc=1`, 1 rouge. Elle ne peut pas masquer une vraie divergence.
+
+#### NB-1 — la sûreté du compare-et-échange tient à l'ordre de deux lignes adjacentes
+
+`reset_connection()` fait `cache_clear()` **puis** `rearmer_verification_modele()`,
+et c'est le bon ordre. **`mesuré` par le pilote le 7 septembre 2026 : inversé, les
+552 tests restent VERTS, `rc=0`, zéro rouge** — restauration vérifiée par
+empreinte SHA-256. L'auditeur a montré par entrelacement forcé que l'ordre inverse
+rend un verdict favorable mémorisé sur une collection divergente : **c'est B2
+réintroduit à l'identique, par un réordonnancement de deux lignes.**
+
+La fenêtre en production est étroite — deux appels C successifs — et la sonde de
+concurrence de l'auditeur, sur des millions d'itérations, ne l'a **pas** touchée.
+Non bloquant, donc. **Mais à fermer dans la même passe** : *une décision
+argumentée et non gardée est une décision qui se défera sans un rouge*, et
+celle-ci protège exactement le bloquant que cette réparation existe pour fermer.
+
+#### Les trois autres non bloquantes
+
+| | Ce que c'est | Suite |
+|---|---|---|
+| **NB-2** | **un compte du §4.21 ne se vérifie pas à son propre site** : son texte écrit « cinq sites de code, plus les deux du registre » quand sa **propre table** en liste **six** de code et **un** de registre — et les six numéros de ligne sont exacts. La somme (7) est juste, la répartition fausse, *c'est pourquoi elle est passée*. Le « quatre de plus » du §4.22 est correct. **C'est la signature exacte du défaut que ce chantier ferme lot après lot, dans le paragraphe qui l'énonce** | `Conv' 33` |
+| **NB-3** | l'inventaire de la prémisse Docker **mord dans les deux sens** dans son périmètre — vérifié par l'auditeur — mais il filtre sur `src/` et `tests/` là où `_fichiers_suivis()` rend tout le suivi : **68 fichiers balayés, 47 hors**, dont **`docker-compose.yml`** — le fichier même dont la prémisse parle, et l'endroit où elle serait la plus dangereuse — plus `README.md`, `Dockerfile.agent` et `scripts/`. Quatre angles morts `mesurés` verts | `Conv' 33` |
+| **NB-4** | le trou `ollama` est **exact et borné** : exactement **2** résolutions, nommées, aucune assertion n'en dépend, latence bornée par `_PLAFOND_SONDES_S` et le `timeout=5.0` d'httpx. Un docstring dit « les dépendances sont neutralisées » et en neutralise **trois sur quatre** | consigné |
+
+#### Ce que l'audit a établi et que le pilote n'avait pas fait
+
+- **la concurrence réelle**, avec une sonde dont il a **prouvé la capacité** : elle
+  rompt l'invariant sur **trois** configurations du code d'avant réparation, et
+  rend **0 violation** sur jusqu'à **20,5 millions** de vérifications après. Sa
+  première version rendait 0 des deux côtés — *il l'a déclarée décorative et n'en
+  a rien conclu*, ce qui est le geste juste ;
+- **la direction du témoin** que le pilote n'avait pas dite : la reprise
+  **légitime** est toujours servie, et sa mutation X3 fait tomber **3** rouges dont
+  le témoin et un test de résilience antérieur ;
+- **aucun test existant affaibli, prouvé par AST** — `test_health_parallele.py` et
+  `test_securite.py` ont un AST **identique hors docstrings**, asserts 39→39 et
+  16→16 ;
+- **13 tests ajoutés, 0 retiré**, mesuré sur l'**adresse** et non sur le nom ;
+- et **la résolution du conflit de fusion** : les deux côtés ajoutent en fin de
+  fichier, la branche ne contient **ni §4.19 ni §4.20**, donc *« garder les deux
+  dans l'ordre du conflit » rangerait les sections 4.19, 4.20, **4.22, puis
+  4.21***. **Il faut intercaler le §4.21 AVANT le §4.22, pas concaténer.** Rien
+  n'est perdu ni réintroduit de faux d'aucun côté — aucune date fausse, aucune
+  contradiction chiffrée, aucun renvoi pendant.
+
+#### Deux corrections que le pilote encaisse
+
+**Son chiffre de « 202 lignes de production » confondait deux mesures** : le diff
+fait **175 insertions** et 27 suppressions ; 202 est leur somme. Sans conséquence,
+mais ce sont deux grandeurs différentes, et ce chantier en a déjà payé une —
+« le plus gros fichier de tests » du §4.14.
+
+**Et le piège de `merge-tree` est plus fin que le mandat ne le dit.** `mesuré` par
+l'auditeur sur git 2.53.0 : la forme à **deux** arguments rend déjà `rc=1` ; c'est
+la forme **historique à trois** arguments (`base b1 b2`) qui rend **`rc=0` malgré
+13 marqueurs de conflit**. Le mandat est à préciser : ce n'est pas
+`--write-tree` qui sauve, c'est de ne pas employer la forme à trois arguments.
+
+#### La faute de manœuvre de l'auditeur, déclarée — et vérifiée exacte par le pilote
+
+L'auditeur a tapé `cd /home/ubuntu/RAG/rag-agent-chat` — **l'arbre principal** — au
+lieu du sien, y a détaché `HEAD` hors de `main`, et a lu le `.venv` de cet arbre.
+**Il l'a déclaré en tête de son rapport, avant tout le reste, avec ses mesures de
+dégât.** `vérifié par le pilote` le 7 septembre 2026 : `git reflog show main` ne
+porte **aucune** entrée étrangère — seulement les fusions du pilote — et le reflog
+`HEAD` de l'arbre principal montre exactement `main → 19f7cec → main`, le
+détachement et sa restauration. `main` = `801fbf4`, sur la branche `main`, arbre
+propre, 28 commits d'avance. **Aucun dégât.**
+
+Ce qui vaut d'être retenu n'est pas la faute — elle est sans conséquence et elle a
+été réparée avant que quiconque la voie — c'est **la déclaration**. Un auditeur qui
+ouvre son rapport par son propre incident, avec les mesures qui en bornent la
+portée, rend son rapport plus croyable et non moins. *C'est le contraire de la
+faute qui a coûté un dépôt entier au projet jumeau : celle-là avait été découverte
+par quelqu'un d'autre.*
