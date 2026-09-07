@@ -29,6 +29,7 @@ tests sont la moitié manquante.
   second dégrade le statut à lui seul.
 """
 
+import asyncio
 import json
 import logging
 import threading
@@ -927,3 +928,396 @@ def test_la_reponse_health_exige_le_champ_de_concordance() -> None:
         HealthResponse(status="ok", ollama_model="un-modele")
 
     assert "embedding_model" in str(leve.value)
+
+
+# ─── B-1 : la route ne dépend plus d'un ChromaDB qui PEND ─────────────────────
+#
+# LA PANNE, trouvaille bloquante de l'audit de la réparation — §4.23, B-1. La
+# vérification anticipée de N1 avait été écrite `await
+# asyncio.to_thread(verifier_modele_embedding)`, NUE : sans plafond et sans
+# garde, sur une opération qui ouvre une collection ChromaDB. `mesuré` avec une
+# collection qui pend — un `Event` jamais posé, aucun accès réel au store :
+#
+#   - ce motif reste bloqué après 6 s, et même avec un `wait_for` que le site
+#     n'avait pas ; sans ce `wait_for` il attendrait indéfiniment ;
+#   - au niveau de la route, une requête qui NE CHERCHE PAS passait de 0,030 s à
+#     AUCUNE réponse ;
+#   - `asyncio.run` lui-même ne rend plus la main : sa fermeture joint le fil
+#     non-démon du réservoir asyncio ;
+#   - 26 requêtes bloquées lâchent 26 fils et n'en rendent AUCUNE.
+#
+# `chromadb 1.5.9` n'a aucun délai par défaut. L'absorption large du site
+# protégeait d'un ChromaDB qui LÈVE ; elle ne pouvait rien contre un ChromaDB qui
+# PEND — la panne la plus banale d'un store réseau, et celle que la reprise de
+# `_dense_search` existe pour rattraper. *La dépendance était sur l'appel, pas
+# sur l'exception.*
+#
+# LA FORME DE CES TESTS EST DICTÉE PAR UNE CONTRAINTE, et elle mérite d'être
+# dite : sur le motif d'avant, un test écrit en appel direct ne rougirait pas —
+# il PENDRAIT. Un test qui pend est pire qu'un rouge : il emporte la campagne
+# entière au lieu de nommer sa cause. La requête part donc dans un fil DÉMON
+# avec une échéance, et ce qui est asserté est qu'elle est REVENUE.
+
+# Échéance accordée à la requête, et plafond de sécurité de la lecture bloquée.
+# L'ORDRE DES TROIS VALEURS PORTE, et c'est la condition de validité de la
+# mesure : plafond des sondes (0,2 s, monkeypatché) < échéance de la requête
+# (5 s) < plafond de sécurité de la lecture (8 s). Si le dernier passait sous
+# l'échéance, la lecture rendrait d'elle-même et le test mesurerait son bouchon
+# au lieu du code.
+#
+# Le plafond de sécurité n'est pas une commodité : `to_thread.run_sync(…,
+# abandon_on_cancel=True)` ABANDONNE un fil de réservoir anyio qui n'est PAS
+# démon — `mesuré`, le nom du fil survivant est `AnyIO worker thread` — donc un
+# `wait()` sans borne retiendrait l'interpréteur à la fin de toute la campagne.
+# Même motif et même valeur qu'à `tests/unit/test_health_parallele.py`, recopiés
+# parce que les modules de test de ce dépôt ne s'importent pas entre eux.
+_ECHEANCE_REQUETE_S = 5.0
+_CAP_SECURITE_S = 8.0
+# La charge de la sonde du drapeau. L'audit a mesuré qu'il faut 26 requêtes
+# bloquées pour épuiser le réservoir asyncio ; ici le chiffre n'a pas à
+# l'atteindre, l'invariant gardé étant « un fil, quelle que soit la charge ».
+_CHARGE = 8
+
+
+class _CollectionQuiPend:
+    """Collection dont la LECTURE DE L'ESTAMPILLE ne rend la main que sur ordre.
+
+    C'est le ChromaDB muet, sans ChromaDB : `metadata` est la propriété que
+    `_lire_estampille` touche, et c'est là que le vrai client paie son
+    aller-retour d'ouverture.
+
+    Compte ses entrées ET les noms des fils qui y passent : le drapeau « en vol »
+    ne s'observe nulle part ailleurs. Un second fil lancé se verrait ici.
+    """
+
+    def __init__(self, plafond: float = _CAP_SECURITE_S) -> None:
+        self.debloquer = threading.Event()
+        self.entrees = 0
+        self.fils: set[str] = set()
+        self._verrou = threading.Lock()
+        self._plafond = plafond
+
+    @property
+    def metadata(self) -> dict[str, str]:
+        with self._verrou:
+            self.entrees += 1
+            self.fils.add(threading.current_thread().name)
+        self.debloquer.wait(self._plafond)
+        return {"embedding_model": _MODELE_QUI_A_INDEXE}
+
+    def count(self) -> int:
+        return 4367
+
+    def query(self, **_kwargs) -> dict:
+        return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
+
+
+@pytest.fixture
+def _drapeau_en_vol_neuf():
+    """Le drapeau des sondes vidé avant ET après.
+
+    C'est un état de MODULE, et il est partagé avec la sonde de `/health` — par
+    décision, cf. le docstring de `_concordance_avant_le_flux`. Un test qui
+    laisserait `modele_embedding` posé ferait SAUTER la lecture des tests
+    suivants, qui passeraient verts sans rien lire : le faux vert exact que la
+    fixture `autouse` de `tests/conftest.py` existe pour empêcher sur le verdict.
+    Même forme qu'à `tests/unit/test_health_parallele.py`.
+    """
+    from src.api import main
+
+    main._sondes_en_vol.clear()
+    yield
+    main._sondes_en_vol.clear()
+
+
+class _GrapheQuiNeCherchePas:
+    """Le cas MAJORITAIRE de `/chat/resume` : reconstruire et générer, sans chercher.
+
+    C'est celui que l'absorption large du site existe pour servir, et celui que
+    la dépendance non bornée cassait — une requête qui ne touche jamais ChromaDB
+    ne rendait plus rien parce qu'une VÉRIFICATION la précédait.
+    """
+
+    def __init__(self) -> None:
+        self.jetons_servis = 0
+
+    async def aget_state(self, _config):
+        class _Instantane:
+            values = {"question": "une question"}
+            next = ("await_source_selection",)
+
+        return _Instantane()
+
+    async def aupdate_state(self, _config, _valeurs) -> None:
+        return None
+
+    async def astream(self, _entree, _config, stream_mode=None):
+        self.jetons_servis += 1
+        yield "custom", {"token": "La "}
+        yield "values", {"response": "une réponse complète"}
+
+
+def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
+    monkeypatch, caplog, _drapeau_en_vol_neuf
+) -> None:
+    """Une requête qui NE CHERCHE PAS ne doit pas dépendre d'un ChromaDB muet.
+
+    Le rouge d'avant n'est pas une assertion, c'est une absence : la requête ne
+    revient jamais. C'est pourquoi elle est portée par un fil démon sous
+    échéance, et pourquoi l'assertion principale est « elle est revenue ».
+
+    Le flux est exigé COMPLET — pas seulement une réponse HTTP : un 503 rendu par
+    la route serait aussi un « retour », et ce serait la panne inverse, celle que
+    l'absorption large existe pour empêcher.
+    """
+    from src.api import main
+
+    pend = _CollectionQuiPend()
+    graphe = _GrapheQuiNeCherchePas()
+    monkeypatch.setattr(main, "_interactive", graphe)
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    _brancher_collection(monkeypatch, pend)
+
+    recu: dict = {}
+
+    def _requete() -> None:
+        client = TestClient(main.app, raise_server_exceptions=False)
+        debut = time.monotonic()
+        recu["evenements"] = _flux_resume(client)
+        recu["duree"] = time.monotonic() - debut
+
+    fil = threading.Thread(target=_requete, daemon=True)
+    try:
+        with caplog.at_level(logging.WARNING, logger="src.api.main"):
+            fil.start()
+            fil.join(timeout=_ECHEANCE_REQUETE_S)
+
+        assert not fil.is_alive(), (
+            f"la route n'a rien rendu en {_ECHEANCE_REQUETE_S:.0f} s alors que la "
+            "requête ne cherche PAS : une vérification non bornée fait dépendre de "
+            "ChromaDB une route qui ne le touche jamais"
+        )
+        assert pend.entrees == 1, (
+            "la lecture bloquée doit avoir été atteinte une fois — sinon ce test "
+            f"ne mesure rien du tout (entrées : {pend.entrees})"
+        )
+        assert graphe.jetons_servis == 1, "le flux doit s'être ouvert malgré le silence du store"
+        assert recu["evenements"], "le flux doit avoir servi des événements"
+        assert [m for m in caplog.messages if "n'a pas répondu en" in m], (
+            "le dépassement doit laisser une ligne : une absorption muette rend "
+            "l'exploitant aveugle à un store qui pend"
+        )
+    finally:
+        # Sans quoi le fil de réservoir abandonné — non démon — retient
+        # l'interpréteur à la fin de la campagne entière.
+        pend.debloquer.set()
+
+
+@pytest.mark.asyncio
+async def test_le_silence_du_store_ne_lache_qu_un_fil_quelle_que_soit_la_charge(
+    monkeypatch, _drapeau_en_vol_neuf
+) -> None:
+    """LA SECONDE DÉCISION, gardée : le drapeau « en vol » vaut aussi ici.
+
+    Un fil bloqué dans un appel réseau ne s'interrompt pas : renoncer à
+    l'attendre le LÂCHE. À `/health` le cadenceur est un tick toutes les 20 s ;
+    ici c'est le débit des requêtes utilisateur, que rien ne borne. Sans le
+    drapeau, la fuite est d'un fil PAR REQUÊTE.
+
+    **CETTE SONDE ATTEINT SON CAS, et c'est mesuré hors campagne des deux côtés**
+    avec les 26 requêtes de l'audit : le motif d'avant lâche **26** fils et n'en
+    rend **aucune** en 6 s ; le site corrigé lâche **1** fil et rend **26/26** au
+    plafond. Une sonde qui ne rougit pas sur le défaut connu ne prouverait rien
+    ici.
+
+    L'ENTRELACEMENT EST FORCÉ, et non espéré : la première requête part seule et
+    le test ATTEND que le drapeau soit posé avant de lancer les autres. Sans
+    cela, la mesure heurterait le résidu déjà nommé au site — deux appels
+    vraiment simultanés peuvent doubler la sonde le temps qu'un fil démarre — et
+    rendrait un test rouge au hasard.
+    """
+    from src.api import main
+
+    pend = _CollectionQuiPend()
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    _brancher_collection(monkeypatch, pend)
+
+    try:
+        premiere = asyncio.create_task(main._concordance_avant_le_flux())
+        for _ in range(400):
+            if "modele_embedding" in main._sondes_en_vol:
+                break
+            await asyncio.sleep(0.01)
+        assert "modele_embedding" in main._sondes_en_vol, (
+            "le drapeau « en vol » n'a jamais été posé. Deux causes, et les deux "
+            "comptent : soit il a été retiré du chemin — c'est la panne, la fuite "
+            "redevient d'un fil par requête — soit cette sonde n'atteint pas son "
+            "cas. Dans les deux cas son vert ne prouverait rien."
+        )
+
+        autres = [asyncio.create_task(main._concordance_avant_le_flux()) for _ in range(_CHARGE)]
+        rendues, restantes = await asyncio.wait(
+            [premiere, *autres], timeout=_ECHEANCE_REQUETE_S
+        )
+        for tache in restantes:
+            tache.cancel()
+
+        assert not restantes, (
+            f"{len(restantes)} requêtes sur {_CHARGE + 1} n'ont pas rendu la main : "
+            "le plafond ne borne rien"
+        )
+        assert len(pend.fils) == 1, (
+            f"{len(pend.fils)} fils lâchés pour {_CHARGE + 1} requêtes bloquées : "
+            "sans le drapeau « en vol », la fuite est d'un fil par requête, et "
+            "l'audit a mesuré que 26 suffisent à épuiser le réservoir"
+        )
+        assert pend.entrees == 1, "un seul fil, donc une seule entrée dans la lecture"
+    finally:
+        pend.debloquer.set()
+
+
+@pytest.mark.asyncio
+async def test_une_divergence_revenue_dans_le_plafond_est_toujours_relevee(
+    monkeypatch, _drapeau_en_vol_neuf
+) -> None:
+    """TÉMOIN DU PLAFOND : il ne doit pas avaler ce qu'il existe pour laisser passer.
+
+    Borner la lecture et absorber son dépassement ouvre une manière de tout
+    perdre : réemployer `_relever`, qui ABSORBE ce qu'une sonde a levé et publie
+    `si_levee`. C'est juste pour `/health`, qui doit rendre 200 même dégradée, et
+    faux ici — le 503 et les deux noms de modèles dans le corps en dépendent.
+
+    Ce témoin est le pendant de celui de B1 : un garde qui refuserait la
+    réouverture légitime transformerait la résilience en panne ; un plafond qui
+    avalerait la divergence transformerait la borne en cécité.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
+    monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
+    _brancher_collection(
+        monkeypatch, _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE})
+    )
+
+    with pytest.raises(retriever.EmbeddingModelMismatchError) as leve:
+        await main._concordance_avant_le_flux()
+
+    assert _AUTRE_CANDIDAT in str(leve.value) and _MODELE_QUI_A_INDEXE in str(leve.value)
+
+
+# ─── NB-1 : l'ordre des deux lignes de `reset_connection()` ───────────────────
+#
+# CE QUE CE GARDE EXISTE POUR RENDRE IMPOSSIBLE — §4.23, NB-1. `reset_connection()`
+# fait `cache_clear()` PUIS `rearmer_verification_modele()`, et c'est le bon
+# ordre. `mesuré` par le pilote : **inversé, les 552 tests restaient VERTS**,
+# `rc=0`, zéro rouge. L'ordre inverse rend un verdict favorable MÉMORISÉ sur une
+# collection divergente — c'est B2 réintroduit à l'identique, par un
+# réordonnancement de deux lignes adjacentes que rien ne documentait.
+#
+# LE COMPARE-ET-ÉCHANGE NE PEUT RIEN CONTRE ÇA, et c'est ce qui rend le cas
+# contre-intuitif : il protège d'un réarmement survenu PENDANT la lecture, pas
+# d'un réarmement survenu AVANT une lecture qui porte encore sur l'ancien cache.
+#
+# LA FENÊTRE EST ÉTROITE EN PRODUCTION — deux appels C successifs — et la sonde
+# de concurrence de l'auditeur, sur des millions d'itérations, ne l'a pas
+# touchée. C'est pourquoi ce garde emploie l'ENTRELACEMENT FORCÉ que ce fichier
+# emploie déjà : espérer la course la rendrait injoignable, donc décorative.
+#
+# CE QUI CHANGE PAR RAPPORT À L'ENTRELACEMENT DE B2, et c'est la difficulté de ce
+# garde : là-bas le point observable était la LECTURE, ici c'est la COUTURE entre
+# les deux lignes. Le test ne connaît donc pas leur ordre — il instrumente les
+# DEUX primitives et fait vérifier un autre fil juste après celle qui passe la
+# PREMIÈRE. C'est ce qui le rend sensible à l'inversion sans qu'il ait à la
+# nommer, et c'est la seule forme qui interdit de le satisfaire en réordonnant le
+# test lui-même.
+
+def _coudre_une_verification_entre_les_deux_lignes(monkeypatch, collections, journal):
+    """Instrumente les deux lignes de `reset_connection()` et coud la course.
+
+    Après la PREMIÈRE des deux qui passe — quelle qu'elle soit — un VRAI autre
+    fil vérifie la concordance, et il est JOINT avant de rendre la main. La
+    course est réelle, elle traverse une frontière de fil, et son ordonnancement
+    est certain : aucun `sleep`, aucune attente d'ordonnanceur.
+
+    Le bouchon d'ouverture est fidèle au `lru_cache` — la collection n'avance
+    QU'AU `cache_clear()`, cf. `_ouverture_memoisee` — sans quoi le test
+    mesurerait son montage.
+    """
+    ouverture = _ouverture_memoisee(collections)
+    vrai_vidage = ouverture.cache_clear
+    vrai_rearmement = retriever.rearmer_verification_modele
+    coupee = {"faite": False}
+
+    def _verifier_depuis_un_autre_fil() -> None:
+        if coupee["faite"]:
+            return
+        coupee["faite"] = True
+
+        def _cible() -> None:
+            try:
+                retriever.verifier_modele_embedding()
+                journal.append("verdict")
+            except retriever.EmbeddingModelMismatchError:
+                journal.append("refus")
+
+        fil = threading.Thread(target=_cible)
+        fil.start()
+        fil.join()
+
+    def _vidage_instrumente() -> None:
+        vrai_vidage()
+        journal.append("vidage")
+        _verifier_depuis_un_autre_fil()
+
+    def _rearmement_instrumente() -> None:
+        vrai_rearmement()
+        journal.append("rearmement")
+        _verifier_depuis_un_autre_fil()
+
+    ouverture.cache_clear = _vidage_instrumente
+    monkeypatch.setattr(retriever, "_get_chroma_collection", ouverture)
+    monkeypatch.setattr(retriever, "rearmer_verification_modele", _rearmement_instrumente)
+
+
+def test_l_ordre_de_reset_connection_ne_peut_pas_s_inverser_en_silence(monkeypatch) -> None:
+    """Vider le cache AVANT de réarmer, sous peine de rendre B2 à l'identique.
+
+    Asserté sur la CONSÉQUENCE et non sur l'ordre des lignes, qu'on peut lire
+    faux : après la réouverture, la collection est divergente, et le garde doit
+    la refuser. Dans l'ordre inversé il ne la refuse pas — un verdict favorable
+    établi sur l'ancienne collection a été mémorisé, et il ne se répare pas tout
+    seul : chaque recherche servirait des passages plausibles et faux jusqu'au
+    redémarrage du processus.
+    """
+    concordante = _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE})
+    divergente = _FausseCollection({"embedding_model": _AUTRE_CANDIDAT})
+    journal: list[str] = []
+
+    monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
+    retriever.rearmer_verification_modele()
+    _coudre_une_verification_entre_les_deux_lignes(
+        monkeypatch, [concordante, divergente], journal
+    )
+
+    retriever.reset_connection()
+
+    assert "vidage" in journal and "rearmement" in journal, (
+        f"les deux lignes doivent avoir été exercées — sinon ce test ne mesure "
+        f"rien (journal : {journal})"
+    )
+    assert journal.count("verdict") + journal.count("refus") == 1, (
+        f"la vérification concurrente doit avoir eu lieu exactement une fois, "
+        f"cousue entre les deux lignes (journal : {journal})"
+    )
+    assert retriever._concordance_etablie is False, (
+        "un verdict favorable a été MÉMORISÉ pendant `reset_connection()`, alors "
+        "que la collection rouverte n'a pas encore été lue : c'est B2 réintroduit "
+        "par l'ordre des deux lignes — `cache_clear()` doit passer AVANT "
+        f"`rearmer_verification_modele()` (journal : {journal})"
+    )
+
+    with pytest.raises(retriever.EmbeddingModelMismatchError):
+        retriever.verifier_modele_embedding()

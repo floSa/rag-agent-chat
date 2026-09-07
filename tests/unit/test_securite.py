@@ -34,8 +34,27 @@ def test_route_avec_mauvaise_cle_refusee(client) -> None:
 def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
     """Une sonde doit fonctionner sans secret, sinon plus rien ne la surveille.
 
-    Les dépendances sont neutralisées : ce test doit passer en CI, où ni
-    ChromaDB ni NebulaGraph ne tournent.
+    TROIS DES QUATRE SONDES SONT NEUTRALISÉES, PAS QUATRE, et cette phrase disait
+    « les dépendances sont neutralisées » — trouvaille NB-4 de l'audit du lot 3,
+    §4.23. `chroma_ping`, `nebula_ping` et `lexical_ready` sont substituées
+    ci-dessous ; `_sonder_ollama` ne l'est pas, et fait une VRAIE résolution de
+    `ollama:11434` depuis un fil du réservoir.
+
+    Ce test ne tient donc pas tout à fait par construction, et ce qui le borne est
+    écrit plutôt que supposé : aucune de ses assertions ne dépend de ce que la
+    sonde Ollama rend — `/health` répond 200 même dégradé, c'est tout ce qui est
+    asserté — et sa latence est bornée deux fois, par `_PLAFOND_SONDES_S` et par
+    le `timeout=5.0` de son propre client httpx. Il reste vert aujourd'hui parce
+    que le nom `ollama` ne se résout pas depuis un poste de développement, ce qui
+    est une absorption et non une construction.
+
+    LA QUATRIÈME N'EST PAS NEUTRALISÉE ICI, ET C'EST DÉLIBÉRÉ. Le remède n'est pas
+    un branchement dans ce test : un branchement ne couvre que les tests déjà
+    écrits, et la barrière de `tests/unit/conftest.py` ne couvre que `chromadb`.
+    L'étendre à `httpx` demande de décider ce que `_sonder_ollama` doit voir — une
+    décision, pas un geste — et ce trou est consigné ouvert au §4.21, avec le
+    compte EXACT de ses deux sites. Le corriger ici en muet rendrait ce compte
+    faux sans refermer la classe de défaut.
     """
     from src.api import main
 

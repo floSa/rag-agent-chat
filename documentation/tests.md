@@ -9,20 +9,24 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 552 tests, aucune dépendance
+## Unitaire — 557 tests, aucune dépendance
 
-> **Ce compte est `mesuré`, et rien ne le garde** — c'est le §4.13 du registre,
-> un angle mort connu : il a déjà pris 25 tests de retard sans que le lot ni son
-> audit le voient. Il se remesure ainsi, et les deux chiffres doivent
-> concorder :
+> **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
+> registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
+> son audit le voient, puis il a été faux dans le commit même qui le corrigeait.
+> Il se remesure ainsi, et les deux chiffres doivent concorder :
 >
 > ```bash
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 7 septembre 2026 : **552** tests sur **38** fichiers, et les deux
+> `mesuré` le 7 septembre 2026 : **557** tests sur **38** fichiers, et les deux
 > comptes de la recette — la somme par fichier et le total que `pytest` annonce
 > — concordent.
+>
+> **Attention au piège de la commande.** `addopts = -q` est déjà dans
+> `pyproject.toml` : un `-q` de plus vaut `-qq`, qui SUPPRIME la ligne de total.
+> La somme par fichier ci-dessus, elle, reste imprimée.
 >
 > **CE CHIFFRE A ÉTÉ FAUX DANS LE COMMIT QUI LE CORRIGEAIT, et c'est la
 > démonstration du §4.13.** Cette note annonçait **520** tests sur **36**
@@ -31,7 +35,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > fichier de retard, écrits dans le commit même qui prétendait rattraper le
 > retard. Le lot a corrigé le chiffre, l'audit ne l'a pas revu, et **rien ne
 > pouvait le voir** : c'est exactement la trouvaille du §4.13, et elle vaut
-> mieux que le chiffre. **Le garde reste ouvert.**
+> mieux que le chiffre.
+>
+> **LE GARDE EST FERMÉ, et il l'est parce qu'une troisième correction à la main
+> aurait été le geste que le §4.13 sanctionne.** Cette page est confrontée à la
+> collecte de `pytest` par
+> `tests/unit/test_coherence_depot.py::test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte`,
+> qui relève le titre ET la note séparément — deux sites qui s'accordent entre
+> eux peuvent être faux ensemble, et c'est exactement ce qui est arrivé. La
+> mesure passe par `pytest` et non par un comptage des `def test_*` : `mesuré`,
+> l'AST en rend **527** là où `pytest` en collecte **557**, huit `parametrize` en
+> dépliant trente de plus. **Ce sont deux grandeurs différentes**, et ce chantier
+> en a déjà payé deux confusions du même genre.
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration

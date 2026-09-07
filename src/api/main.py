@@ -168,6 +168,98 @@ async def _concordance_embedding() -> EmbeddingModelHealth:
     return _relever("modele_embedding", tache, si_levee=None) or _embedding_inconnu()
 
 
+async def _concordance_avant_le_flux() -> None:
+    """La MÊME lecture, sous le MÊME plafond, mais qui RELÈVE la divergence.
+
+    Sœur de `_concordance_embedding()` : même estampille, même plafond, même
+    garde « en vol ». La différence tient en un point, et c'est lui qui interdit
+    de réemployer `_relever` — celle-ci ABSORBE ce qu'une sonde a levé et publie
+    `si_levee`, ce qui est juste pour `/health`, une route qui doit rendre 200
+    même dégradée, et FAUX ici : une divergence doit atteindre le gestionnaire de
+    l'application, qui en fait un 503 portant les deux noms de modèles. Absorber
+    la divergence est exactement la panne que la mutation X2 de l'audit mesure.
+
+    PREMIÈRE DÉCISION — LE DÉPASSEMENT DU PLAFOND EST TRAITÉ COMME UNE
+    ESTAMPILLE ILLISIBLE, ET C'EST LE MÊME PLAFOND. Le site avait déjà tranché
+    le cas de l'illisible : absorbé, journalisé, le garde restant en place dans
+    le flux, fail-closed. Un dépassement est la MÊME CHOSE, pour trois raisons
+    qui sont des faits et non des goûts.
+
+    - Ce que l'appelant apprend est identique : rien. « ChromaDB a répondu par
+      une panne » et « ChromaDB n'a pas répondu » ne se distinguent pas du point
+      de vue de la concordance — dans les deux cas aucun verdict n'existe. Ce
+      dépôt l'a déjà tranché deux fois dans ce sens : `etat_modele_embedding()`
+      range la levée en `unknown`, et le plafond de `_concordance_embedding()`
+      range le silence en `unknown` aussi, par `_embedding_inconnu()`. Un
+      troisième traitement pour le même non-savoir serait une divergence de
+      sémantique sans fait pour la porter.
+    - La conséquence doit l'être aussi, et c'est l'argument décisif. Refuser sur
+      le dépassement ferait dépendre de ChromaDB une route qui, la plupart du
+      temps, ne cherche PAS — l'objectif que le site d'appel nomme. Ce serait
+      même STRICTEMENT PIRE que refuser sur la levée : le silence est la panne
+      la plus banale d'un store réseau, celle que la reprise de `_dense_search`
+      existe pour rattraper.
+    - Et la sûreté ne bouge pas : ce qui est perdu au dépassement est la seule
+      ANTICIPATION. Le garde reste en place à l'intérieur du flux, fail-closed,
+      et une divergence qui revient dans le plafond est re-levée telle quelle.
+
+    LE PLAFOND EST RÉEMPLOYÉ, PAS DOUBLÉ. La grandeur bornée est la même — un
+    aller-retour vers ChromaDB pour ouvrir la collection — et c'est la MÊME
+    lecture, ce que le docstring de `_sonder` disait déjà. Un second plafond
+    laisserait les deux dériver alors qu'aucun fait ne les distingue : le jour
+    où l'on mesure qu'ouvrir une collection demande plus de 3 s, les deux sites
+    sont faux ENSEMBLE et doivent bouger ensemble.
+
+    Ce que ce réemploi cache, et il faut le dire : la PROVENANCE des 3 s diffère.
+    À `/health` c'est une échéance imposée du dehors — `docker-compose.yml` tue
+    curl à 5 s. Ici aucune échéance extérieure n'existe : 3 s est un budget que
+    la route s'impose. Il reste le bon ordre de grandeur, la requête enchaînant
+    de toute façon sur une génération de plusieurs secondes, et il est en tout
+    état de cause infiniment meilleur que l'absence de borne qu'il remplace.
+
+    SECONDE DÉCISION — OUI, LE GARDE « EN VOL », ET SOUS LE MÊME NOM. La menace
+    que ce drapeau existe pour borner est STRICTEMENT PLUS GRANDE ici qu'à
+    `/health`, et c'est ce qui tranche : le cadenceur de `/health` est un tick
+    toutes les 20 s, borné par construction, alors que l'appelant d'ici est une
+    requête utilisateur, dont le débit n'est borné par rien — l'audit a mesuré
+    que 26 requêtes bloquées épuisent le réservoir. Un drapeau dont le motif
+    écrit est « un fil lâché par sonde à la fois, quelle que soit la durée de la
+    panne » est a fortiori requis là où le taux de passage EST le taux de
+    requêtes.
+
+    Le MÊME nom, parce que c'est la même lecture de la même estampille sur le
+    même objet de collection : un second fil ferait un travail identique. Deux
+    noms lâcheraient deux fils et prétendraient à deux faits là où il n'y en a
+    qu'un.
+
+    Ce que le partage coûte, et il est accepté : une sonde de `/health` en vol
+    fait renoncer cette route à son anticipation. Cela dégrade exactement vers le
+    cas absorbé — aucun verdict, garde toujours en place dans le flux — donc vers
+    ce que le dépassement produit déjà, et symétriquement `/health` publie
+    `unknown` pour un tick, ce qu'il traite déjà comme non dégradant. En marche
+    normale la contention est nulle : la lecture est locale une fois la
+    collection ouverte.
+    """
+    tache = asyncio.create_task(_sonder("modele_embedding", verifier_modele_embedding))
+    await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
+    if not tache.done():
+        logger.warning(
+            "/chat/resume : la concordance du modèle d'embedding n'a pas répondu en "
+            "%.1f s ; on renonce à l'attendre, et la concordance sera revérifiée si le "
+            "graphe reboucle vers une recherche. Le fil est LÂCHÉ, pas interrompu — le "
+            "garde « en vol » de `_sonder` borne la fuite à un fil, quelle que soit la "
+            "durée de la panne.",
+            _PLAFOND_SONDES_S,
+        )
+        tache.cancel()
+        return
+    if tache.cancelled():
+        return
+    exc = tache.exception()
+    if exc is not None:
+        raise exc
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Ouvre le checkpointer avant de servir, le referme à l'arrêt."""
@@ -1074,13 +1166,34 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
     # recherche est refusée en 503 ». Site canonique :
     # `documentation/axes_amelioration.md` §4.20, trouvaille N1.
     #
-    # `to_thread` parce que la lecture est synchrone et que l'ouverture de la
-    # collection est un aller-retour réseau : l'appeler nu bloquerait la boucle.
+    # LA LECTURE EST BORNÉE ET LE FIL EST GARDÉ, et l'histoire de cette ligne
+    # est la trouvaille bloquante de l'audit de la réparation — §4.23, B-1. Elle
+    # a d'abord été écrite `await asyncio.to_thread(verifier_modele_embedding)`,
+    # NUE : synchrone dans un fil, sans plafond et sans garde. `mesuré` avec une
+    # collection qui PEND — un `threading.Event` jamais posé, aucun accès réel à
+    # ChromaDB : ce motif reste bloqué après 6 s même avec un `wait_for` que le
+    # site n'avait pas, la route passe de 0,030 s à AUCUNE réponse sur une
+    # requête qui ne cherche pas, et le fil non-démon du réservoir asyncio
+    # empêche `asyncio.run` de rendre. `chromadb 1.5.9` n'a aucun délai par
+    # défaut ; 26 requêtes bloquées épuisent le réservoir.
+    #
+    # CE QUI REND CETTE LIGNE INSTRUCTIVE : le fichier avait DÉJÀ écrit le
+    # remède, et l'absorption ci-dessous nommait l'objectif que l'appel
+    # n'atteignait pas. Elle protège d'un ChromaDB qui LÈVE ; elle ne pouvait
+    # rien contre un ChromaDB qui PEND — la panne la plus banale d'un store
+    # réseau. *La dépendance était sur l'appel, pas sur l'exception.*
+    #
+    # `_concordance_avant_le_flux()` emploie donc ce que ce fichier possédait :
+    # le plafond `_PLAFOND_SONDES_S`, le garde « en vol », et
+    # `to_thread.run_sync(…, abandon_on_cancel=True)` — la primitive ANNULABLE,
+    # dont le fil de réservoir est démon et ne retient plus l'interpréteur. Les
+    # deux décisions que ce choix demandait — la sémantique du dépassement, et
+    # le drapeau — sont argumentées dans son docstring.
     #
     # `/chat/simple` ne reçoit pas cette vérification, et c'est mesuré, pas
     # supposé : il ne passe pas par le graphe et ne cherche jamais.
     try:
-        await asyncio.to_thread(verifier_modele_embedding)
+        await _concordance_avant_le_flux()
     except EmbeddingModelMismatchError:
         # Avant le premier octet, donc le gestionnaire de l'application rend
         # bien 503 avec les deux noms de modèles dans le corps.
@@ -1096,6 +1209,13 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         # aboutit en 500. Le garde reste donc en place à l'intérieur du flux,
         # fail-closed, et la seule chose qu'on perd ici est l'anticipation.
         # L'absorption n'est pas muette.
+        #
+        # ET CE QUI N'ARRIVE PLUS JUSQU'ICI : le DÉPASSEMENT du plafond. Il est
+        # traité au même titre que l'illisible — même perte, même garde restant
+        # en place — mais `_concordance_avant_le_flux()` rend alors sans lever,
+        # après avoir journalisé sa propre ligne. Deux causes, un seul sort, deux
+        # lignes distinctes : l'exploitant doit pouvoir dire si son store a
+        # répondu par une panne ou n'a pas répondu du tout.
         logger.warning(
             "/chat/resume : estampille du modèle d'embedding illisible avant "
             "l'ouverture du flux ; la concordance sera revérifiée si le graphe "

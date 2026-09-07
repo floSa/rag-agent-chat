@@ -7,7 +7,9 @@ constante mais sur une **mesure** recopiée à trois endroits.
 """
 
 import importlib.util
+import re
 import subprocess
+import sys
 from pathlib import Path
 
 from src.agent.chronometrie import ETAGES
@@ -208,7 +210,7 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 
 # ─── La prémisse Docker fausse, et où elle a le droit d'être citée ────────────
 
-# CE QUE CETTE PRÉMISSE AFFIRME, ET POURQUOI ELLE EST FAUSSE. Cinq sites de ce
+# CE QUE CETTE PRÉMISSE AFFIRME, ET POURQUOI ELLE EST FAUSSE. Sept sites de ce
 # dépôt ont écrit qu'un `/health` en erreur ferait « redémarrer le service en
 # boucle ». `mesuré` deux fois indépendamment : un healthcheck en échec ne
 # redéclenche AUCUN conteneur sous Docker Compose — `restart:` répond à la sortie
@@ -220,21 +222,49 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 # POURQUOI UN GARDE ET PAS SEULEMENT UNE CORRECTION. Les décisions de `/health`
 # restent les mêmes ; c'est leur MOTIF qui change. Un raisonnement juste sur un
 # antécédent faux se relit comme une preuve, et se recopie comme telle — ce nom
-# de panne a essaimé sur cinq sites sans que personne ne le remesure. Une
+# de panne a essaimé sur sept sites sans que personne ne le remesure. Une
 # affirmation de cette famille ne se recopie plus : elle se compte, et le compte
 # rougit. Site canonique : `documentation/axes_amelioration.md` §1.27.
 #
-# POURQUOI LA BORNE S'ARRÊTE À `src/` ET `tests/`. C'est là que la prémisse
-# TROMPE : elle y sert de motif à une décision qu'on relit. Le registre, lui, a
-# pour métier de citer une affirmation pour la démentir, et ses comptes sont
-# gouvernés par l'historique du dépôt, pas par cette branche — les y inventorier
-# rendrait ce test rouge à chaque fusion, pour une raison qui n'est pas la
-# bonne.
+# LA BORNE EST TOUT LE SUIVI GIT, comme celle de l'inventaire jumeau ci-dessus,
+# ET C'EST UNE CORRECTION — trouvaille NB-3 de l'audit du lot 3 (§4.23). Ce test
+# a d'abord filtré sur `src/` et `tests/`, là où `_fichiers_suivis()` rend tout
+# le suivi. `mesuré` : **115 fichiers suivis, 68 dans le périmètre, 47 dehors** —
+# et parmi ces 47 se trouvait **`docker-compose.yml`**, le fichier même dont la
+# prémisse parle, celui qui porte le `healthcheck` et le `condition:
+# service_healthy` sur lesquels tout ce raisonnement porte. C'est l'endroit où
+# une phrase de cette famille serait la PLUS dangereuse, et c'était un angle
+# mort. Avec lui : `README.md`, `Dockerfile.agent` et les sept fichiers de
+# `scripts/`. *Un inventaire avec un angle mort autorise n'importe quoi dans cet
+# angle* — la leçon est déjà écrite au docstring de `_fichiers_suivis`, et ce
+# test ne la suivait pas.
+#
+# CE QUI RESTE EXEMPTÉ, ET NOMMÉ PLUTÔT QUE FILTRÉ PAR RÉPERTOIRE. Le registre et
+# le journal de pilotage ont pour métier de CITER une affirmation afin de la
+# démentir, et leurs comptes sont gouvernés par l'historique du dépôt et non par
+# cette branche. `mesuré`, et c'est ce qui justifie l'exemption au lieu de la
+# supposer : `main` porte une occurrence dans `documentation/pilotage_du_chantier.md`
+# que cette branche n'a pas — un compte exact y rendrait ce test rouge à la
+# FUSION, pour une raison qui n'est pas celle de ce garde.
+#
+# L'exemption est une LISTE DE NOMS, jamais un préfixe de répertoire, et la
+# différence est tout l'objet de NB-3 : un préfixe aurait rendu muet tout ce qui
+# viendra s'ajouter derrière lui, alors qu'un nom ne couvre que le fichier qu'il
+# nomme. Un document neuf de `documentation/` qui se mettrait à FONDER une
+# décision sur cette prémisse rougit donc, comme rougirait `docker-compose.yml`.
 _PREMISSE_DOCKER_FAUSSE = (
     "redémarrer le service en boucle",
     "redémarre en boucle",
     "restart en boucle",
     "redémarrage en boucle",
+)
+
+# Les deux documents dont le métier EST de citer pour démentir. Exemptés par leur
+# NOM, pour le motif mesuré ci-dessus. Toute autre absence de cette table vaut
+# zéro occurrence, `docker-compose.yml` compris.
+_CITE_POUR_DEMENTIR = (
+    "documentation/axes_amelioration.md",
+    "documentation/pilotage_du_chantier.md",
 )
 
 # Une CITATION n'est pas une prémisse : les trois entrées ci-dessous portent
@@ -254,15 +284,19 @@ _CITATIONS_AUTORISEES = {
 
 
 def test_la_premisse_docker_fausse_ne_sert_de_motif_a_rien() -> None:
-    """Aucun site de `src/` ou `tests/` ne fonde une décision sur cette prémisse.
+    """Aucun fichier suivi ne fonde une décision sur cette prémisse.
 
     Le test rougit dans les deux sens, comme l'inventaire du modèle anglais :
     une citation NOUVELLE est une prémisse fausse qui repart, et un compte qui
     DESCEND dit que cette table décrit un état révolu.
+
+    La borne est tout le suivi git moins deux documents nommés — voir le
+    commentaire en tête de cette section, et la mesure des 47 fichiers qui
+    échappaient au filtre `src/` + `tests/`, `docker-compose.yml` en tête.
     """
     trouves: dict[str, int] = {}
     for relatif in _fichiers_suivis():
-        if not (relatif.startswith("src/") or relatif.startswith("tests/")):
+        if relatif in _CITE_POUR_DEMENTIR:
             continue
         chemin = _RACINE / relatif
         if not chemin.is_file():
@@ -280,4 +314,103 @@ def test_la_premisse_docker_fausse_ne_sert_de_motif_a_rien() -> None:
         "inexistant se relit comme une preuve. Le vrai motif est que le "
         "conteneur passe `unhealthy`, donc que `frontend` ne lève pas au "
         "démarrage à froid : cf. documentation/axes_amelioration.md §1.27."
+    )
+
+
+# ─── Le compte de tests annoncé par `tests.md` ────────────────────────────────
+#
+# LE GARDE QUE §4.13 RÉCLAMAIT, ET QUE §4.21 A LAISSÉ OUVERT. Le compte de tests
+# publié par `documentation/tests.md` a pris 25 tests de retard sans que le lot
+# ni son audit le voient, puis a été **faux dans le commit même qui le
+# corrigeait** — il annonçait 520 sur 36 quand le dépôt en portait 539 sur 37.
+# Corrigé deux fois à la main, jamais gardé. *Le corriger une troisième fois sans
+# garde serait exactement le geste que le §4.13 sanctionne*, et cette passe l'a
+# rendu faux une troisième fois en ajoutant quatre cas.
+#
+# POURQUOI CE GARDE MESURE PAR `pytest` ET NON PAR L'AST, et c'est la seule forme
+# valide. `mesuré` : un comptage par AST des `def test_*` rend **527**, quand
+# `pytest` en collecte **557** — huit `parametrize` en déplient trente de plus.
+# Ce sont DEUX GRANDEURS DIFFÉRENTES, et ce chantier en a déjà payé deux
+# confusions du même genre (« 202 lignes » pour 175 insertions + 27 suppressions,
+# et « le plus gros fichier de tests » du §4.14). Un garde qui compare le chiffre
+# publié à un AST rendrait rouge un dépôt juste, ou vert un dépôt faux.
+#
+# La recette employée ici est CELLE QUE LE DOCUMENT PUBLIE, mot pour mot dans son
+# intention : la somme des comptes par fichier de `--collect-only`. Le document et
+# son garde ne mesurent donc pas deux choses.
+#
+# LE SOUS-PROCESSUS EST LE PRIX DE LA JUSTESSE. Un décompte pris sur la session
+# courante — via un `pytest_collection_modifyitems` — serait gratuit, mais il
+# rendrait le compte de la SÉLECTION : un `pytest -k` le ferait rougir pour une
+# raison qui n'est pas la bonne, et le rattraper demanderait un `skip`
+# conditionnel, ce que ce dépôt n'autorise pas. Le sous-processus collecte
+# toujours `tests/unit/` en entier, quelle que soit la manière dont la campagne a
+# été lancée.
+
+_PAGE_DES_TESTS = "documentation/tests.md"
+
+
+def _comptes_annonces() -> tuple[int, int, int]:
+    """Les chiffres écrits dans `tests.md` : le titre, puis la note `mesuré`.
+
+    Les DEUX sites sont relevés, et pas seulement un. C'est ce qui a laissé
+    passer 520 : un chiffre recopié à deux endroits dont un seul est relu.
+    """
+    texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+    titre = re.search(r"^## Unitaire — (\d+) tests", texte, re.M)
+    note = re.search(r"\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers", texte)
+    assert titre is not None, (
+        f"le titre « ## Unitaire — N tests » n'a pas été trouvé dans "
+        f"{_PAGE_DES_TESTS} : ce garde ne mesure plus rien, et c'est un rouge"
+    )
+    assert note is not None, (
+        f"la note « **N** tests sur **M** fichiers » n'a pas été trouvée dans "
+        f"{_PAGE_DES_TESTS} : ce garde ne mesure plus rien, et c'est un rouge"
+    )
+    return int(titre.group(1)), int(note.group(1)), int(note.group(2))
+
+
+def _comptes_collectes() -> tuple[int, int]:
+    """Ce que `pytest` collecte réellement, par la recette que le document publie."""
+    acheve = subprocess.run(
+        [
+            sys.executable, "-m", "pytest", "tests/unit/",
+            "--collect-only", "-q", "-p", "no:cacheprovider",
+        ],
+        cwd=_RACINE,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    par_fichier = re.findall(r"^tests/unit/\S+: (\d+)$", acheve.stdout, re.M)
+    assert par_fichier, (
+        "la collecte n'a rien rendu, donc ce garde ne mesure rien. Sortie de "
+        f"pytest (rc={acheve.returncode}) :\n{acheve.stdout[-2000:]}\n"
+        f"{acheve.stderr[-2000:]}"
+    )
+    return sum(int(n) for n in par_fichier), len(par_fichier)
+
+
+def test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte() -> None:
+    """Les trois chiffres publiés doivent être ceux que la collecte rend.
+
+    Le test rougit dans les deux sens, comme les deux inventaires ci-dessus : un
+    test ajouté sans mise à jour de la page rougit, et une page qui annonce plus
+    que le dépôt ne porte rougit aussi. Le geste attendu au rouge est d'écrire le
+    chiffre mesuré — c'est un décompte, pas une décision.
+
+    Le titre et la note sont confrontés SÉPARÉMENT à la mesure, et non l'un à
+    l'autre : deux sites qui s'accordent entre eux peuvent être faux ensemble, et
+    c'est exactement ce qui est arrivé.
+    """
+    titre, note_tests, note_fichiers = _comptes_annonces()
+    tests, fichiers = _comptes_collectes()
+
+    assert (titre, note_tests, note_fichiers) == (tests, tests, fichiers), (
+        f"{_PAGE_DES_TESTS} annonce {titre} tests dans son titre et "
+        f"{note_tests} tests sur {note_fichiers} fichiers dans sa note `mesuré`, "
+        f"quand pytest en collecte {tests} sur {fichiers}. Ce compte a déjà pris "
+        "25 tests de retard sans que personne ne le voie, et il a été faux dans "
+        "le commit même qui le corrigeait (§4.13, §4.21) : écris le chiffre "
+        "mesuré, la recette est publiée dans le document."
     )

@@ -57,6 +57,33 @@ def reset_connection() -> None:
     Réarme aussi le verdict de concordance : la collection rouverte peut être
     une AUTRE collection — une réingestion a pu passer entre-temps — donc un
     verdict établi sur la précédente ne vaut plus rien.
+
+    L'ORDRE DE CES DEUX LIGNES PORTE, ET IL EST GARDÉ. `cache_clear()` d'abord,
+    `rearmer_verification_modele()` ensuite. Inversés, ils réintroduisent B2 à
+    l'identique — un verdict favorable MÉMORISÉ sur une collection divergente —
+    par le seul entrelacement suivant :
+
+        1. `rearmer_verification_modele()` : la génération passe à G+1 ;
+        2. un autre fil vérifie : il relève G+1, puis lit l'estampille — le cache
+           n'est PAS encore vidé, donc il lit l'ANCIENNE collection, concordante ;
+        3. `cache_clear()` : la prochaine ouverture rendra la NOUVELLE collection,
+           que rien ne garantit concordante ;
+        4. le fil vérificateur conclut : la génération n'a pas bougé depuis qu'il
+           l'a relevée, donc il inscrit son verdict favorable. Ce verdict décrit
+           une collection que personne ne lira plus.
+
+    Le compare-et-échange ne peut rien contre cet ordre-là, et c'est le point : il
+    protège contre un réarmement survenu PENDANT la lecture, pas contre un
+    réarmement survenu AVANT une lecture qui porte encore sur l'ancien cache. Dans
+    le bon ordre, la lecture qui suit le vidage ouvre la nouvelle collection et
+    voit la divergence ; celle qui l'a précédé voit sa génération bouger et JETTE
+    son verdict. Les deux issues sont sûres.
+
+    **`mesuré` : inversées, les 552 tests de la campagne restaient VERTS.** Une
+    décision argumentée et non gardée est une décision qui se défera sans un
+    rouge — et celle-ci protège exactement le bloquant que ce lot existe pour
+    fermer. Garde : `tests/unit/test_garde_modele_embedding.py`,
+    `test_l_ordre_de_reset_connection_ne_peut_pas_s_inverser_en_silence`.
     """
     _get_chroma_collection.cache_clear()
     rearmer_verification_modele()
