@@ -248,9 +248,16 @@ dépôt, pas dans la conversation.*
 
 | **30** | AUDIT-3 — audit du lot 3 | **21 mutations dont 2 témoins**, 18 mordent. **2 bloquantes** (B1, B2), 1 mesure du pilote **renversée** (N1), 9 non bloquantes — §4.20. Recommandation : fusionner après correction |
 | **31** | REPAR-4 — fermer B1, B2, N1 et N2 sur la branche du lot 3 | distribué le 4 septembre, livré le **7** : `19f7cec`, 552 passés, **11 mutations dont un témoin inerte**. B1, B2 et N1 vérifiés par le pilote — §4.22. A **refusé de trancher** l'écart de comptes, avec une mesure, et il avait raison |
-| **32** | AUDIT-REPAR-4 — audit de la réparation du lot 3 | distribué le 7 septembre 2026 |
+| **32** | AUDIT-REPAR-4 — audit de la réparation du lot 3 | **11 mutations reproduites à l'identique**, 6 mutations propres, concurrence réelle avec une sonde **prouvée capable**. **1 bloquante** (B-1), 4 non bloquantes, **aucune mesure du pilote renversée** — §4.23. Recommandation : ne pas fusionner en l'état |
+| **33** | REPAR-5 — fermer B-1 et NB-1 sur la branche du lot 3 | distribué le 7 septembre 2026 |
 
-**Prochain numéro libre : 33.**
+**Prochain numéro libre : 34.**
+
+**Cinq audits, cinq trouvailles bloquantes.** Le lot 3 en a consommé trois à lui
+seul — livré, audité, réparé, réaudité, à réparer une seconde fois — et chaque
+passage a trouvé quelque chose que le précédent n'avait pas vu. **C'est le lot le
+plus cher du chantier, et c'est le seul qui touche le chemin de chaque
+recherche.**
 
 **Une leçon d'horloge, et elle vient de tomber.** `date -u` rendait le
 **4 septembre** à l'ouverture de cette conversation de pilotage et rend le
@@ -521,6 +528,33 @@ son propre prompt :
   foi et bien écrit ; son antécédent était faux. *La règle « cherche l'antécédent
   avant d'auditer le raisonnement » ne vaut pas que pour le code du dépôt : elle
   vaut pour ce qu'on croit savoir de Docker, de pytest et de git.*
+
+Celles du 7 septembre 2026 :
+
+- **Le piège de `merge-tree` n'est pas celui que ce mandat décrivait.** Il écrivait
+  que `git merge-tree <base> <a> <b>` rend `rc=0` en cas de conflit et que
+  `--write-tree --messages` le nomme. `mesuré` sur git 2.53.0 : la forme à **deux**
+  arguments rend déjà `rc=1`. Ce qui rend `rc=0` malgré treize marqueurs de
+  conflit, c'est la forme **historique à trois** arguments. *Ce n'est pas le
+  drapeau qui sauve, c'est de ne pas employer la forme à trois arguments* — et
+  cette précision a été mesurée par un auditeur, pas par le pilote qui recopiait
+  sa propre consigne.
+- **Additionner des grandeurs différentes et donner la somme pour l'une d'elles.**
+  Le pilote a écrit « 202 lignes de code de production » : le diff fait **175
+  insertions** et 27 suppressions, et 202 est leur somme. Même famille que
+  « le plus gros fichier de tests » du §4.14 — *deux écritures justes sous des
+  définitions différentes.*
+- **Une conversation lancée dans un arbre au nom ressemblant est à un `cd` du
+  clone principal.** L'auditeur du lot 3 a tapé `cd /home/ubuntu/RAG/rag-agent-chat`
+  au lieu du chemin de son arbre, et y a détaché `HEAD` hors de `main`. **Sans
+  conséquence, mesuré** — la ref `main` n'a jamais bougé, son reflog ne porte
+  aucune entrée étrangère. Ce qui compte est ce qu'il a fait ensuite : **il a ouvert
+  son rapport par son propre incident**, avec les mesures qui en bornaient la
+  portée, avant tout le reste. Un rapport qui déclare sa propre faute est plus
+  croyable, pas moins — *c'est le contraire de l'erreur qui a coûté un dépôt entier
+  au projet jumeau, celle-là ayant été découverte par quelqu'un d'autre.* **Écris
+  le chemin absolu de ton arbre dans chaque prompt, et exige qu'il soit mesuré
+  avant la première commande.**
 
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te
