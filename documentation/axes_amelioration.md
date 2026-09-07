@@ -2852,3 +2852,113 @@ ouvre son rapport par son propre incident, avec les mesures qui en bornent la
 portée, rend son rapport plus croyable et non moins. *C'est le contraire de la
 faute qui a coûté un dépôt entier au projet jumeau : celle-là avait été découverte
 par quelqu'un d'autre.*
+
+### 4.24 REPAR-5 vérifiée, le F7 partiellement fermé, et `main` poussé
+
+**État : réparé (`Conv' 33`, `c8cb37d`), POUSSÉ pour tout ce qui précède, audit
+étroit distribué (`Conv' 34`).** `main` = `origin/main` = **`a2ec58b`**.
+
+#### Ce que le pilote a mesuré de ses mains, le 7 septembre 2026
+
+| | `mesuré` |
+|---|---|
+| porte qualité | `make lint` `rc=0`, `make test` `rc=0`, **557 passés** (552 avant) |
+| **B-1 refermé** — collection qui **pend**, `Event` jamais posé | `_concordance_avant_le_flux()` **rend en 3,00 s sans lever**, journalise ce qui se passe, et **la boucle rend la main** — là où le motif d'avant restait bloqué au-delà de 6 s |
+| **NB-1 refermé** — les deux lignes de `reset_connection()` inversées | `rc=2`, **1 rouge** nommé, là où le pilote avait mesuré **552 verts** |
+| le garde du compte de tests | mord : `tests.md` ramené à 552 → `rc=1`, 1 rouge nommé |
+| le compte publié | **557 / 38**, et la mesure rend **557 collectés / 38 fichiers** |
+| restauration après chaque mutation | vérifiée par **empreinte SHA-256** |
+
+**Une correction que le réparateur doit au pilote, et elle est juste.** Le pilote
+avait écrit que `abandon_on_cancel` réparait la fuite de fil. **Il ne la répare
+pas** : `mesuré`, le processus de la sonde rend `rc=124` — tué par `timeout` —
+**après** avoir imprimé ses trois lignes. Ce qui change n'est pas que le fil
+disparaît : un appel réseau synchrone ne s'interrompt pas. C'est que **la boucle
+d'événements rend la main**, là où `asyncio.to_thread` la retenait dans
+`shutdown_default_executor()`. La fuite est **bornée à un fil** par le drapeau
+« en vol », pas supprimée — et c'est écrit au site plutôt que passé sous silence.
+
+#### La borne de NB-3 est meilleure que ce que le pilote demandait, et c'est mesuré
+
+Le pilote demandait d'aligner l'inventaire de la prémisse Docker sur tout l'arbre
+suivi, « ou de borner la phrase et dire pourquoi ». Le réparateur a **borné, avec
+une mesure**, et il a eu raison. `vérifié par le pilote` le 7 septembre 2026 :
+
+| révision | fichiers portant l'aiguille |
+|---|---|
+| `main` | **4** — `axes_amelioration.md`, **`pilotage_du_chantier.md`**, `src/api/main.py`, `tests/unit/test_securite.py` |
+| la branche | **3** — `axes_amelioration.md`, `src/agent/retriever.py`, `tests/unit/test_coherence_depot.py` |
+
+Un compte exact sur tout le suivi serait donc **rouge à la fusion**, et pas sur la
+branche : *le défaut naîtrait de la fusion, invisible à toute relecture de
+branche* — la famille (f) du §4.14, pour la troisième fois. La borne retenue est
+**tout le suivi moins deux fichiers NOMMÉS** — le registre et le mandat, les deux
+seuls qui doivent citer la phrase pour la réfuter — et jamais un préfixe de
+répertoire.
+
+**Résidu nommé** : ces deux fichiers exclus sont ceux où le pilote a corrigé la
+prémisse (§1.27) et écrit sa leçon (§12 du mandat). **Rien ne rougit si un futur
+pilote y réintroduit la prémisse comme une affirmation.** C'est nommé ici pour
+rester rouvrable, pas fermé.
+
+#### Le §4.13 / F7 est PARTIELLEMENT fermé — et le garde a rougi sur son propre auteur
+
+Le réparateur a fermé, **hors mandat et en le déclarant**, le garde que le §4.13
+laissait ouvert : le compte de tests annoncé par `documentation/tests.md` est
+désormais confronté à ce que **`pytest` collecte**. Le motif est le bon : ses cas
+neufs rendaient ce compte faux pour la **troisième** fois, et *le corriger une
+troisième fois à la main est exactement le geste que le §4.13 sanctionne*.
+
+Trois détails qui font que ce garde en est un :
+
+- **il passe par `pytest`, pas par un AST** — `mesuré`, l'AST rend **527** là où
+  `pytest` collecte **557**, huit `parametrize` expliquant l'écart. *Deux
+  grandeurs différentes*, le piège que ce chantier a payé deux fois ;
+- **le titre et la note sont relevés séparément** — deux sites qui s'accordent
+  entre eux peuvent être faux ensemble, ce qui est **arrivé** avec 520 ;
+- **il a rougi sur son propre auteur** : écrit avec 556, il a exigé 557, le garde
+  étant lui-même un test.
+
+**Ce qui reste ouvert du F7** : rien ne lit le `Makefile`, et rien ne lit les
+autres chiffres des documents. Seul le compte de tests est gardé. Le point ne se
+ferme pas ici.
+
+#### `main` est poussé — et voici ce qui a été vérifié avant
+
+Décision de l'utilisateur, le 7 septembre 2026. **31 commits** sont partis :
+`7bcd346..a2ec58b`, `rc=0`, et `main` = `origin/main` = `a2ec58b`, avance **0**,
+confirmé par `git ls-remote`.
+
+Le distant est un dépôt **public**, et c'est l'opération que le projet jumeau a
+payée d'un dépôt entier. `mesuré` avant le push, jamais après :
+
+| contrôle | résultat |
+|---|---|
+| adresses, auteur **et** committer, sur les 31 | **62 signatures**, toutes `florian_horellou@laposte.net` |
+| adresse hors des deux autorisées | **aucune** |
+| `@aosis.net` | **0** |
+| attribution à un assistant, messages **et** fichiers | **0** |
+| `.env` suivi ? | **non**, et `.gitignore` le couvre en cinq formes |
+| ligne ajoutée portant une valeur de secret | **aucune** |
+| le mot de passe MinIO du poste dans le diff poussé | **0 occurrence** — recherché sans être imprimé |
+
+**Et le trou reste ouvert** : le garde-fou d'identité couvre `commit`, `--amend`,
+`--author=`, `merge --no-ff` et `merge --squash`, **mais pas `push`**. Ce push a
+donc été protégé par une vérification **manuelle**, pas par un hook. La fermeture
+honnête est un `pre-push`, et le §2.1 la laisse à trancher — elle monte au plan
+maintenant que le dépôt pousse.
+
+#### Pourquoi un audit ÉTROIT, et pourquoi c'est l'utilisateur qui a tranché
+
+Le §4.18 posait le critère : `src/` inchangé → fusion sur vérification du pilote ;
+`src/` changé → audit. Ici `src/` change encore. Mais **le lot 3 a consommé cinq
+conversations et les deux audits ont chacun trouvé une bloquante réelle, toutes
+deux dans la couche async/concurrence** — celle que cette réparation étoffe
+encore, avec un drapeau « en vol » désormais posé sur un chemin de **requête
+utilisateur** là où il ne servait qu'un tick de 20 s.
+
+C'était donc un arbitrage de coût et non de technique, et le pilote l'a porté à
+l'utilisateur plutôt que de le trancher seul. **Retenu : un audit borné à la
+couche async** — le plafond, le drapeau sur un chemin de requête, et le
+compare-et-échange. *On cible là où le taux de trouvaille est mesuré, au lieu de
+repayer un audit complet ou de fusionner en espérant.*
