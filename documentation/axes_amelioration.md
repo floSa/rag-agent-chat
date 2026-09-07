@@ -2625,3 +2625,109 @@ le §4.19 survit intact — 126 lignes sur `main`, 126 dans l'arbre fusionné, 0
 le lot — rien n'est réintroduit ni perdu dans aucun sens. La seule incohérence que
 la fusion créerait est **N2** : le §4.19 démontre la prémisse fausse pendant que
 `retriever.py:182` l'affirme.
+
+### 4.22 La réparation du lot 3 vérifiée — et l'horloge avait bougé de trois jours
+
+**État : réparé (`Conv' 31`, `19f7cec`), NON poussé, NON fusionné, audit
+distribué (`Conv' 32`).**
+
+#### Ce que le pilote a mesuré de ses mains, le 7 septembre 2026
+
+Arbre dédié à `19f7cec`, environnement monté par le protocole du §2.2, `rc` du
+processus :
+
+| | `mesuré` |
+|---|---|
+| porte qualité | `make lint` `rc=0`, `make test` `rc=0`, **552 passés** (539 avant) |
+| **B1 refermé** — sonde du pilote, fidèle au `lru_cache` | **0** requête servie par la collection divergente, la collection a bien **changé en vol** (donc le cas est atteint), et le motif nomme **les deux** modèles |
+| **B2 refermé** — réarmement déclenché depuis la lecture, par un vrai autre fil | verdict **non** mémorisé après la course, et le garde **refuse** la collection devenue divergente : le réarmement est conservé |
+| **N1 gardé** — mutation du pilote, la vérification avant le flux retirée | `rc=2`, **1 rouge** : `test_chat_resume_refuse_en_503_avant_d_ouvrir_le_flux` |
+| **N6 mord hors de son ancien périmètre** — occurrence plantée dans `.env.example`, un fichier **suivi** hors `documentation/` | rouge : `test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie` |
+| **N5 bornée aux tests unitaires** | la barrière vit dans `tests/unit/conftest.py` et patche `chromadb.HttpClient` ; `tests/integration/` n'a pas de `conftest.py`, donc ses vraies connexions ne sont pas touchées |
+| le verrou n'est pris à **aucun site imbriqué** | trois prises — une dans le réarmement, deux dans la vérification, la lecture **hors** verrou : pas d'interblocage possible |
+| désactivations ajoutées | **aucune** ; `pyproject.toml`, `Makefile` et `.pre-commit-config.yaml` intacts ; la seule absorption large ajoutée est justifiée au site |
+| comptes publiés | `tests.md` annonce **552 / 38** ; `make test` rend 552 passés et `ls tests/unit/test_*.py` rend 38 |
+
+#### L'HORLOGE AVAIT BOUGÉ DE TROIS JOURS, ET LE RÉPARATEUR L'A VU
+
+`mesuré` : `date -u` rendait `Fri Sep 4 07:35 UTC 2026` à l'ouverture de la
+conversation de pilotage, et rend **`Mon Sep 7 09:43 UTC 2026`** maintenant. Les
+commits le confirment — `c5c38d5` porte le **4 septembre**, `5a6e15f` et
+`19f7cec` portent le **7**.
+
+**Le réparateur a daté le 7, et il n'a écrit aucun « 4 septembre » — zéro
+occurrence ajoutée par son diff, mesuré.** Il a donc relevé l'horloge au lieu de
+recopier la date de la conversation. **Le pilote, lui, aurait écrit « 4 septembre
+2026 » par habitude** : c'est exactement la faute que le dépôt jumeau a payée
+neuf fois dans un seul lot, trouvée en comparant les dates écrites aux dates des
+commits. *Une date est une mesure comme une autre*, et une conversation longue
+est précisément l'endroit où l'on cesse de la mesurer. Les dates du §4.19 et du
+§4.20 restent justes — les mesures qu'elles portent ont bien été faites le 4.
+
+#### Ce que le pilote accepte, et pourquoi
+
+**L'élargissement de périmètre, au-delà de la ligne que le pilote avait
+déclarée.** Le pilote avait autorisé un site (`main.py:383`) ; le réparateur en a
+corrigé **quatre de plus** — `main.py:414`, et les sites de la même prémisse dans
+`test_garde_modele_embedding.py`, `test_health_parallele.py`,
+`test_securite.py` — tous **hors de l'inventaire de l'audit**, tous déclarés, avec
+offre de revert. **Accepté.** Le motif est la règle du chantier lui-même : *une
+correction bornée au motif qu'on a tapé n'est pas une correction, c'est un
+échantillon*, et elle a déjà été payée trois fois ici. Et l'un des quatre était
+**faux deux fois** — `test_securite.py` supposait que le healthcheck voit le champ
+`degraded`, alors qu'il est `curl -sf` et ne lit que le code HTTP, et que
+`degraded` est un **200**.
+
+**Et la prémisse n'est plus seulement corrigée : elle est GARDÉE**, par un
+inventaire de la famille de phrases borné à `src/` et `tests/`. Ce garde **a
+trouvé, à sa première exécution, un site que le `grep` du réparateur avait
+manqué**. C'est la bonne forme : le §4.18 avait retenu qu'une énumération close ne
+se rouvre pas, un inventaire gardé si.
+
+**Le refus de trancher l'écart onze/douze, et il a raison.** Le pilote avait
+demandé de trancher ; le réparateur a **refusé avec une mesure** : le rapport du
+lot 3 n'a jamais été un artefact du dépôt — `git log --all --grep` n'en retrouve
+rien, `documentation/audits/` ne porte que l'audit du lot 1 — donc les deux
+tabulations sont **irrelisibles** et désigner une gagnante serait conclure sans
+mesure. Le **onze** du §4.4 est interne à son paragraphe, où il se vérifie, et
+c'est le site canonique. *Un compte qui ne vit que dans une conversation n'est pas
+un compte* — même famille que les « toutes / aucune » que ce chantier a passé
+trente commits à fermer. **Le pilote suit, et retient la leçon plutôt que le
+chiffre.**
+
+#### La trouvaille du réparateur : `tests.md` était faux DANS le commit qui le corrigeait
+
+`mesuré` : à `c5c38d5`, `documentation/tests.md` annonçait **520 tests sur 36
+fichiers** quand la réalité était **539 sur 37**. Le retard a été écrit **par le
+commit même qui prétendait le rattraper** — et ni le lot, ni son audit, ni le
+pilote ne l'ont vu. Remis à **552 / 38**.
+
+C'est la **troisième** fois que ce chiffre est corrigé au site sans que rien ne le
+garde, et c'est la démonstration exacte du **§4.13** : *rien ne lit le compte de
+tests ni les documents, donc la documentation dérive sans qu'aucun rouge ne
+s'allume.* **Le garde reste absent, et c'est lui la trouvaille, pas le chiffre.**
+C'est le F7 du dépôt jumeau, et il monte au plan.
+
+#### Pourquoi le pilote NE fusionne pas, et c'est son propre critère qui l'y oblige
+
+Le §4.18 énonçait le critère sous lequel la seconde réparation du lot 2 a été
+fusionnée sans quatrième audit : le lot audité, sa première réparation auditée,
+les directions dangereuses vérifiées par le pilote, **et `src/` inchangé, mesuré,
+donc aucune régression fonctionnelle possible.**
+
+**Ici la quatrième condition ne tient pas.** Cette réparation touche le code de
+production — `retriever.py` `+87`, `main.py` `+115` — et elle y ajoute un
+**compare-et-échange sous verrou** sur le chemin de chaque recherche, plus une
+vérification synchrone **avant l'ouverture d'un flux**. Le pilote a vérifié les
+deux bloquants et le garde de N1 de ses mains, et il n'a trouvé aucun défaut ;
+cela ne remplace pas une lecture indépendante de 1 185 lignes dont 202 de
+production. *Appliquer son critère quand il arrange et l'oublier quand il coûte
+une conversation, ce serait n'avoir pas de critère.*
+
+**Ce que l'audit `Conv' 32` doit chercher en priorité**, et qui n'a pas été lu par
+une conversation indépendante : la justesse du compare-et-échange sous
+concurrence réelle ; ce que la vérification synchrone avant le flux coûte à
+`/chat/resume` quand ChromaDB est lent ou muet ; les angles morts de la barrière
+de `tests/unit/conftest.py` — le réparateur signale lui-même que **deux tests
+résolvent encore l'hôte `ollama`**, même classe, autre dépendance ; et la
+décoration éventuelle de chacun des **13** tests neufs.

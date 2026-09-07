@@ -247,9 +247,27 @@ dépôt, pas dans la conversation.*
 | **29** | LOT-3 — le garde du modèle d'embedding côté lecteur | `c5c38d5`, 3 commits, **non poussés**. 539 passés (+19), un **témoin inerte** dans sa batterie, zéro désactivation. Son rapport tabule **douze** mutations là où son §4.4 en annonce **onze** — écart relevé par l'audit, à trancher par `Conv' 31`. Vérifié par le pilote — §4.19 |
 
 | **30** | AUDIT-3 — audit du lot 3 | **21 mutations dont 2 témoins**, 18 mordent. **2 bloquantes** (B1, B2), 1 mesure du pilote **renversée** (N1), 9 non bloquantes — §4.20. Recommandation : fusionner après correction |
-| **31** | REPAR-4 — fermer B1, B2, N1 et N2 sur la branche du lot 3 | distribué le 4 septembre 2026 |
+| **31** | REPAR-4 — fermer B1, B2, N1 et N2 sur la branche du lot 3 | distribué le 4 septembre, livré le **7** : `19f7cec`, 552 passés, **11 mutations dont un témoin inerte**. B1, B2 et N1 vérifiés par le pilote — §4.22. A **refusé de trancher** l'écart de comptes, avec une mesure, et il avait raison |
+| **32** | AUDIT-REPAR-4 — audit de la réparation du lot 3 | distribué le 7 septembre 2026 |
 
-**Prochain numéro libre : 32.**
+**Prochain numéro libre : 33.**
+
+**Une leçon d'horloge, et elle vient de tomber.** `date -u` rendait le
+**4 septembre** à l'ouverture de cette conversation de pilotage et rend le
+**7 septembre** maintenant : trois jours ont passé dans une seule conversation.
+`Conv' 31` a **relevé l'horloge** et daté ses mesures du 7, sans écrire un seul
+« 4 septembre » ; le pilote, lui, l'aurait recopié par habitude. C'est la faute
+que le dépôt jumeau a payée **neuf fois dans un seul lot**. **Dans une
+conversation longue, relève `date -u` avant chaque date que tu écris** — la date
+de la conversation n'est pas la date du jour.
+
+**Et le §4.13 monte au plan.** `documentation/tests.md` a été corrigé au site
+pour la **troisième** fois sans que rien ne le garde, et cette fois le retard
+avait été écrit **par le commit qui prétendait le rattraper** — 520/36 annoncés
+contre 539/37 réels, vus ni par le lot, ni par son audit, ni par le pilote. C'est
+le **F7** du dépôt jumeau, le dernier angle mort de la méthode : *rien ne lit le
+`Makefile` ni les documents.* Il passe devant le lot 4 dès que le lot 3 est
+fusionné.
 
 **Le compte des audits, au bout de onze conversations : quatre audits
 indépendants, quatre trouvailles matérielles bloquantes.** Aucun lot de ce
