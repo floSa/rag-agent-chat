@@ -2962,3 +2962,139 @@ l'utilisateur plutôt que de le trancher seul. **Retenu : un audit borné à la
 couche async** — le plafond, le drapeau sur un chemin de requête, et le
 compare-et-échange. *On cible là où le taux de trouvaille est mesuré, au lieu de
 repayer un audit complet ou de fusionner en espérant.*
+
+### 4.25 L'audit étroit de la couche async — la fuite est bornée dans la DURÉE, pas dans la SIMULTANÉITÉ
+
+L'audit `Conv' 34`, **borné à la couche async** sur décision de l'utilisateur, a
+reproduit la porte, sept des huit mutations à l'unité, et rendu **une trouvaille
+bloquante**. Le pilote l'a vérifiée de ses mains, **maintient la cotation**, et
+**s'écarte de l'auditeur sur une non-bloquante**.
+
+#### B-2 — BLOQUANT : une rafale simultanée de N requêtes lâche N fils
+
+**La cause est structurelle.** `_sonder` teste `if nom in _sondes_en_vol` **sur la
+boucle** ; `_executer_sonde` pose le drapeau **dans le fil**. Les deux sont de part
+et d'autre d'un `await`. Une rafale arrivant dans la **même boucle** franchit donc
+le test **avant qu'aucun fil n'ait posé le drapeau**.
+
+`mesuré` par le pilote le 7 septembre 2026, forme de production — une seule
+boucle, **aucun entrelacement forcé** —, collection qui pend :
+
+| rafale simultanée | requêtes rendues | **fils distincts lâchés** | drapeau après |
+|---|---|---|---|
+| 1 | 1/1 en 3,00 s | **1** | posé |
+| 8 | 8/8 en 3,00 s | **8** | posé |
+| **26** | 26/26 en 3,01 s | **26** | posé |
+
+**Ce qui est vrai et ce qui est faux dans l'affirmation du lot.** Le site, le
+journal d'exécution et le **nom du garde** portent tous trois : *« borne la fuite
+à un fil, quelle que soit la durée de la panne »*. Le drapeau restant posé après
+la rafale, **« quelle que soit la durée » est VRAI** — une seconde rafale ne
+lâche rien de plus. **« bornée à UN fil » est FAUX d'un facteur 26**, et
+l'auditeur mesure le plafond à **40**, la taille du réservoir anyio, à N=60 comme
+à N=200.
+
+**Et le garde ne peut pas rougir sur ce cas.** Il **attend que le drapeau soit
+posé** avant de lancer ses autres tâches — « l'entrelacement est forcé, et non
+espéré » — donc il *construit* la sérialisation que la production n'a jamais.
+C'est un garde vert sous un montage que le défaut ne rencontre pas : **la
+troisième occurrence de ce motif sur ce lot**, et la définition même du garde
+décoratif.
+
+**Pourquoi le pilote maintient bloquant alors que le code est strictement
+meilleur.** Il l'est, mesuré : la scène HTTP de l'auditeur rend **26/26** contre
+**0/26** avant, et 2 fils contre 28. Ce qui bloque n'est pas une régression,
+c'est que **l'affirmation centrale que ce lot publie sur sa propre couche est
+fausse d'un facteur 26 à 40, à trois sites** — dont une **ligne de journal émise
+à l'exploitant pendant la rafale même qui la démentit**. La règle du chantier est
+que toute phrase du genre « quelle que soit » est soit **bornée**, soit **gardée
+par un test** ; celle-ci n'est ni l'une ni l'autre, et le garde censé la tenir en
+est structurellement incapable. C'est exactement ce qui a bloqué le lot 2 au
+§4.18, et l'affaire est pire ici : là-bas la phrase était fausse dans un
+commentaire, ici elle est *dite à l'exploitant comme une preuve*.
+
+**La correction est mesurée et vaut une ligne déplacée** : poser le drapeau **côté
+boucle**, garder son retrait **côté fil**. `mesuré` par l'auditeur — rafale de 26,
+**26/26 rendues, 1 seul fil**, drapeau correctement retiré après réparation du
+store. Et l'objection que le site oppose à cette pose — « tâche annulée avant que
+le fil démarre → drapeau posé à jamais » — ne tient pas la comparaison : *le code
+actuel atteint DÉJÀ la cécité définitive* dès qu'un fil pend pour de bon.
+
+#### La seconde phrase fausse, indépendante : `daemon`
+
+`src/api/main.py` écrit que le fil de réservoir d'`abandon_on_cancel=True` *« est
+démon et ne retient plus l'interpréteur »*. **Faux**, `mesuré` par le pilote le
+7 septembre 2026 sur **anyio 4.15.1** : le fil lâché porte
+`nom='AnyIO worker thread'`, **`daemon=False`**, et le processus sort en
+**`rc=124`** — l'interpréteur est retenu.
+
+**Le lot se contredit lui-même** : `tests/unit/test_garde_modele_embedding.py`
+écrit, dans un `finally`, *« le fil de réservoir abandonné — non démon — retient
+l'interpréteur »*, et **c'est celui-là qui est juste**. La moitié vraie de
+l'affirmation du site est que la **boucle** rend la main, ce qui est la vraie
+différence avec `asyncio.to_thread` — le réparateur l'avait déjà corrigée au
+pilote au §4.24, et il l'a écrite juste dans le test et fausse dans le code.
+Conséquence réelle, nommée par l'auditeur : un `docker stop` sur une API portant
+un fil lâché ira au bout de sa grâce puis sera tué.
+
+#### Où le pilote s'écarte de l'auditeur, avec une mesure
+
+L'auditeur rend, en non-bloquant, que la ligne **`M-NB3`** du tableau des
+mutations *« décrit une mutation qui rougit »* — il mesure `rc=1` là où le lot
+publie `rc=0`. **Le pilote a remesuré, et le chiffre publié n'est pas faux.**
+
+`mesuré` le 7 septembre 2026 : `tests/unit/test_coherence_depot.py` porte **deux**
+inventaires, chacun avec sa boucle sur `_fichiers_suivis()`.
+
+| la boucle mutée | l'inventaire qu'elle sert | borne ramenée à `src/`+`tests/` |
+|---|---|---|
+| la **première** | `all-MiniLM-L6-v2` (N6) | **`rc=2`, 1 rouge** — la mesure de l'auditeur |
+| la **seconde** | la prémisse Docker (NB-3) | **`rc=0`, 0 rouge** — le chiffre publié |
+
+**Les deux mesures sont justes ; c'est l'étiquette qui est ambiguë.** « La borne de
+l'inventaire » ne dit pas *lequel*, dans un fichier qui en porte deux. Le chiffre
+publié décrit bien l'inventaire que NB-3 nomme. **Ce qui doit être corrigé n'est
+pas le `rc`, c'est le nom de la mutation** — et c'est la **deuxième** fois sur ce
+lot que deux corps différents vivent sous un seul nom : le §4.15 avait déjà dû
+rebaptiser `T2-bornes-figées` pour la même raison. *Une étiquette de mutation est
+un chiffre : elle a besoin de son site.*
+
+Le fond, lui, n'est pas contesté : l'angle mort est **réel** — `docker-compose.yml`
+échappe à l'inventaire de la prémisse, et c'est le fichier dont elle parle.
+
+#### Ce que l'audit étroit a établi en plus, et qui n'était pas demandé
+
+- **le réservoir anyio n'est pas drainé** : `borrowed` monte à 40, `tasks_waiting`
+  à 5 pour n=45 — *preuve que la sonde atteint son cas* — puis retombe à **0 à
+  l'annulation** alors que les fils tournent toujours, et un offload trivial
+  aboutit ensuite ;
+- **`n` pannes successives séparées par des réparations lâchent 1 fil EN TOUT**,
+  pas un par panne : anyio réemploie le même fil ;
+- **le compare-et-échange n'a pas été affaibli par le garde neuf** : 0 violation
+  sur **10,1 millions** de lectures, contre **3,0 millions de violations** sur le
+  témoin sans compare-et-échange — *sonde prouvée capable dans les deux sens* ;
+- **le garde de NB-1 n'est pas contournable** : trois tentatives, dont deux
+  variantes qui satisfont le garde en vert et dont l'auditeur a **mesuré qu'elles
+  ne portent pas le défaut** ;
+- **3,0 s est le bon budget, pour une raison que le site ne dit pas** : le drapeau
+  transforme le budget en un coût payé **une fois pour la vie du processus** —
+  latences mesurées `[1.00, 0.0, 0.0, 0.0, 0.0, 0.0]` sur six requêtes ;
+- **une famine existe dans le sens inverse du sens déclaré**, et elle est
+  **préexistante** : drapeau bloqué + collection réellement divergente →
+  `/health` publie `unknown` au lieu de `mismatch`, donc `ok` au lieu de
+  `degraded`, **la divergence est masquée**. Retourné contre `19f7cec` :
+  **identique, ligne pour ligne.** *Cette mesure a évité un faux bloquant*, et
+  c'est le geste que le mandat demande.
+
+#### Ce que l'audit dit du cadrage du pilote
+
+**Borner l'audit à la couche async était le bon choix, et l'auditeur le dit avec
+une mesure** : le bloquant qu'il trouve est **à quatre lignes** du site que les
+deux audits précédents ont corrigé, et il ne l'aurait trouvé ni sans les huit
+mutations à reproduire, ni sans la scène de charge retournée contre `19f7cec`.
+
+**Sa réserve est juste et elle est un angle mort du cadrage, pas du lot** : un
+audit borné ne regarde pas les mesures publiées hors de son périmètre — et il en
+restait une à vérifier, celle-là même sur laquelle le pilote vient de le
+départager. *Un périmètre d'audit qui exclut une partie du registre laisse cette
+partie sans lecteur indépendant.*
