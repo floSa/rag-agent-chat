@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import secrets
+import threading
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -10,8 +11,9 @@ from typing import Any
 
 import httpx
 from anyio import to_thread
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from langchain_core.runnables import RunnableConfig
 from sse_starlette.sse import EventSourceResponse
 
@@ -30,12 +32,15 @@ from src.agent.graph_context import reconstruct_section
 from src.agent.llm import PromptFit, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import (
+    EmbeddingModelMismatchError,
+    etat_modele_embedding,
     group_by_document,
     lexical_ready,
     lexical_stale,
     rebuild_lexical_index,
     rerank,
     retrieve,
+    verifier_modele_embedding,
 )
 from src.agent.retriever import ping as chroma_ping
 from src.agent.settings import settings
@@ -50,6 +55,7 @@ from src.api.schemas import (
     ChatRequest,
     ChatResponse,
     Citation,
+    EmbeddingModelHealth,
     FeedbackRequest,
     FeedbackResponse,
     GenerationMeasure,
@@ -84,6 +90,183 @@ def interactive_graph() -> Any:
     return _interactive
 
 
+# ─── Concordance du modèle d'embedding ───────────────────────────────────────
+#
+# OÙ LE GARDE VIT, ET POURQUOI PAS ICI. Le garde qui REFUSE est dans
+# `retriever._dense_search` : c'est le site qui produit le comportement à
+# empêcher, et le seul que tout chemin de recherche traverse. Ce qui suit est sa
+# VOIX — le démarrage la dit tôt, `/health` la dit en continu — et non le garde
+# lui-même. Un rapport ne protège de rien : entre le moment où la divergence
+# devient lisible dans `/health` et celui où quelqu'un la lit, un agent qui
+# continuerait de chercher servirait des réponses fausses.
+#
+# CE QUE LE DÉMARRAGE NE FAIT PAS, ET C'EST UNE DÉCISION. Il ne lève pas. Lever
+# ici tuerait le processus : `frontend` attend `agent-api` en `service_healthy`
+# (`docker-compose.yml`), donc un agent qui ne démarre pas laisse l'exploitant
+# devant un frontend absent, sans un mot sur le modèle d'embedding. Ce dépôt a
+# déjà payé cette forme-là une fois, pour une autre cause — c'est tout le sujet
+# de `tests/unit/test_health_parallele.py` — et la reproduire serait défaire une
+# décision mesurée. Le refus est donc porté par la recherche, qui rend 503 en
+# nommant les deux modèles, pendant que le processus reste debout pour l'expliquer.
+
+def _embedding_inconnu() -> EmbeddingModelHealth:
+    """Ce qu'on publie quand la sonde n'est pas revenue ou a levé."""
+    return EmbeddingModelHealth(
+        status="unknown", expected=settings.embedding_model_name, collection=None
+    )
+
+
+def _journaliser_concordance(etat: EmbeddingModelHealth) -> None:
+    """Dit au journal ce que la sonde a trouvé, au niveau que ça mérite."""
+    if etat.status == "ok":
+        logger.info(
+            "Modèle d'embedding : la collection '%s' est estampillée '%s', "
+            "conforme au réglage.",
+            settings.chroma_collection,
+            etat.collection,
+        )
+    elif etat.status == "mismatch":
+        logger.error(
+            "MODÈLE D'EMBEDDING DIVERGENT : la collection '%s' a été indexée avec '%s' "
+            "et le réglage nomme '%s'. Les deux rendent des vecteurs de même largeur, "
+            "donc la recherche rendrait des passages plausibles et FAUX. Toute recherche "
+            "est refusée en 503 jusqu'à ce que les deux côtés s'accordent.",
+            settings.chroma_collection,
+            etat.collection,
+            etat.expected,
+        )
+    elif etat.status == "missing":
+        logger.error(
+            "MODÈLE D'EMBEDDING INVÉRIFIABLE : la collection '%s' ne porte aucune "
+            "estampille `embedding_model`, donc rien ne dit avec quel modèle elle a été "
+            "indexée, et l'agent la lirait avec '%s'. Toute recherche est refusée en "
+            "503 : réingérer avec le pipeline courant, qui estampille.",
+            settings.chroma_collection,
+            etat.expected,
+        )
+    else:
+        logger.warning(
+            "Modèle d'embedding : estampille de la collection '%s' illisible (ChromaDB "
+            "muet ou injoignable). La concordance sera revérifiée à la première "
+            "recherche ; le réglage nomme '%s'.",
+            settings.chroma_collection,
+            settings.embedding_model_name,
+        )
+
+
+async def _concordance_embedding() -> EmbeddingModelHealth:
+    """Lit l'estampille sous le plafond des sondes, et sans lâcher plus d'un fil.
+
+    Sous le MÊME plafond que les sondes de `/health`, et par le MÊME garde « en
+    vol » : la lecture est locale une fois la collection ouverte, mais l'ouvrir
+    est un aller-retour réseau, et un ChromaDB muet bloquerait le fil. Employée
+    aussi au démarrage, où un plafond est tout aussi nécessaire — sans lui, un
+    store muet empêcherait l'agent de démarrer, ce que ce lot a précisément
+    décidé de ne pas faire.
+    """
+    tache = asyncio.create_task(
+        _sonder("modele_embedding", etat_modele_embedding, appelant="/health")
+    )
+    await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
+    return _relever("modele_embedding", tache, si_levee=None) or _embedding_inconnu()
+
+
+async def _concordance_avant_le_flux() -> None:
+    """La MÊME lecture, sous le MÊME plafond, mais qui RELÈVE la divergence.
+
+    Sœur de `_concordance_embedding()` : même estampille, même plafond, même
+    garde « en vol ». La différence tient en un point, et c'est lui qui interdit
+    de réemployer `_relever` — celle-ci ABSORBE ce qu'une sonde a levé et publie
+    `si_levee`, ce qui est juste pour `/health`, une route qui doit rendre 200
+    même dégradée, et FAUX ici : une divergence doit atteindre le gestionnaire de
+    l'application, qui en fait un 503 portant les deux noms de modèles. Absorber
+    la divergence est exactement la panne que la mutation X2 de l'audit mesure.
+
+    PREMIÈRE DÉCISION — LE DÉPASSEMENT DU PLAFOND EST TRAITÉ COMME UNE
+    ESTAMPILLE ILLISIBLE, ET C'EST LE MÊME PLAFOND. Le site avait déjà tranché
+    le cas de l'illisible : absorbé, journalisé, le garde restant en place dans
+    le flux, fail-closed. Un dépassement est la MÊME CHOSE, pour trois raisons
+    qui sont des faits et non des goûts.
+
+    - Ce que l'appelant apprend est identique : rien. « ChromaDB a répondu par
+      une panne » et « ChromaDB n'a pas répondu » ne se distinguent pas du point
+      de vue de la concordance — dans les deux cas aucun verdict n'existe. Ce
+      dépôt l'a déjà tranché deux fois dans ce sens : `etat_modele_embedding()`
+      range la levée en `unknown`, et le plafond de `_concordance_embedding()`
+      range le silence en `unknown` aussi, par `_embedding_inconnu()`. Un
+      troisième traitement pour le même non-savoir serait une divergence de
+      sémantique sans fait pour la porter.
+    - La conséquence doit l'être aussi, et c'est l'argument décisif. Refuser sur
+      le dépassement ferait dépendre de ChromaDB une route qui, la plupart du
+      temps, ne cherche PAS — l'objectif que le site d'appel nomme. Ce serait
+      même STRICTEMENT PIRE que refuser sur la levée : le silence est la panne
+      la plus banale d'un store réseau, celle que la reprise de `_dense_search`
+      existe pour rattraper.
+    - Et la sûreté ne bouge pas : ce qui est perdu au dépassement est la seule
+      ANTICIPATION. Le garde reste en place à l'intérieur du flux, fail-closed,
+      et une divergence qui revient dans le plafond est re-levée telle quelle.
+
+    LE PLAFOND EST RÉEMPLOYÉ, PAS DOUBLÉ. La grandeur bornée est la même — un
+    aller-retour vers ChromaDB pour ouvrir la collection — et c'est la MÊME
+    lecture, ce que le docstring de `_sonder` disait déjà. Un second plafond
+    laisserait les deux dériver alors qu'aucun fait ne les distingue : le jour
+    où l'on mesure qu'ouvrir une collection demande plus de 3 s, les deux sites
+    sont faux ENSEMBLE et doivent bouger ensemble.
+
+    Ce que ce réemploi cache, et il faut le dire : la PROVENANCE des 3 s diffère.
+    À `/health` c'est une échéance imposée du dehors — `docker-compose.yml` tue
+    curl à 5 s. Ici aucune échéance extérieure n'existe : 3 s est un budget que
+    la route s'impose. Il reste le bon ordre de grandeur, la requête enchaînant
+    de toute façon sur une génération de plusieurs secondes, et il est en tout
+    état de cause infiniment meilleur que l'absence de borne qu'il remplace.
+
+    SECONDE DÉCISION — OUI, LE GARDE « EN VOL », ET SOUS LE MÊME NOM. La menace
+    que ce drapeau existe pour borner est STRICTEMENT PLUS GRANDE ici qu'à
+    `/health`, et c'est ce qui tranche : le cadenceur de `/health` est un tick
+    toutes les 20 s, borné par construction, alors que l'appelant d'ici est une
+    requête utilisateur, dont le débit n'est borné par rien — l'audit a mesuré
+    que 26 requêtes bloquées épuisent le réservoir. Un drapeau dont le motif
+    écrit est « un fil lâché par sonde à la fois, quelle que soit la durée de la
+    panne » est a fortiori requis là où le taux de passage EST le taux de
+    requêtes.
+
+    Le MÊME nom, parce que c'est la même lecture de la même estampille sur le
+    même objet de collection : un second fil ferait un travail identique. Deux
+    noms lâcheraient deux fils et prétendraient à deux faits là où il n'y en a
+    qu'un.
+
+    Ce que le partage coûte, et il est accepté : une sonde de `/health` en vol
+    fait renoncer cette route à son anticipation. Cela dégrade exactement vers le
+    cas absorbé — aucun verdict, garde toujours en place dans le flux — donc vers
+    ce que le dépassement produit déjà, et symétriquement `/health` publie
+    `unknown` pour un tick, ce qu'il traite déjà comme non dégradant. En marche
+    normale la contention est nulle : la lecture est locale une fois la
+    collection ouverte.
+    """
+    tache = asyncio.create_task(
+        _sonder("modele_embedding", verifier_modele_embedding, appelant="/chat/resume")
+    )
+    await asyncio.wait([tache], timeout=_PLAFOND_SONDES_S)
+    if not tache.done():
+        logger.warning(
+            "/chat/resume : la concordance du modèle d'embedding n'a pas répondu en "
+            "%.1f s ; on renonce à l'attendre, et la concordance sera revérifiée si le "
+            "graphe reboucle vers une recherche. Le fil est LÂCHÉ, pas interrompu — le "
+            "garde « en vol » de `_sonder` borne la fuite à UN fil par panne, que la "
+            "panne dure et qu'une rafale simultanée la frappe. Le fil n'est pas démon : "
+            "il retiendra l'interpréteur jusqu'à ce que le store rende la main, et un "
+            "arrêt du conteneur ira au bout de sa grâce avant d'être tué.",
+            _PLAFOND_SONDES_S,
+        )
+        tache.cancel()
+        return
+    if tache.cancelled():
+        return
+    exc = tache.exception()
+    if exc is not None:
+        raise exc
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Ouvre le checkpointer avant de servir, le referme à l'arrêt."""
@@ -113,6 +296,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         capture.size_bytes // 1024,
         capture.path,
     )
+    # La concordance du modèle d'embedding, dite AVANT la première question
+    # plutôt qu'à la première recherche. Elle ne bloque pas le démarrage — voir
+    # le commentaire en tête de cette section — mais la taire jusqu'à ce qu'un
+    # utilisateur cherche laisserait un agent inutilisable passer pour sain.
+    _journaliser_concordance(await _concordance_embedding())
     try:
         yield
     finally:
@@ -149,6 +337,36 @@ def require_api_key(x_api_key: str = Header(default="")) -> None:
     if not secrets.compare_digest(x_api_key, settings.api_key):
         raise HTTPException(status_code=401, detail="Clé d'API absente ou invalide.")
 
+# ─── Refus de servir sur un index qu'un autre modèle a produit ───────────────
+
+@app.exception_handler(EmbeddingModelMismatchError)
+async def _refus_modele_embedding(
+    _request: Request, exc: EmbeddingModelMismatchError
+) -> JSONResponse:
+    """503, et le motif dans le corps.
+
+    503 se lit « je ne peux pas servir dans cet état », ce qui est vrai et
+    actionnable. 500 se lirait « j'ai un bug » et enverrait chercher au mauvais
+    endroit : le code est intact, c'est l'accord entre le réglage et l'index qui
+    ne l'est pas. Le motif voyage dans le corps parce que les journaux d'un
+    conteneur ne sont pas toujours à portée de qui lit la réponse.
+
+    Journalisé en ERROR à chaque refus, et non une fois : ce n'est pas une
+    nuisance de journal, c'est là que l'exploitant voit que des requêtes RÉELLES
+    se cassent sur cette panne-là.
+
+    CE DOCSTRING A ÉCRIT « LE SEUL ENDROIT », ET C'ÉTAIT FAUX. Ce gestionnaire
+    n'est appelé que si la réponse n'a pas commencé : une divergence survenue
+    pendant un flux SSE ne l'atteint jamais — Starlette rend « Caught handled
+    exception, but response already started » — et le flux mourait alors sans
+    une seule ligne. Il y a donc DEUX chemins de refus journalisés, et le second
+    est dans le `stream_generator` de `/chat/resume`. Site canonique :
+    `documentation/axes_amelioration.md` §4.20, trouvaille N1.
+    """
+    logger.error("Recherche refusée — %s", exc)
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
+
+
 # ─── Health ───────────────────────────────────────────────────────────────────
 
 # Plafond global des sondes de /health, en secondes.
@@ -171,38 +389,80 @@ _PLAFOND_SONDES_S = 3.0
 # un appel réseau, et renoncer à l'attendre ne fait que LÂCHER le fil, qui
 # continue de tourner. Sans ce garde, un healthcheck toutes les 20 s contre un
 # store muet lâcherait un fil de plus par sonde à chaque passage, dans le
-# threadpool que les endpoints de recherche partagent. Avec lui, une sonde déjà
-# en vol n'est pas relancée, donc un fil lâché par sonde à la fois — quelle que
-# soit la durée de la panne.
+# réservoir que les endpoints de recherche partagent.
 #
-# Reste un résidu, assumé : le drapeau est posé par le FIL, et la décision de
-# lancer est prise par la boucle. Deux /health VRAIMENT simultanés peuvent donc
-# doubler une sonde, le temps que le premier fil démarre. Poser le drapeau côté
-# boucle fermerait cette fenêtre et en ouvrirait une pire : si la tâche est
-# annulée avant que le fil ne démarre (threadpool saturé), plus personne ne
-# retire le drapeau et la sonde reste « en vol » à jamais — une panne remplacée
-# par une cécité définitive. Le healthcheck passe toutes les 20 s ; la fenêtre
-# ici dure le temps d'un démarrage de fil.
+# CE QUE LE GARDE BORNE, ET C'EST MESURÉ AUX DEUX BOUTS : un fil lâché par sonde
+# et par panne — que la panne dure, et qu'elle soit frappée par une RAFALE
+# simultanée. La seconde moitié de cette phrase est la trouvaille bloquante de
+# l'audit étroit de la couche async (§4.25, B-2), et elle était FAUSSE ici d'un
+# facteur 26 : le test `if nom in _sondes_en_vol` se faisait sur la boucle et la
+# POSE du drapeau dans le fil, de part et d'autre d'un `await`. Une rafale
+# arrivant dans la même boucle franchissait donc le test avant qu'aucun fil
+# n'ait posé le drapeau. `mesuré` le 7 septembre 2026, forme de production, une
+# seule boucle et aucun entrelacement forcé, collection qui pend :
+#
+#   avant — rafale de  1 → 1/1 rendue  en 3,00 s →  1 fil lâché
+#   avant — rafale de  8 → 8/8 rendues en 3,00 s →  8 fils lâchés
+#   avant — rafale de 26 → 26/26       en 3,00 s → 26 fils lâchés
+#   après — rafale de 26 → 26/26       en 3,00 s →  1 fil lâché
+#
+# La pose est donc passée CÔTÉ BOUCLE (`_sonder`) et le retrait est resté CÔTÉ
+# FIL (`_executer_sonde`). Le test-et-pose n'a aucun `await` entre ses deux
+# moitiés : sur une boucle asyncio il est donc atomique, et c'est ce qui borne
+# la rafale.
+#
+# L'OBJECTION QUE CE SITE OPPOSAIT À CETTE POSE est traitée, et non plus
+# invoquée pour refuser : « tâche annulée avant que le fil démarre → drapeau
+# posé à jamais ». Elle ne pouvait de toute façon pas servir de motif, le code
+# d'avant atteignant DÉJÀ la cécité définitive dès qu'un fil pend pour de bon.
+# `_sonder` la ferme avec un accusé de démarrage posé par le fil : si l'offload
+# se termine par une exception SANS que le fil ait démarré, la boucle retire le
+# drapeau elle-même.
+#
+# Résidu restant, assumé et borné : entre l'instant où le fil est ordonnancé et
+# celui où il exécute sa première instruction, une annulation ferait retirer le
+# drapeau par la boucle alors que le fil va tourner. Une rafale suivante pourrait
+# alors lâcher un fil de plus. La panne remplacée est « un fil de trop », pas
+# « aveugle à jamais » — l'échange va dans le bon sens.
 _sondes_en_vol: set[str] = set()
 
 
-def _executer_sonde(nom: str, sonde: Callable[[], bool]) -> bool:
-    """Exécute une sonde synchrone DANS le fil du threadpool.
+def _executer_sonde[T](
+    nom: str, sonde: Callable[[], T], demarre: threading.Event
+) -> T:
+    """Exécute une sonde synchrone DANS le fil du réservoir.
 
-    Le drapeau « en vol » est posé et retiré ici, par le fil lui-même, et non par
-    la tâche qui l'attend : celle-ci rend la main au plafond, alors que le fil
-    tourne encore. Retiré côté tâche, le garde laisserait repartir un second fil
-    à chaque appel de /health — exactement ce qu'il existe pour empêcher.
+    Le drapeau « en vol » est RETIRÉ ici, par le fil lui-même, et non par la
+    tâche qui l'attend : celle-ci rend la main au plafond alors que le fil tourne
+    encore. Retiré côté tâche, le garde laisserait repartir un second fil à
+    chaque appel — exactement ce qu'il existe pour empêcher.
+
+    Il n'est PAS posé ici, et c'est la correction de §4.25 B-2 : posé dans le
+    fil, il arrivait trop tard pour une rafale déjà passée par le test de
+    `_sonder`. La pose est côté boucle ; voir le commentaire de `_sondes_en_vol`.
+
+    `demarre` est l'accusé de démarrage que `_sonder` attend pour savoir si
+    quelqu'un retirera le drapeau. Il est posé AVANT tout le reste : ce qui suit
+    peut bloquer pour toujours, et c'est précisément le cas qu'on garde.
     """
-    _sondes_en_vol.add(nom)
+    demarre.set()
     try:
         return sonde()
     finally:
         _sondes_en_vol.discard(nom)
 
 
-async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
+async def _sonder[T](
+    nom: str, sonde: Callable[[], T], *, appelant: str
+) -> T | None:
     """Lance une sonde synchrone, ou renonce si son fil précédent tourne encore.
+
+    `appelant` nomme la route qui sonde, et il n'est pas décoratif : cette
+    fonction est PARTAGÉE entre `/health` et `/chat/resume` depuis que
+    l'anticipation de concordance l'emploie, et sa ligne de journal était restée
+    écrite pour un seul appelant — elle annonçait `/health` depuis
+    `/chat/resume`. Un exploitant qui lit « /health » ne va pas chercher la
+    latence d'une requête utilisateur.
 
     Le plafond, lui, ne vient PAS de `abandon_on_cancel` : il vient de
     `asyncio.wait(timeout=…)` et du fait qu'on n'attend pas l'annulation.
@@ -223,11 +483,52 @@ async def _sonder(nom: str, sonde: Callable[[], bool]) -> bool | None:
     observable ici : consigné comme tel au registre (§1.27).
 
     Rend None pour « pas de réponse », qui n'est pas « le service est tombé ».
+
+    Générique sur le retour, et pas seulement booléenne : la lecture de
+    l'estampille du modèle d'embedding passe par le même mécanisme et rend un
+    rapport à quatre états. Le drapeau « en vol », lui, ne dépend pas du type de
+    ce que la sonde rend.
     """
+    # TEST-ET-POSE, et les deux moitiés sont côté BOUCLE, sans `await` entre
+    # elles : c'est ce qui le rend atomique sur une boucle asyncio, et c'est la
+    # correction de §4.25 B-2. Voir le commentaire de `_sondes_en_vol` pour la
+    # rafale mesurée avant et après.
     if nom in _sondes_en_vol:
-        logger.debug("/health: sonde %s encore en vol, aucun second fil lancé", nom)
+        # WARNING, et non DEBUG. Cette ligne dit qu'une sonde a été SAUTÉE parce
+        # qu'un store ne rend pas la main : c'est la panne, pas une trace de
+        # mise au point. En DEBUG, l'absorption était muette dès le deuxième
+        # passage — `mesuré` : sur 6 requêtes contre un store qui pend, 1 seule
+        # ligne WARNING et 5 en DEBUG, alors que ce fichier écrit que
+        # « l'absorption n'est pas muette ». Le cadenceur de `/health` est un
+        # tick toutes les 20 s : le débit de cette ligne est borné par lui, et
+        # une panne de store MÉRITE une ligne toutes les 20 s.
+        logger.warning(
+            "%s : sonde %s encore en vol, aucun second fil lancé — un fil est déjà "
+            "lâché sur cette sonde et le store n'a pas rendu la main ; ce passage "
+            "renonce à son verdict",
+            appelant,
+            nom,
+        )
         return None
-    return await to_thread.run_sync(_executer_sonde, nom, sonde, abandon_on_cancel=True)
+    _sondes_en_vol.add(nom)
+    demarre = threading.Event()
+    try:
+        return await to_thread.run_sync(
+            _executer_sonde, nom, sonde, demarre, abandon_on_cancel=True
+        )
+    except BaseException:
+        # `BaseException` parce que `CancelledError` est le cas VISÉ, et qu'elle
+        # n'hérite pas d'`Exception`. Justification de l'élargissement : ce bloc
+        # ne rattrape rien, il RÉPARE un état de module avant de relever.
+        #
+        # Le drapeau n'est retiré que si le fil n'a JAMAIS démarré : sinon c'est
+        # lui qui le retirera en revenant, et le retirer ici rouvrirait la fuite
+        # d'un fil par requête que ce garde existe pour fermer. C'est la fenêtre
+        # que ce site opposait autrefois à la pose côté boucle ; elle est traitée
+        # au lieu d'être invoquée.
+        if not demarre.is_set():
+            _sondes_en_vol.discard(nom)
+        raise
 
 
 async def _sonder_ollama() -> bool:
@@ -265,7 +566,7 @@ def _relever[T](nom: str, tache: asyncio.Task[T], *, si_levee: T | None) -> T | 
       exception ici est un défaut de programmation. Elle est journalisée avec son
       type — ce n'est pas une absorption muette — et publiée fausse : /health n'a
       aucune preuve que le service répond. La propager ferait rendre 500 à
-      /health, donc redémarrer le service en boucle, ce que cette route existe
+      /health, donc passer le conteneur `unhealthy`, ce que cette route existe
       précisément pour éviter. `si_levee` dit ce qui est publié alors, et il est
       nommé à l'appel : faux pour une sonde, qui a répondu par une panne ; rien
       pour la base de capture, dont l'absence se dit déjà en null.
@@ -296,8 +597,17 @@ async def health() -> HealthResponse:
     elles dépassaient le délai du healthcheck et empêchaient le frontend de
     démarrer (voir `_PLAFOND_SONDES_S`).
 
-    Retourne toujours 200 (pour ne pas déclencher de restart en boucle) avec
-    le détail par service ; status passe à "degraded" si l'une est down.
+    Retourne toujours 200 avec le détail par service ; status passe à
+    "degraded" si l'une est down.
+
+    POURQUOI 200 MÊME DÉGRADÉ, et le motif est mesuré. Un code d'erreur ferait
+    échouer le healthcheck de `docker-compose.yml`, ce qui ne REDÉMARRE rien —
+    `restart:` répond à la sortie du processus, pas à la santé, et 21 échecs
+    consécutifs laissent `RestartCount=0` et `StartedAt` inchangé. Ce qui arrive
+    est que le conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+    `condition: service_healthy`, ne lève pas au démarrage à froid : l'exploitant
+    perd la seule route qui lui aurait dit ce qui ne va pas. Site canonique :
+    `documentation/axes_amelioration.md` §1.27.
     """
     # Table construite à l'appel, pas au chargement du module : les sondes sont
     # des noms de module, et une table figée à l'import ne verrait plus leur
@@ -315,7 +625,8 @@ async def health() -> HealthResponse:
         "index_lexical": lexical_ready,
     }
     taches: dict[str, asyncio.Task[bool | None]] = {
-        nom: asyncio.create_task(_sonder(nom, sonde)) for nom, sonde in sondes.items()
+        nom: asyncio.create_task(_sonder(nom, sonde, appelant="/health"))
+        for nom, sonde in sondes.items()
     }
     taches["ollama"] = asyncio.create_task(_sonder_ollama())
     # Sous le MÊME plafond : `usage_stats` ouvre SQLite avec un busy_timeout de
@@ -327,10 +638,18 @@ async def health() -> HealthResponse:
     # et la connexion abandonnée le ferme en se faisant collecter — au plus une à
     # la fois, le healthcheck ne passant que toutes les 20 s.
     tache_usage = asyncio.create_task(usage_stats())
+    # Sous le même plafond et le même garde « en vol » que les quatre sondes,
+    # mais HORS de `services` : ce dict est un `dict[str, bool]`, et un booléen
+    # ne sait pas dire lequel des quatre états est en cause — surtout pas
+    # distinguer « la collection ne porte pas d'estampille » de « je n'ai pas pu
+    # la lire », qui ne se soignent pas pareil.
+    tache_embedding = asyncio.create_task(
+        _sonder("modele_embedding", etat_modele_embedding, appelant="/health")
+    )
 
     # Liste typée `Future[Any]` : les tâches n'ont pas toutes le même type de
     # résultat, et c'est bien la même attente qui les borne toutes.
-    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage]
+    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage, tache_embedding]
     await asyncio.wait(attente, timeout=_PLAFOND_SONDES_S)
 
     services: dict[str, bool] = {}
@@ -350,7 +669,18 @@ async def health() -> HealthResponse:
     # recherche, elle ne l'empêche pas. Le healthcheck Docker ne doit pas
     # redémarrer le service pour ça.
     essentiels = {k: v for k, v in services.items() if k != "index_lexical"}
-    status = "ok" if all(essentiels.values()) else "degraded"
+    # Une concordance REFUSÉE dégrade à elle seule, quatre sondes vertes ou non :
+    # l'agent répond, les stores répondent, et pourtant toute recherche rend 503.
+    # Un statut « ok » décrirait alors un service qui ne sert rien.
+    #
+    # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
+    # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier
+    # « degraded » sur une sonde qui n'est pas revenue reviendrait aussi à faire
+    # dire à l'agent « ça diverge » quand il n'en sait rien — la distinction que
+    # `services_unknown` tient déjà par ailleurs.
+    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
+    concordance_refusee = embedding.status in {"mismatch", "missing"}
+    status = "ok" if all(essentiels.values()) and not concordance_refusee else "degraded"
     # Hors du plafond, et borné : `sessions.stats()` et `sessions.durable()` ne
     # lisent que des compteurs en mémoire et un réglage — aucune entrée-sortie,
     # donc rien qui puisse attendre. `stats` absorbe ses propres échecs et rend
@@ -371,6 +701,7 @@ async def health() -> HealthResponse:
             purged=purgees,
             failures=echecs,
         ),
+        embedding_model=embedding,
     )
 
 
@@ -908,18 +1239,129 @@ async def chat_resume(req: SourceSelectionRequest) -> EventSourceResponse | Chat
         config, {"selected_element_ids": req.selected_element_ids}
     )
 
+    # ─── La concordance, vérifiée AVANT d'ouvrir le flux ─────────────────────
+    #
+    # CETTE ROUTE CHERCHE, ET APRÈS LE PREMIER OCTET. `src/agent/graph.py` porte
+    # `add_conditional_edges("postprocess", should_search_more, {True:
+    # "retrieve", False: END})` : le graphe reboucle vers `retrieve` après
+    # `generate`, et `astream` tourne DANS le `stream_generator` ci-dessous,
+    # rendu dans un `EventSourceResponse`. Le garde de `_dense_search` était donc
+    # atteint alors que la réponse avait commencé — et une levée survenue là
+    # n'atteint JAMAIS `_refus_modele_embedding` : Starlette rend « Caught
+    # handled exception, but response already started ». Mesuré : pas de 503,
+    # pas de motif dans le corps, et pas même la ligne ERROR. Le flux mourait
+    # tronqué et muet, pendant que quatre documents affirmaient « toute
+    # recherche est refusée en 503 ». Site canonique :
+    # `documentation/axes_amelioration.md` §4.20, trouvaille N1.
+    #
+    # LA LECTURE EST BORNÉE ET LE FIL EST GARDÉ, et l'histoire de cette ligne
+    # est la trouvaille bloquante de l'audit de la réparation — §4.23, B-1. Elle
+    # a d'abord été écrite `await asyncio.to_thread(verifier_modele_embedding)`,
+    # NUE : synchrone dans un fil, sans plafond et sans garde. `mesuré` avec une
+    # collection qui PEND — un `threading.Event` jamais posé, aucun accès réel à
+    # ChromaDB : ce motif reste bloqué après 6 s même avec un `wait_for` que le
+    # site n'avait pas, la route passe de 0,030 s à AUCUNE réponse sur une
+    # requête qui ne cherche pas, et le fil non-démon du réservoir asyncio
+    # empêche `asyncio.run` de rendre. `chromadb 1.5.9` n'a aucun délai par
+    # défaut ; 26 requêtes bloquées épuisent le réservoir.
+    #
+    # CE QUI REND CETTE LIGNE INSTRUCTIVE : le fichier avait DÉJÀ écrit le
+    # remède, et l'absorption ci-dessous nommait l'objectif que l'appel
+    # n'atteignait pas. Elle protège d'un ChromaDB qui LÈVE ; elle ne pouvait
+    # rien contre un ChromaDB qui PEND — la panne la plus banale d'un store
+    # réseau. *La dépendance était sur l'appel, pas sur l'exception.*
+    #
+    # `_concordance_avant_le_flux()` emploie donc ce que ce fichier possédait :
+    # le plafond `_PLAFOND_SONDES_S`, le garde « en vol », et
+    # `to_thread.run_sync(…, abandon_on_cancel=True)` — la primitive ANNULABLE,
+    # dont l'annulation rend la main à la BOUCLE sans attendre le fil. C'est là
+    # toute la différence avec `asyncio.to_thread`, et c'est tout ce qu'elle
+    # est : ce site a écrit un temps que le fil de réservoir d'anyio « est démon
+    # et ne retient plus l'interpréteur », et c'est FAUX. `mesuré` le 7 septembre
+    # 2026 sur anyio 4.15.1 : le fil lâché porte `nom='AnyIO worker thread'` et
+    # `daemon=False`, et un processus qui sort en le laissant bloqué est tué par
+    # son échéance — `rc=124`, l'interpréteur est RETENU. Le test de ce garde
+    # l'écrivait déjà juste, dans un `finally` :
+    # `tests/unit/test_garde_modele_embedding.py`.
+    #
+    # CONSÉQUENCE, à dire plutôt qu'à taire : un `docker stop` sur une API
+    # portant un fil lâché n'aboutit pas à la demande — il ira au bout de sa
+    # grâce, puis le conteneur sera TUÉ. Ce que la primitive achète est la
+    # disponibilité de la route, pas la propreté de l'arrêt.
+    #
+    # Les deux décisions que ce choix demandait — la sémantique du dépassement,
+    # et le drapeau — sont argumentées dans son docstring.
+    #
+    # `/chat/simple` ne reçoit pas cette vérification, et c'est mesuré, pas
+    # supposé : il ne passe pas par le graphe et ne cherche jamais.
+    try:
+        await _concordance_avant_le_flux()
+    except EmbeddingModelMismatchError:
+        # Avant le premier octet, donc le gestionnaire de l'application rend
+        # bien 503 avec les deux noms de modèles dans le corps.
+        raise
+    except Exception:
+        # ABSORPTION LARGE, ET VOICI SA JUSTIFICATION. Ce qui passe ici est une
+        # estampille ILLISIBLE — ChromaDB muet ou injoignable — et non une
+        # divergence : le client chromadb remonte ce cas par des erreurs de
+        # transport, de sérialisation et de schéma sans ancêtre commun (cf.
+        # `_taille_collection`). Refuser dessus ferait dépendre de ChromaDB une
+        # route qui, la plupart du temps, ne cherche PAS : elle reconstruit un
+        # contexte depuis Nebula et génère. On transformerait une requête qui
+        # aboutit en 500. Le garde reste donc en place à l'intérieur du flux,
+        # fail-closed, et la seule chose qu'on perd ici est l'anticipation.
+        # L'absorption n'est pas muette.
+        #
+        # ET CE QUI N'ARRIVE PLUS JUSQU'ICI : le DÉPASSEMENT du plafond. Il est
+        # traité au même titre que l'illisible — même perte, même garde restant
+        # en place — mais `_concordance_avant_le_flux()` rend alors sans lever,
+        # après avoir journalisé sa propre ligne. Deux causes, un seul sort, deux
+        # lignes distinctes : l'exploitant doit pouvoir dire si son store a
+        # répondu par une panne ou n'a pas répondu du tout.
+        logger.warning(
+            "/chat/resume : estampille du modèle d'embedding illisible avant "
+            "l'ouverture du flux ; la concordance sera revérifiée si le graphe "
+            "reboucle vers une recherche.",
+            exc_info=True,
+        )
+
     if req.stream:
         async def stream_generator() -> AsyncIterator[dict[str, Any]]:
             final_state: dict[str, Any] = {}
-            # "custom" : tokens émis par node_generate ; "values" : état complet
-            # après chaque nœud (le dernier reçu = état final).
-            async for mode, chunk in interactive_graph().astream(
-                None, config, stream_mode=["custom", "values"]
-            ):
-                if mode == "custom":
-                    yield {"data": json.dumps(chunk)}
-                elif mode == "values" and isinstance(chunk, dict):
-                    final_state = chunk
+            try:
+                # "custom" : tokens émis par node_generate ; "values" : état
+                # complet après chaque nœud (le dernier reçu = état final).
+                async for mode, chunk in interactive_graph().astream(
+                    None, config, stream_mode=["custom", "values"]
+                ):
+                    if mode == "custom":
+                        yield {"data": json.dumps(chunk)}
+                    elif mode == "values" and isinstance(chunk, dict):
+                        final_state = chunk
+            except EmbeddingModelMismatchError as exc:
+                # LE RÉSIDU DE N1, et il est tracé plutôt que caché. La
+                # vérification ci-dessus ne peut pas couvrir une divergence
+                # apparue APRÈS : `reset_connection()` tourne toutes les 20 s
+                # depuis le `ping()` du healthcheck, et une réingestion peut
+                # passer entre la vérification et le rebouclage. Le code HTTP est
+                # déjà parti en 200 — aucune correction ne le reprend, et le flux
+                # meurt tronqué, ce qui est fail-closed. Ce qui ne doit PAS
+                # arriver est qu'il meure MUET : le gestionnaire d'exception de
+                # l'application n'étant jamais appelé après le premier octet,
+                # c'est ICI le seul endroit où l'exploitant peut l'apprendre.
+                # Garde : tests/unit/test_garde_modele_embedding.py,
+                # `test_une_divergence_apparue_en_vol_laisse_une_ligne_error`.
+                # Le motif est sur la LIGNE, et pas seulement dans la pile :
+                # c'est ce que fait déjà `_refus_modele_embedding`, et un
+                # exploitant qui grep le nom d'un modèle doit trouver les deux
+                # chemins de refus, pas un seul.
+                logger.exception(
+                    "Flux /chat/resume interrompu, le modèle d'embedding a "
+                    "divergé pendant la réponse — %s Le flux est tronqué et la "
+                    "réponse partielle n'a pas été enregistrée.",
+                    exc,
+                )
+                raise
             yield {
                 "data": json.dumps({
                     "done": True,

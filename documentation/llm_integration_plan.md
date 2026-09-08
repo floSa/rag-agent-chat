@@ -15,6 +15,19 @@
 > modèles **multilingues**, tool-calling **natif** au lieu du protocole textuel,
 > remontée jusqu'au `Document` avec sections voisines au lieu de la seule section
 > parente, et un jeu doré généré depuis le corpus plutôt qu'annoté à la main.
+>
+> **L'écart le plus dangereux, nommé parce qu'un lecteur pressé le recopierait :**
+> ce document annonce `all-MiniLM-L6-v2` comme modèle d'embedding, dont une ligne
+> de `.env` d'apparence exécutable. **C'est faux depuis la réingestion
+> multilingue** ; le modèle en service est
+> `paraphrase-multilingual-MiniLM-L12-v2`, défaut de `settings.py`. Ingérer avec
+> le modèle anglais rendrait des passages plausibles et faux — les deux rendent
+> 384 dimensions, `mesuré` : [axes_amelioration.md](axes_amelioration.md), §4.4.
+> Depuis le 4 septembre 2026 l'agent **refuse** de lire une collection qu'un
+> autre modèle a produite, donc l'erreur se solde par un `503` et non par du
+> silence. Toutes les occurrences de ce nom dans ce document sont couvertes par
+> ce bandeau, et l'inventaire de celles qui vivent dans le dépôt est gardé par un
+> test — `tests/unit/test_coherence_depot.py`, son site canonique.
 
 ## 1. Contexte et vision
 

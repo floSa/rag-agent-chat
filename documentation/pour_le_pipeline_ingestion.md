@@ -27,8 +27,15 @@ Deux pièges connus, tous deux rencontrés :
 
 - **la documentation a longtemps annoncé `all-MiniLM-L6-v2`**, un modèle
   anglais. C'était vrai avant une réingestion multilingue, ce ne l'est plus.
-  Toutes les mentions ont été corrigées, mais si vous tombez sur une trace de ce
-  nom quelque part, c'est un vestige — pas une instruction ;
+  Une version antérieure de cette page affirmait ici que « toutes les mentions
+  ont été corrigées » : **c'était faux**, et sept d'entre elles vivaient dans
+  `llm_integration_plan.md`, dont une ligne de `.env` d'apparence exécutable.
+  Elles sont désormais couvertes par le bandeau en tête de ce document-là, et
+  **l'inventaire complet est gardé par un test** —
+  `tests/unit/test_coherence_depot.py`, qui est son site canonique et le seul
+  chiffre à jour. Une affirmation de cette forme ne se recopie plus ici : elle
+  rougit quand elle devient fausse. Si vous tombez sur ce nom, c'est un
+  vestige — pas une instruction ;
 - **le cross-encoder de reranking doit parler les mêmes langues que
   l'embedder.** Mesuré côté agent : sur une question française, un reranker
   anglais rendait des scores plats — étendue 0,0 % sur 20 candidats, soit un
@@ -40,6 +47,39 @@ Deux pièges connus, tous deux rencontrés :
 Changer d'embedding pour l'état de l'art (`bge-m3`, `multilingual-e5-large`,
 `Qwen3-Embedding`) est prévu, mais **impose une réingestion complète** et ne se
 décide pas sans campagne comparative appariée. Ce n'est pas le moment.
+
+### Ce qui a changé côté agent le 4 septembre 2026, et ce que vous devez tenir
+
+**L'estampille de la collection est devenue obligatoire.** Vous l'écriviez déjà
+— `mesuré` en lecture seule le 4 septembre 2026, la collection `rag_documents`
+porte `metadata = {'embedding_model': 'paraphrase-multilingual-MiniLM-L12-v2'}`
+— et c'est désormais un **contrat**, pas une commodité : l'agent confronte son
+réglage à cette valeur avant chaque recherche dense.
+
+Trois conséquences, et elles sont franches :
+
+- **estampille absente → l'agent refuse de chercher.** Toute recherche rend
+  `503`, `/health` passe en `degraded` et nomme la cause. C'est délibéré : une
+  collection sans estampille est une collection dont personne ne sait ce qui l'a
+  produite, et un garde qui ne comparerait qu'en présence de l'estampille serait
+  décoratif sur exactement ce cas-là. Une collection produite par une version
+  plus ancienne du pipeline tombe donc sous cette règle ;
+- **estampille différente du réglage de l'agent → même refus.** Aucun des deux
+  côtés ne « gagne » : les deux noms sont publiés, à vous de dire lequel est le
+  bon ;
+- **rien à changer si vous estampillez déjà.** Ce paragraphe décrit ce que
+  l'agent fait de ce que vous écrivez, pas une exigence nouvelle sur ce que vous
+  écrivez.
+
+**Ce que l'agent NE voit pas, et c'est une réserve.** Il lit l'estampille à
+l'ouverture de la collection. Une réingestion qui changerait de modèle **pendant
+que l'agent tourne** ne serait pas vue tant que la connexion n'est pas rouverte
+— redémarrage de l'agent, ou coupure de ChromaDB. Si vous réingérez avec un
+autre modèle, **redémarrez l'agent** : un `POST /reindex` ne suffit pas, il ne
+touche que l'index lexical.
+
+Site canonique du raisonnement complet, des deux décisions et de leur prix :
+[`axes_amelioration.md`](axes_amelioration.md), §4.4.
 
 ---
 

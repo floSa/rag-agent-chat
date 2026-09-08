@@ -66,11 +66,30 @@ n'intéresse pas l'utilisateur — la recherche est amputée dans les deux cas.
 
 ### Ce qui casse
 
-**Le modèle d'embedding doit être identique des deux côtés.** Sinon la recherche
-rend des passages au hasard, sans erreur ni avertissement — c'est le mode de
-défaillance le plus coûteux de tout le système. La valeur est dans
-`EMBEDDING_MODEL_NAME`, actuellement
+**Le modèle d'embedding doit être identique des deux côtés.** C'est le mode de
+défaillance le plus coûteux de tout le système : les deux candidats rendent des
+vecteurs de même largeur, donc rien dans la forme ne les distingue. La valeur est
+dans `EMBEDDING_MODEL_NAME`, actuellement
 `paraphrase-multilingual-MiniLM-L12-v2`.
+
+Cette page annonçait ici que la recherche rendrait alors « des passages au hasard,
+**sans erreur ni avertissement** ». **Ce n'est plus vrai depuis le 4 septembre
+2026** : l'agent confronte son réglage à l'estampille `embedding_model` de la
+collection avant chaque recherche dense, refuse aussi l'estampille **absente**, et
+rend `503` en nommant les deux modèles ; `/health` passe en `degraded`. La panne
+reste la plus coûteuse — elle est simplement devenue bruyante de ce côté-ci.
+Raisonnement complet, décisions et réserves :
+[axes_amelioration.md](axes_amelioration.md), §4.4.
+
+> **La seule réserve sur ce `503`, et elle est étroite.** Les six routes le
+> rendent pour une divergence connue à l'arrivée de la requête —
+> `/chat/resume`, qui **streame** et dont le graphe reboucle vers `retrieve`
+> après `generate`, vérifie la concordance **avant** d'ouvrir le flux depuis le
+> 7 septembre 2026. Ce que le `503` ne peut pas couvrir est une divergence
+> apparue **pendant** une réponse déjà commencée : le code HTTP est parti en
+> 200, donc le flux meurt **tronqué**. Rien de faux n'est servi — c'est
+> fail-closed — et la cause est journalisée en `ERROR` avec les deux noms de
+> modèles. Détail et mesure : §4.20 (trouvaille N1) et §4.21.
 
 Un élément long est réparti sur plusieurs chunks (`abc#0`, `abc#1`) partageant
 leur `element_id`. L'agent déduplique **avant** de couper au top-K ; sans cela,

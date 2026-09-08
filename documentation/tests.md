@@ -9,21 +9,44 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 520 tests, aucune dépendance
+## Unitaire — 562 tests, aucune dépendance
 
-> **Ce compte est `mesuré`, et rien ne le garde** — c'est le §4.13 du registre,
-> un angle mort connu : il a déjà pris 25 tests de retard sans que le lot ni son
-> audit le voient. Il se remesure ainsi, et les deux chiffres doivent
-> concorder :
+> **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
+> registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
+> son audit le voient, puis il a été faux dans le commit même qui le corrigeait.
+> Il se remesure ainsi, et les deux chiffres doivent concorder :
 >
 > ```bash
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 4 septembre 2026 : **520** tests sur **36** fichiers. Le compte
-> précédent — **496** au 3 septembre — était déjà en retard de 6 avant ce
-> lot, qui en ajoute 18 : le chiffre est corrigé au site, mais **le garde
-> reste ouvert**, et c'est lui la trouvaille du §4.13, pas le chiffre.
+> `mesuré` le 7 septembre 2026 : **562** tests sur **38** fichiers, et les deux
+> comptes de la recette — la somme par fichier et le total que `pytest` annonce
+> — concordent.
+>
+> **Attention au piège de la commande.** `addopts = -q` est déjà dans
+> `pyproject.toml` : un `-q` de plus vaut `-qq`, qui SUPPRIME la ligne de total.
+> La somme par fichier ci-dessus, elle, reste imprimée.
+>
+> **CE CHIFFRE A ÉTÉ FAUX DANS LE COMMIT QUI LE CORRIGEAIT, et c'est la
+> démonstration du §4.13.** Cette note annonçait **520** tests sur **36**
+> fichiers, `mesuré` le 4 septembre ; l'état réel du dépôt à ce commit
+> (`c5c38d5`) était de **539** tests sur **37** fichiers — 19 tests et un
+> fichier de retard, écrits dans le commit même qui prétendait rattraper le
+> retard. Le lot a corrigé le chiffre, l'audit ne l'a pas revu, et **rien ne
+> pouvait le voir** : c'est exactement la trouvaille du §4.13, et elle vaut
+> mieux que le chiffre.
+>
+> **LE GARDE EST FERMÉ, et il l'est parce qu'une troisième correction à la main
+> aurait été le geste que le §4.13 sanctionne.** Cette page est confrontée à la
+> collecte de `pytest` par
+> `tests/unit/test_coherence_depot.py::test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte`,
+> qui relève le titre ET la note séparément — deux sites qui s'accordent entre
+> eux peuvent être faux ensemble, et c'est exactement ce qui est arrivé. La
+> mesure passe par `pytest` et non par un comptage des `def test_*` : `mesuré`,
+> l'AST en rend **532** là où `pytest` en collecte **562**, huit `parametrize` en
+> dépliant trente de plus. **Ce sont deux grandeurs différentes**, et ce chantier
+> en a déjà payé deux confusions du même genre.
 
 Tout est simulé : ni ChromaDB, ni NebulaGraph, ni LLM. La suite tourne en
 quelques secondes sur une machine nue, et c'est ce qui tourne en intégration
@@ -43,6 +66,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_resilience.py` | Un store qui redémarre doit rester invisible : cache oublié, une seule reprise. |
 | `test_coherence_depot.py` | Trois endroits qui doivent s'accorder et que rien ne forçait à s'accorder : la borne d'historique dupliquée dans le frontend (son image ne contient pas les schémas), et les versions épinglées par `Dockerfile.frontend` face à `requirements.txt`. Les deux ont réellement divergé. Le troisième est la liste des étages de latence, recopiée dans `scripts/evaluate.py` — délibérément, le script interrogeant un service distant — donc exposée à la divergence qui rendrait un étage mesuré mais jamais publié. Le quatrième est une **mesure** : la marge de fenêtre reprise par le remplissage vit dans un docstring de `llm.py` et dans deux documents, et les trois copies avaient dérivé jusqu'à porter trois triplets pour une seule grille. Le rapprochement se fait à espaces normalisés — c'est la phrase qui est gardée, pas sa mise en page. |
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
+| `test_montage_des_tests.py` | **Les garanties du montage des tests, gardées comme du code.** Une fixture `autouse` est une décision invisible : elle s'applique à tout et n'est nommée nulle part dans les tests qu'elle protège. Deux d'entre elles ont été mesurées inertes ou non gardées — retirées, la suite restait verte. Ce fichier est leur rouge. Il garde (a) la **barrière réseau** de `tests/unit/conftest.py`, qui interdit à un test unitaire d'ouvrir une vraie connexion `chromadb` : 41 tests en ouvraient une, 48 tentatives, et ils ne restaient verts et rapides que parce que l'hôte `chromadb` ne se résout pas depuis un poste de développement — *le montage tenait par absorption, pas par construction* ; (b) la fixture qui empêche un test d'**hériter du verdict de concordance** établi par un autre, au moyen de deux tests **ordonnés** dont le second exige de ne rien hériter du premier. Le témoin qui les accompagne vérifie que la barrière ne transforme pas ce cas en panne : une estampille hors réseau se publie en `unknown`, état prévu et documenté, là où un échec de résolution DNS ne l'était pas. |
 | `test_ordre_des_sources.py` | L'ordre dans lequel les sources entrent dans la fenêtre. Tout l'aval du budget suppose la pertinence décroissante ; le frontend postait un `set`, donc l'ordre du hachage, et la fenêtre écartait une source au hasard. Les tests assertent depuis `node_reconstruct_context`, qui produit l'ordre. Le cinquième épingle la cause en lisant l'**arbre syntaxique** de `src/frontend/app.py` — `selected_ids` initialisé par `set()`, `selected_element_ids` posté par un `list()` nu. Sa première version construisait `list(set(...))` sur ses propres identifiants : elle n'épinglait rien — corriger le frontend laissait la suite verte — et elle rougissait sur environ une graine de hachage sur deux cents. Un test qui n'importe pas le fichier dont il parle ne garde pas ce fichier. |
 | `test_llm_budget.py` | Le budget de la fenêtre de contexte : ce qui entre dans le prompt, ce qui en est écarté et par quel bout, et l'écart entre le prompt estimé et le `prompt_eval_count` réel. L'historique de conversation n'y figurait pas — c'est par là que le prompt dépassait `num_ctx`. Deux invariants y valent plus que les cas isolés : offrir plus de candidates ne doit jamais retirer une source retenue, et la troncature ne doit jamais laisser un `[src:ID]` amputé (balayé sur 1 337 budgets, depuis la première coupe possible : la borne valait 150 et la seule bande où un marqueur pouvait être amputé est 124–134). La chaîne `on_fit` → état du graphe → `/answer` y est exercée sur le vrai `node_generate`, seule la couche HTTP étant simulée : deux mutations la cassaient en gardant la suite verte. La marge de fenêtre qu'une source écartée laissait vide revient désormais à la mieux classée des écartées, tronquée sous un plancher de part : les tests sont des tests de SERRAGE — la place restée libre doit être plus petite que le plus petit fragment que le plancher aurait accepté —, pas des tests « ça tient », qui seraient verts des deux côtés. Un de ces tests portait une phrase d'EXHAUSTIVITÉ fausse — « tout fragment se termine sur un marqueur complet » — que sa fixture, faite de sources toutes marquées, ne pouvait pas contredire : une source orpheline de section n'en porte aucun. La fixture en contient désormais une, et le test compte séparément les fragments des deux espèces pour prouver qu'il a vu les deux. |
 | `test_capture_usage.py` | Le module de capture : les trois états de `retenue`, l'empreinte de configuration, la concurrence, et surtout l'absorption des pannes. |

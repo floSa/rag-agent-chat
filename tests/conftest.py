@@ -1,6 +1,23 @@
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _verdict_du_modele_embedding_neuf():
+    """Aucun test n'hérite du verdict de concordance établi par un autre.
+
+    `retriever` mémorise la concordance entre le réglage et l'estampille de la
+    collection, pour ne pas la relire à chaque recherche. C'est un état de
+    MODULE : sans ce réarmement, un test qui l'établit rend verts tous ceux qui
+    suivent sans qu'aucun garde ne regarde quoi que ce soit — le faux vert exact
+    qu'un garde décoratif produirait.
+    """
+    from src.agent import retriever
+
+    retriever.rearmer_verification_modele()
+    yield
+    retriever.rearmer_verification_modele()
+
+
 @pytest.fixture
 def sample_chunks():
     from src.api.schemas import ChunkResult
