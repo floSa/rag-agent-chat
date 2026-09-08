@@ -527,7 +527,8 @@ LLM_MAX_TOKENS=4096
 # --- Retrieval ---
 EMBEDDING_MODEL_NAME=<le modele anglais que ce document prescrivait ; voir le
 #                      bandeau de tete>   # DOIT etre le meme que l'ingestion
-RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2
+RERANK_MODEL=<le reranker ANGLAIS que ce document prescrivait ; voir le
+#              bandeau de tete>   # le multilingue est le reglage en service
 RETRIEVAL_TOP_K=20
 RERANK_TOP_K=10
 MAX_SEARCH_ITERATIONS=3
