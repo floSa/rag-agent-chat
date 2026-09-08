@@ -96,7 +96,19 @@ class Settings(BaseSettings):
         default="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", alias="RERANK_MODEL"
     )
     # Candidats conservés après fusion, soumis au reranking. Balayé sur 130
-    # questions, mesuré APRÈS reranking — donc sur ce qui atteint le LLM :
+    # questions, mesuré APRÈS reranking — donc sur ce qui atteint le LLM.
+    #
+    # **CE BALAYAGE EST DU 3 AOÛT 2026, ET IL EST ANTÉRIEUR AU CORPUS EN
+    # SERVICE.** `mesuré` le 8 septembre 2026 par `git log -S "0.962" --
+    # src/agent/settings.py` : ces chiffres sont entrés au dépôt le 3 août 2026,
+    # soit un MOIS avant le remplacement du corpus du 2 septembre 2026
+    # (site canonique : `documentation/axes_amelioration.md` §4.3). Ils ont
+    # décidé d'un réglage et n'ont pas été rejoués depuis. Ce n'est pas une
+    # raison de les retirer — un réglage sans motif écrit est pire — mais c'en
+    # est une de ne pas les lire comme le rappel du corpus actuel : celui-là est
+    # à `documentation/campagnes/2026-09-08-campagne-de-reference.md`. Le
+    # `README.md` recopiait deux de ces chiffres sans date ; il renvoie
+    # désormais ici (trouvaille N8 de l'audit du lot 5).
     #
     #   top_k   rappel   transling.   même langue
     #      20    0.900       0.889         0.904

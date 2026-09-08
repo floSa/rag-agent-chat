@@ -181,13 +181,13 @@ le pilote croyait avoir supprimé.
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
 | garde-fou d'identité | **armé** depuis le lot 1, `INSTALL_PYTHON` gravé vers le `.venv` du **clone principal** — donc stable. Vérifié de mes mains depuis l'arbre du pilote : adresse interdite → `rc=1`, HEAD immobile ; adresse autorisée → `rc=0`. Et le hook a tiré sur la fusion elle-même (« Identite d'auteur autorisee … Passed ») |
 | historique | `mesuré` le **4 septembre 2026** : **184** commits à `7bcd346`, **deux adresses et elles seules** (216 + 152 occurrences auteur+committer), **0** `@aosis.net`, **0** attribution à un assistant. Relevé antérieur : **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
-| porte qualité | ⚠️ **ROUGE sur `main`**, `mesuré` le **8 septembre 2026** par le lot 5 sur `main` = `origin/main` = **`4eedb2a`**, dans un arbre nu monté par le protocole du §2.2 : `make lint` → `rc=0`, **`make test` → `rc=2`, 1 échec / 561 passés**. Le rouge est `test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie` — **6** occurrences pour **5** autorisées, la sixième étant la phrase du §4.27 qui raconte que ce garde avait rougi sur la fusion du lot 3. **Fermé par le lot 5.** Relevé antérieur : le **7 septembre 2026** sur `c5f9a54` — le résultat de la fusion du lot 3 — `rc=0`, `rc=0`, **562 passés** ; ce relevé était juste **sur ce commit-là**, et il a été recopié comme état de `main` deux commits plus tard, ce que le §4 interdit. Avant : 520 au lot 2, 486 au lot 1 (461 avant lui) |
+| porte qualité | ✅ **VERTE sur `main`**, `mesuré` le **8 septembre 2026** par LOT-DETTE sur `main` = `origin/main` = **`c5028d6`**, dans son arbre de travail, `rc` du **processus** non filtré : `make lint` → `rc=0`, `make test` → `rc=0`, **603 passés**. *Le cadrage annonçait ce chiffre et il était juste ; il a été remesuré parce qu'un chiffre recopié n'est pas une mesure.* Relevé antérieur : ⚠️ **ROUGE**, le même jour, sur `4eedb2a` — `make test` → `rc=2`, 1 échec / 561 passés, sur le fil de détente d'occurrences du modèle anglais, à **6** trouvées pour **5** autorisées, la sixième étant la phrase du §4.27 qui racontait son propre déclenchement. **Fermé par le lot 5, et la cause structurelle par LOT-DETTE : l'instrument est désormais DÉDOUBLÉ** — le fil compte les occurrences et se nomme comme tel, un garde neuf porte la sûreté sur les AFFECTATIONS et ne rougit sur aucun récit (§4.29). Avant : 562 au lot 3, 520 au lot 2, 486 au lot 1 (461 avant lui) |
 | tests désactivés | `mesuré` le **4 septembre 2026** sur `d5b2c3c` : **0** `pytest.mark.skip`, **0** `xfail`, **3** `type: ignore`, **90** `noqa` dont **10** hors `PLR2004`. Tous antérieurs à ce chantier, non instruits. **Le lot 2 n'en ajoute aucun** — vérifié sur les lignes ajoutées de son diff, et `pyproject.toml`, `Makefile` et `.pre-commit-config.yaml` ne sont pas touchés |
 | pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
-| `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` de nouveau le **8 septembre 2026** (`Up 42 minutes`) — **cinquième** relevé en marche sans qu'aucune conversation le décide, et l'état n'a pas bougé pendant les trois heures du lot 5. Relevé antérieur : le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
+| `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` de nouveau le **8 septembre 2026** (`Up 5 hours`) par LOT-DETTE — **sixième** relevé en marche sans qu'aucune conversation le décide, et l'état n'a pas bougé pendant ce lot non plus : `Up 5 hours` aux deux bouts. **cinquième** relevé en marche sans qu'aucune conversation le décide, et l'état n'a pas bougé pendant les trois heures du lot 5. Relevé antérieur : le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
 | les stores | ChromaDB `rag_documents`, **4 367** chunks ; NebulaGraph `rag_space`, **15 173** arêtes `PARENT_OF`, **23** documents. Concordant à l'unité avec la campagne de référence du pipeline |
 | les LLM | `ollama-central` sert `gemma4:e4b` et `nomic-embed-text` — `gemma4:e4b` est bien celui qu'attend `.env.example` |
-| l'agent | `mesuré` le **8 septembre 2026** : `rag-agent-api` **en marche et `healthy`**, `GET /health` → HTTP **200**, `status: ok`. **`index_lexical` était à `false`** au premier relevé et est passé à `true` après la première recherche : l'index BM25 se construit **paresseusement**, donc un `/health` lu juste après un redémarrage annonce une recherche amputée qui ne l'est pas — la première recherche la construit synchroniquement. Réglages du chemin mesuré par la campagne : `HYBRID_SEARCH=true`, `QUERY_REWRITE=true`, `FETCH_K=50`, `RETRIEVAL_TOP_K=50`, `RERANK_TOP_K=10`, `AUTO_SELECT_TOP_K=3`, fenêtre graphe ±6 / ±3, `FULL_TEXT_FROM_VECTORS=true`. Relevé antérieur, le **4 septembre 2026** : mêmes quatre dépendances à `true`. Le port est **8011** sur l'hôte, jamais 8000. `POST /reindex` est **exposé** — vérifié dans l'`openapi.json` servi, aux côtés de `/answer`, `/search`, `/context/{element_id}`, `/sources`, `/media/{object_name}`, `/feedback` et des trois routes `/chat/*` |
+| l'agent | `mesuré` le **8 septembre 2026** : `rag-agent-api` **en marche et `healthy`**, `GET /health` → HTTP **200**, `status: ok`. **`index_lexical` était à `false`** au premier relevé et est passé à `true` après la première recherche : l'index BM25 se construit **paresseusement**, donc un `/health` lu juste après un redémarrage annonce une recherche amputée qui ne l'est pas — la première recherche la construit synchroniquement. Réglages du chemin mesuré par la campagne : `HYBRID_SEARCH=true`, `QUERY_REWRITE=true`, `FETCH_K=50`, `RETRIEVAL_TOP_K=50`, `RERANK_TOP_K=10`, `AUTO_SELECT_TOP_K=3`, fenêtre graphe ±6 / ±3, `FULL_TEXT_FROM_VECTORS=true`. Relevé antérieur, le **4 septembre 2026** : mêmes quatre dépendances à `true`. Le port est **8011** sur l'hôte, jamais 8000. `POST /reindex` est **exposé** — vérifié dans l'`openapi.json` servi, aux côtés de `/answer`, `/search`, `/context/{element_id}`, `/sources`, `/media/{object_name}`, `/feedback` et des trois routes `/chat/*` **LA TRAPPE EST FERMÉE PAR LOT-DETTE** : `scripts/evaluate.py` chauffe l'index avant la première question puis **vérifie**, et **refuse la campagne en 2** si `/health` n'annonce toujours pas `index_lexical: true` — un agent qui ne répond pas du tout reste un **1**, pas un refus, et le motif de cette distinction est au site (§4.29). `mesuré` de nouveau à la fin de LOT-DETTE : `rag-agent-api` `Up 5 hours (healthy)`, `status: ok`, les **quatre** services à `true`, `index_lexical` compris. |
 
 **Les gestes interdits, et ils viennent du pipeline :** ne renomme aucun fichier
 de son corpus (le chemin entre dans le calcul des `element_id`) ; ne change pas
@@ -209,7 +209,7 @@ deux jeux hors service ont été RETIRÉS du dépôt.**
 | **138 questions régénérées** sur le corpus en service | `tests/fixtures/golden_qa_generated.yaml` | ✅ **le jeu de RÉGLAGE**, cible de `make eval`. **130 / 130** ancrages présents dans ChromaDB **et** NebulaGraph, `mesuré` et versionné à `runs/2026-09-08-ancrages.json`. `reviewed: false` partout — c'est du **silver** |
 | **30 questions**, écrites après l'ingestion | `tests/fixtures/jeu_de_questions_pipeline.yaml`, transposé de `documentation/campagnes/2026-09-02-jeu-de-questions.yaml` du pipeline, qui reste le **site canonique** | ✅ **le jeu de CONTRÔLE**, cible de `make eval-controle`. **44 / 44** ancrages présents dans les deux stores. Sa réserve voyage dans le fichier et un test refuse qu'elle en sorte |
 | ~~138 questions générées le 3 août 2026~~ | ~~`tests/fixtures/golden_qa_generated.json`~~ | ❌ **RETIRÉ.** 0 / 129 ancrages dans le graphe, et **34** des 36 détections `detect-secrets` du dépôt |
-| ~~15 questions écrites à la main~~ | ~~`tests/fixtures/golden_qa.json`~~ | ❌ **RETIRÉ, et il était le `--golden` par DÉFAUT.** Ses 15 questions à réponse portaient **0** `gold_element_ids` : toutes ses métriques de rappel valaient `None`, ce qui se lit « sans objet » et non « cassé » — plus silencieux encore que le jeu de 138. Trouvé par un garde du lot 5 |
+| ~~15 questions écrites à la main~~ | ~~`tests/fixtures/golden_qa.json`~~ | ❌ **RETIRÉ, et il était le `--golden` par DÉFAUT.** **13** de ses 15 questions étaient à réponse — les deux autres, `Q-010` et `Q-011`, sont des abstentions, et « 15 à réponse » était faux de deux (`mesuré`, trouvaille N8) — et portaient **0** `gold_element_ids` : toutes ses métriques de rappel valaient `None`, ce qui se lit « sans objet » et non « cassé » — plus silencieux encore que le jeu de 138. Trouvé par un garde du lot 5 |
 
 **AUCUNE CAMPAGNE NE SE LANCE SANS SON ANTÉCÉDENT.** `make eval` et
 `make eval-controle` **dépendent** de `make verifier-les-ancrages`, qui confronte
@@ -277,24 +277,48 @@ dépôt, pas dans la conversation.*
 | **34** | AUDIT-ASYNC-3 — audit **étroit**, borné à la couche async du lot 3 | 7 mutations sur 8 reproduites à l'unité, 10 propres, scène de charge retournée contre `19f7cec`. **1 bloquante** (B-2 : rafale de 26 → 26 fils) — §4.25. A **validé le cadrage étroit avec une mesure**, et nommé son angle mort |
 | **35** | REPAR-6 — fermer B-2 et les deux phrases fausses | `4849bc1` : rafale de 26 → **1 fil**, 562 passés. Vérifié par le pilote **dans les deux sens** et **fusionné** — §4.27. A trouvé seul la **seconde** raison pour laquelle le garde était décoratif : il comptait les fils par `name` |
 
-| **36** | LOT-5 — régénérer le jeu doré, adopter les 30 questions du pipeline, établir la campagne de référence | livré le **8 septembre 2026**. Trois défauts trouvés hors cadrage, dont **le piège du `--compare`** — deux corpus sous une même numérotation de questions — et un **TROISIÈME** jeu de questions, `golden_qa.json`, qui était le `--golden` par défaut et dont les 15 questions à réponse portaient **0** ancrage. **A mesuré la porte ROUGE sur `main` = `4eedb2a`** : `rc=2`, 1 rouge / 561 passés — le cadrage annonçait `rc=0`, 562. §4.3 |
+| **36** | LOT-5 — régénérer le jeu doré, adopter les 30 questions du pipeline, établir la campagne de référence | livré le **8 septembre 2026**. Trois défauts trouvés hors cadrage, dont **le piège du `--compare`** — deux corpus sous une même numérotation de questions — et un **TROISIÈME** jeu de questions, `golden_qa.json`, qui était le `--golden` par défaut et dont les **13** questions à réponse — sur 15, « 15 à réponse » étant faux de deux — portaient **0** ancrage. **A mesuré la porte ROUGE sur `main` = `4eedb2a`** : `rc=2`, 1 rouge / 561 passés — le cadrage annonçait `rc=0`, 562. §4.3 |
 
 | **37** | AUDIT-5 — audit du lot 5 | **10 mutations reproduites**, 9 propres, campagne de contrôle rejouée **bit pour bit**. **ZÉRO bloquante**, 8 non bloquantes — §4.30. A corrigé **quatre** chiffres du pilote et **renforcé** les deux lectures que le lot publiait contre lui-même |
 
-**Prochain numéro libre : 38.**
+| **38** | LOT-DETTE — les deux trappes ouvertes, et le dédoublement de l'inventaire | livré le **8 septembre 2026**. **N1 à N8 fermées**, `rc=0` / `rc=0`. Les deux trappes : `verifier_les_ancrages` rend enfin **2**, avec **preuve d'atteinte live** (ChromaDB joignable, Nebula sur `192.0.2.1` : `rc=1` → `rc=2`), et la chauffe BM25 est **faite, vérifiée et refusée en 2** dans `evaluate.py`. **L'inventaire est dédoublé** — et le garde neuf a trouvé une affectation copiable sur `main`, puis **la première rédaction du §4.29 lui-même**. Trois trouvailles sur ce lot par ses propres mutations : `lire_chroma` et `pool.execute` non gardés, et une détection `detect-secrets` que le lot ajoutait. §4.29 |
+
+**Prochain numéro libre : 39.**
 
 **Quatre lots sur cinq sont fusionnés, et les cinq exigences du contrat sont
 tenues.** Sept audits indépendants, sept trouvailles — dont **six bloquantes**, et
 le lot 5 est le **premier à passer son audit sans une seule**. Le pilote a été
 borné, corrigé ou renversé à chacun des sept.
 
-**La dette non bloquante est désormais l'essentiel de ce qui reste**, et deux
-lignes y sont urgentes : `N1` — `verifier_les_ancrages` sort en `1` là où son
-contrat promet `2`, écrit à quatre sites, sans aucun test sur ce chemin — et `N2`
-— *le réchauffement de l'index BM25 est raconté, ni fait ni gardé*, donc
-`make eval` sur une pile fraîche mesurera la première question contre un index
-froid. **Ce sont les deux seules trappes ouvertes pour la campagne suivante**, et
-ce lot vient de démontrer ce que coûte une trappe qu'on n'a pas fermée.
+**Et LOT-DETTE a trouvé trois défauts sur lui-même, par ses propres mutations** :
+l'absorption large de `lire_chroma` n'était gardée par rien (une mutation qui
+avait manqué sa cible), l'absorption qu'il venait d'ajouter sur `pool.execute` ne
+l'était pas non plus (mutation M3, verte), et sa première forme de garde
+d'affectations faisait passer le dépôt de **2** à **3** détections
+`detect-secrets` — c'est-à-dire qu'un garde du lot rendait `detect-secrets` moins
+armable au moment même où le lot retirait un pragma pour le rendre plus armable.
+*Trois verts qui ne prouvaient rien, trouvés par le protocole plutôt que par un
+auditeur.*
+
+**LES DEUX TRAPPES SONT FERMÉES, ET LA DETTE NON BLOQUANTE AVEC ELLES.**
+`N1` — `verifier_les_ancrages` sortait en `1` là où quatre sites promettent `2`,
+sans aucun test sur ce chemin — et `N2` — *le réchauffement de l'index BM25 était
+raconté, ni fait ni gardé* — étaient les **deux seules trappes ouvertes pour la
+campagne suivante**. Fermées par LOT-DETTE le 8 septembre 2026, avec les six
+autres non bloquantes (§4.29). La campagne suivante peut partir : son antécédent
+refuse de se taire, et sa question 1 ne traversera plus un index froid.
+
+**CE QUI RESTE, ET C'EST NOMMÉ PLUTÔT QUE COMPTÉ COMME ZÉRO.** Le **hook
+`pre-push`** : le garde-fou d'identité couvre `commit`, `--amend`, `--author=`,
+`merge --no-ff` et `merge --squash`, **pas `push`**, et le dépôt pousse — les
+trois pushes de ce chantier ont été protégés par une vérification **manuelle** du
+pilote. Il change le geste de publication et mérite son propre lot. Avec lui :
+deux détections `detect-secrets` préexistantes que ce chantier n'a pas touchées,
+une affectation copiable du **reranker anglais** dans le même bloc `.env`
+historique que celle que LOT-DETTE a corrigée — trouvée en passant, hors du
+périmètre de la décision du §4.28, non gardée — et le fait que le jeu de
+questions versionné n'est pas reproductible par la graine désormais transmise, ce
+qui demanderait de le régénérer et casserait l'appariement de la référence.
 
 **LA PORTE ÉTAIT ROUGE SUR `main`, ET AUCUNE CONVERSATION NE L'AVAIT VU.**
 `mesuré` par `Conv' 36` le 8 septembre 2026, sur `main` = `origin/main` =

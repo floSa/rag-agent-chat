@@ -525,7 +525,8 @@ LLM_TEMPERATURE=0.1
 LLM_MAX_TOKENS=4096
 
 # --- Retrieval ---
-EMBEDDING_MODEL_NAME=all-MiniLM-L6-v2   # DOIT etre le meme que l'ingestion
+EMBEDDING_MODEL_NAME=<le modele anglais que ce document prescrivait ; voir le
+#                      bandeau de tete>   # DOIT etre le meme que l'ingestion
 RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2
 RETRIEVAL_TOP_K=20
 RERANK_TOP_K=10

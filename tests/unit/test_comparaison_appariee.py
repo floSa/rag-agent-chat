@@ -521,33 +521,55 @@ def _lancer(*arguments, pythonpath: str | None = None):
     )
 
 
-# Faux `httpx`, réduit à EXACTEMENT ce que `evaluate.interroger` utilise :
-# `httpx.post(...)`, puis `.raise_for_status()` et `.json()` sur la réponse. Un
+# Faux `httpx`, réduit à EXACTEMENT ce que `evaluate` utilise : `httpx.post(...)`
+# et `httpx.get(...)`, puis `.raise_for_status()` et `.json()` sur la réponse. Un
 # faux qui ne ressemble pas à la bibliothèque ne prouve rien d'elle — celui-ci
 # ne prétend rien d'autre que ce contrat-là, qui est tout ce que le script
 # touche. Il rend une réponse `/answer` minimale mais VALIDE : la campagne doit
 # aboutir, sinon c'est le code 1 qu'on mesurerait, pas le code 2.
+#
+# **IL RÉPOND AUSSI À `/health`, DEPUIS LE 8 SEPTEMBRE 2026**, et c'est une
+# conséquence de N2 : une campagne exige désormais son antécédent — l'index BM25
+# chaud — avant de poser la première question, sans quoi la question 1
+# traverserait un index froid quand les suivantes passent par le chemin hybride
+# complet. Un agent qui répond à `/answer` répond à `/health` ; un faux qui ne
+# répondrait qu'à l'un des deux ne décrirait aucun agent réel, et ferait mesurer
+# le refus de chauffe là où ces tests mesurent des codes de comparaison.
+# Site canonique de la décision : `tests/unit/test_chauffe_lexicale.py`.
 _FAUX_HTTPX = '''"""Faux httpx, posé sur PYTHONPATH pour un test de code de sortie."""
 
 
 class _Reponse:
+    def __init__(self, charge):
+        self._charge = charge
+
     def raise_for_status(self):
         return None
 
     def json(self):
-        return {
-            "answer": "La dispersion se mesure par l'écart-type [src:aaaaaaaaa1].",
-            "contexts": [],
-            "citations": [],
-            "retrieved_element_ids": ["aaaaaaaaa1"],
-            "retrieval_ms": 0,
-            "generation_ms": 0,
-            "dropped_contexts": 0,
-        }
+        return self._charge
+
+
+_ANSWER = {
+    "answer": "La dispersion se mesure par l'écart-type [src:aaaaaaaaa1].",
+    "contexts": [],
+    "citations": [],
+    "retrieved_element_ids": ["aaaaaaaaa1"],
+    "retrieval_ms": 0,
+    "generation_ms": 0,
+    "dropped_contexts": 0,
+}
+# Index lexical CHAUD : ces tests mesurent les codes de la comparaison, pas la
+# chauffe. Le faux le dit explicitement plutôt que de le laisser deviner.
+_HEALTH = {"status": "ok", "services": {"index_lexical": True}}
+
+
+def get(url, timeout=None):
+    return _Reponse(_HEALTH)
 
 
 def post(url, json=None, timeout=None):
-    return _Reponse()
+    return _Reponse(_ANSWER)
 '''
 
 

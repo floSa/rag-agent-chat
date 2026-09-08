@@ -1478,8 +1478,11 @@ ancrages triés), inscrit dans chaque campagne, et dont l'**absence** est refus�
 au même titre qu'une divergence. C'est la décision 2 du lot 3 réappliquée.
 
 **(b) Un TROISIÈME jeu de questions existait, et c'était le `--golden` par
-DÉFAUT.** `tests/fixtures/golden_qa.json`, 15 questions écrites à la main. Ses
-quinze questions à réponse portaient **0** `gold_element_ids` : `rappel_recherche`,
+DÉFAUT.** `tests/fixtures/golden_qa.json`, 15 questions écrites à la main, dont
+**13 à réponse** — les deux autres, `Q-010` et `Q-011`, sont des abstentions ;
+« quinze questions à réponse » était faux de deux, `mesuré` le 8 septembre 2026
+sur le contenu du fichier tel que `4eedb2a` le portait (trouvaille N8). Ses
+treize questions à réponse portaient **0** `gold_element_ids` : `rappel_recherche`,
 `rappel_elements`, `mrr` et `rappel_contexte` valaient `None` sur toutes,
 c'est-à-dire **absents des moyennes**. Un `None` se lit « sans objet », là où un
 `0.0` se lit « cassé » : il était donc **plus silencieux** que le jeu de 138. Et
@@ -1521,7 +1524,7 @@ d'évaluation **dépendent** de `verifier-les-ancrages` : l'ordre est porté par
 | `test_verification_des_ancrages.TestLaSondeEstEnLectureSeule` | la sonde n'écrit dans aucun store | `collection.modify(...)` → rouge ; `INSERT VERTEX …` → rouge. Les DEUX directions mesurées, et le garde a été **refait** parce que sa première forme rougissait sur un `set.add` légitime |
 | `..._un_jeu_sous_la_mauvaise_cle_est_refuse_et_non_declare_vert` | un schéma inconnu lève, au lieu de rendre « 0 ancrage » donc vert | lire une seule clé d'ancrage → la sonde déclarerait le jeu du pipeline conforme sans rien vérifier |
 | `test_comparaison_appariee.test_l_empreinte_distingue_deux_corpus_a_numerotation_identique` | l'empreinte sépare deux corpus de même numérotation, et NE sépare pas une reformulation | — c'est le test qui prouve que le garde atteint son cas |
-| `test_coherence_depot.test_les_cibles_d_evaluation_ne_nomment_que_des_fichiers_qui_existent` | aucune cible d'évaluation ne pointe un chemin vide | remettre `--compare runs/final.json` → rouge nommé |
+| `test_coherence_depot.test_les_cibles_d_evaluation_ne_nomment_que_des_fichiers_qui_existent` | aucune cible d'évaluation ne pointe un chemin vide | viser un `runs/` ou un `tests/fixtures/` qui n'existe pas → rouge nommé. **ATTRIBUTION CORRIGÉE le 8 septembre 2026** : ce tableau prêtait ici la mutation « remettre `--compare runs/final.json` », que ce garde **ne voit pas** — `runs/final.json` existe toujours, donc le chemin désigne bien un fichier. `mesuré` : sous cette mutation, ce garde **passe**, et c'est son voisin `..._make_eval_ne_vise_plus_aucun_jeu_ni_aucune_cible_retires_par_le_lot_5` qui rougit, seul. Pas de trou de couverture — mais le tableau nommait un garde décoratif *pour cette mutation-là*, ce qui est la façon la moins visible de désarmer une preuve |
 | `..._la_verification_des_ancrages_est_l_antecedent_des_deux_campagnes` | `eval` et `eval-controle` dépendent de la vérification | retirer la dépendance → rouge |
 | `..._la_promesse_retiree_au_pipeline_n_est_plus_affirmee_nulle_part` | la phrase fausse peut être CITÉE, plus AFFIRMÉE | la réaffirmer hors guillemets → rouge avec sa ligne |
 
@@ -4289,14 +4292,14 @@ n'est pas une preuve d'atteinte.*
 
 | | Ce que c'est | Suite |
 |---|---|---|
-| **N1** | `rc=1` au lieu de `2` quand NebulaGraph est injoignable, contrat écrit à quatre sites, **aucun test sur ce chemin** | **lot suivant, en tête** |
-| **N2** | le réchauffement de l'index BM25 est **raconté, ni fait ni gardé** : aucune chauffe dans `evaluate.py`, aucune dans le `Makefile`, aucun test. `make eval` sur une pile fraîche fera passer la question 1 par un index froid — *la trappe même que le lot a identifiée reste ouverte pour la campagne suivante* | **lot suivant, en tête** |
-| **N3** | une mutation du tableau est **attribuée au mauvais garde** : elle est bien attrapée, mais par le voisin. Le tableau nomme un garde décoratif *pour cette mutation-là* | lot suivant |
-| **N4** | `documentation/tests.md` **affirme une chose fausse** : un `set.add` légitime fait rougir **deux** assertions, alors que la page écrit le contraire. Et la recherche de sous-chaîne que le lot qualifie de « première forme fausse » est **revenue** comme troisième assertion. *Un successeur qui croit la page posera un `set.add`, verra un rouge inexplicable, et sera tenté d'affaiblir le garde* | lot suivant |
-| **N5** | le lot pose un `pragma: allowlist secret` sur `source_sha256` là où sa **propre** technique — préfixer `sha256:` — l'évitait. Deux hachages, deux traitements | lot suivant |
-| **N6** | le **15 196** est publié sans sa commande, seul chiffre du compte rendu dans ce cas. L'auditeur l'a reconstruit et il est exact, mais un lecteur ne peut pas le rejouer | lot suivant |
-| **N7** | la reproductibilité des ancrages **n'est pas ce que la documentation laisse entendre** : la graine fixe le tirage, mais l'ensemble retenu dépend du motif d'acceptation du LLM. **Reproductible en pratique, pas par construction** — et le texte des questions ne l'est pas du tout, `temperature: 0.4` sans `seed` | lot suivant |
-| **N8** | deux inexactitudes chiffrées : `golden_qa.json` est décrit « 15 questions à réponse », c'est **13 sur 15** ; et `README.md` garde un « 50 → 0,962 » hérité du corpus remplacé | lot suivant |
+| **N1** | `rc=1` au lieu de `2` quand NebulaGraph est injoignable, contrat écrit à quatre sites, **aucun test sur ce chemin** | ✅ **FERMÉE par LOT-DETTE** (§4.29) — `rc=2`, avec preuve d'atteinte live, et six tests là où il n'y en avait aucun. Deux trouvailles adjacentes par mutation : `lire_chroma` et `pool.execute` |
+| **N2** | le réchauffement de l'index BM25 est **raconté, ni fait ni gardé** : aucune chauffe dans `evaluate.py`, aucune dans le `Makefile`, aucun test. `make eval` sur une pile fraîche fera passer la question 1 par un index froid — *la trappe même que le lot a identifiée reste ouverte pour la campagne suivante* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — **chauffer PUIS refuser**, dans `evaluate.py` et non dans le `Makefile`, motifs au site. Le chemin froid est éprouvé hors réseau, pas en vrai |
+| **N3** | une mutation du tableau est **attribuée au mauvais garde** : elle est bien attrapée, mais par le voisin. Le tableau nomme un garde décoratif *pour cette mutation-là* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — attribution corrigée, et mesurée : le garde attribué **passe** sous cette mutation, le voisin rougit seul |
+| **N4** | `documentation/tests.md` **affirme une chose fausse** : un `set.add` légitime fait rougir **deux** assertions, alors que la page écrit le contraire. Et la recherche de sous-chaîne que le lot qualifie de « première forme fausse » est **revenue** comme troisième assertion. *Un successeur qui croit la page posera un `set.add`, verra un rouge inexplicable, et sera tenté d'affaiblir le garde* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — tranché : l'assertion de sous-chaîne s'en va, mesurée strictement redondante. Il reste **un** rouge, et la page le dit |
+| **N5** | le lot pose un `pragma: allowlist secret` sur `source_sha256` là où sa **propre** technique — préfixer `sha256:` — l'évitait. Deux hachages, deux traitements | ✅ **FERMÉE par LOT-DETTE** (§4.29) — `sha256:` préfixé, `rc=0` sans pragma. Trois pièces supprimées ; les 44 ancrages identiques bit pour bit |
+| **N6** | le **15 196** est publié sans sa commande, seul chiffre du compte rendu dans ce cas. L'auditeur l'a reconstruit et il est exact, mais un lecteur ne peut pas le rejouer | ✅ **FERMÉE par LOT-DETTE** (§4.29) — la route publiée, remesurée, **avec ses deux réserves** dont une mesurée |
+| **N7** | la reproductibilité des ancrages **n'est pas ce que la documentation laisse entendre** : la graine fixe le tirage, mais l'ensemble retenu dépend du motif d'acceptation du LLM. **Reproductible en pratique, pas par construction** — et le texte des questions ne l'est pas du tout, `temperature: 0.4` sans `seed` | ✅ **FERMÉE par LOT-DETTE** (§4.29) — graine transmise (mesurée déterminante), et trois réserves écrites, dont : le jeu versionné n'est PAS reproductible par cette route |
+| **N8** | deux inexactitudes chiffrées : `golden_qa.json` est décrit « 15 questions à réponse », c'est **13 sur 15** ; et `README.md` garde un « 50 → 0,962 » hérité du corpus remplacé | ✅ **FERMÉE par LOT-DETTE** (§4.29) — 13/15 sur six sites ; et le balayage daté au **3 août 2026**, son site canonique portant enfin sa date |
 
 #### Trois chiffres de cadrage du pilote, corrigés par l'audit
 
@@ -4319,3 +4322,239 @@ mesurable : il se relit après écriture.*
 Trois arbres et trois branches retirés, aucun répertoire mort, un seul arbre
 restant — celui du pilote. Garde-fous **réarmés puis éprouvés** : `@aosis.net` →
 `rc=1` et HEAD immobile, adresse autorisée → `rc=0`.
+
+---
+
+### 4.29 → FERMÉ — les deux trappes, et l'inventaire dédoublé
+
+**Lot LOT-DETTE, livré le 8 septembre 2026.** Branche
+`claude/trappes-ouvertes-dette-ec749d`, arbre de travail
+`.claude/worktrees/trappes-ouvertes-dette-ec749d`, montée depuis `main` =
+`origin/main` = **`c5028d6`**, avance 0 — **pas** le clone principal. Porte de
+référence remesurée sur ce commit avant tout travail, `rc` du processus non
+filtré : `make lint` → `rc=0`, `make test` → `rc=0`, **603 passés**. *Le chiffre
+que le cadrage annonçait était juste, et il a été remesuré parce qu'un chiffre
+recopié n'est pas une mesure.*
+
+#### N1 — le contrat « 2 = store injoignable » était faux, et gardé par rien
+
+`scripts/verifier_les_ancrages.py` sortait en **1** quand NebulaGraph ne
+répondait pas, là où quatre sites promettent **2** : son docstring, la cible
+`verifier-les-ancrages` du `Makefile`, le compte rendu de campagne, et
+`documentation/tests.md`. Le mécanisme tient à un lien d'héritage :
+`SessionPool.init()` de `nebula3` ne rend pas `False` sur un serveur muet, il
+**lève** un `RuntimeError` nu ; `StoreInjoignableError` **hérite** de
+`RuntimeError` ; et un `except` ne voit jamais le PARENT de ce qu'il nomme.
+
+**La preuve d'atteinte, et c'est la moitié du travail.** ChromaDB joignable
+(`172.20.0.8`), NebulaGraph sur `192.0.2.1` — TEST-NET-1, non routable :
+
+| | avant | après |
+|---|---|---|
+| `rc` du processus | **1** | **2** |
+| sortie | trace Python non absorbée, `RuntimeError: The services status exception: [services: ('192.0.2.1', 9669), status: BAD]` | `RIEN N'EST PROUVÉ — NebulaGraph 192.0.2.1:9669 / rag_space : …` |
+| les deux stores en service | `rc=0`, 130/130 et 44/44 | `rc=0`, 130/130 et 44/44 — **inchangé** |
+
+**Et la fausse sonde est reproduite, parce qu'elle est l'enseignement.** Sans
+`.env`, `--chroma-host` vaut `chromadb`, qui ne résout pas : le script échoue sur
+ChromaDB **avant** d'atteindre NebulaGraph et rend `rc=2` — le chiffre attendu,
+pour la mauvaise raison. *Un `rc` juste n'est pas une preuve d'atteinte.* Les six
+tests de `TestUnStoreInjoignableSortEnDeux` portent donc chacun un **témoin
+d'atteinte** : `lire_chroma` bouchonné inscrit son passage, et le test refuse de
+conclure si ce passage n'a pas eu lieu.
+
+**Deux trouvailles adjacentes, par mutation.** *(a)* Une mutation qui a manqué sa
+cible a montré que l'absorption large de `lire_chroma` n'était **gardée par rien
+non plus** : la rétrécir laissait les 19 tests verts. Le contrat dit « les
+stores », au pluriel ; les deux côtés sont désormais gardés. *(b)* La mutation M3
+a montré qu'élargir la seule absorption de la CONNEXION laissait `pool.execute`
+lever à travers `main()` — un graphe qui meurt **en cours de lecture** rendait
+encore 1. Absorbé et gardé.
+
+#### N2 — la chauffe de l'index BM25 : la décision est « chauffer PUIS refuser »
+
+L'index lexical est **paresseux** : `/health` annonce `index_lexical: false` après
+un redémarrage, et la première recherche le construit synchroniquement. La
+campagne du 8 septembre 2026 a chauffé **à la main** et son compte rendu le
+raconte ; il n'y en avait aucune trace dans le code — ni `evaluate.py`, ni
+`Makefile`, ni test.
+
+**Les deux voies du cadrage sont refusées séparément et retenues ensemble.**
+*Chauffer seul* n'est pas fail-closed : `retriever._lexical_search` absorbe
+largement et sert la recherche dense seule, donc une chauffe qui échoue ne dit
+rien. *Refuser seul* est fail-closed et **inutilisable** : sur une pile fraîche
+`index_lexical` est TOUJOURS faux, et un refus sec renverrait l'exploitant à la
+requête manuelle — c'est-à-dire à sa mémoire, ce que ce chantier passe son temps
+à retirer du chemin critique. On chauffe (`POST /search`, pas `/answer` : la
+recherche suffit, une génération coûterait un LLM pour un résultat jeté), on
+vérifie `/health`, et on **refuse en 2** si la vérification ne passe pas. Le
+refus ne tombe donc que sur une vraie panne.
+
+**ET DANS `evaluate.py`, PAS DANS LE `Makefile` — le `Makefile` n'est pas
+touché.** Deux cibles de campagne (`eval`, `eval-controle`) feraient deux sites
+qui divergent, la divergence même que `test_coherence_depot.py` existe pour
+empêcher ; la documentation invoque le script directement, ce qu'une recette ne
+protège pas ; et le code de sortie appartient au programme qui porte le contrat.
+Gardé par `test_la_chauffe_n_est_pas_ecrite_dans_le_makefile`.
+
+`mesuré` contre l'agent en service, port **8011** : index déjà chaud →
+`deja_chaud` en **0,1 s**, **aucune** requête de chauffe payée. Contre le port
+8000, où rien n'écoute → `refus: /health illisible — [Errno 111] Connection
+refused`. Le chemin FROID est éprouvé par un agent bouchonné qui reproduit la
+paresse ; il **n'est pas mesuré en vrai**, et c'est écrit plus bas.
+
+#### Le dédoublement de l'inventaire, et il a trouvé du premier coup
+
+La décision du §4.28 est exécutée. L'inventaire d'occurrences du **modèle
+anglais** — l'autre candidat d'embedding, dont le nom vit à son site canonique,
+la table `_VESTIGES_AUTORISES` — **reste tel quel**, et son docstring dit ce qu'il
+EST : *un fil de détente de dérive documentaire, pas un garde de sûreté*. La
+**règle de maintenance est écrite au site** : on corrige par **PÉRIPHRASE**, on
+ne monte pas le compte — monter le compte desserre le fil d'un cran à chaque
+récit, et le pilote l'avait fait.
+
+Un garde neuf porte la sûreté :
+`test_aucune_affectation_du_modele_anglais_ne_vit_dans_le_depot`. Il ne voit que
+les formes **copiables** — `NOM=valeur`, `NOM: valeur` (YAML), `NOM: str =
+"valeur"` (pydantic), `"NOM": "valeur"` (JSON), `SentenceTransformer("valeur")` —
+et les noms de réglage sont **dérivés de `settings.py`** (champ + alias) plutôt
+que recopiés, pour qu'un renommage emporte le garde avec lui.
+
+**ET IL A ATTRAPÉ LA PREMIÈRE RÉDACTION DE CETTE SECTION-CI.** Les deux lignes
+ci-dessus écrivaient l'affectation en clair pour la raconter ; le garde neuf a
+rougi, et le fil d'occurrences aussi. C'est *exactement* le mécanisme que le
+§4.28 décrit — « toute page qui raconte son déclenchement le fait rougir » — et
+la correction a été celle que la règle prescrit : la **périphrase**, pas le
+compte monté. La première fois que la règle a été éprouvée, c'est sur le texte
+qui l'énonce. Les délimiteurs
+admis sont `"` et `'`, **jamais l'accent grave** : une paire d'accents graves est
+de la mise en page Markdown, et l'admettre ferait rougir un récit.
+
+**PÉRIMÈTRE MESURÉ** : `_fichiers_suivis()`, partagé avec l'inventaire, donc
+identique par construction — **123** fichiers suivis le 8 septembre 2026, dont
+**123** lisibles, aucun angle mort. Gardé par
+`test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire`.
+
+**IL A TROUVÉ UNE AFFECTATION SUR `main`.**
+`documentation/llm_integration_plan.md`, dans un bloc `.env` : la clé
+`EMBEDDING_MODEL_NAME` affectée au nom du modèle anglais, suivie du commentaire
+« DOIT etre le meme que l'ingestion » — la « ligne d'apparence exécutable » que
+la trouvaille d'origine nommait, dans le
+fichier dont le bandeau de tête l'appelle son écart le plus dangereux, et **que
+l'inventaire d'occurrences tolérait puisqu'il compte**. Corrigée par périphrase ;
+le compte de ce fichier **descend** de 7 à 6, et la table est corrigée — c'est le
+geste que son propre docstring prévoit pour un compte qui descend.
+
+**Éprouvé dans les deux directions, sur des fichiers suivis réels :**
+
+| la mutation | le fil d'occurrences | le garde d'affectations |
+|---|---|---|
+| la clé `EMBEDDING_MODEL_NAME` affectée au modèle anglais, plantée dans `.env.example` | **ROUGE** | **ROUGE** |
+| un RÉCIT nommant le modèle planté dans `README.md` | **ROUGE** | **VERT** |
+| témoin inerte : le même récit avec le modèle EN SERVICE | vert | vert |
+
+*La deuxième ligne est la décisive : sans elle, on aurait reconstruit
+l'inventaire d'occurrences sous un autre nom.* Les quatorze récits réels du dépôt
+sont éprouvés un par un dans
+`TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections`.
+
+**Le modèle d'embedding est inchangé des deux côtés**, mesuré avant et après :
+estampille de `rag_documents` = `paraphrase-multilingual-MiniLM-L12-v2`, défaut
+de `settings.embedding_model_name` = idem.
+
+#### N3 à N8
+
+- **N3, attribution corrigée.** `mesuré` : sous la mutation « remettre `--compare
+  runs/final.json` », `test_les_cibles_d_evaluation_ne_nomment_que_des_fichiers_qui_existent`
+  **passe** — `runs/final.json` existe toujours — et seul son voisin
+  `..._make_eval_ne_vise_plus_aucun_jeu_ni_aucune_cible_retires_par_le_lot_5`
+  rougit. Le tableau du §4.3 nommait un garde décoratif *pour cette mutation-là* ;
+  il porte désormais la mutation que ce garde voit vraiment, et le récit de
+  l'erreur ;
+- **N4, tranché : l'assertion de sous-chaîne s'en va.** `mesuré` en plantant un
+  `trouves.add(...)` légitime dans la sonde : **deux** tests rougissaient,
+  l'arbre syntaxique ET la recherche de sous-chaîne `.add(` — c'est-à-dire la
+  forme que le docstring de ce garde déclare fausse, revenue trois lignes plus
+  bas. Elle est **strictement redondante** : l'arbre syntaxique rougit déjà sur
+  `['add']`, mesuré. Retirée ; il reste **un** rouge, et `documentation/tests.md`
+  dit maintenant cela ;
+- **N5, le pragma est parti.** `empreinte()` préfixe `sha256:`, ce qui disqualifie
+  la chaîne aux yeux de `detect-secrets` sans rien annoter. `mesuré`,
+  `detect-secrets-hook` v1.5.0, même valeur sous trois formes : nue → `rc=1`, une
+  détection ; annotée → `rc=0` ; **préfixée → `rc=0` sans pragma**. Trois pièces
+  supprimées pour six caractères — le pragma, le post-traitement
+  `poser_le_pragma()` que `yaml.safe_dump` rendait nécessaire, et son garde. La
+  fixture est **régénérée depuis la source du pipeline** (lue, jamais écrite) :
+  **une seule ligne a bougé**, et les 44 ancrages sont identiques bit pour bit —
+  vérifié par empreinte de leur ensemble contre `c5028d6` ;
+- **N6, le 15 196 a sa commande.** `SHOW STATS` ne le rend pas — `mesuré` :
+  « There is no any stats info to show, please execute `submit job stats'
+  firstly! », et `SUBMIT JOB STATS` **écrit**. Compter par étiquette est hors de
+  portée aussi : `SHOW TAG INDEXES` ne rend **qu'un** index, `doc_index` sur
+  `Document.filename`, et les onze autres étiquettes refusent le `LOOKUP`. La
+  route de l'auditeur est donc la seule rejouable en lecture seule, et elle est
+  publiée : 23 racines + **15 173** descendants distincts = **15 196**, remesuré.
+  **Ses deux réserves sont écrites** : un sommet orphelin échapperait aux deux
+  requêtes (non établissable en lecture seule), et la somme suppose une FORÊT —
+  celle-là est mesurée, la même traversée sans `DISTINCT` rend 15 173 elle aussi ;
+- **N7, la graine est transmise, et ce qu'elle ne rattrape pas est écrit.**
+  `mesuré` sur `ollama-central` / `gemma4:e4b` : sans graine, deux appels
+  identiques rendent **deux textes différents** ; avec `seed: 42`, le **même** ;
+  avec `seed: 43`, un autre — la graine mord. Transmise, le motif de rejet
+  devient déterministe et la reproductibilité passe de « en pratique » à « par
+  construction ». **Trois réserves au docstring** : relative au serveur (modèle,
+  version, backend) ; le jeu **versionné n'a pas été produit avec elle**, donc
+  `--seed 42` rendra un jeu DIFFÉRENT de celui du dépôt — c'est pourquoi ce lot
+  n'a pas régénéré le jeu ; et elle ne rend pas deux corpus comparables, ce qui
+  est le travail de l'empreinte d'ancrages. Gardée par
+  `test_la_graine_est_transmise_au_generateur_de_texte`, qui vérifie par arbre
+  syntaxique que la graine atteint `options` et n'y est pas une constante figée ;
+- **N8, les deux chiffres.** `golden_qa.json` portait **13** questions à réponse
+  sur 15 — les deux autres, `Q-010` et `Q-011`, sont des abstentions — `mesuré`
+  sur le contenu du fichier tel que `4eedb2a` le portait ; six sites corrigés. Et
+  le « 50 → 0,962 » du `README.md` est **daté** : `git log -S` le place au
+  **3 août 2026**, un mois avant le remplacement du corpus du 2 septembre. Le
+  `README.md` renvoie désormais à son site canonique au lieu de le recopier, et
+  **ce site porte enfin sa date** — sans quoi la dette n'aurait été que déplacée.
+
+#### Une trouvaille du lot sur lui-même
+
+La première forme du garde d'affectations écrivait
+`EMBEDDING_MODEL_NAME=paraphrase-multilingual-MiniLM-L12-v2` en littéral dans un
+test. `mesuré` : le dépôt passait de **2** à **3** détections `detect-secrets`
+(« Base64 High Entropy String ») — c'est-à-dire qu'un garde de ce lot rendait
+`detect-secrets` moins armable au moment même où le lot retirait un pragma pour
+le rendre plus armable. Corrigé en **dérivant** la valeur de `settings.py` au lieu
+de l'écrire : retour à **2**, les deux mêmes que `c5028d6`, dans des fichiers que
+ce lot n'a pas touchés.
+
+#### CE QUE CE LOT N'A PAS FERMÉ
+
+- **le hook `pre-push`** — hors cadrage par décision : il change le geste de
+  publication et mérite sa propre mesure. Le garde-fou d'identité couvre
+  `commit`, `--amend`, `--author=`, `merge --no-ff` et `merge --squash`, **pas
+  `push`**, et le dépôt pousse ;
+- **le chemin FROID de la chauffe n'est pas mesuré en vrai.** Il l'est contre un
+  agent bouchonné qui reproduit la paresse. Le mesurer en vrai demanderait de
+  redémarrer `rag-agent-api`, un service en fonctionnement que ce lot n'a pas
+  l'autorisation d'arrêter. *La sonde live prouve le chemin CHAUD et le chemin du
+  REFUS ; le chemin froid est prouvé hors réseau* ;
+- **deux détections `detect-secrets` préexistantes** :
+  `documentation/capture_usage.md:402` et `tests/unit/test_context_assembly.py:95`,
+  toutes deux « Hex High Entropy String ». Elles sont sur `c5028d6` comme sur
+  cette branche, dans des fichiers que ce lot n'a pas touchés. Le préfixe
+  `sha256:` de N5 est la technique qui les fermerait ; `detect-secrets` n'est
+  **pas armé** dans `.pre-commit-config.yaml`, et l'y armer demande sa propre
+  mesure sur `runs/`, `prompts/` et `tests/fixtures/` — décision déjà écrite
+  dans ce fichier ;
+- **`RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2` dans le même bloc `.env`
+  de `documentation/llm_integration_plan.md`.** C'est une affectation copiable
+  d'un reranker **anglais**, et le site canonique de `rerank_model` dit qu'un
+  reranker anglais « défait le travail de l'embedder » — mesuré, étendue 0,0 % sur
+  20 candidats. Le garde neuf ne la voit pas : il vise le modèle d'EMBEDDING, qui
+  est le périmètre de la décision du §4.28. *Trouvé en passant, non fermé, et non
+  gardé* ;
+- **la reproductibilité du jeu versionné.** La graine transmise ne s'applique
+  qu'aux générations futures. Régénérer le jeu pour qu'il devienne reproductible
+  par construction casserait l'appariement de `runs/2026-09-08-reference.json`,
+  et c'est un lot en soi.

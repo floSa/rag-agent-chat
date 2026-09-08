@@ -81,7 +81,30 @@ _LANGUE_DU_CORPUS = "en"
 
 
 def empreinte(chemin: Path) -> str:
-    return hashlib.sha256(chemin.read_bytes()).hexdigest()
+    """SHA-256 du fichier source, **préfixé par son algorithme**.
+
+    LE PRÉFIXE N'EST PAS DÉCORATIF, ET IL REMPLACE TROIS PIÈCES. Une empreinte
+    de 64 hexadécimaux en valeur de mapping YAML est exactement ce que
+    `detect-secrets` relève comme « Hex High Entropy String » ; le détecteur
+    exige que la chaîne ENTIÈRE soit hexadécimale, donc le préfixe la
+    disqualifie. Et il ne CACHE rien — il **nomme** l'algorithme, ce que la
+    valeur nue laissait deviner.
+
+    `mesuré` le 8 septembre 2026, `detect-secrets-hook` v1.5.0, sur le fichier
+    produit et la même valeur sous trois formes :
+
+        source_sha256: 960e8b…0d03f                       -> rc=1, 1 détection
+        source_sha256: 960e8b…0d03f  # pragma: allowlist secret  -> rc=0
+        source_sha256: sha256:960e8b…0d03f                -> rc=0, SANS pragma
+
+    C'EST LA TECHNIQUE QUE `evaluate.empreinte_des_ancrages` EMPLOYAIT DÉJÀ, et
+    ce script ne l'employait pas : deux hachages, deux traitements, dans le même
+    lot. La forme préfixée supprime le `# pragma: allowlist secret`, le
+    post-traitement `poser_le_pragma()` qui l'émettait — `yaml.safe_dump` ne
+    sachant pas écrire de commentaire — et le garde qui vérifiait ce
+    post-traitement. Trois pièces pour six caractères.
+    """
+    return f"sha256:{hashlib.sha256(chemin.read_bytes()).hexdigest()}"
 
 
 def transposer(source: dict[str, Any]) -> list[dict[str, Any]]:
@@ -141,45 +164,22 @@ def transposer(source: dict[str, Any]) -> list[dict[str, Any]]:
     return questions
 
 
-# Le pragma que `detect-secrets` lit, et le seul du fichier produit.
+# CE QUI VIVAIT ICI, ET POURQUOI CE N'EST PLUS LÀ. Un `_PRAGMA` et une fonction
+# `poser_le_pragma()` ajoutaient `# pragma: allowlist secret` à la ligne de
+# l'empreinte APRÈS le rendu, `yaml.safe_dump` ne sachant pas écrire de
+# commentaire. Les deux sont retirés le 8 septembre 2026 : `empreinte()` préfixe
+# désormais `sha256:`, ce qui disqualifie la chaîne aux yeux de `detect-secrets`
+# sans rien annoter. La mesure des trois formes est au docstring d'`empreinte`.
 #
-# POURQUOI IL EST POSÉ APRÈS COUP, ET PAS DANS LE DICTIONNAIRE. `yaml.safe_dump`
-# ne sait pas écrire de commentaire : le `# pragma: allowlist secret` posé sur la
-# ligne `"source_sha256": empreinte(...)` de ce script reste DANS ce script et
-# ne voyage pas dans le YAML. `mesuré` le 8 septembre 2026, `detect-secrets-hook`
-# v1.5.0 sur le fichier produit sans ce post-traitement : `rc=1`, UNE détection,
-# ligne 26 — l'empreinte, exactement la ligne que le pragma du script croyait
-# couvrir. Avec le post-traitement : `rc=0`.
-#
-# C'est le même mécanisme que celui mesuré chez le pipeline, et son site
-# canonique est l'en-tête de son jeu de questions : le transformateur YAML de
-# `detect-secrets` rend les VALEURS DE MAPPING et pas les ÉLÉMENTS DE SÉQUENCE.
-# L'empreinte est une valeur de mapping ; les 44 `gold_element_ids` du fichier
-# vivent en éléments de séquence et ne sont jamais détectés.
+# Le mécanisme qui rendait le post-traitement nécessaire reste vrai et vaut
+# d'être su : le transformateur YAML de `detect-secrets` rend les VALEURS DE
+# MAPPING et pas les ÉLÉMENTS DE SÉQUENCE. L'empreinte est une valeur de
+# mapping ; les 44 `gold_element_ids` du fichier vivent en éléments de séquence
+# et ne sont jamais détectés. Site canonique : l'en-tête du jeu de questions du
+# pipeline.
 #
 # Garde : `tests/unit/test_jeux_de_questions.py`,
-# `test_l_empreinte_de_provenance_porte_son_pragma`.
-_LIGNE_EMPREINTE = "  source_sha256: "
-_PRAGMA = "  # pragma: allowlist secret"
-
-
-def poser_le_pragma(rendu: str) -> str:
-    """Annote l'empreinte SHA-256 du fichier produit, et RIEN d'autre.
-
-    Un pragma posé au petit bonheur sur tout ce qui ressemble à de
-    l'hexadécimal désarmerait le hook sur les vraies lignes. Celui-ci ne vise
-    que la ligne de l'empreinte, et lève si elle n'est pas là — un
-    post-traitement qui ne trouve pas sa cible et se tait est pire que pas de
-    post-traitement : le fichier sortirait sans pragma, sans un mot.
-    """
-    lignes = rendu.split("\n")
-    vises = [i for i, ligne in enumerate(lignes) if ligne.startswith(_LIGNE_EMPREINTE)]
-    if len(vises) != 1:
-        raise ValueError(
-            f"{len(vises)} ligne(s) `{_LIGNE_EMPREINTE.strip()}` dans le rendu, une attendue"
-        )
-    lignes[vises[0]] += _PRAGMA
-    return "\n".join(lignes)
+# `test_l_empreinte_de_provenance_se_nomme_au_lieu_de_se_cacher`.
 
 
 def main() -> int:
@@ -244,7 +244,7 @@ def main() -> int:
             # fichier : les `gold_element_ids` vivent en éléments de séquence, que
             # ce transformateur ne rend pas. Mesure et cause : en-tête du fichier
             # source.
-            "source_sha256": empreinte(args.source),  # pragma: allowlist secret
+            "source_sha256": empreinte(args.source),
             "transpose_par": "scripts/adopter_le_jeu_du_pipeline.py",
         },
         "_statistiques": {
@@ -264,7 +264,7 @@ def main() -> int:
         contenu, allow_unicode=True, default_flow_style=False, sort_keys=False, width=100
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(poser_le_pragma(rendu), encoding="utf-8")
+    args.out.write_text(rendu, encoding="utf-8")
     print(f"{len(questions)} questions transposées dans {args.out}")
     print(f"  par strate        : {effectifs}")
     print(f"  ancrages distincts: {len(ancres)}")
