@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -32,7 +33,14 @@ CACHE_TRADUCTIONS = ROOT / "runs" / ".traductions.json"
 
 
 def charger_questions(chemin: Path) -> list[dict[str, Any]]:
-    data = json.loads(chemin.read_text(encoding="utf-8"))
+    """Lit un jeu de questions, YAML ou JSON selon son suffixe.
+
+    Le motif du YAML est au docstring de `evaluate.charger_questions` — il est
+    mesuré, et il concerne `detect-secrets`.
+    """
+    texte = chemin.read_text(encoding="utf-8")
+    en_yaml = chemin.suffix.lower() in (".yaml", ".yml")
+    data = yaml.safe_load(texte) if en_yaml else json.loads(texte)
     # Sans passage attendu, une question ne dit rien du rappel.
     return [q for q in data["questions"] if q.get("gold_element_ids")]
 
@@ -145,7 +153,7 @@ def resumer(lignes: list[dict]) -> dict[str, Any]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--golden", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.json"
+        "--golden", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
     )
     parser.add_argument("--ollama", default="http://localhost:11434")
     parser.add_argument("--model", default="gemma4:e4b")

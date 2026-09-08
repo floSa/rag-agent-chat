@@ -422,3 +422,186 @@ def test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte() -> None:
         "le commit même qui le corrigeait (§4.13, §4.21) : écris le chiffre "
         "mesuré, la recette est publiée dans le document."
     )
+
+# ─── Les recettes de `make eval`, et les fichiers qu'elles nomment ───────────
+
+
+def _recettes_eval() -> dict[str, str]:
+    """Les lignes de commande des cibles d'évaluation du `Makefile`.
+
+    Lues dans le fichier plutôt que par `make -n` : `make -n eval` déclenche la
+    dépendance `verifier-les-ancrages`, qui appelle `docker inspect`. Un test
+    unitaire ne parle ni à Docker ni au réseau.
+    """
+    texte = (_RACINE / "Makefile").read_text(encoding="utf-8")
+    recettes: dict[str, str] = {}
+    cible = None
+    for ligne in texte.splitlines():
+        if ligne and not ligne[0].isspace() and ":" in ligne and not ligne.startswith("#"):
+            nom = ligne.split(":", 1)[0].strip()
+            cible = nom if nom.startswith("eval") or nom.startswith("verifier") else None
+            if cible:
+                recettes[cible] = ""
+        elif cible and ligne.startswith("\t"):
+            recettes[cible] += " " + ligne.strip().rstrip("\\")
+    return recettes
+
+
+def test_les_cibles_d_evaluation_ne_nomment_que_des_fichiers_qui_existent() -> None:
+    """**LE DÉFAUT QUE CE GARDE FERME, ET IL A ÉTÉ ARMÉ DEUX MOIS.**
+
+    `make eval` visait `tests/fixtures/golden_qa_generated.json`, un jeu dont
+    **0** des 129 ancrages existait dans le graphe, et `--compare
+    runs/final.json`, l'antécédent d'un corpus remplacé. Aucun des deux ne
+    rendait d'erreur : la recette tournait et rendait un tableau faux.
+    §4.3 de `documentation/axes_amelioration.md`.
+
+    Ce garde ne peut pas juger la fraîcheur d'un jeu — cela demande les stores,
+    et c'est `scripts/verifier_les_ancrages.py`. Il ferme le cas plus bête et
+    tout aussi silencieux : un chemin qui ne désigne AUCUN fichier. Un `--golden`
+    absent fait lever la campagne, mais un `--compare` absent la faisait sortir
+    en 0 sans comparaison jusqu'au 8 septembre 2026 — corrigé, et gardé par
+    `test_comparaison_appariee.test_un_compare_qui_pointe_un_fichier_absent_sort_en_deux`.
+    """
+    recettes = _recettes_eval()
+    assert set(recettes) >= {"eval", "eval-controle", "verifier-les-ancrages"}
+
+    manquants: list[str] = []
+    for cible, commande in recettes.items():
+        for jeton in commande.split():
+            # Les chemins que la recette DÉSIGNE, pas ceux qu'elle produit :
+            # `--out` porte un nom horodaté qui n'existe pas encore.
+            designe = jeton.startswith(("tests/fixtures/", "runs/")) and "$" not in jeton
+            if designe and not (_RACINE / jeton).is_file():
+                manquants.append(f"{cible} → {jeton}")
+    assert not manquants, (
+        f"cible(s) d'évaluation pointant un fichier absent : {manquants}. "
+        "Un `--compare` absent a fait sortir `make eval` en 0 sans comparaison."
+    )
+
+
+def test_make_eval_ne_vise_plus_aucun_jeu_ni_aucune_cible_retires_par_le_lot_5() -> None:
+    """Les noms retirés le 8 septembre 2026, épinglés par leur nom.
+
+    Un chemin qui existe encore dans l'histoire de `git` revient facilement
+    dans une recette par copie d'un ancien document. Les trois retirés :
+
+    - `tests/fixtures/golden_qa_generated.json` — 0 / 129 ancrages dans le
+      graphe, et 34 des 36 détections `detect-secrets` du dépôt ;
+    - `tests/fixtures/golden_qa.json` — 15 questions à réponse portant **0**
+      `gold_element_ids` : toutes ses métriques de rappel valaient `None` ;
+    - `runs/final.json` — antécédent d'un corpus remplacé, et il porte les MÊMES
+      138 identifiants que le jeu régénéré, donc le refus sur désaccord de jeu ne
+      le voyait pas.
+    """
+    commandes = " ".join(_recettes_eval().values())
+    for retire in (
+        "golden_qa_generated.json",
+        "golden_qa.json",
+        "runs/final.json",
+        "runs/reference.json",
+    ):
+        assert retire not in commandes, (
+            f"`{retire}` est revenu dans une cible d'évaluation : il a été retiré "
+            "par le lot 5, et son motif est au §4.3 du registre."
+        )
+
+
+def test_la_verification_des_ancrages_est_l_antecedent_des_deux_campagnes() -> None:
+    """Un rappel mesuré sur un jeu qui désigne le vide rend 0 et ne dit pas pourquoi.
+
+    L'ordre est donc porté par le `Makefile` et non par la mémoire de celui qui
+    lance la campagne : les deux cibles d'évaluation DÉPENDENT de la
+    vérification. Sans cette dépendance, la panne du §4.3 se rejoue à
+    l'identique au prochain remplacement de corpus.
+    """
+    texte = (_RACINE / "Makefile").read_text(encoding="utf-8")
+    for cible in ("eval", "eval-controle"):
+        motif = rf"^{re.escape(cible)}:\s*(.*)$"
+        trouve = re.search(motif, texte, re.MULTILINE)
+        assert trouve, f"cible `{cible}` absente du Makefile"
+        assert "verifier-les-ancrages" in trouve.group(1), (
+            f"`{cible}` ne dépend pas de `verifier-les-ancrages`"
+        )
+
+# ─── La promesse retirée au pipeline ─────────────────────────────────────────
+
+# LA PHRASE, MOT POUR MOT, ET C'EST VOULU. Le §4.3 du registre l'a mesurée
+# fausse : `documentation/pour_le_pipeline_ingestion.md` promettait au pipeline
+# que le déterminisme d'`element_id` « permet au jeu doré de survivre à une
+# réingestion ». Le déterminisme est tenu — l'exigence 2 du contrat l'est — mais
+# ce qui a changé le 2 septembre 2026 est le CORPUS, ce qu'aucune convention
+# d'identifiant ne peut couvrir : un passage qui n'existe plus n'a pas
+# d'identifiant valide. La phrase attribuait au mauvais mécanisme une garantie
+# qu'il n'a jamais donnée, et le prix a été une campagne morte pendant deux mois.
+_PROMESSE_RETIREE = "permet au jeu doré de survivre à une réingestion"
+
+
+def _est_citee(texte: str, position: int, longueur: int) -> bool:
+    """L'occurrence à `position` est-elle DANS des guillemets français ?
+
+    C'est la distinction que ce garde doit faire, et une première écriture ne la
+    faisait pas : elle interdisait la phrase partout, donc elle rougissait sur
+    les DEUX sites qui la citent pour la réfuter — le §4.3 du registre et le
+    paragraphe de correction lui-même. **Un garde qui interdit d'écrire la
+    rétractation à son propre site est retiré par le suivant**, donc désarmé.
+
+    La règle est donc : le guillemet le plus proche AVANT l'occurrence doit être
+    un ouvrant, et le plus proche APRÈS un fermant. Une prose qui affirme la
+    promesse hors guillemets n'en a aucun, et rougit.
+    """
+    avant = texte[:position]
+    apres = texte[position + longueur :]
+    dernier_ouvrant = avant.rfind("\u00ab")
+    dernier_fermant = avant.rfind("\u00bb")
+    prochain_fermant = apres.find("\u00bb")
+    prochain_ouvrant = apres.find("\u00ab")
+    ouverte = dernier_ouvrant > dernier_fermant
+    fermee = prochain_fermant != -1 and (
+        prochain_ouvrant == -1 or prochain_fermant < prochain_ouvrant
+    )
+    return ouverte and fermee
+
+
+def test_la_promesse_retiree_au_pipeline_n_est_plus_affirmee_nulle_part() -> None:
+    """La phrase peut être CITÉE pour être réfutée ; elle ne peut plus être AFFIRMÉE.
+
+    Le garde porte sur tous les fichiers suivis et non sur le seul document
+    corrigé : la phrase est adressée au pipeline, et c'est le genre d'assurance
+    qu'on recopie dans un `README`, un rapport de lot ou une réponse à une
+    question. Ce que le déterminisme garantit VRAIMENT est écrit au site
+    corrigé, `documentation/pour_le_pipeline_ingestion.md`.
+    """
+    affirmations: list[str] = []
+    for relatif in _fichiers_suivis():
+        chemin = _RACINE / relatif
+        if not chemin.is_file() or relatif == "tests/unit/test_coherence_depot.py":
+            continue
+        texte = chemin.read_text(encoding="utf-8", errors="ignore")
+        depart = 0
+        while (position := texte.find(_PROMESSE_RETIREE, depart)) != -1:
+            if not _est_citee(texte, position, len(_PROMESSE_RETIREE)):
+                affirmations.append(f"{relatif}:{texte.count(chr(10), 0, position) + 1}")
+            depart = position + 1
+    assert not affirmations, (
+        f"la promesse retirée au pipeline est AFFIRMÉE, hors guillemets, en "
+        f"{affirmations}. Le déterminisme d'`element_id` garantit qu'une "
+        "réingestion du MÊME corpus rend les MÊMES identifiants — pas qu'un jeu "
+        "de questions survive au REMPLACEMENT d'un corpus. §4.3 du registre."
+    )
+
+
+def test_le_garde_de_la_promesse_distingue_une_citation_d_une_affirmation() -> None:
+    """Et il en est CAPABLE : les deux cas, sur le même appel.
+
+    Sans ce test, la fonction pourrait rendre vrai partout — le garde
+    ci-dessus serait alors vert pour la mauvaise raison, exactement comme une
+    sonde qui rend 0 sur le code sain et sur le code défectueux.
+    """
+    cite = f"Elle disait : \u00ab c'est ce qui {_PROMESSE_RETIREE} \u00bb, et c'est faux."
+    affirme = f"Le d\u00e9terminisme {_PROMESSE_RETIREE}, donc le jeu tient."
+
+    assert _est_citee(cite, cite.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE))
+    assert not _est_citee(
+        affirme, affirme.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE)
+    )

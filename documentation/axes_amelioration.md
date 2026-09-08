@@ -1447,9 +1447,110 @@ qui est établi — rien ne l'a jamais prouvée en marche :
 | en-tête | `API_KEY_HEADER = "X-API-Key"`, omis si la clé est vide | `x_api_key: str = Header(default="")` |
 | réponse lue | `_lire_compte` cherche `chunks_indexed` | `ReindexResponse(chunks_indexed=…, stale=…)` |
 
-### 4.3 `make eval` est hors service : son jeu doré désigne un corpus qui n'est plus là
+### 4.3 → FERMÉ par le lot 5 — les deux jeux régénérés, la campagne de référence établie, et un instrument qui refuse de mesurer sur le vide
 
-**Gravité : c'est la seule mesure de qualité du dépôt, et elle est morte.**
+**Ce qui était en cause : la seule mesure de qualité du dépôt était morte, et
+elle ne rendait pas d'erreur — elle aurait rendu un tableau faux.**
+
+#### Ce que le lot 5 a livré, le 8 septembre 2026
+
+| | |
+|---|---|
+| **le jeu de réglage régénéré** | `tests/fixtures/golden_qa_generated.yaml` — **138** questions sur le corpus en service, **130** ancrages distincts, **130 / 130** présents dans NebulaGraph **et** dans ChromaDB |
+| **les 30 questions du pipeline adoptées** | `tests/fixtures/jeu_de_questions_pipeline.yaml` — transposées par `scripts/adopter_le_jeu_du_pipeline.py`, pas recopiées ; **44 / 44** ancrages présents dans les deux stores. Le site canonique du jeu reste chez le pipeline, et l'empreinte SHA-256 de la source est gravée dans le fichier |
+| **l'antécédent, rejouable** | `scripts/verifier_les_ancrages.py`, en lecture seule et **gardée** en lecture seule par lecture de son arbre syntaxique. Bilan versionné : `runs/2026-09-08-ancrages.json` |
+| **la campagne de référence** | `runs/2026-09-08-reference.json` et `runs/2026-09-08-controle-30.json`, compte rendu à [`campagnes/2026-09-08-campagne-de-reference.md`](campagnes/2026-09-08-campagne-de-reference.md) — **site canonique de tous les chiffres de la campagne**, qui ne sont recopiés nulle part |
+| **`runs/final.json`** | **retiré comme cible de `--compare`**, conservé comme trace du régime d'avant. Motif ci-dessous |
+| **la promesse fausse au pipeline** | corrigée à son site, [`pour_le_pipeline_ingestion.md`](pour_le_pipeline_ingestion.md), et gardée contre son retour |
+
+#### CE QUE LE LOT A TROUVÉ ET QUE CETTE ENTRÉE NE VOYAIT PAS — trois défauts
+
+**(a) Le piège du `--compare` était armé, et il est plus grave que le zéro de
+rappel.** `generate_golden.py` numérote ses questions dans l'ordre de
+génération : le jeu régénéré porte **exactement les mêmes 138 identifiants** que
+celui du 3 août 2026. `desaccord_de_jeu`, qui apparie sur les identifiants, ne
+voyait donc **rien**, et le `--compare runs/final.json` de `make eval` aurait
+imprimé flèches et p-values sur 138 paires dont les deux moitiés mesurent deux
+corpus. *Un jeu périmé rend 0 % de rappel, ce qui se voit ; deux corpus sous une
+même numérotation rendent des chiffres **plausibles**, ce qui ne se voit pas.*
+Fermé par `empreinte_des_ancrages` — le SHA-256 des couples (identifiant,
+ancrages triés), inscrit dans chaque campagne, et dont l'**absence** est refusée
+au même titre qu'une divergence. C'est la décision 2 du lot 3 réappliquée.
+
+**(b) Un TROISIÈME jeu de questions existait, et c'était le `--golden` par
+DÉFAUT.** `tests/fixtures/golden_qa.json`, 15 questions écrites à la main. Ses
+quinze questions à réponse portaient **0** `gold_element_ids` : `rappel_recherche`,
+`rappel_elements`, `mrr` et `rappel_contexte` valaient `None` sur toutes,
+c'est-à-dire **absents des moyennes**. Un `None` se lit « sans objet », là où un
+`0.0` se lit « cassé » : il était donc **plus silencieux** que le jeu de 138. Et
+ses `gold_documents` nommaient le corpus disparu. Retiré ; ce qu'il apportait —
+relu par un humain, couvrant multi-saut, synthèse et suivi — est apporté par les
+trente questions du pipeline, qui sont relues **et** annotées à l'élément contre
+le corpus en service. Trouvé par un garde de ce lot, pas par une relecture.
+
+**(d) UN GARDE DE CE LOT RENDAIT `detect-secrets` MOINS ARMABLE, et c'est la
+mesure du lot qui l'a attrapé.** `empreinte_des_ancrages` s'écrit dans un fichier
+JSON, où aucun `pragma: allowlist secret` n'est possible — le JSON n'admet pas de
+commentaire. Une empreinte de 64 hexadécimaux en valeur de mapping est exactement
+ce que le détecteur relève : **6** détections, les deux campagnes du lot et les
+quatre campagnes synthétiques de `tests/fixtures/`. *Le lot faisait tomber
+l'inventaire de 36 à 2 d'un côté et en rajoutait 6 de l'autre.* Corrigé en
+préfixant `sha256:` — le détecteur exige que la chaîne **entière** soit
+hexadécimale, et le préfixe ne cache rien, il **nomme** l'algorithme. Mesure des
+trois formes et commande de reproduction : §7 du compte rendu de campagne.
+*C'est la leçon du chantier appliquée à soi-même : mesure ce que le hook dit de
+ton fichier de données **avant** de commiter, pas après.*
+
+**(c) Un `--compare` vers un fichier absent sortait en 0, sans un mot.** La forme
+était `if args.compare and args.compare.exists()`. Une cible renommée, déplacée
+ou jamais commitée faisait imprimer le résumé et rien d'autre — ce qui se lit
+« rien n'a bougé ». Trouvé en réécrivant la recette de `make eval`, dont la cible
+est justement remplacée par ce lot. Sort désormais en 2, et les deux cibles
+d'évaluation **dépendent** de `verifier-les-ancrages` : l'ordre est porté par le
+`Makefile`, pas par la mémoire de celui qui lance la campagne.
+
+#### Les gardes posés, et la mutation qui fait rougir chacun
+
+| Le garde | Ce qu'il tient | La mutation qui le fait rougir |
+|---|---|---|
+| `test_jeux_de_questions.test_aucune_question_a_reponse_ne_designe_le_vide` | une question à réponse porte au moins un ancrage, une abstention n'en porte aucun | retirer l'ancrage de `G-001` → rouge nommé |
+| `..._l_empreinte_de_provenance_porte_son_pragma` | l'empreinte de la source est annotée pour `detect-secrets` | retirer le pragma → rouge, et `detect-secrets-hook` passe de `rc=0` à `rc=1`, une détection |
+| `..._le_jeu_du_pipeline_porte_ses_cinq_strates_a_l_effectif` | 12 / 8 / 4 / 4 / 2 | une strate amputée → rouge |
+| `..._la_reserve_du_jeu_de_30_voyage_avec_lui` | la réserve vit dans le fichier de données | effacer `_reserve` → rouge |
+| `..._les_quatre_questions_de_suivi_portent_leur_historique` | `chat_history` présent sur les 4 | le retirer d'une → rouge nommé `q25` |
+| `test_verification_des_ancrages.TestLaSondeEstEnLectureSeule` | la sonde n'écrit dans aucun store | `collection.modify(...)` → rouge ; `INSERT VERTEX …` → rouge. Les DEUX directions mesurées, et le garde a été **refait** parce que sa première forme rougissait sur un `set.add` légitime |
+| `..._un_jeu_sous_la_mauvaise_cle_est_refuse_et_non_declare_vert` | un schéma inconnu lève, au lieu de rendre « 0 ancrage » donc vert | lire une seule clé d'ancrage → la sonde déclarerait le jeu du pipeline conforme sans rien vérifier |
+| `test_comparaison_appariee.test_l_empreinte_distingue_deux_corpus_a_numerotation_identique` | l'empreinte sépare deux corpus de même numérotation, et NE sépare pas une reformulation | — c'est le test qui prouve que le garde atteint son cas |
+| `test_coherence_depot.test_les_cibles_d_evaluation_ne_nomment_que_des_fichiers_qui_existent` | aucune cible d'évaluation ne pointe un chemin vide | remettre `--compare runs/final.json` → rouge nommé |
+| `..._la_verification_des_ancrages_est_l_antecedent_des_deux_campagnes` | `eval` et `eval-controle` dépendent de la vérification | retirer la dépendance → rouge |
+| `..._la_promesse_retiree_au_pipeline_n_est_plus_affirmee_nulle_part` | la phrase fausse peut être CITÉE, plus AFFIRMÉE | la réaffirmer hors guillemets → rouge avec sa ligne |
+
+#### CE QUE LE LOT N'A PAS FERMÉ
+
+- **`reviewed: false` sur les 130 questions générées.** Aucune relecture humaine
+  n'a eu lieu : c'est du **silver**, et le fichier le dit. La promotion en gold
+  demande une relecture, qui n'est pas un travail de lot ;
+- **la strate de suivi est absente du jeu de réglage.** `generate_golden.py`
+  n'écrit aucun `chat_history`. Les quatre questions de suivi du jeu de contrôle
+  la peuplent, mais quatre questions ne règlent rien. Peupler le jeu de réglage
+  en questions de suivi est un chantier à part ;
+- **l'axe translinguistique reste coupé en deux**, et cela ne dépend pas de ce
+  dépôt : `mesuré` le 8 septembre 2026, **4 367 chunks sur 4 367** portent
+  `language: en`. « Question française → document anglais » est mesurable ;
+  l'inverse a disparu avec le corpus français, et le rétablir demanderait
+  d'ingérer un document français — ce que ce chantier ne fait pas ;
+  reste **une seule** question française dans le jeu de contrôle, ce qui est un
+  effectif sur lequel rien ne se décide ;
+- **`detect-secrets` n'est pas armé sur ce dépôt.** Le lot a fait tomber
+  l'inventaire de **36** détections à **2**, ce qui le rend armable ; l'armer est
+  un travail à part, avec ses mesures, et `.pre-commit-config.yaml` dit pourquoi
+  il ne l'est pas.
+
+---
+
+#### L'état d'avant, et la mesure qui l'a établi
+
+**Gravité : c'était la seule mesure de qualité du dépôt, et elle était morte.**
 
 `mesuré` le 3 septembre 2026, en confrontant
 `tests/fixtures/golden_qa_generated.json` au graphe NebulaGraph en service :
@@ -3924,6 +4025,35 @@ la plus complète que ce lot ait reçue.
 Verte sur la branche (562), verte sur `main`, **`rc=2` sur la fusion**.
 L'inventaire du **modèle anglais** attendait **3** occurrences dans
 `axes_amelioration.md` et en trouvait **5**.
+
+> **ET CE PARAGRAPHE-CI A REJOUÉ LE DÉFAUT, UNE CINQUIÈME FOIS.** `mesuré` le
+> 8 septembre 2026 par le lot 5, sur `main` = `origin/main` = `4eedb2a`, dans un
+> arbre nu monté par le protocole du §2.2 : `make lint` → `rc=0`, mais
+> **`make test` → `rc=2`, 1 rouge / 561 passés** — et le rouge est
+> `test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie`, à **6**
+> occurrences trouvées pour **5** autorisées. La sixième était la ligne
+> ci-dessus, qui ÉCRIVAIT le nom du modèle pour raconter que le garde l'avait
+> compté. *Le récit du rouge a produit le rouge suivant.* La table du garde n'a
+> pas été touchée ; c'est la phrase qui a pris la périphrase que le reste de
+> cette section employait déjà trois lignes plus bas.
+>
+> **Ce que cela dit du garde, et c'est un désaccord argumenté, pas une
+> correction.** Cet inventaire compte des OCCURRENCES du nom, quand ce qu'il
+> protège sont les INSTRUCTIONS — une affectation `EMBEDDING_MODEL_NAME=`, ou
+> une prose qui prescrit. Sous cette forme, toute page qui raconte son
+> déclenchement le fait rougir, et le geste appris est « monter le compte », ce
+> qui desserre le garde d'un cran à chaque récit. Il a pourtant trouvé quatre
+> dérives réelles, dont deux qu'aucune relecture de branche ne pouvait voir :
+> **le lot 5 ne le change pas**, parce qu'affaiblir un instrument qui trouve est
+> une décision de pilote, pas d'un lot qui passe. La forme proposée est de
+> compter les affectations et la prose prescriptive, et de laisser les citations
+> libres. **Le pilote tranche.**
+>
+> **Et la ligne du tableau ci-dessus est démentie sur ce point** : « porte, sur
+> la fusion corrigée : `make test` `rc=0`, 562 passés » décrit la fusion du
+> lot 3, pas `4eedb2a`. Personne n'a remesuré la porte APRÈS avoir écrit ce
+> §4.27 — c'est exactement le §12 : *une porte se mesure sur le commit qu'on
+> livre, pas sur celui d'avant.*
 
 **Les deux de plus sont du pilote.** Ses §4.19 et §4.25 citent le nom du modèle
 pour décrire les sondes qui ont mesuré le garde — une collection bouchonnée sur ce

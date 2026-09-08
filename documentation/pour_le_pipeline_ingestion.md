@@ -118,10 +118,35 @@ Métadonnées attendues par chunk :
 Trois exigences qui ne se devinent pas :
 
 - **`element_id` doit être déterministe**, dérivé du contenu (sha256 tronqué à
-  10 caractères hexadécimaux, validé par l'agent contre `^[a-f0-9]{10}$`). C'est
-  ce qui permet au jeu doré de survivre à une réingestion : les 138 questions
-  d'évaluation désignent des `element_id`, et un identifiant qui change rend
-  toute la mesure historique incomparable ;
+  10 caractères hexadécimaux, validé par l'agent contre `^[a-f0-9]{10}$`). Ce
+  qu'il garantit, exactement : **réingérer LE MÊME corpus rend LES MÊMES
+  identifiants**, donc un jeu de questions qui les désigne reste valide à travers
+  une réingestion à corpus constant. C'est ce dont un jeu d'évaluation a besoin,
+  et le pipeline le tient ;
+
+  > **CETTE PHRASE PROMETTAIT AUTRE CHOSE, ET LA MESURE L'A DÉMENTIE.** Elle
+  > disait : « c'est ce qui permet au jeu doré de survivre à une réingestion ».
+  > `mesuré` le 3 septembre 2026, puis reproduit le 8 septembre 2026 par le
+  > lot 5 : le jeu de 138 questions alors versionné désignait **129**
+  > `element_id` distincts dont **0** existait dans le graphe. **Le déterminisme
+  > n'était pas en cause** — le pipeline le tient, et l'exigence 2 est tenue. Ce
+  > qui a changé le 2 septembre 2026 est le **CORPUS** : les 23 documents en
+  > service n'ont aucun ouvrage en commun avec ceux que le jeu nommait. Un
+  > identifiant dérivé du contenu et du chemin change par construction quand le
+  > contenu et le chemin changent — c'est la propriété qu'on lui demande, pas un
+  > défaut.
+  >
+  > **La phrase attribuait donc au déterminisme une garantie qu'il n'a jamais
+  > donnée** : survivre au REMPLACEMENT d'un corpus. Rien ne peut la donner, et
+  > aucune convention d'identifiant n'y suffirait — un passage qui n'existe plus
+  > n'a pas d'identifiant valide. La conséquence appartient à ce dépôt, pas au
+  > pipeline : **un jeu de questions est un état de corpus**, il périme avec lui,
+  > et il doit prouver ses ancrages contre les stores AVANT toute mesure. Le lot 5
+  > a régénéré le jeu, adopté les trente questions du pipeline, et posé
+  > l'instrument qui refuse de mesurer sur un jeu périmé —
+  > `scripts/verifier_les_ancrages.py`. Site canonique du constat et de la
+  > décision : §4.3 de [`axes_amelioration.md`](axes_amelioration.md).
+
 - **`source_path` est l'identité d'un document, jamais `filename` seul.** Deux
   ouvrages peuvent contenir une « Préface » ;
 - **un élément long réparti sur plusieurs chunks** doit voir ses chunks partager

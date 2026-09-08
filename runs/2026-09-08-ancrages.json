@@ -1,0 +1,36 @@
+{
+  "chromadb": {
+    "hote": "172.20.0.8:8000",
+    "collection": "rag_documents",
+    "chunks": 4367,
+    "element_id_distincts": 3750,
+    "estampille_embedding": "paraphrase-multilingual-MiniLM-L12-v2"
+  },
+  "nebulagraph": {
+    "hote": "172.20.0.12:9669",
+    "espace": "rag_space"
+  },
+  "jeux": {
+    "tests/fixtures/golden_qa_generated.yaml": {
+      "questions": 138,
+      "ancrages_distincts": 130,
+      "dans_le_graphe": 130,
+      "dans_chromadb": 130,
+      "absents_du_graphe": [],
+      "absents_de_chromadb": [],
+      "documents_discordants": [],
+      "strates_incoherentes": []
+    },
+    "tests/fixtures/jeu_de_questions_pipeline.yaml": {
+      "questions": 30,
+      "ancrages_distincts": 44,
+      "dans_le_graphe": 44,
+      "dans_chromadb": 44,
+      "absents_du_graphe": [],
+      "absents_de_chromadb": [],
+      "documents_discordants": [],
+      "strates_incoherentes": []
+    }
+  },
+  "desaccords": 0
+}

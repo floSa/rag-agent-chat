@@ -107,8 +107,12 @@ rattachement est délibéré : modifier le workflow exige un jeton avec le scope
 `workflow`, que le jeton de push n'a pas, donc `make typecheck` ne tournerait
 jamais en intégration continue sans lui.
 
-`make test-integration` et `make eval` exigent la pile démarrée. **`make eval`
-est hors service** — §4.3 du registre.
+`make test-integration`, `make eval`, `make eval-controle` et
+`make verifier-les-ancrages` exigent la pile démarrée. **`make eval` est de
+nouveau en service depuis le 8 septembre 2026**, sur un jeu régénéré et prouvé
+contre les stores — §4.3 du registre. Il **dépend** de
+`make verifier-les-ancrages`, et c'est délibéré : un rappel mesuré sur un jeu qui
+désigne le vide rend 0 sans dire pourquoi.
 
 **MESURE LA PORTE DANS UN ENVIRONNEMENT MONTÉ PAR LE PROTOCOLE CI-DESSOUS,
 jamais dans le `.venv` qu'un lot a laissé derrière lui.** Le pilote s'y est fait
@@ -150,7 +154,7 @@ chiffre : chaque constat renvoie à son entrée.
 | | L'exigence | État vu d'ici |
 |---|---|---|
 | **1** | modèle d'embedding `paraphrase-multilingual-MiniLM-L12-v2`, identique des deux côtés | ✅ **tenue et gardée des DEUX côtés** depuis le lot 3, fusionné le 7 septembre 2026 (`c5f9a54`). Le lecteur confronte son réglage à l'estampille de la collection **avant chaque recherche dense**, refuse aussi l'estampille absente, et rend **503** sans avoir chargé le moindre modèle. Quatre audits indépendants — §4.27
-| **2** | `element_id` déterministe, 10 hexadécimaux | ✅ tenue par le pipeline, et l'agent le valide (`^[a-f0-9]{10}$`, `graph_context.py`) |
+| **2** | `element_id` déterministe, 10 hexadécimaux | ✅ tenue par le pipeline, et l'agent le valide (`^[a-f0-9]{10}$`, `graph_context.py`). **Ce que ce dépôt en promettait était faux, et c'est corrigé** : `pour_le_pipeline_ingestion.md` écrivait que le déterminisme fait « survivre le jeu doré à une réingestion ». Il fait survivre un jeu à une réingestion **du même corpus** ; rien ne le fait survivre au **remplacement** d'un corpus, et aucune convention d'identifiant ne le pourrait. Corrigé au site et **gardé** contre son retour — §4.3 |
 | **3** | `source_path` est l'identité d'un document | ✅ tenue |
 | **4** | `sequence` porte l'ordre, monotone | ✅ tenue — et **reproduite de mes mains** : §4.5 |
 | **5** | `POST /reindex` en fin de pipeline | ✅ **tenue et prouvée en marche** par le lot 1 — mesurée par le lot, puis **indépendamment par son audit sur l'agent vivant**, et gardée par un test que l'audit a mesuré seul garde de deux mutations du producteur. §4.2 |
@@ -171,17 +175,19 @@ le pilote croyait avoir supprimé.
 | | l'état, et la date à laquelle il a été relevé |
 |---|---|
 | branches | `mesuré` le **4 septembre 2026, après la fusion du lot 2** : `main` = **`db05162`**, **14 commits d'avance sur `origin/main`** — non poussé. **Une seule** branche hors `main` : `claude/audit-rag-agent-chat-eefc61`, l'arbre du pilote. Les **six** autres et leurs arbres ont été supprimés à la fusion, `.claude/worktrees/` ne porte plus aucun répertoire mort, et les garde-fous ont été **réarmés puis éprouvés** — adresse interdite → `rc=1` et HEAD immobile, adresse autorisée au même nom → `rc=0`. Aucune branche distante autre que `main`. *Relevé antérieur, avant fusion : cinq branches hors `main`, deux errantes* — `claude/connexion-coupee-551a87` et `claude/quirky-williamson-8fda89`, issues de sessions abandonnées, leurs arbres propres et sans travail à sauver. Les deux branches en vol du lot 2 : `claude/agent-graph-reading-140a97` (`9435657`) et `claude/conv26-repar2-blocants-0b3707` (`d5b2c3c`). Plus l'arbre du pilote, `claude/audit-rag-agent-chat-eefc61`. **La règle « une branche par lot en vol » est en dette de nettoyage, et elle se paie à la fusion du lot 2** |
-| dernier commit du dépôt | **28 août 2026** — le dépôt est resté immobile pendant que le pipeline réingérait le 2 septembre. C'est la cause matérielle de §4.3 et §4.6 |
+| dernier commit du dépôt | **28 août 2026** — le dépôt est resté immobile pendant que le pipeline réingérait le 2 septembre. C'est la cause matérielle de §4.3 et §4.6. **§4.3 est fermé depuis le 8 septembre 2026** ; §4.6 reste ouvert, c'est le lot 4 |
+| les jeux de questions | `mesuré` le **8 septembre 2026**, contre les deux stores en service : **130 / 130** ancrages du jeu de réglage et **44 / 44** ancrages du jeu de contrôle existent dans ChromaDB **et** dans NebulaGraph, **0** désaccord. Relevé antérieur, sur le jeu retiré : **0 / 129**. L'instrument est `scripts/verifier_les_ancrages.py`, le bilan est versionné à `runs/2026-09-08-ancrages.json`, et c'est un **état de store** — il périme à la prochaine réingestion, rejoue-le |
+| `detect-secrets` | `mesuré` le **8 septembre 2026**, `detect-secrets-hook` v1.5.0 sur `git ls-files` : **2** détections, contre **36** avant le lot 5 — dont **34** dans le seul jeu de questions en JSON, désormais retiré. Le hook **n'est pas armé** sur ce dépôt et `.pre-commit-config.yaml` dit pourquoi ; il est désormais **armable**, ce qu'il n'était pas |
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
 | garde-fou d'identité | **armé** depuis le lot 1, `INSTALL_PYTHON` gravé vers le `.venv` du **clone principal** — donc stable. Vérifié de mes mains depuis l'arbre du pilote : adresse interdite → `rc=1`, HEAD immobile ; adresse autorisée → `rc=0`. Et le hook a tiré sur la fusion elle-même (« Identite d'auteur autorisee … Passed ») |
 | historique | `mesuré` le **4 septembre 2026** : **184** commits à `7bcd346`, **deux adresses et elles seules** (216 + 152 occurrences auteur+committer), **0** `@aosis.net`, **0** attribution à un assistant. Relevé antérieur : **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
-| porte qualité | `mesuré` le **7 septembre 2026** sur `c5f9a54` — le **résultat de la fusion** du lot 3, pas seulement la branche — dans un arbre dédié monté par le protocole du §2.2 : `make lint` → `rc=0`, `make test` → `rc=0`, **562 passés**. Relevés antérieurs : 520 au lot 2, 486 au lot 1. Relevé du lot 1, à `9596720` : **486 passés** (461 avant lui). Le retard de `documentation/tests.md` est traité par le lot 2 — §4.13 |
+| porte qualité | ⚠️ **ROUGE sur `main`**, `mesuré` le **8 septembre 2026** par le lot 5 sur `main` = `origin/main` = **`4eedb2a`**, dans un arbre nu monté par le protocole du §2.2 : `make lint` → `rc=0`, **`make test` → `rc=2`, 1 échec / 561 passés**. Le rouge est `test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie` — **6** occurrences pour **5** autorisées, la sixième étant la phrase du §4.27 qui raconte que ce garde avait rougi sur la fusion du lot 3. **Fermé par le lot 5.** Relevé antérieur : le **7 septembre 2026** sur `c5f9a54` — le résultat de la fusion du lot 3 — `rc=0`, `rc=0`, **562 passés** ; ce relevé était juste **sur ce commit-là**, et il a été recopié comme état de `main` deux commits plus tard, ce que le §4 interdit. Avant : 520 au lot 2, 486 au lot 1 (461 avant lui) |
 | tests désactivés | `mesuré` le **4 septembre 2026** sur `d5b2c3c` : **0** `pytest.mark.skip`, **0** `xfail`, **3** `type: ignore`, **90** `noqa` dont **10** hors `PLR2004`. Tous antérieurs à ce chantier, non instruits. **Le lot 2 n'en ajoute aucun** — vérifié sur les lignes ajoutées de son diff, et `pyproject.toml`, `Makefile` et `.pre-commit-config.yaml` ne sont pas touchés |
 | pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
-| `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
+| `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` de nouveau le **8 septembre 2026** (`Up 42 minutes`) — **cinquième** relevé en marche sans qu'aucune conversation le décide, et l'état n'a pas bougé pendant les trois heures du lot 5. Relevé antérieur : le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
 | les stores | ChromaDB `rag_documents`, **4 367** chunks ; NebulaGraph `rag_space`, **15 173** arêtes `PARENT_OF`, **23** documents. Concordant à l'unité avec la campagne de référence du pipeline |
 | les LLM | `ollama-central` sert `gemma4:e4b` et `nomic-embed-text` — `gemma4:e4b` est bien celui qu'attend `.env.example` |
-| l'agent | `mesuré` le **4 septembre 2026** : `rag-agent-api` **en marche et `healthy`**, `GET /health` → HTTP **200**, `status: ok`, les quatre dépendances à `true`. Le port est **8011** sur l'hôte, jamais 8000. `POST /reindex` est **exposé** — vérifié dans l'`openapi.json` servi, aux côtés de `/answer`, `/search`, `/context/{element_id}`, `/sources`, `/media/{object_name}`, `/feedback` et des trois routes `/chat/*` |
+| l'agent | `mesuré` le **8 septembre 2026** : `rag-agent-api` **en marche et `healthy`**, `GET /health` → HTTP **200**, `status: ok`. **`index_lexical` était à `false`** au premier relevé et est passé à `true` après la première recherche : l'index BM25 se construit **paresseusement**, donc un `/health` lu juste après un redémarrage annonce une recherche amputée qui ne l'est pas — la première recherche la construit synchroniquement. Réglages du chemin mesuré par la campagne : `HYBRID_SEARCH=true`, `QUERY_REWRITE=true`, `FETCH_K=50`, `RETRIEVAL_TOP_K=50`, `RERANK_TOP_K=10`, `AUTO_SELECT_TOP_K=3`, fenêtre graphe ±6 / ±3, `FULL_TEXT_FROM_VECTORS=true`. Relevé antérieur, le **4 septembre 2026** : mêmes quatre dépendances à `true`. Le port est **8011** sur l'hôte, jamais 8000. `POST /reindex` est **exposé** — vérifié dans l'`openapi.json` servi, aux côtés de `/answer`, `/search`, `/context/{element_id}`, `/sources`, `/media/{object_name}`, `/feedback` et des trois routes `/chat/*` |
 
 **Les gestes interdits, et ils viennent du pipeline :** ne renomme aucun fichier
 de son corpus (le chemin entre dans le calcul des `element_id`) ; ne change pas
@@ -195,10 +201,28 @@ référence, et ses capteurs sont livrés armés.
 Deux jeux de questions existent. **Ils ne valent pas la même chose, et l'un des
 deux est hors service.**
 
+**`mesuré` le 8 septembre 2026 par le lot 5 — l'état ci-dessous a changé, et les
+deux jeux hors service ont été RETIRÉS du dépôt.**
+
 | Le jeu | Où | Ce qu'il vaut aujourd'hui |
 |---|---|---|
-| **138 questions**, générées depuis le corpus | `tests/fixtures/golden_qa_generated.json` | **hors service** — il désigne un corpus qui n'est plus dans l'index. §4.3 |
-| **30 questions**, écrites après l'ingestion | `documentation/campagnes/2026-09-02-jeu-de-questions.yaml` du pipeline | **le seul valide**, et il porte sa réserve : lis-la avant d'arbitrer quoi que ce soit |
+| **138 questions régénérées** sur le corpus en service | `tests/fixtures/golden_qa_generated.yaml` | ✅ **le jeu de RÉGLAGE**, cible de `make eval`. **130 / 130** ancrages présents dans ChromaDB **et** NebulaGraph, `mesuré` et versionné à `runs/2026-09-08-ancrages.json`. `reviewed: false` partout — c'est du **silver** |
+| **30 questions**, écrites après l'ingestion | `tests/fixtures/jeu_de_questions_pipeline.yaml`, transposé de `documentation/campagnes/2026-09-02-jeu-de-questions.yaml` du pipeline, qui reste le **site canonique** | ✅ **le jeu de CONTRÔLE**, cible de `make eval-controle`. **44 / 44** ancrages présents dans les deux stores. Sa réserve voyage dans le fichier et un test refuse qu'elle en sorte |
+| ~~138 questions générées le 3 août 2026~~ | ~~`tests/fixtures/golden_qa_generated.json`~~ | ❌ **RETIRÉ.** 0 / 129 ancrages dans le graphe, et **34** des 36 détections `detect-secrets` du dépôt |
+| ~~15 questions écrites à la main~~ | ~~`tests/fixtures/golden_qa.json`~~ | ❌ **RETIRÉ, et il était le `--golden` par DÉFAUT.** Ses 15 questions à réponse portaient **0** `gold_element_ids` : toutes ses métriques de rappel valaient `None`, ce qui se lit « sans objet » et non « cassé » — plus silencieux encore que le jeu de 138. Trouvé par un garde du lot 5 |
+
+**AUCUNE CAMPAGNE NE SE LANCE SANS SON ANTÉCÉDENT.** `make eval` et
+`make eval-controle` **dépendent** de `make verifier-les-ancrages`, qui confronte
+les deux jeux aux stores en lecture seule et sort en 1 au premier désaccord. Un
+rappel mesuré après son rouge ne veut rien dire.
+
+**Et le `--compare` a un second garde, parce que le premier ne voyait pas le pire
+cas.** `generate_golden.py` numérote dans l'ordre de génération : deux jeux écrits
+sur deux corpus portent les MÊMES identifiants de questions, et le refus sur
+désaccord de jeu ne les distingue pas. Une campagne inscrit donc
+`empreinte_des_ancrages`, et son **absence** est refusée au même titre qu'une
+divergence — les huit campagnes de `runs/` antérieures au 8 septembre 2026 sont
+retirées comme cibles. §4.3.
 
 **La réserve du jeu de 30, et elle n'est pas négociable.** Trente questions
 prouvent que la chaîne fonctionne et montrent un défaut grossier. Elles **ne
@@ -217,7 +241,7 @@ anglaise → document français » a disparu.
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | ✅ **fusionné** `db05162` — livré (`Conv' 24`), audité (`Conv' 25`, 8 trouvailles dont 2 bloquantes), réparé (`Conv' 26`), **sa réparation auditée à son tour** (`Conv' 27`, 1 bloquante), réparée une seconde fois (`Conv' 28`). Fusion tranchée par le pilote après vérification des deux directions dangereuses du garde — §4.18. **Trois audits, trois trouvailles matérielles** |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | ✅ **fusionné** `c5f9a54` — livré (`Conv' 29`), audité (`Conv' 30`, 2 bloquantes), réparé (`Conv' 31`), réaudité (`Conv' 32`, 1 bloquante), réparé (`Conv' 33`), audité en **étroit** sur la couche async (`Conv' 34`, 1 bloquante), réparé (`Conv' 35`). **Quatre audits, quatre trouvailles bloquantes, aucune régression fonctionnelle** — §4.27. Fusion tranchée par le pilote sous le **critère amendé** du §4.18 |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
-| **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
+| **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **livré** le 8 septembre 2026 (`Conv' 36`), **non fusionné, non poussé** — à auditer. Les deux jeux régénérés et prouvés contre les stores, la campagne de référence établie sur le chemin **hybride + reranking**, l'artefact rejouable posé, `runs/final.json` retiré comme cible. **Trois défauts trouvés hors cadrage**, dont le piège du `--compare` et un troisième jeu de questions. Compte rendu : [`campagnes/2026-09-08-campagne-de-reference.md`](campagnes/2026-09-08-campagne-de-reference.md) |
 
 **Le rang 1 est un prérequis, pas un choix** : sans garde-fou, aucun commit de
 ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
@@ -253,7 +277,25 @@ dépôt, pas dans la conversation.*
 | **34** | AUDIT-ASYNC-3 — audit **étroit**, borné à la couche async du lot 3 | 7 mutations sur 8 reproduites à l'unité, 10 propres, scène de charge retournée contre `19f7cec`. **1 bloquante** (B-2 : rafale de 26 → 26 fils) — §4.25. A **validé le cadrage étroit avec une mesure**, et nommé son angle mort |
 | **35** | REPAR-6 — fermer B-2 et les deux phrases fausses | `4849bc1` : rafale de 26 → **1 fil**, 562 passés. Vérifié par le pilote **dans les deux sens** et **fusionné** — §4.27. A trouvé seul la **seconde** raison pour laquelle le garde était décoratif : il comptait les fils par `name` |
 
-**Prochain numéro libre : 36.**
+| **36** | LOT-5 — régénérer le jeu doré, adopter les 30 questions du pipeline, établir la campagne de référence | livré le **8 septembre 2026**. Trois défauts trouvés hors cadrage, dont **le piège du `--compare`** — deux corpus sous une même numérotation de questions — et un **TROISIÈME** jeu de questions, `golden_qa.json`, qui était le `--golden` par défaut et dont les 15 questions à réponse portaient **0** ancrage. **A mesuré la porte ROUGE sur `main` = `4eedb2a`** : `rc=2`, 1 rouge / 561 passés — le cadrage annonçait `rc=0`, 562. §4.3 |
+
+**Prochain numéro libre : 37.**
+
+**LA PORTE ÉTAIT ROUGE SUR `main`, ET AUCUNE CONVERSATION NE L'AVAIT VU.**
+`mesuré` par `Conv' 36` le 8 septembre 2026, sur `main` = `origin/main` =
+**`4eedb2a`**, dans un arbre nu monté par le protocole du §2.2 : `make lint` →
+`rc=0`, **`make test` → `rc=2`, 1 échec / 561 passés**. Le rouge est
+`test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie`, à **6**
+occurrences trouvées pour **5** autorisées — et la sixième était **la phrase du
+§4.27 qui raconte que ce garde avait rougi sur la fusion du lot 3**. *Le récit du
+rouge a produit le rouge suivant.* C'est la **famille (f) pour la cinquième
+fois**, et la seconde fois qu'un garde la trouve.
+
+La leçon est celle du §12, à un cran de plus : **une porte se mesure sur le commit
+qu'on livre, pas sur celui d'avant.** Le §4.27 a été écrit après la mesure qu'il
+publie, et personne n'a remesuré. Le cadrage distribué à `Conv' 36` porte donc un
+« rc=0, rc=0, 562 passés » qui n'a jamais été vrai à `4eedb2a` — un état de poste
+recopié d'une mesure antérieure, exactement ce que le §4 interdit.
 
 **Le lot 3 est fusionné, et c'est le lot le plus cher du chantier** : sept
 conversations, **quatre audits, quatre trouvailles bloquantes — et aucune n'était
