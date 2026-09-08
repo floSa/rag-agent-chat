@@ -4558,3 +4558,123 @@ ce lot n'a pas touchés.
   qu'aux générations futures. Régénérer le jeu pour qu'il devienne reproductible
   par construction casserait l'appariement de `runs/2026-09-08-reference.json`,
   et c'est un lot en soi.
+
+### 4.31 → FERMÉ — le lot dette fusionné, et deux maillons du raisonnement du pilote renversés par la mesure
+
+**`main` = `6c85404`.** Les deux trappes de l'audit du lot 5 sont fermées, les six
+autres non bloquantes avec elles, et la décision du §4.28 est exécutée. Livré
+(`Conv' 38`), audité (`Conv' 39`) : **zéro bloquante**, cinq non bloquantes,
+recommandation de fusionner.
+
+#### Ce que le pilote a mesuré de ses mains, le 8 septembre 2026
+
+| | `mesuré` |
+|---|---|
+| porte, sur le lot **et** sur le résultat de la fusion | `make lint` `rc=0`, `make test` `rc=0`, **629 passés**, les trois inventaires intacts |
+| **N1** | **`rc=2`** là où c'était `1`, **zéro trace**, message nommant NebulaGraph — **preuve d'atteinte** |
+| **dédoublement**, affectation plantée dans `.env.example` | fil d'occurrences **rouge**, garde d'affectations **rouge** |
+| **dédoublement**, **récit** planté dans `README.md` | fil **rouge**, garde d'affectations **VERT** |
+| `src/agent/settings.py` | **commentaire seul** — AST hors docstrings **identique** à `main` |
+
+#### L'AUDIT A RENVERSÉ DEUX MAILLONS DU RAISONNEMENT DU PILOTE, AVEC DES MESURES
+
+Le pilote avait écrit, dans le prompt d'audit, qu'un reranker anglais rend un
+**« classement au hasard »** et que la ligne `RERANK_MODEL` restée en clair était
+devenue **« la plus dangereuse des deux »**. **Les deux sont faux.**
+
+**Le premier, parce que l'étendue plate est une SATURATION DU SIGMOÏDE et non une
+perte d'ordre.** `vérifié par le pilote` le 8 septembre 2026 :
+`src/agent/retriever.py:775` fait `chunk.relevance = _sigmoid(score)`, et des
+logits de −6,8 à −11,35 s'écrasent à **0,11 % d'étendue en préservant strictement
+l'ordre**. L'auditeur a mesuré le coût réel — **−2,5 points de rappel@10** sur les
+**41 questions translingues sur 138** du jeu de référence, soit 30 % — contre un
+témoin de **hasard pur** qui est **5× pire en rang** et **14× pire en perte**.
+
+**Le second, parce que la ligne d'embedding était pire**, elle produisait des
+passages *plausibles et faux*, et elle est aujourd'hui **et gardée en 503 et
+périphrasée**. *Ce qui reste vrai et suffit* : c'est la seule des deux qui ne soit
+gardée par **rien** et dont le mal soit **silencieux**.
+
+**Le pilote avait nommé le risque lui-même dans ce même prompt** — *« un
+raisonnement juste sur un antécédent non mesuré se relit comme une preuve »* — et
+il l'a commis dans la phrase suivante. **L'antécédent était dans le dépôt**, au
+site canonique de `rerank_model` : *« étendue 0,0 % … soit un classement au
+hasard »*. L'inférence y est fausse, le réglage multilingue reste **le bon** —
+97,6 % contre 95,1 % de rappel, 96,5 % d'étendue contre 0,1 % — mais **pour une
+raison plus faible que celle qui est écrite**. *Reprendre un antécédent du dépôt
+sans le mesurer est la même faute que de l'inventer.*
+
+#### La trouvaille principale de l'audit, vérifiée par le pilote
+
+**L'idiome du dépôt lui-même échappe au garde de sûreté.** Le motif exige que le
+**nom** soit adjacent à la valeur ; dans `Field(default="…")` la valeur vit à
+l'intérieur de l'appel. `mesuré` par le pilote en appelant `_affectations_dans`
+directement :
+
+| forme copiable | vue par le garde d'affectations ? |
+|---|---|
+| `EMBEDDING_MODEL_NAME=<le modèle anglais>` | **oui** |
+| `SentenceTransformer("<le modèle anglais>")` | **oui** |
+| **`Field(default="…")` — l'idiome de `settings.py`** | **NON** |
+| `os.environ["…"] = "…"` | **NON** |
+| `ENV NOM v` (Dockerfile) | **NON** |
+| `--embedding-model v` | **NON** |
+| un **récit** | non — et c'est voulu |
+
+**L'étiquetage est donc inversé pour la modification la plus probable de toutes** :
+changer le `default` de `settings.py` échappe au garde de **sûreté** et n'est
+rattrapé que par le **fil d'occurrences**, celui que le §4.28 vient de rétrograder
+au rang de détecteur de dérive. Et l'auditeur a construit le cas où **les deux**
+manquent : une mention tolérée convertie en affectation échappante **à compte
+inchangé** — 629 passés, deux instruments verts.
+
+**Où le pilote borne l'auditeur, avec le texte pour preuve.** L'auditeur cote la
+phrase *« Aucune exemption, et c'est la propriété de ce garde »* comme dépassant
+ce que le garde fait. Le pilote a relu le docstring : la phrase parle de
+**l'absence de liste d'autorisation** — « il n'y a rien à autoriser » — et c'est
+**vrai**, ce garde n'en a aucune. Elle ne prétend nulle part attraper toutes les
+formes. **Le défaut n'est donc pas une phrase fausse, c'est une phrase MUETTE sur
+sa couverture** — et la règle du chantier est *« soit bornée, soit gardée par un
+test »*. Le geste juste n'est pas de rabattre une affirmation, c'est d'**ajouter la
+borne qui manque** : nommer les formes attrapées et celles qui ne le sont pas.
+*Que l'auditeur l'ait lue comme une revendication de couverture est en soi la
+mesure de son ambiguïté.*
+
+#### Les deux périphrases que le pilote a appliquées à la fusion
+
+**1 — la dernière affectation copiable d'un reranker anglais**, dans le bloc `.env`
+du plan historique, trois lignes sous celle que le lot venait de rendre
+inoffensive. Le lot l'avait **trouvée, écrite, et non fermée** — à raison, son
+périmètre étant l'embedding. Périphrasée, même geste et même bloc.
+
+**2 — et le RÉCIT de cette trouvaille la reproduisait.** L'entrée du registre qui
+la signale l'écrivait en clair. **Troisième occurrence de ce motif sur ce
+chantier, et la seconde qui est du pilote** : le §4.27 racontait le rouge de
+l'inventaire en nommant le modèle, et `main` est parti **rouge et poussé** pour
+cette raison (§4.28). Aucun garde ne rougissait sur celle-ci — le garde du
+reranker n'existe pas — donc ce qui la rendait fautive n'était pas un rouge, c'est
+**ce qu'elle laissait copier**, et le fait que *le jour où ce garde sera écrit,
+son premier acte serait de rougir sur le registre qui le demande.*
+
+`mesuré` après les deux : **zéro affectation copiable du reranker anglais dans les
+fichiers suivis.**
+
+#### Ce qui part au lot suivant
+
+| | Ce que c'est |
+|---|---|
+| **le garde du reranker** | le vrai travail, et le pendant du lot 3 : `rerank_model` a **trois usages et aucun contrôle**, et son mal est silencieux à −2,5 points sur 30 % des questions |
+| **les formes qui échappent au garde d'affectations** | au minimum `Field(default=…)` et `os.environ[…] =`, **plus la borne de couverture qui manque au docstring** — ce que le garde attrape, et ce qu'il n'attrape pas |
+| **le motif faux au site canonique de `rerank_model`** | « étendue 0,0 % … soit un classement au hasard ». Le réglage est bon, le motif écrit dépasse la mesure |
+| **le bouchon de l'index PÉRIMÉ** | la boucle de reprise de `chauffer_l_index_lexical` n'est gardée par rien — mutation de l'auditeur : **629 verts**. Échoue **fermé**, et il est à un bouchon d'être gardé |
+| **« 123 fichiers suivis »** | périmé d'un dans le docstring qui le porte : l'arbre en compte **124**, et son garde n'asserte que `>= 100` |
+
+#### Les trois faux résultats de l'auditeur, qu'il déclare
+
+Il en rapporte **trois**, tous les siens, tous attrapés : une mutation qui cassait
+l'import (17 rouges parasites) ; une mutation **jamais appliquée** dont le
+« 14 passed » était un **faux vert**, vu seulement en exigeant que l'empreinte du
+fichier *diffère* ; et une sonde de graine dont le prompt jouet était **trop court
+pour atteindre le cas**, qui rendait « sans graine → identiques » — l'inverse de
+la vérité. *Un `rc` juste n'est pas une preuve d'atteinte, et un texte identique
+non plus.*
