@@ -29,6 +29,7 @@ Codes de sortie :
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import random
@@ -38,9 +39,15 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-GOLDEN = ROOT / "tests" / "fixtures" / "golden_qa.json"
+# Le jeu de RÉGLAGE, celui qui porte le volume. Le jeu de CONTRÔLE — les trente
+# questions du pipeline — se demande explicitement par `--golden`, parce qu'un
+# défaut par défaut se lit comme le seul instrument, et il ne l'est pas :
+# `documentation/campagnes/2026-09-08-campagne-de-reference.md`.
+GOLDEN = ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
+CONTROLE = ROOT / "tests" / "fixtures" / "jeu_de_questions_pipeline.yaml"
 
 # Formulations par lesquelles le prompt système fait dire au modèle qu'il ne sait
 # pas. Une abstention est une bonne réponse quand le corpus est muet.
@@ -233,7 +240,23 @@ MAX_BASCULES_AFFICHEES = 12
 
 
 def charger_questions(chemin: Path) -> list[dict]:
-    data = json.loads(chemin.read_text(encoding="utf-8"))
+    """Lit un jeu de questions, YAML ou JSON selon son suffixe.
+
+    LES JEUX DE CE DÉPÔT SONT EN YAML DEPUIS LE 8 SEPTEMBRE 2026, et c'est une
+    raison mesurée : `detect-secrets` lit un `element_id` — dix hexadécimaux
+    dérivés d'un passage public — comme une chaîne à forte entropie, et son
+    transformateur JSON rend les éléments de séquence là où son transformateur
+    YAML ne rend que les valeurs de mapping. `mesuré` le 8 septembre 2026,
+    `detect-secrets-hook` v1.5.0 : l'ancien jeu en JSON rendait `rc=1` et
+    **34** détections ; les deux jeux en YAML rendent `rc=0`. Le site canonique
+    de la CAUSE est l'en-tête du jeu de questions du pipeline.
+
+    Le JSON reste lu : `--golden` peut viser un jeu d'avant cette date, et
+    `runs/*.json` en est.
+    """
+    texte = chemin.read_text(encoding="utf-8")
+    en_yaml = chemin.suffix.lower() in (".yaml", ".yml")
+    data = yaml.safe_load(texte) if en_yaml else json.loads(texte)
     return [q for q in data["questions"] if not q.get("_skip")]
 
 
@@ -613,14 +636,31 @@ def par_langue(lignes: list[dict]) -> dict[str, Any]:
     Le corpus est mixte : une moyenne globale masquerait un écart par langue.
 
     **Les strates conditionnelles sont le piège.** « Questions de suivi » est
-    vide aujourd'hui — `chat_history` est présent sur 0 des 138 questions du jeu
-    doré — donc la campagne ne peut rien voir du travail sur l'historique. Omettre
-    la ligne, ou afficher une moyenne calculée sur zéro question, se lit
-    exactement comme une strate saine. Elle est donc rendue avec son effectif à
-    zéro, et `afficher` le dit en clair.
+    vide sur le jeu de RÉGLAGE — `generate_golden.py` n'écrit aucun
+    `chat_history` — donc une campagne lancée sur lui seul ne peut rien voir du
+    travail sur l'historique. Omettre la ligne, ou afficher une moyenne calculée
+    sur zéro question, se lit exactement comme une strate saine. Elle est donc
+    rendue avec son effectif à zéro, et `afficher` le dit en clair.
+
+    **CE TROU EST COMBLÉ DEPUIS LE 8 SEPTEMBRE 2026, ET PAR L'AUTRE JEU.** Les
+    trente questions du pipeline en portent quatre, avec leur `chat_history`, et
+    `interroger` le TRANSMET à `/answer`. Le chiffre qui en sort n'est donc pas
+    comparable au 20 % que le pipeline publie sur la même strate : son script
+    encode la question SEULE (60 % avec l'historique concaténé), et c'est le
+    périmètre de sa mesure, pas un défaut de l'index. Site des deux bornes :
+    `documentation/campagnes/2026-09-02-premiere-campagne-de-reference.md` du
+    pipeline.
 
     Même règle pour la découpe translinguistique, qui n'apparaissait que
     lorsqu'elle était peuplée : le même défaut, à un cran de moins de gravité.
+
+    **ET LA DÉCOUPE PAR `type` EST RENDUE AUSSI**, une strate par valeur
+    présente. C'est elle qui porte les cinq strates de la spécification du jeu du
+    pipeline — `multi_passages`, `simple`, `sans_reponse`, `de_suivi`,
+    `reformulee` — et sans elle un compte rendu de campagne les redérive à la
+    main depuis les lignes par question, ce qui en fait un second site pour
+    chaque chiffre. Elle est préfixée `type:` pour qu'aucune valeur de `type` ne
+    puisse écraser une découpe de langue en cas d'homonymie.
     """
     resultat = {
         langue: _tranche([r for r in lignes if r["langue"] == langue])
@@ -635,6 +675,14 @@ def par_langue(lignes: list[dict]) -> dict[str, Any]:
     # qui compte ici est que le trou soit VISIBLE.
     resultat["questions de suivi"] = _tranche([r for r in lignes if r["suivi"]])
     resultat["questions autonomes"] = _tranche([r for r in lignes if not r["suivi"]])
+    # Les strates du JEU, telles qu'il les déclare. Triées pour que deux
+    # campagnes du même jeu rendent leurs strates dans le même ordre — un ordre
+    # qui dépendrait de la rencontre ferait bouger le diff sans que rien ne
+    # bouge.
+    for type_de_question in sorted({r["type"] for r in lignes if r["type"]}):
+        resultat[f"type: {type_de_question}"] = _tranche(
+            [r for r in lignes if r["type"] == type_de_question]
+        )
     return resultat
 
 
@@ -734,6 +782,62 @@ def intervalle_bootstrap(
     bas = moyennes[int(0.025 * tirages)]
     haut = moyennes[min(int(0.975 * tirages), tirages - 1)]
     return round(bas, 4), round(haut, 4)
+
+
+def empreinte_des_ancrages(questions: list[dict]) -> str:
+    """SHA-256 de ce qu'un jeu de questions DÉSIGNE, pas de ce qu'il demande.
+
+    LE PIÈGE QUE CETTE EMPREINTE FERME, ET IL ÉTAIT ARMÉ. `desaccord_de_jeu`
+    apparie sur les IDENTIFIANTS DE QUESTIONS — `G-001`, `N-008` — et rien
+    d'autre. Or `scripts/generate_golden.py` numérote ses questions dans
+    l'ordre de génération : le jeu régénéré le 8 septembre 2026 sur le corpus
+    ACTUEL porte exactement les mêmes 138 identifiants que celui du 3 août 2026,
+    écrit sur un corpus qui n'existe plus. `make eval --compare runs/final.json`
+    n'aurait donc trouvé **aucun** désaccord, et aurait imprimé des flèches sur
+    138 paires dont les deux moitiés ne mesurent pas le même corpus.
+
+    C'est exactement la pathologie du §4.3 de
+    `documentation/axes_amelioration.md`, un cran plus loin : le jeu périmé
+    rendait 0 % de rappel, ce qui se voyait ; deux jeux de même numérotation sur
+    deux corpus rendent des chiffres PLAUSIBLES, ce qui ne se voit pas.
+
+    Ce que l'empreinte prend, et pourquoi ce choix : le couple
+    (identifiant, ancrages triés) de chaque question, trié par identifiant. Elle
+    change donc quand le corpus change — les `element_id` sont dérivés du
+    contenu et du chemin (contrat, exigences 2 et 3) — et NE change PAS quand on
+    reformule une question sans toucher son ancrage, ce qui est le bon
+    comportement : reformuler est précisément le genre de changement qu'une
+    comparaison appariée existe pour mesurer.
+
+    Ce qu'elle NE couvre PAS, et il faut le dire : deux corpus qui partageraient
+    tous leurs `element_id` — donc tous leurs contenus et tous leurs chemins —
+    rendraient la même empreinte. C'est la définition d'un corpus identique.
+
+    **LE PRÉFIXE `sha256:` N'EST PAS DÉCORATIF, ET IL EST MESURÉ.** Une campagne
+    s'écrit en JSON, où aucun `pragma: allowlist secret` n'est possible : le JSON
+    n'admet pas de commentaire. Or une empreinte de 64 hexadécimaux en VALEUR DE
+    MAPPING est exactement ce que `detect-secrets` relève comme « Hex High
+    Entropy String ». `mesuré` le 8 septembre 2026, `detect-secrets-hook`
+    v1.5.0, même valeur sous trois formes :
+
+        {"empreinte_des_ancrages": "59ed79…6806"}          -> rc=1, 1 détection
+        {"empreinte_des_ancrages": "sha256:59ed79…6806"}   -> rc=0
+        {"empreinte_des_ancrages": "ancrages-sha256-59…"}  -> rc=0
+
+    Le détecteur exige que la chaîne ENTIÈRE soit hexadécimale. Le préfixe la
+    disqualifie, et il ne cache rien : il **nomme** l'algorithme, ce que la
+    valeur nue laissait deviner. Sans lui, ce champ ramenait **6** détections
+    dans le dépôt — les deux campagnes et les quatre campagnes synthétiques de
+    `tests/fixtures/` — c'est-à-dire qu'un garde de ce lot rendait
+    `detect-secrets` moins armable, au moment même où le lot le rendait armable.
+    Garde : `test_comparaison_appariee.test_l_empreinte_ne_se_lit_pas_comme_un_secret`.
+    """
+    materiau = [
+        [str(q.get("id", "")), sorted(str(a) for a in (q.get("gold_element_ids") or []))]
+        for q in sorted(questions, key=lambda q: str(q.get("id", "")))
+    ]
+    brut = json.dumps(materiau, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return f"sha256:{hashlib.sha256(brut.encode('utf-8')).hexdigest()}"
 
 
 def desaccord_de_jeu(actuelles: list[dict], precedentes: list[dict]) -> str | None:
@@ -838,13 +942,28 @@ def apparier(
     }
 
 
-def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
+def comparer_apparie(lignes: list[dict], chemin: Path, empreinte: str) -> bool:
     """Comparaison appariée avec une campagne précédente. Rend False si refusée.
 
     C'est le mode par défaut de `--compare`, et la raison est simple : une
     comparaison de moyennes ne distingue pas « 30 questions améliorées, 28
     dégradées » de « 2 améliorées, rien de cassé ». Ce sont deux résultats
     opposés, et ils s'affichent identiques.
+
+    Args:
+        lignes: les lignes par question de la campagne en cours.
+        chemin: la campagne de référence.
+        empreinte: L'EMPREINTE DES ANCRAGES DU JEU, et elle est passée plutôt
+            que recalculée ici — c'est une correction, pas une commodité. Une
+            première écriture de ce garde faisait `empreinte_des_ancrages(lignes)`
+            sur les lignes de RÉSULTAT, qui ne portent PAS de
+            `gold_element_ids` : l'empreinte y valait donc celle d'un jeu sans
+            ancrages, la même pour deux corpus, et le garde était DÉCORATIF sur
+            exactement le cas qu'il existe pour attraper. Seul le JEU porte les
+            ancrages, donc seul l'appelant qui l'a chargé peut fournir
+            l'empreinte.
+            Garde : `test_comparaison_appariee.py`,
+            `test_l_empreinte_distingue_deux_corpus_a_numerotation_identique`.
     """
     document = json.loads(chemin.read_text(encoding="utf-8"))
     precedentes = document.get("questions") or []
@@ -852,6 +971,41 @@ def comparer_apparie(lignes: list[dict], chemin: Path) -> bool:
     def entete(suffixe: str = "") -> str:
         barre = "=" * 72
         return f"\n{barre}\nCOMPARAISON APPARIÉE avec {chemin.name}{suffixe}\n{barre}"
+
+    # L'EMPREINTE DES ANCRAGES D'ABORD, ET SON ABSENCE EST UN REFUS. Une
+    # campagne qui ne dit pas quels `element_id` elle a mesurés ne peut pas être
+    # confrontée : c'est la même décision que celle du lot 3 sur l'estampille du
+    # modèle d'embedding — un garde qui ne comparerait que lorsque l'estampille
+    # est présente serait décoratif sur exactement le cas où l'on ne sait pas ce
+    # qui a été mesuré.
+    #
+    # Le prix est réel et payé sciemment : les huit campagnes de `runs/`
+    # antérieures au 8 septembre 2026 n'en portent pas et sont donc retirées
+    # comme cibles de `--compare`. C'est la décision du lot 5, et elle serait de
+    # toute façon due — elles décrivent un corpus qui n'existe plus (§4.3). Le
+    # geste de réparation est nommé dans le message.
+    attendue = empreinte
+    precedente = document.get("empreinte_des_ancrages")
+    if precedente != attendue:
+        print(entete())
+        if not precedente:
+            print(
+                "  REFUSÉE : la campagne de référence ne porte pas d'empreinte d'ancrages.\n"
+                "  Elle ne dit donc pas quels `element_id` elle a mesurés, et rien ne\n"
+                "  distingue « même corpus » de « corpus remplacé sous une numérotation\n"
+                "  de questions inchangée » — le piège du §4.3. Rejouer la référence\n"
+                "  avec cette version du script lui donnera son empreinte."
+            )
+        else:
+            print(
+                "  REFUSÉE : les deux campagnes ne désignent pas les mêmes ancrages.\n"
+                f"  référence : {precedente[:16]}…\n"
+                f"  campagne  : {attendue[:16]}…\n"
+                "  Les identifiants de questions peuvent coïncider sans que le corpus\n"
+                "  soit le même : `generate_golden.py` numérote dans l'ordre de\n"
+                "  génération. Comparer ici confronterait deux régimes."
+            )
+        return False
 
     if not precedentes:
         print(entete())
@@ -987,10 +1141,24 @@ def main() -> int:
     # L'appariement d'abord : c'est lui qui dit si un écart est un résultat. Le
     # diff des résumés reste affiché ensuite pour les grandeurs qui ne
     # s'apparient pas — latences, totaux, compteurs d'exclusion.
+    empreinte = empreinte_des_ancrages(questions)
     appariement_possible = True
     if args.compare and args.compare.exists():
-        appariement_possible = comparer_apparie(lignes, args.compare)
+        appariement_possible = comparer_apparie(lignes, args.compare, empreinte)
         comparer(resume, args.compare)
+    elif args.compare:
+        # UN `--compare` QUI POINTE UN FICHIER ABSENT NE DOIT PAS SE TAIRE. La
+        # forme précédente — `if args.compare and args.compare.exists()` — sortait
+        # en 0 sans comparaison et sans un mot : un `make eval` dont la cible a
+        # été renommée ou n'a jamais été commitée imprimait un résumé et rien
+        # d'autre, ce qui se lit « rien n'a bougé ». C'est la même famille que le
+        # §4.3 : un instrument qui ne mesure pas et ne le dit pas.
+        print(
+            f"\n{'=' * 72}\nCOMPARAISON IMPOSSIBLE\n{'=' * 72}\n"
+            f"  {args.compare} n'existe pas. La campagne est écrite quand même ;\n"
+            "  c'est la comparaison qui n'a pas eu lieu, et le code de sortie le dit."
+        )
+        appariement_possible = False
 
     # Avant tout retour, y compris un refus de comparaison : la campagne a
     # coûté une demi-heure de génération, et la perdre parce que la référence
@@ -998,8 +1166,21 @@ def main() -> int:
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(
-            json.dumps({"resume": resume, "par_langue": langues, "questions": lignes},
-                       ensure_ascii=False, indent=2),
+            json.dumps(
+                {
+                    # Ce que la campagne a MESURÉ, avant ce qu'elle a trouvé :
+                    # une campagne dont on ne sait pas contre quels ancrages
+                    # elle a tourné n'est comparable à rien. Voir
+                    # `empreinte_des_ancrages`.
+                    "jeu": str(args.golden),
+                    "empreinte_des_ancrages": empreinte,
+                    "resume": resume,
+                    "par_langue": langues,
+                    "questions": lignes,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
             encoding="utf-8",
         )
         print(f"\nCampagne écrite dans {args.out}")

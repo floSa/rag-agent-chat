@@ -1,0 +1,581 @@
+_lisez_moi:
+- LES 30 QUESTIONS DU PIPELINE D'INGESTION, TRANSPOSÉES — pas récrites.
+- 'Site canonique du jeu, et seul endroit où on le modifie :'
+- '  /home/ubuntu/RAG/rag-ingestion-pipeline/documentation/campagnes/2026-09-02-jeu-de-questions.yaml'
+- Ce fichier est une DÉRIVATION, produite par
+- scripts/adopter_le_jeu_du_pipeline.py. Rejoue le script plutôt que
+- 'd''éditer ce fichier : une édition à la main en fait un second site.'
+- ''
+- CE QUE CE JEU VAUT, ET CE QU'IL NE VAUT PAS. Écrit à la main APRÈS
+- l'ingestion, en lisant quatre chapitres dans le store, il est un
+- CONTRÔLE INDÉPENDANT du générateur de questions — il sait le
+- contredire, ce que le jeu généré ne sait pas faire. Il est trop peu
+- nombreux pour arbitrer un réglage.
+- ''
+- L'AUTRE INSTRUMENT est tests/fixtures/golden_qa_generated.yaml, et
+- 'aucun des deux ne remplace l''autre : le généré règle, ces trente'
+- contrôlent. Le motif est au §4.3 de documentation/axes_amelioration.md.
+_reserve: CONTRÔLE DE BON FONCTIONNEMENT, PAS DÉCISION D'ARCHITECTURE. 30 questions suffisent à prouver
+  que la chaîne marche de bout en bout et à voir un défaut grossier ; elles ne suffisent pas à arbitrer
+  un réglage. Un écart de deux points est du bruit.
+_provenance:
+  source: /home/ubuntu/RAG/rag-ingestion-pipeline/documentation/campagnes/2026-09-02-jeu-de-questions.yaml
+  campagne_source: premiere-campagne-de-reference
+  date_source: '2026-09-02'
+  specification: documentation/axes_amelioration.md, section 1 (La conception du jeu d'evaluation)
+  source_sha256: 960e8bc1dd115fc93c0e9c64557806f5198e69cca35b0a3b248705a0be20d03f  # pragma: allowlist secret
+  transpose_par: scripts/adopter_le_jeu_du_pipeline.py
+_statistiques:
+  questions: 30
+  par_strate:
+    multi_passages: 12
+    simple: 8
+    sans_reponse: 4
+    de_suivi: 4
+    reformulee: 2
+  ancrages_distincts: 44
+  par_langue_de_la_question:
+    en: 29
+    fr: 1
+  langue_du_corpus: en
+questions:
+- id: q01
+  question: Why is endpoint-level traffic splitting the wrong mechanism for an experiment whose unit is
+    the booking, and where must the assignment decision move instead?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 3dd0709c4a
+  - 3af1392862
+  - 6b52bccda7
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: A traffic split decides model selection independently per request, so the same entity
+      can be routed to different versions; the rule is to randomise at the level of analysis, so the assignment
+      must move out of the endpoint configuration and into the model logic.
+- id: q02
+  question: What rule governs the choice of randomization unit, and when is customer-level assignment
+    preferable to request-level assignment?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 6b52bccda7
+  - cb77da6c17
+  - d44caef114
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Randomise at the same level at which the experiment is analysed. Customer-level
+      suits customer-level outcomes (conversion, retention, revenue); request-level is appropriate only
+      when requests are genuinely independent, e.g. backend evaluations invisible to the customer.
+- id: q03
+  question: Which three serving scenarios does the model serving chapter cover, and which one is right
+    when predictions are precomputed?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - e74bcf1706
+  - eda4f1e10c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Model Serving, serving precomputed batch predictions (Feature Serving), and Model
+      Serving with feature lookup. Feature Serving is the one for precomputed predictions retrieved at
+      request time.
+- id: q04
+  question: 'Route optimization on a serving endpoint rules out one authentication method: which one,
+    and what does the book recommend using instead and why?'
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - d5948cc70d
+  - 05f988efec
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Route optimization supports only OAuth, so a personal access token cannot be used.
+      The recommended alternative is an OAuth token tied to a service principal, which has no permissions
+      by default and can be granted access to a single endpoint.
+- id: q05
+  question: What bounds the chunk size you may choose, and why does counting characters not tell you whether
+    a chunk fits?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 4b1d79b83a
+  - 23d10ed8de
+  - ce368ff12a
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Chunk size is bounded by the embedding window of the chosen model; the limits are
+      measured in tokens, not characters, and the two are not interchangeable, so a character-based chunk
+      size can still overflow the window and part of the content is never indexed.
+- id: q06
+  question: As a corpus grows, why does a retrieval pipeline built on plain vector search degrade, and
+    which two mechanisms are recommended to recover quality?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 2971064aea
+  - 948ec002eb
+  - d913ef3b4f
+  gold_documents:
+  - htms/MLOps with Databricks
+  - pdfs
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: More documents mean more plausible matches for any query, so accurate retrieval
+      needs more filtering and ranking. The two recommended mechanisms are hybrid search (catching semantic
+      and keyword matches) and reranking of the retrieved documents.
+- id: q07
+  question: Which nearest-neighbour algorithm and distance metric does Databricks AI Search use, and what
+    operational limit is placed on its built-in reranker?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 5558e561d7
+  - 269b2e32d8
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: HNSW for approximate nearest neighbour search with the L2 distance metric. The built-in
+      reranker is not suitable above about 5 QPS or under low-latency requirements, where a custom reranker
+      on a Model Serving endpoint is advised.
+- id: q08
+  question: What are the two MLflow evaluation modes, and which one suits promotion decisions made from
+    curated production traces?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - eacfb832a2
+  - ea7d4cf6c0
+  - 94f9c56cd0
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Direct evaluation, where MLflow calls the application itself, and answer-sheet evaluation,
+      where precomputed outputs or existing traces are scored without invoking the application. Answer-sheet
+      evaluation is the one suited to regression testing, benchmarking and promotion decisions from curated
+      production traces.
+- id: q09
+  question: When should a code-based scorer be preferred to an LLM judge, and what properties make a scorer
+    a good one?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 5bdad90f29
+  - e67803db3e
+  - 0d39dea701
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: 'Code-based scorers suit deterministic checks: they run locally, cost no tokens
+      and are reproducible, which fits continuous evaluation and regression tests. An LLM judge becomes
+      appropriate when the assessment needs meaning, intent or subtlety rather than surface patterns.
+      A good scorer is predictable, explainable and tied to outcomes that matter.'
+- id: q10
+  question: How large does an evaluation dataset need to be before it tells you something, and what should
+    it keep containing over time?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - e8ba504198
+  - 890c168677
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: 'Even a small synthetic dataset of around 50 queries is enough to tell whether hybrid
+      search or reranking improves quality. The dataset is not built once: as production traces and failures
+      accumulate it should evolve, staying representative enough to catch regressions yet small enough
+      to inspect and maintain.'
+- id: q11
+  question: What are guardrails for, at which two points can the gateway's built-in ones act, and what
+    does a custom guardrail add?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - ca2897cadb
+  - 0f4741eda9
+  - be9026f5ba
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: Guardrails are rules around an LLM that restrict accepted inputs and outputs so
+      the application stays within expectations when users ask unexpected questions. The gateway's built-in
+      guardrails can inspect the inbound request before it reaches the model, or the outbound response
+      before it returns to the user. Custom guardrails let a team define its own validation or filtering
+      logic at the gateway layer for its domain or compliance needs.
+- id: q12
+  question: What distinguishes a champion from a challenger agent, and how does blue-green deployment
+    introduce the challenger without risking the production traffic?
+  language: en
+  doc_language: en
+  type: multi_passages
+  gold_element_ids:
+  - 2b3d899ecd
+  - f60d2898bb
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: multi_passages
+    reponse_attendue: The champion is the version currently serving users; the challenger is a new candidate
+      with improved prompts, model, retrieval or tools. In blue-green deployment the champion (blue) keeps
+      serving all traffic while the challenger (green) is deployed separately; once validated, traffic
+      switches to green, and it can be redirected back to blue if problems appear.
+- id: q13
+  question: How much memory does a CPU model serving endpoint allocate per worker by default?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - e1ab19bc3b
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: 4 GB per worker by default; the CPU_MEDIUM and CPU_LARGE workload types trade concurrency
+      for more memory on the same CPU hardware.
+- id: q14
+  question: What capacity options can be chosen for a Databricks Online Feature Store, and how much RAM
+    does one capacity unit represent?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - 479129f25b
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: CU_1, CU_2, CU_4 or CU_8, where each capacity unit is about 2 GB of RAM.
+- id: q15
+  question: Why is loading a model with mlflow.pyfunc.load_model() an unreliable way to debug a serving
+    problem, and what should be used instead?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - 1a0905f25b
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: Because it does not fully simulate the serving environment and may miss packaging
+      or dependency issues; mlflow.models.predict() is the more reliable approach.
+- id: q16
+  question: What is the embedding window of the Databricks GTE model compared with Databricks BGE Large?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - 4b1d79b83a
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: 8192 tokens for Databricks GTE against 512 for Databricks BGE Large.
+- id: q17
+  question: How do standard and storage-optimized AI Search endpoints differ in capacity and indexing
+    speed?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - ac504bce1c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: A standard endpoint holds about 320 million vectors at dimension 768; a storage-optimized
+      one holds over a billion at that dimension and indexes 10 to 20 times faster, at the cost of slightly
+      higher query latency and some differences in supported operations.
+- id: q18
+  question: Which Databricks-hosted foundation model endpoint generates the embeddings for the arXiv index?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - 347b2e3799
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: The databricks-gte-large-en model, passed as embedding_model_endpoint_name.
+- id: q19
+  question: What is meant by a 'spectrum of factuality' when detecting hallucinations in a RAG answer?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - 0f66b973ed
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: Generated text may be partially supported by the retrieved data rather than plainly
+      true or false, so factuality is a spectrum instead of a binary, which makes hallucinations harder
+      to detect.
+- id: q20
+  question: What response time do users expect from a production RAG system, and why does moving from
+    proof of concept to production make latency worse?
+  language: en
+  doc_language: en
+  type: simple
+  gold_element_ids:
+  - c9448cd9df
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: simple
+    reponse_attendue: Latency thresholds comparable to publicly available ChatGPT, often a few seconds.
+      Prototypes prioritise functionality over speed, and production data volumes are far larger than
+      in the proof of concept, so that growth in scale alone raises latency.
+- id: q21
+  question: What is the hourly price in USD of a CU_8 Databricks Online Feature Store in the eu-west-1
+    region?
+  language: en
+  doc_language: en
+  type: sans_reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+  _origine:
+    strate: sans_reponse
+    reponse_attendue: 'ABSTENTION. Le corpus decrit les unites de capacite et la facturation en DBU, jamais
+      un prix en dollars ni une region. Verifie : 0 porteur pour `usd`, 0 pour `eu-west` sur les 4367
+      chunks.'
+- id: q22
+  question: Which Kubernetes ingress controller does Databricks Model Serving use internally?
+  language: en
+  doc_language: en
+  type: sans_reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+  _origine:
+    strate: sans_reponse
+    reponse_attendue: 'ABSTENTION. Kubernetes n''apparait que comme option de calcul ; l''internes du
+      service gere n''est jamais decrit. Verifie : 0 porteur pour `ingress`, `nginx`, `istio`, `traefik`.'
+- id: q23
+  question: What F1-score did the arXiv Curator reference architecture achieve on its evaluation set?
+  language: en
+  doc_language: en
+  type: sans_reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+  _origine:
+    strate: sans_reponse
+    reponse_attendue: 'ABSTENTION. L''architecture de reference arXiv Curator est decrite en detail et
+      le F1 est cite comme metrique a suivre, mais aucune valeur mesuree n''est publiee. Verifie : 0 porteur
+      pour un F1 chiffre associe a arXiv.'
+- id: q24
+  question: How many pages does the Samsung TV user manual used in the RAG example contain?
+  language: en
+  doc_language: en
+  type: sans_reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+  _origine:
+    strate: sans_reponse
+    reponse_attendue: 'ABSTENTION. Le manuel Samsung est une illustration hypothetique d''un cas ou la
+      donnee manque ; aucun nombre de pages n''existe. Verifie : 0 porteur. Le plus proche voisin vectoriel
+      est precisement le passage qui le mentionne, ce qui fait de cette question le test d''abstention
+      le plus dur des quatre.'
+- id: q25
+  question: And which of the three needs an extra identifier in the request payload?
+  language: en
+  doc_language: en
+  type: de_suivi
+  gold_element_ids:
+  - 226bf58b6c
+  - 6b6f2e2892
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  chat_history:
+  - role: user
+    content: What are the three model serving scenarios on Databricks?
+  - role: assistant
+    content: Model Serving with all features in the payload, Feature Serving of precomputed predictions,
+      and Model Serving with feature lookup.
+  _origine:
+    strate: de_suivi
+    reponse_attendue: 'Model Serving with feature lookup: the Booking_ID must be supplied as an additional
+      input so the endpoint can fetch or compute the remaining features, while lead_time, arrival_month
+      and repeated are not provided.'
+- id: q26
+  question: And what does that fix cost you?
+  language: en
+  doc_language: en
+  type: de_suivi
+  gold_element_ids:
+  - 50a8d022fa
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  reviewed: true
+  chat_history:
+  - role: user
+    content: How do you stop a fixed-length chunk from cutting an explanation in half?
+  - role: assistant
+    content: 'Overlap is the usual fix: you carry some characters of overlap between consecutive chunks.'
+  _origine:
+    strate: de_suivi
+    reponse_attendue: 'Duplication: with 2048-character chunks and 200 characters of overlap, some content
+      is stored twice and the index grows.'
+- id: q27
+  question: Which of those can a domain expert write without any code?
+  language: en
+  doc_language: en
+  type: de_suivi
+  gold_element_ids:
+  - 24916266b2
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  chat_history:
+  - role: user
+    content: What kinds of LLM judges does MLflow offer?
+  - role: assistant
+    content: Built-in judges such as RelevanceToQuery, Safety and Correctness, plus custom judges built
+      with make_judge.
+  _origine:
+    strate: de_suivi
+    reponse_attendue: 'Guidelines judges: they let domain experts express rules in plain language, which
+      suits compliance, style or must-include content.'
+- id: q28
+  question: Which of them is about the prompt, and what single instruction does the book give as its example?
+  language: en
+  doc_language: en
+  type: de_suivi
+  gold_element_ids:
+  - 668e39f2f0
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  reviewed: true
+  chat_history:
+  - role: user
+    content: What are the reasons a production RAG pipeline returns low quality responses?
+  - role: assistant
+    content: 'Four are given: no relevant data, a weak retrieval pipeline, LLM hallucinations, and prompt
+      design.'
+  _origine:
+    strate: de_suivi
+    reponse_attendue: 'Reason 4, prompt design. The example instruction is: "If you don''t know the answer,
+      just say that you don''t know, don''t try to make up an answer".'
+- id: q29
+  question: How do I stop the assistant from wandering off when someone asks it something nobody planned
+    for?
+  language: en
+  doc_language: en
+  type: reformulee
+  gold_element_ids:
+  - be9026f5ba
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: reformulee
+    reponse_attendue: 'By adding guardrails: rules around the LLM, implemented as tools or agents, that
+      restrict accepted inputs and outputs so the application stays within expectations even on unexpected
+      questions, messy inputs, or deliberate pushes into unsafe territory.'
+    motif_de_la_reformulation: 'La question n''emploie ni `guardrail`, ni `restrict`, ni `unsafe` : elle
+      decrit le symptome en langue courante. Le recouvrement lexical avec le passage est reduit a `assistant`
+      et `ask`.'
+- id: q30
+  question: Pourquoi une recette de cuisine sert-elle a expliquer qu'un agent devrait pouvoir changer
+    d'infrastructure sans etre reecrit ?
+  language: fr
+  doc_language: en
+  type: reformulee
+  gold_element_ids:
+  - 3b6fb4e59a
+  - fbf9cbd029
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  reviewed: true
+  _origine:
+    strate: reformulee
+    reponse_attendue: 'Une recette est portable : on peut la cuisiner dans n''importe quel four, dans
+      n''importe quelle cuisine, parce que ce qu''il faut faire est separe de l''endroit ou on le fait.
+      Les cadres d''agents actuels ne separent pas les deux : definir un agent y revient a choisir aussi
+      le four et le garde-manger, ce qui produit un enfermement chez un fournisseur et impose de tout
+      reconstruire pour changer de cadre.'
+    motif_de_la_reformulation: 'Question FRANCAISE sur un document ANGLAIS : c''est la moitie survivante
+      de la mesure translinguistique, le corpus etant entierement anglais. Aucun mot de la question n''apparait
+      dans le passage.'
