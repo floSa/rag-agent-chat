@@ -90,9 +90,16 @@ class Settings(BaseSettings):
     )
     # Le cross-encoder doit parler les mêmes langues que l'embedder, sinon il
     # défait son travail. Le réglage multilingue est le BON — **97,6 % contre
-    # 95,1 % de rappel@10**, `mesuré` sur la campagne de référence du
-    # 8 septembre 2026 — mais pour une raison PLUS FAIBLE que celle qui était
-    # écrite ici, et le motif est corrigé le 8 septembre 2026.
+    # 95,1 % de rappel@10** — mais pour une raison PLUS FAIBLE que celle qui
+    # était écrite ici, et le motif est corrigé le 8 septembre 2026.
+    #
+    # CES DEUX CHIFFRES SONT CITÉS, PAS REMESURÉS ICI. Ils viennent de l'audit
+    # du 8 septembre 2026 ; site canonique
+    # `documentation/axes_amelioration.md` §4.31. Les rejouer demande la pile
+    # démarrée et une campagne complète, ce que ce lot n'a pas fait — et la
+    # distinction est écrite parce que reprendre un antécédent du dépôt sans le
+    # mesurer est la même faute que de l'inventer. Ce que ce lot a bien mesuré
+    # lui-même, c'est le MÉCANISME décrit juste en dessous.
     #
     # CE QUE CE SITE A AFFIRMÉ, ET QUI ÉTAIT UNE INFÉRENCE FAUSSE. Il portait
     # qu'un cross-encoder anglais sur une question française rendait « des

@@ -34,10 +34,16 @@ def _get_embedding_model() -> SentenceTransformer:
 # ─── Le garde du reranker, et pourquoi il SIGNALE au lieu de refuser ─────────
 #
 # LA PANNE. Le cross-encoder doit parler les mêmes langues que l'embedder, sinon
-# il défait son travail. `mesuré` par l'audit du 8 septembre 2026 : un reranker
-# ANGLAIS sur les **41 questions translingues sur 138** du jeu de référence —
-# soit **30 %** — coûte **−2,5 points de rappel@10** (97,6 % → 95,1 %). Rien ne
-# le disait : `rerank_model` avait TROIS usages et AUCUN contrôle.
+# il défait son travail. Un reranker ANGLAIS sur les **41 questions translingues
+# sur 138** du jeu de référence — soit **30 %** — coûte **−2,5 points de
+# rappel@10** (97,6 % → 95,1 %). Rien ne le disait : `rerank_model` avait TROIS
+# usages et AUCUN contrôle.
+#
+# CES CHIFFRES SONT CITÉS DE L'AUDIT DU 8 SEPTEMBRE 2026, site canonique
+# `documentation/axes_amelioration.md` §4.31, et NON remesurés par le lot qui
+# écrit ce garde : les rejouer demande la pile démarrée et une campagne
+# complète. Ce que ce lot a mesuré lui-même est le chevauchement de vocabulaire
+# ci-dessous, qui est ce qui décide de la FORME du garde.
 #
 # CE QU'ON NE PEUT PAS COPIER DU LOT 3, ET C'EST LA PREMIÈRE DÉCISION. Le
 # modèle d'embedding a une ESTAMPILLE : le pipeline inscrit `embedding_model`
