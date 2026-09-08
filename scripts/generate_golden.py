@@ -286,9 +286,13 @@ def part_de_code(texte: str) -> float:
 
 
 def demander_question(
-    passage: dict, langue_cible: str, host: str, model: str, timeout: float
+    passage: dict, langue_cible: str, host: str, model: str, timeout: float, graine: int
 ) -> dict | None:
-    """Fait écrire une question par le LLM, et vérifie qu'elle tient debout."""
+    """Fait écrire une question par le LLM, et vérifie qu'elle tient debout.
+
+    **LA GRAINE EST TRANSMISE À OLLAMA, ET ELLE NE L'ÉTAIT PAS.** Voir
+    `main` pour ce que cela change et ce que cela ne rattrape pas.
+    """
     prompt = PROMPT.format(
         passage=passage["texte"], langue_nom=_LANGUES.get(langue_cible, "français")
     )
@@ -298,7 +302,21 @@ def demander_question(
         "stream": False,
         "think": False,
         "format": "json",
-        "options": {"temperature": 0.4, "num_predict": 300, "num_ctx": 8192},
+        # `seed` TRANSMISE, et c'est une correction du 8 septembre 2026. Sans
+        # elle, `temperature: 0.4` rendait la génération non déterministe, donc
+        # le MOTIF DE REJET variait d'une exécution à l'autre, donc l'ensemble
+        # des ancrages retenus pouvait varier — voir `main`. `mesuré` sur
+        # `ollama-central`, `gemma4:e4b`, même prompt, trois paires d'appels :
+        #
+        #   sans `seed`     : deux appels -> deux textes DIFFÉRENTS
+        #   `seed: 42`      : deux appels -> textes IDENTIQUES
+        #   `seed: 43`      : différent de `seed: 42` — la graine mord
+        "options": {
+            "temperature": 0.4,
+            "num_predict": 300,
+            "num_ctx": 8192,
+            "seed": graine,
+        },
     }
     try:
         response = httpx.post(f"{host}/api/chat", json=payload, timeout=timeout)
@@ -358,6 +376,49 @@ def construire(passage: dict, genere: dict, langue_question: str, index: int) ->
 
 
 def main() -> int:
+    """Génère le jeu, et voici EXACTEMENT ce que `--seed` reproduit.
+
+    **LA GRAINE NE SUFFISAIT PAS, ET LA DOCUMENTATION LAISSAIT ENTENDRE LE
+    CONTRAIRE** — trouvaille N7 de l'audit du lot 5, corrigée le 8 septembre
+    2026. Le mécanisme, en trois faits :
+
+    1. la graine fixe le TIRAGE : `echantillonner(passages, int(count * 1.8),
+       seed)` rend toujours les mêmes candidats, dans le même ordre ;
+    2. mais les candidats sont consommés **dans l'ordre jusqu'à `count`
+       ACCEPTATIONS**, et ce qui est accepté dépend du LLM. Un rejet qui tombe
+       autrement **décale la suite des ancrages** : ce n'est pas la même liste
+       qu'on obtient, c'est une liste voisine ;
+    3. et le `hasard.random()` qui décide de la langue de la question est tiré
+       DANS cette boucle. Un rejet de plus ou de moins ne déplace donc pas
+       seulement les ancrages : il réaffecte les langues de tout ce qui suit.
+
+    `mesuré` par l'audit du lot 5 : deux exécutions à `--seed 42` ont rendu les
+    **mêmes ancrages** — même nombre de rejets, donc même découpe — mais **7
+    textes de question sur 16** différaient. *Reproductible en pratique, pas par
+    construction.*
+
+    **CE QUE LA CORRECTION FAIT.** La graine est désormais TRANSMISE à Ollama
+    (`options.seed`, voir `demander_question`). `mesuré` le 8 septembre 2026 sur
+    `ollama-central` / `gemma4:e4b` : sans graine, deux appels identiques rendent
+    deux textes différents ; avec `seed: 42`, deux appels rendent le même texte ;
+    avec `seed: 43`, un autre. Le motif de rejet devient donc déterministe, et la
+    reproductibilité passe de « en pratique » à « par construction ».
+
+    **CE QU'ELLE NE RATTRAPE PAS, ET IL FAUT LE DIRE TROIS FOIS.**
+
+    - La reproductibilité est relative au SERVEUR : même modèle, même version de
+      modèle, même version d'Ollama, même backend. Un `gemma4:e4b` reconstruit
+      ailleurs ne rend pas la même chose, et rien ici ne peut le garantir.
+    - **Le jeu VERSIONNÉ n'a PAS été produit avec cette graine transmise.**
+      `tests/fixtures/golden_qa_generated.yaml` date du 8 septembre 2026, d'avant
+      cette correction : relancer ce script à `--seed 42` produira un jeu
+      DIFFÉRENT de celui du dépôt. Le jeu versionné reste l'artefact de
+      référence, et `runs/2026-09-08-reference.json` s'apparie à lui — c'est
+      pourquoi ce lot n'a PAS régénéré le jeu.
+    - Elle ne rend pas le jeu comparable à un jeu produit sur un autre corpus :
+      c'est le travail de `evaluate.empreinte_des_ancrages`, pas celui de la
+      graine.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--count", type=int, default=120, help="Questions à générer")
     parser.add_argument("--chroma-host", default="127.0.0.1")
@@ -365,7 +426,14 @@ def main() -> int:
     parser.add_argument("--ollama", default="http://localhost:11434")
     parser.add_argument("--model", default="gemma4:e4b")
     parser.add_argument("--timeout", type=float, default=180.0)
-    parser.add_argument("--seed", type=int, default=42, help="Rend le tirage reproductible")
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Graine du tirage ET de la génération (transmise à Ollama) — voir le "
+             "docstring de `main` pour ce qu'elle reproduit et ce qu'elle ne "
+             "reproduit pas",
+    )
     parser.add_argument(
         "--out", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
     )
@@ -405,7 +473,9 @@ def main() -> int:
             if hasard.random() < _PART_TRANSLINGUISTIQUE
             else langue_doc
         )
-        genere = demander_question(passage, langue_question, args.ollama, args.model, args.timeout)
+        genere = demander_question(
+            passage, langue_question, args.ollama, args.model, args.timeout, args.seed
+        )
         if genere is None:
             rejets += 1
             continue

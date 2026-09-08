@@ -40,9 +40,44 @@ comparer, appariée, question par question.
 | arbre de travail | `/home/ubuntu/RAG/rag-agent-chat/.claude/worktrees/nifty-gates-28edab`, branche `claude/lot-5-jeu-et-campagne`, créée depuis `main` = `4eedb2a` — **pas** le clone principal |
 | agent | `rag-agent-api`, `GET /health` → HTTP **200**, `status: ok`, port **8011** de l'hôte |
 | ChromaDB | `rag_documents`, **4 367** chunks, **3 750** `element_id` distincts, estampille `paraphrase-multilingual-MiniLM-L12-v2` |
-| NebulaGraph | `rag_space`, **15 196** sommets, **15 173** arêtes `PARENT_OF`, **23** documents |
+| NebulaGraph | `rag_space`, **15 196** sommets, **15 173** arêtes `PARENT_OF`, **23** documents — le 15 196 est **reconstruit**, sa commande est juste en dessous |
 | corpus | **entièrement anglais** : **4 367 chunks sur 4 367** portent `language: en` |
 | modèle de génération | `gemma4:e4b` sur `ollama-central` |
+
+**LE 15 196 EST LE SEUL CHIFFRE DE CE DOCUMENT QUI AIT ÉTÉ PUBLIÉ SANS SA
+COMMANDE**, et le voici — trouvaille N6 de l'audit du lot 5, fermée le
+8 septembre 2026. `SHOW STATS` ne le rend pas : `mesuré`, la requête est refusée
+par « There is no any stats info to show, please execute `submit job stats'
+firstly! », et `SUBMIT JOB STATS` est un travail qui ÉCRIT — donc hors de portée
+d'une sonde de campagne. Compter par étiquette est également hors de portée :
+`SHOW TAG INDEXES` ne rend **qu'un** index, `doc_index` sur `Document.filename`,
+et les onze autres étiquettes refusent le `LOOKUP` par « There is no index to
+use at runtime » ; en créer un serait une écriture. Il reste une seule route
+rejouable, et elle est en lecture seule :
+
+```
+# les racines
+LOOKUP ON `Document` YIELD id(vertex) AS v | YIELD COUNT(*) AS n;          -> 23
+
+# leurs descendants DISTINCTS
+LOOKUP ON `Document` YIELD id(vertex) AS v
+  | GO 1 TO 30 STEPS FROM $-.v OVER PARENT_OF YIELD DISTINCT id($$) AS d
+  | YIELD COUNT(*) AS n;                                                -> 15173
+```
+
+`23 + 15 173 = 15 196`. `mesuré` de nouveau le 8 septembre 2026 contre
+`rag_space` en service, et les deux chiffres sont ceux du tableau ci-dessus.
+
+**Les deux réserves que cette route porte, et sans lesquelles la somme est un
+raisonnement et non une mesure.** *(a)* La somme suppose qu'aucun sommet ne vit
+hors de la descendance d'un `Document` : un sommet orphelin ne serait compté par
+aucune des deux requêtes, et le total serait sous-estimé sans qu'aucune ligne ne
+le dise. *(b)* Elle suppose que le graphe est une FORÊT, sans quoi additionner
+racines et descendants recompterait un sommet à deux parents. La seconde est
+mesurée ici plutôt que supposée : la même traversée **sans** `DISTINCT` rend
+**15 173** elle aussi, donc chaque arête `PARENT_OF` mène à un enfant distinct.
+La première ne l'est pas, et aucune requête disponible en lecture seule ne
+l'établit — c'est ce que ce chiffre coûte, et c'est écrit plutôt que tu.
 
 **Toutes les sondes de ce document sont en LECTURE SEULE**, et ce n'est pas une
 promesse : `scripts/verifier_les_ancrages.py` est gardée en lecture seule par

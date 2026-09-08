@@ -15,6 +15,7 @@ faux, à zéro de rappel. Site canonique du constat et de la décision qui en so
 `documentation/axes_amelioration.md`, §4.3.
 """
 
+import ast
 import importlib.util
 import pathlib
 import re
@@ -94,9 +95,11 @@ def test_les_jeux_sont_en_yaml_et_aucun_jeu_json_ne_subsiste(chemin: pathlib.Pat
     LE GARDE PORTE AUSSI SUR L'ABSENCE, et c'est ce qui lui a fait trouver
     `tests/fixtures/golden_qa.json` — un TROISIÈME jeu, 15 questions écrites à
     la main, que le cadrage du lot ne nommait pas et qui était le `--golden` par
-    DÉFAUT de `evaluate.py`. Ses quinze questions à réponse portaient **0**
+    DÉFAUT de `evaluate.py`. **13** d'entre elles étaient à réponse — les deux
+    autres, `Q-010` et `Q-011`, sont des abstentions — et portaient **0**
     `gold_element_ids` : toutes ses métriques de rappel valaient `None`, ce qui
-    se lit « sans objet » et non « cassé ». Il désignait en plus le corpus
+    se lit « sans objet » et non « cassé ». (« quinze questions à réponse » était
+    faux de deux, `mesuré` le 8 septembre 2026 : trouvaille N8.) Il désignait en plus le corpus
     disparu. Retiré par ce lot ; son remplaçant est le jeu du pipeline, qui est
     relu comme lui et annoté à l'élément contre le corpus en service.
     """
@@ -196,23 +199,89 @@ def test_la_reserve_du_jeu_de_30_voyage_avec_lui() -> None:
     assert "bruit" in reserve
 
 
-def test_l_empreinte_de_provenance_porte_son_pragma() -> None:
-    """L'empreinte de la source est une valeur de mapping : `detect-secrets` la voit.
+def test_l_empreinte_de_provenance_se_nomme_au_lieu_de_se_cacher() -> None:
+    """L'empreinte NOMME son algorithme, et c'est ce qui remplace le pragma.
 
-    `mesuré` le 8 septembre 2026, `detect-secrets-hook` v1.5.0 sur le fichier
-    produit : sans le pragma, `rc=1` et **une** détection — l'empreinte, ligne
-    26 ; avec, `rc=0`. Le pragma posé dans le SCRIPT ne suffit pas :
-    `yaml.safe_dump` n'écrit pas de commentaire, donc il reste dans le script.
-    C'est `adopter_le_jeu_du_pipeline.poser_le_pragma` qui l'émet, et ce test
-    rougit s'il cesse de le faire.
+    L'empreinte de la source est une valeur de mapping YAML : `detect-secrets`
+    la relève comme « Hex High Entropy String », son transformateur YAML rendant
+    les valeurs de mapping et pas les éléments de séquence — ce qui est aussi
+    pourquoi les 44 `gold_element_ids` du fichier, eux, ne sont jamais détectés.
+
+    `mesuré` le 8 septembre 2026, `detect-secrets-hook` v1.5.0, même valeur sous
+    trois formes :
+
+        source_sha256: 960e8b…0d03f                             -> rc=1
+        source_sha256: 960e8b…0d03f  # pragma: allowlist secret  -> rc=0
+        source_sha256: sha256:960e8b…0d03f                       -> rc=0
+
+    LA TROISIÈME FORME EST RETENUE, et la deuxième retirée : elle supprime le
+    pragma, le post-traitement `poser_le_pragma()` qui l'émettait — car
+    `yaml.safe_dump` n'écrit pas de commentaire — et le garde de ce
+    post-traitement. C'était déjà la technique de
+    `evaluate.empreinte_des_ancrages`, et ce script ne l'employait pas : deux
+    hachages, deux traitements, dans le même lot.
+
+    Un préfixe ne CACHE rien, contrairement à un pragma : il dit quel algorithme
+    a produit les 64 caractères. Un pragma dit « ignore cette ligne », ce qui
+    est exactement ce qu'on ne veut pas apprendre à un relecteur.
     """
     lignes = _PIPELINE.read_text(encoding="utf-8").splitlines()
     empreintes = [ligne for ligne in lignes if ligne.strip().startswith("source_sha256:")]
     assert len(empreintes) == 1, f"{len(empreintes)} ligne(s) d'empreinte, une attendue"
     ligne = empreintes[0]
-    assert "# pragma: allowlist secret" in ligne
-    valeur = ligne.split(":", 1)[1].split("#")[0].strip()
-    assert re.match(r"^[a-f0-9]{64}$", valeur), f"empreinte mal formée : {valeur!r}"
+    assert "pragma" not in ligne, (
+        "l'empreinte porte de nouveau un pragma : le préfixe `sha256:` le rend "
+        "inutile, et un pragma apprend à un relecteur à ignorer une ligne"
+    )
+    valeur = ligne.split(":", 1)[1].strip()
+    assert re.match(r"^sha256:[a-f0-9]{64}$", valeur), f"empreinte mal formée : {valeur!r}"
+
+
+def test_la_graine_est_transmise_au_generateur_de_texte() -> None:
+    """LA GRAINE NE SUFFIT PAS SI ELLE S'ARRÊTE AU TIRAGE — trouvaille N7.
+
+    `echantillonner(..., seed)` fixe les candidats ; mais ils sont consommés
+    dans l'ordre jusqu'à `count` ACCEPTATIONS, et le motif de rejet dépend du
+    LLM. Un rejet qui tombe autrement décale la suite des ancrages ET réaffecte
+    les langues, le tirage de langue vivant dans la même boucle. `mesuré` par
+    l'audit du lot 5 : deux exécutions à `--seed 42`, mêmes ancrages mais **7
+    textes de question sur 16** différents — `temperature: 0.4`, et **aucun**
+    `seed` transmis à Ollama.
+
+    Ce test rougit si la graine cesse d'atteindre la charge Ollama. Il ne
+    prouve pas le déterminisme du serveur, qui n'est pas un fait sur ce dépôt :
+    la mesure qui l'établit est citée au docstring de
+    `generate_golden.demander_question`.
+    """
+    source = (_RACINE / "scripts" / "generate_golden.py").read_text(encoding="utf-8")
+    arbre = ast.parse(source)
+    fonction = next(
+        noeud
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.FunctionDef) and noeud.name == "demander_question"
+    )
+    assert "graine" in [a.arg for a in fonction.args.args], (
+        "`demander_question` ne reçoit plus la graine : le tirage est reproductible "
+        "et la génération ne l'est pas, ce qui décale les ancrages"
+    )
+    # La graine doit atteindre `options`, pas seulement la signature : c'est la
+    # différence entre « le paramètre existe » et « le serveur le reçoit ».
+    options = next(
+        noeud
+        for noeud in ast.walk(fonction)
+        if isinstance(noeud, ast.Dict)
+        and any(
+            isinstance(cle, ast.Constant) and cle.value == "temperature"
+            for cle in noeud.keys
+        )
+    )
+    cles = [c.value for c in options.keys if isinstance(c, ast.Constant)]
+    assert "seed" in cles, f"`options` ne porte pas `seed` : {cles}"
+    valeur = options.values[cles.index("seed")]
+    assert isinstance(valeur, ast.Name) and valeur.id == "graine", (
+        "`options[\"seed\"]` n'est pas la graine reçue en paramètre : une constante "
+        "figée rendrait `--seed` décoratif"
+    )
 
 
 def test_le_jeu_du_pipeline_nomme_son_site_canonique() -> None:
