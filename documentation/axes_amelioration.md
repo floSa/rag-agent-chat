@@ -4547,7 +4547,7 @@ ce lot n'a pas touchés.
   **pas armé** dans `.pre-commit-config.yaml`, et l'y armer demande sa propre
   mesure sur `runs/`, `prompts/` et `tests/fixtures/` — décision déjà écrite
   dans ce fichier ;
-- **`RERANK_MODEL=cross-encoder/ms-marco-MiniLM-L6-v2` dans le même bloc `.env`
+- **une affectation `RERANK_MODEL=<le reranker anglais>` dans le même bloc `.env`
   de `documentation/llm_integration_plan.md`.** C'est une affectation copiable
   d'un reranker **anglais**, et le site canonique de `rerank_model` dit qu'un
   reranker anglais « défait le travail de l'embedder » — mesuré, étendue 0,0 % sur
