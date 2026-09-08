@@ -3922,7 +3922,7 @@ la plus complète que ce lot ait reçue.
 #### LA PORTE ÉTAIT ROUGE SUR LE RÉSULTAT DE LA FUSION — et c'est un GARDE qui l'a trouvé
 
 Verte sur la branche (562), verte sur `main`, **`rc=2` sur la fusion**.
-L'inventaire de `all-MiniLM-L6-v2` attendait **3** occurrences dans
+L'inventaire du **modèle anglais** attendait **3** occurrences dans
 `axes_amelioration.md` et en trouvait **5**.
 
 **Les deux de plus sont du pilote.** Ses §4.19 et §4.25 citent le nom du modèle
