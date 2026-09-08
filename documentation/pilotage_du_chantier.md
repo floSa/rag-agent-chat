@@ -241,7 +241,7 @@ anglaise → document français » a disparu.
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | ✅ **fusionné** `db05162` — livré (`Conv' 24`), audité (`Conv' 25`, 8 trouvailles dont 2 bloquantes), réparé (`Conv' 26`), **sa réparation auditée à son tour** (`Conv' 27`, 1 bloquante), réparée une seconde fois (`Conv' 28`). Fusion tranchée par le pilote après vérification des deux directions dangereuses du garde — §4.18. **Trois audits, trois trouvailles matérielles** |
 | **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | ✅ **fusionné** `c5f9a54` — livré (`Conv' 29`), audité (`Conv' 30`, 2 bloquantes), réparé (`Conv' 31`), réaudité (`Conv' 32`, 1 bloquante), réparé (`Conv' 33`), audité en **étroit** sur la couche async (`Conv' 34`, 1 bloquante), réparé (`Conv' 35`). **Quatre audits, quatre trouvailles bloquantes, aucune régression fonctionnelle** — §4.27. Fusion tranchée par le pilote sous le **critère amendé** du §4.18 |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
-| **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **livré** le 8 septembre 2026 (`Conv' 36`), **non fusionné, non poussé** — à auditer. Les deux jeux régénérés et prouvés contre les stores, la campagne de référence établie sur le chemin **hybride + reranking**, l'artefact rejouable posé, `runs/final.json` retiré comme cible. **Trois défauts trouvés hors cadrage**, dont le piège du `--compare` et un troisième jeu de questions. Compte rendu : [`campagnes/2026-09-08-campagne-de-reference.md`](campagnes/2026-09-08-campagne-de-reference.md) |
+| **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **fusionné** `744c2c8` — livré (`Conv' 36`), audité (`Conv' 37`, **zéro bloquante**, 8 non bloquantes). **La mesure de qualité du dépôt était morte ; elle vit, et en deux instruments.** Le lot a publié deux lectures **contre lui-même**, et l'audit les a renforcées — §4.30 |
 
 **Le rang 1 est un prérequis, pas un choix** : sans garde-fou, aucun commit de
 ce chantier n'est protégé, et l'agent qui ne tourne pas bloque toute mesure.
@@ -279,7 +279,22 @@ dépôt, pas dans la conversation.*
 
 | **36** | LOT-5 — régénérer le jeu doré, adopter les 30 questions du pipeline, établir la campagne de référence | livré le **8 septembre 2026**. Trois défauts trouvés hors cadrage, dont **le piège du `--compare`** — deux corpus sous une même numérotation de questions — et un **TROISIÈME** jeu de questions, `golden_qa.json`, qui était le `--golden` par défaut et dont les 15 questions à réponse portaient **0** ancrage. **A mesuré la porte ROUGE sur `main` = `4eedb2a`** : `rc=2`, 1 rouge / 561 passés — le cadrage annonçait `rc=0`, 562. §4.3 |
 
-**Prochain numéro libre : 37.**
+| **37** | AUDIT-5 — audit du lot 5 | **10 mutations reproduites**, 9 propres, campagne de contrôle rejouée **bit pour bit**. **ZÉRO bloquante**, 8 non bloquantes — §4.30. A corrigé **quatre** chiffres du pilote et **renforcé** les deux lectures que le lot publiait contre lui-même |
+
+**Prochain numéro libre : 38.**
+
+**Quatre lots sur cinq sont fusionnés, et les cinq exigences du contrat sont
+tenues.** Sept audits indépendants, sept trouvailles — dont **six bloquantes**, et
+le lot 5 est le **premier à passer son audit sans une seule**. Le pilote a été
+borné, corrigé ou renversé à chacun des sept.
+
+**La dette non bloquante est désormais l'essentiel de ce qui reste**, et deux
+lignes y sont urgentes : `N1` — `verifier_les_ancrages` sort en `1` là où son
+contrat promet `2`, écrit à quatre sites, sans aucun test sur ce chemin — et `N2`
+— *le réchauffement de l'index BM25 est raconté, ni fait ni gardé*, donc
+`make eval` sur une pile fraîche mesurera la première question contre un index
+froid. **Ce sont les deux seules trappes ouvertes pour la campagne suivante**, et
+ce lot vient de démontrer ce que coûte une trappe qu'on n'a pas fermée.
 
 **LA PORTE ÉTAIT ROUGE SUR `main`, ET AUCUNE CONVERSATION NE L'AVAIT VU.**
 `mesuré` par `Conv' 36` le 8 septembre 2026, sur `main` = `origin/main` =
