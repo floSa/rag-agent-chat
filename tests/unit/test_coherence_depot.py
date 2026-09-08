@@ -281,11 +281,52 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 # propriété la plus importante — c'est elle qui rend sa règle de maintenance
 # tenable.
 #
-# CE QU'IL N'ATTRAPE PAS, ET IL FAUT LE DIRE : une affectation construite par
-# morceaux (`"all-MiniLM" + "-L6-v2"`), ou passée par une variable
-# intermédiaire. Il attrape la façon dont l'instruction arrive vraiment —
-# quelqu'un recopie une ligne d'un document dans son `.env`. C'est exactement ce
-# qui est arrivé, et c'est encore dans le dépôt : `mesuré` le 8 septembre 2026
+# LA BORNE DE COUVERTURE, NOMMÉE FORME PAR FORME — ET C'EST LA CORRECTION DU
+# 8 SEPTEMBRE 2026. Ce bloc disait déjà ce qu'il n'attrape pas, mais seulement
+# pour DEUX formes exotiques, et il était MUET sur les formes ordinaires. Ce
+# n'était donc pas une phrase fausse : c'était une phrase muette sur sa
+# couverture, et la règle de ce chantier est *soit bornée, soit gardée par un
+# test*. Les deux, ici.
+#
+# ATTRAPÉES, et chacune est éprouvée dans les deux directions par
+# `TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections` :
+#
+#   `NOM=valeur`, `NOM = "valeur"`, `NOM: valeur` (YAML),
+#   `"NOM": "valeur"` (JSON), `NOM: str = "valeur"` (pydantic nu),
+#   `ENV NOM=valeur` (Dockerfile, l'idiome réel de ce dépôt),
+#   `SentenceTransformer("valeur")` et `CrossEncoder("valeur")`,
+#   `NOM: str = Field(default="valeur")` — sur une ligne ou deux,
+#   `os.environ["NOM"] = "valeur"`,
+#   `setenv`/`putenv`/`setdefault("NOM", "valeur")`,
+#   `ENV NOM valeur` (forme espacée, héritée).
+#
+# NON ATTRAPÉES, ET LA LISTE EST AUSSI UTILE QUE L'AUTRE :
+#
+# - une affectation construite par MORCEAUX, ou passée par une variable
+#   intermédiaire. Personne ne recopie une instruction sous cette forme ;
+# - un drapeau de ligne de commande — `--un-modele valeur`. **Écarté par
+#   choix, et le motif est mesuré** : ce dépôt n'a AUCUN drapeau de ce genre
+#   pour ses deux modèles (`vérifié` le 8 septembre 2026 : les deux
+#   `add_argument("--model")` de `scripts/` visent le LLM). Le motif serait donc
+#   spéculatif, et il devrait accepter une valeur NUE — c'est-à-dire pouvoir
+#   rougir au milieu d'une phrase, sur une ligne de commande citée entre accents
+#   graves dans un document. Un garde spéculatif qui peut rougir sur un récit est
+#   exactement le troc que la règle de ce fichier refuse. À reprendre le jour où
+#   un tel drapeau existe, et pas avant ;
+# - une valeur entre ACCENTS GRAVES. Ce n'est pas un trou, c'est la propriété
+#   qui rend la règle de maintenance tenable — voir le paragraphe ci-dessus ;
+# - la MENTION du nom hors de toute affectation, qui est le métier de l'autre
+#   instrument, le fil d'occurrences.
+#
+# CE QUE « AUCUNE EXEMPTION » VEUT DIRE, PARCE QUE LA PHRASE A ÉTÉ LUE POUR PLUS
+# QU'ELLE NE DIT. Elle porte sur l'absence de LISTE D'AUTORISATION — il n'y a
+# rien à inscrire pour desserrer ce garde, contrairement au fil d'occurrences et
+# à sa table de comptes. Elle n'a jamais prétendu attraper toutes les formes, et
+# la liste ci-dessus est désormais l'endroit où cette question se lit.
+#
+# Ce garde attrape la façon dont l'instruction arrive vraiment — quelqu'un
+# recopie une ligne d'un document dans son `.env` ou dans son `settings.py`.
+# C'est exactement ce qui est arrivé, et c'est encore dans le dépôt : `mesuré` le 8 septembre 2026
 # sur `main` = `c5028d6`, **une** affectation, à
 # `documentation/llm_integration_plan.md`, dans un bloc `.env` — le fichier dont
 # le bandeau de tête nomme cet écart comme le plus dangereux qu'il porte, et que
@@ -324,6 +365,10 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
         # `NOM: str = "valeur"`. Le groupe facultatif absorbe une annotation de
         # type ou la fermeture d'une clé JSON ; il exclut `=` pour ne jamais
         # sauter par-dessus l'opérateur qu'on cherche.
+        #
+        # CETTE FORME COUVRE DÉJÀ `ENV NOM=valeur`, l'idiome réel des deux
+        # Dockerfiles de ce dépôt — `vérifié` le 8 septembre 2026. C'est la
+        # forme ESPACÉE, sans `=`, qui échappait, et elle est reprise plus bas.
         re.compile(
             rf'{re.escape(nom)}["\']?\s*(?::[^=\n]{{0,40}})?\s*[:=]\s*["\']?\s*{valeur}'
         )
@@ -333,6 +378,53 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
         re.compile(rf'{re.escape(appel)}\s*\(\s*["\']{valeur}')
         for appel in _CONSTRUCTEURS_DE_MODELE
     )
+    for nom in noms:
+        n = re.escape(nom)
+        motifs.extend(
+            (
+                # `NOM: str = Field(default="valeur")`, ET C'EST L'IDIOME PAR
+                # LEQUEL `settings.py` DÉCLARE SES DEUX MODÈLES. Le motif
+                # `NOM: str = "valeur"` ci-dessus ne le voit pas : entre
+                # l'opérateur et la valeur il y a `Field(`, et le groupe
+                # d'annotation exclut `=`.
+                #
+                # `re.S` et non un motif à une ligne : `settings.py` écrit
+                # réellement ses deux champs sur DEUX lignes, le `default`
+                # passant à la ligne suivante. Un motif qui exigerait une seule
+                # ligne manquerait le site réel — c'est-à-dire tout ce qui
+                # compte. La borne de 200 caractères tient le motif près de son
+                # `Field(` sans jamais franchir une parenthèse fermante.
+                re.compile(
+                    rf'{n}\s*(?::[^=\n]{{0,40}})?\s*=\s*Field\s*\('
+                    rf'[^)]{{0,200}}?default\s*=\s*["\']{valeur}',
+                    re.S,
+                ),
+                # `os.environ["NOM"] = "valeur"`. Contourne `.env` ET
+                # `settings.py` sans laisser de trace dans l'un ni l'autre : le
+                # réglage est lu par alias au démarrage, donc une écriture dans
+                # l'environnement du processus le décide aussi sûrement qu'un
+                # fichier. Le motif ne nomme pas `os.environ` : n'importe quelle
+                # indexation par le nom du réglage, suivie d'une affectation,
+                # est la même instruction.
+                re.compile(rf'\[\s*["\']{n}["\']\s*\]\s*=\s*["\']{valeur}'),
+                # `monkeypatch.setenv("NOM", "valeur")`, `os.putenv`,
+                # `environ.setdefault`. Ce dépôt utilise DÉJÀ `setenv`
+                # (`test_installation_des_garde_fous.py`), donc la forme est
+                # relevée et non inventée — et un test qui poserait le mauvais
+                # modèle par là serait un réglage en vigueur pendant tout le
+                # test, invisible aux deux fichiers de configuration.
+                re.compile(
+                    rf'(?:setenv|putenv|setdefault)\s*\(\s*["\']{n}["\']\s*,'
+                    rf'\s*["\']{valeur}'
+                ),
+                # `ENV NOM valeur`, la forme HÉRITÉE de Dockerfile, sans `=`.
+                # Ancrée en début de ligne, parce que c'est là que vit une
+                # directive Dockerfile : sans cet ancrage, le motif accepte une
+                # valeur NUE et deviendrait le premier de ce fichier à pouvoir
+                # rougir au milieu d'une phrase.
+                re.compile(rf'^\s*ENV\s+{n}\s+["\']?{valeur}', re.M),
+            )
+        )
     return motifs
 
 
@@ -357,6 +449,16 @@ def test_aucune_affectation_du_modele_anglais_ne_vit_dans_le_depot() -> None:
     autoriser, parce qu'aucun document de ce dépôt n'a besoin d'AFFECTER le
     modèle anglais pour raconter quoi que ce soit. La correction est toujours la
     même — la périphrase.
+
+    **CETTE PHRASE PORTE SUR L'ABSENCE DE LISTE D'AUTORISATION, ET SUR RIEN
+    D'AUTRE.** Elle ne dit pas que toutes les formes d'affectation sont
+    attrapées, et le lot du 8 septembre 2026 a mesuré qu'elles ne l'étaient pas :
+    `Field(default=…)` — l'idiome par lequel `settings.py` déclare ses deux
+    modèles — échappait, ainsi qu'une écriture dans `os.environ`. La couverture
+    est donc désormais BORNÉE FORME PAR FORME, dans le bloc de commentaire au-
+    dessus de ce test, et chaque forme y est éprouvée dans les deux directions.
+    Lire ce garde comme « rien ne passe » est l'erreur que la borne existe pour
+    empêcher.
     """
     noms = _noms_du_reglage_d_embedding()
     trouves: dict[str, list[str]] = {}
@@ -404,6 +506,79 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         )
         for forme in formes:
             assert self._affectations(forme), f"forme non attrapée : {forme!r}"
+
+    def test_les_formes_qui_echappaient_au_garde_le_font_rougir(self) -> None:
+        """LES QUATRE FORMES AJOUTÉES LE 8 SEPTEMBRE 2026, ET POURQUOI CELLES-LÀ.
+
+        `mesuré` ce jour-là en appelant `_affectations_dans` directement : le
+        garde ne voyait **ni** `Field(default="…")` — *l'idiome par lequel
+        `settings.py` déclare ses deux modèles* — **ni** une écriture dans
+        `os.environ`. L'étiquetage était donc INVERSÉ pour la modification la
+        plus probable de toutes : changer le `default` d'un modèle dans
+        `settings.py` ne faisait rougir que le fil d'occurrences, que le §4.28
+        vient de rétrograder au rang de détecteur de dérive, et pas le garde de
+        sûreté.
+
+        Chaque forme est plantée sur DEUX lignes de front : celle du modèle
+        d'embedding et celle du reranker. Les deux réglages se déclarent par le
+        même idiome, et un garde qui n'attraperait `Field(default=…)` que pour
+        l'un serait à moitié écrit.
+        """
+        formes = (
+            # L'IDIOME DE `settings.py`, sur une ligne puis sur deux — pydantic
+            # accepte les deux, et `settings.py` utilise RÉELLEMENT la forme sur
+            # deux lignes pour ses deux modèles. Un motif qui n'admettrait pas le
+            # retour à la ligne manquerait le site réel.
+            f'embedding_model_name: str = Field(default="{_MODELE_ANGLAIS}", '
+            'alias="EMBEDDING_MODEL_NAME")',
+            f'    embedding_model_name: str = Field(\n        '
+            f'default="{_MODELE_ANGLAIS}", alias="EMBEDDING_MODEL_NAME"\n    )',
+            # `default` APRÈS un autre argument : l'ordre des mots-clés est libre.
+            f'embedding_model_name: str = Field(alias="EMBEDDING_MODEL_NAME", '
+            f'default="{_MODELE_ANGLAIS}")',
+            # L'écriture dans l'environnement du processus, qui contourne
+            # `.env` ET `settings.py` sans laisser de trace dans aucun des deux.
+            f'os.environ["EMBEDDING_MODEL_NAME"] = "{_MODELE_ANGLAIS}"',
+            f"os.environ['EMBEDDING_MODEL_NAME'] = '{_MODELE_ANGLAIS}'",
+            # La même chose sous le nom que pytest lui donne. Ce dépôt s'en sert
+            # déjà (`test_installation_des_garde_fous.py`), donc la forme est
+            # réelle et non inventée.
+            f'monkeypatch.setenv("EMBEDDING_MODEL_NAME", "{_MODELE_ANGLAIS}")',
+            # La forme ESPACÉE de Dockerfile. `ENV NOM=v` — l'idiome réel des
+            # deux Dockerfiles de ce dépôt — était DÉJÀ attrapé par le motif
+            # `NOM=valeur` ; `vérifié` le 8 septembre 2026. Seule la forme
+            # héritée, sans `=`, échappait.
+            f"ENV EMBEDDING_MODEL_NAME {_MODELE_ANGLAIS}",
+        )
+        for forme in formes:
+            assert self._affectations(forme), f"forme non attrapée : {forme!r}"
+
+    def test_le_recit_de_ces_formes_reste_vert(self) -> None:
+        """LA SECONDE DIRECTION, ET C'EST ELLE QUI BORNE L'ÉLARGISSEMENT.
+
+        Élargir un garde est facile ; l'élargir sans le transformer en fil
+        d'occurrences est le travail. Chaque récit ci-dessous NOMME l'une des
+        formes ajoutées au-dessus et doit rester vert : ce sont les phrases
+        qu'un rapport de lot écrit forcément pour raconter cette correction —
+        y compris celui-ci.
+
+        La propriété qui les protège est celle que le commentaire de tête
+        énonce : les délimiteurs admis sont `"` et `'`, jamais l'accent grave.
+        Une paire d'accents graves est de la mise en page Markdown.
+        """
+        recits = (
+            f"le `default` du champ vaut `{_MODELE_ANGLAIS}`, et c'est l'idiome",
+            f"un `Field(default=…)` posé sur `{_MODELE_ANGLAIS}` échappait au garde",
+            f"un `os.environ` forcé sur `{_MODELE_ANGLAIS}` contourne les deux",
+            f"`monkeypatch.setenv` sur `{_MODELE_ANGLAIS}` ne laissait aucune trace",
+            f"un `ENV` de Dockerfile portant `{_MODELE_ANGLAIS}` en valeur espacée",
+            f"| `Field(default=…)` | `{_MODELE_ANGLAIS}` | **NON vue** |",
+        )
+        for recit in recits:
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r} — l'élargissement vient de "
+                "reconstruire l'inventaire d'occurrences sous un autre nom"
+            )
 
     def test_un_recit_qui_nomme_le_modele_le_laisse_vert(self) -> None:
         """LES QUATORZE RÉCITS DU DÉPÔT, ET C'EST LA DIRECTION DÉCISIVE.
@@ -474,10 +649,38 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         """« Au moins ce que balaie l'autre », et le périmètre est MESURÉ.
 
         Les deux gardes partagent `_fichiers_suivis()`, donc l'égalité est
-        structurelle et non une coïncidence à surveiller. Le compte est relevé
-        ici pour qu'un rétrécissement se voie : `mesuré` le 8 septembre 2026,
-        **123** fichiers suivis, dont **123** lisibles — aucun angle mort, et le
-        même ensemble exactement pour les deux instruments.
+        structurelle et non une coïncidence à surveiller. `mesuré` le
+        8 septembre 2026 : **124** fichiers suivis, dont **124** lisibles —
+        aucun angle mort, et le même ensemble exactement pour les deux
+        instruments. Répartition du même relevé : 53 `tests/`, 18 `src/`,
+        14 `documentation/`, 13 `runs/`, 12 à la racine, 9 `scripts/`,
+        4 `prompts/`, 1 `.github/`.
+
+        **CE CHIFFRE ÉTAIT PÉRIMÉ D'UN — il portait 123 — et son garde ne le
+        voyait pas**, puisqu'il n'assertait que `>= 100`. C'est la famille de
+        défaut de ce fichier retournée contre lui : une mesure recopiée dans un
+        docstring, que rien ne force à rester vraie.
+
+        **DÉCISION : LE COMPTE EXACT N'EST PAS ASSERTÉ, ET LE MOTIF EST ÉCRIT.**
+        Un `== 124` rougirait à chaque fichier ajouté — l'événement le plus
+        banal de ce dépôt — et il enseignerait le geste « monter le chiffre »,
+        que ce fichier passe son temps à désapprendre ailleurs. Le rouge serait
+        de plus INUTILE : un fichier ajouté ne rétrécit aucun périmètre, et
+        c'est le rétrécissement qui est le risque.
+
+        **CE QUI EST ASSERTÉ À LA PLACE, ET C'EST PLUS FORT QU'UN COMPTE.** Le
+        défaut réel, celui qui est arrivé, était un balayage NARROW : il ne
+        regardait que `documentation/*.md` **non récursif** plus `README.md`, et
+        laissait dehors `src/`, `scripts/`, `tests/`, `.env.example` et
+        `documentation/audits/`. Un compte exact ne l'aurait pas vu — un
+        balayage narrow rend un compte, et il suffisait de l'écrire. Ce qui le
+        voit est la FORME du périmètre : chaque zone porteuse de risque y est
+        représentée, et la récursion y est éprouvée. Cette assertion ne rougit
+        jamais sur un ajout, ne se périme pas avec la croissance du dépôt, et
+        vise exactement la panne qui a eu lieu.
+
+        Le plancher est conservé pour le cas grossier — un `git ls-files` qui
+        rendrait presque rien — mais il ne porte plus la charge.
         """
         suivis = _fichiers_suivis()
         lisibles = [nom for nom in suivis if (_RACINE / nom).is_file()]
@@ -485,6 +688,49 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         assert lisibles == suivis, (
             "des chemins suivis ne sont pas des fichiers lisibles : les deux "
             f"gardes ne balaient plus le même ensemble — {set(suivis) - set(lisibles)}"
+        )
+
+        # LA FORME DU PÉRIMÈTRE. Chaque zone d'où une instruction peut être
+        # copiée doit être représentée ; c'est ce qu'un balayage narrow perd, et
+        # un compte ne le dit pas.
+        zones = {nom.split("/")[0] if "/" in nom else "(racine)" for nom in suivis}
+        attendues = {
+            "src",
+            "tests",
+            "scripts",
+            "documentation",
+            "prompts",
+            "(racine)",
+        }
+        assert attendues <= zones, (
+            f"le périmètre ne couvre plus {attendues - zones} : `_fichiers_suivis()` "
+            "est redevenu un balayage étroit, et c'est EXACTEMENT le défaut que son "
+            "docstring raconte — un inventaire avec un angle mort autorise "
+            "n'importe quoi dans cet angle"
+        )
+        # ET LA RÉCURSION **DANS `documentation/`**, parce que le défaut d'origine
+        # était `documentation/*.md` NON RÉCURSIF. Le sous-répertoire est nommé
+        # explicitement, et voici pourquoi : une première version de cette
+        # assertion demandait « un fichier suivi à deux niveaux de profondeur »,
+        # n'importe lequel. Elle était DÉCORATIVE — `tests/unit/…` la satisfait
+        # à lui seul, quoi qu'il arrive à `documentation/`. `mesuré` le
+        # 8 septembre 2026 par la mutation qui retire `documentation/audits/` et
+        # `documentation/campagnes/` du balayage : **122 fichiers sur 124**, le
+        # plancher `>= 100` aveugle, et cette assertion-là VERTE. Elle est
+        # désormais portée sur la zone où le défaut a réellement vécu.
+        recursifs = [nom for nom in suivis if nom.startswith("documentation/")]
+        assert any(nom.count("/") >= 2 for nom in recursifs), (
+            "aucun fichier de `documentation/` ne vit dans un sous-répertoire : le "
+            "balayage a perdu sa récursion, et `documentation/audits/` comme "
+            "`documentation/campagnes/` sont hors de portée des deux gardes — "
+            "c'est le défaut d'origine de `_fichiers_suivis()`, à l'identique"
+        )
+        # `.env.example` nommément : c'est le fichier que la trouvaille d'origine
+        # désignait — « une ligne de `.env` d'apparence exécutable » — et le seul
+        # de la racine dont le métier est de porter des affectations.
+        assert ".env.example" in suivis, (
+            "`.env.example` est sorti du périmètre : c'est le fichier même que la "
+            "trouvaille d'origine de ce garde désignait"
         )
 
 

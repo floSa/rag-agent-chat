@@ -31,10 +31,182 @@ def _get_embedding_model() -> SentenceTransformer:
     return model
 
 
+# ─── Le garde du reranker, et pourquoi il SIGNALE au lieu de refuser ─────────
+#
+# LA PANNE. Le cross-encoder doit parler les mêmes langues que l'embedder, sinon
+# il défait son travail. `mesuré` par l'audit du 8 septembre 2026 : un reranker
+# ANGLAIS sur les **41 questions translingues sur 138** du jeu de référence —
+# soit **30 %** — coûte **−2,5 points de rappel@10** (97,6 % → 95,1 %). Rien ne
+# le disait : `rerank_model` avait TROIS usages et AUCUN contrôle.
+#
+# CE QU'ON NE PEUT PAS COPIER DU LOT 3, ET C'EST LA PREMIÈRE DÉCISION. Le
+# modèle d'embedding a une ESTAMPILLE : le pipeline inscrit `embedding_model`
+# dans les métadonnées de la collection, et `verifier_modele_embedding()`
+# confronte le réglage à elle — une comparaison de noms, EXACTE. Le reranker n'a
+# aucune estampille et n'en aura jamais : il ne produit **rien de persistant**,
+# donc rien ne peut dire quel reranker « a produit » quoi. Il n'y a pas de fait
+# extérieur auquel confronter le réglage.
+#
+# CONTRE QUOI ON CONFRONTE DONC : une PROPRIÉTÉ DU MODÈLE LUI-MÊME, la taille de
+# son vocabulaire, doublée d'un registre des modèles réellement mesurés sur ce
+# corpus.
+#
+# ET LA MESURE QUI BORNE CETTE PROPRIÉTÉ, parce qu'elle interdit d'en faire un
+# classifieur. `mesuré` le 8 septembre 2026 par lecture des seuls `config.json`
+# (60 Ko, aucun poids téléchargé) :
+#
+#     modèle                       type            vocab_size
+#     ms-marco (anglais)           bert                30 522
+#     RoBERTa (anglais)            roberta             50 265
+#     mBERT (MULTILINGUE)          bert               119 547
+#     DeBERTa-v3 (ANGLAIS)         deberta-v2         128 100
+#     le multilingue en service    xlm-roberta        250 002
+#
+# **Les deux classes SE CHEVAUCHENT** : mBERT, multilingue, a un vocabulaire
+# PLUS PETIT que DeBERTa-v3, anglais. Aucun seuil ne les sépare donc en général,
+# et ce garde ne prétend pas le faire. Le plancher ci-dessous discrimine les
+# FAMILLES EN JEU pour un reranker — les cross-encoders anglais usuels sont
+# bâtis sur BERT/MiniLM et plafonnent vers 30 000 — et pas le concept
+# « multilingue ». C'est un INDICE, jamais un verdict.
+#
+# **ET C'EST CE CHEVAUCHEMENT QUI TRANCHE LA SECONDE DÉCISION.** On SIGNALE, on
+# ne refuse pas, et pour deux raisons qui se cumulent :
+#
+# - *la proportion*. Le lot 3 refuse en 503 parce qu'un embedding qui ne
+#   correspond pas rend des passages PLAUSIBLES ET FAUX : l'index est
+#   inexploitable, et ne rien servir vaut mieux que servir faux. Un reranker
+#   anglais ne rend pas des passages faux — il en rend MOINS DE BONS, à
+#   −2,5 points. Refuser ferait passer la disponibilité de 100 % à 0 % pour
+#   épargner 2,5 points de rappel : l'utilisateur n'aurait plus une réponse un
+#   peu moins bien classée, il n'en aurait AUCUNE. C'est pire sur tous les axes ;
+# - *la nature de la preuve*. Le lot 3 compare deux noms à une estampille : le
+#   refus s'appuie sur un fait. Ici la propriété est un indice dont le
+#   chevauchement mesuré ci-dessus prouve qu'il se trompe dans les deux sens. Un
+#   503 sur un indice est un garde qu'on arrache au premier faux positif — et le
+#   503 du lot 3, lui, a déjà coûté trois réparations et quatre bloquantes en
+#   s'appuyant sur un fait EXACT.
+#
+# CE QUE CE GARDE NE COUVRE PAS, et la liste est le prix des deux décisions :
+#
+# - un modèle anglais à GROS vocabulaire passe en silence — DeBERTa-v3 (128 100)
+#   est au-dessus du plancher. Faux vert assumé : un faux vert laisse l'état
+#   d'aujourd'hui, un faux rouge sur le modèle en service apprendrait à
+#   l'exploitant à ignorer le journal ;
+# - il ne dit rien de la QUALITÉ du reranker, seulement de sa famille
+#   linguistique. Un multilingue mauvais passe ;
+# - il ne peut pas savoir dans quelle LANGUE sont les questions réellement
+#   posées. Les −2,5 points valent pour ce jeu de référence et ses 30 % de
+#   translingue, pas pour un usage tout-français ;
+# - il parle au JOURNAL, une fois par processus. Il ne dégrade pas `/health` et
+#   ne rejaillit pas dans la réponse ; ce qui reste ouvert est consigné dans le
+#   rapport du lot.
+
+# Les rerankers MESURÉS sur ce corpus et trouvés adéquats. Le registre ne porte
+# QUE des modèles retenus : y inscrire un modèle écarté serait écrire son nom en
+# clair dans un dépôt PUBLIC, et le plancher de vocabulaire suffit à le voir.
+_RERANKERS_MESURES: dict[str, str] = {
+    "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1": (
+        "97,6 % de rappel@10 sur la campagne de référence du 8 septembre 2026"
+    ),
+}
+
+# Le plancher, et il est MESURÉ, non choisi : il laisse 19,5 % de marge sous
+# mBERT (119 547), le plus petit vocabulaire multilingue relevé, et il est plus
+# de trois fois au-dessus des cross-encoders anglais usuels (30 522).
+_VOCABULAIRE_MULTILINGUE_PLANCHER = 100_000
+
+
+def verdict_langue_du_reranker(
+    nom: str, vocabulaire: int | None
+) -> tuple[str, str] | None:
+    """Ce qu'il y a à dire du reranker configuré. `None` s'il n'y a rien à dire.
+
+    Rend `(niveau, message)`, le niveau étant celui du journal — et les DEUX
+    niveaux sont nécessaires, parce que les deux faits sont différents. C'est la
+    même discipline que `etat_index_lexical` : « je ne sais pas » ne se replie ni
+    sur « c'est bon » ni sur « c'est cassé ».
+
+    - un modèle du registre : rien à dire, il a été mesuré ;
+    - un vocabulaire sous le plancher : `warning`. C'est le défaut que ce garde
+      existe pour rendre bruyant ;
+    - un vocabulaire illisible : `warning` aussi, parce qu'on ne peut pas
+      ÉCARTER le cas précédent. Le silence est le seul choix interdit ici ;
+    - un modèle hors registre au vocabulaire ample : `info`. Ce n'est pas un
+      défaut, c'est une absence de mesure, et l'annoncer comme un défaut
+      apprendrait à ignorer le journal.
+
+    Fonction PURE, et c'est délibéré : elle ne charge aucun modèle et ne lit
+    aucun réglage, donc ses quatre branches s'éprouvent sans réseau et sans
+    poids. L'extraction de la propriété vit chez l'appelant, où elle est
+    défensive.
+    """
+    if nom in _RERANKERS_MESURES:
+        return None
+    if vocabulaire is None:
+        return (
+            "warning",
+            f"Reranker '{nom}' : impossible de lire la taille de son vocabulaire, "
+            f"donc impossible d'écarter qu'il soit monolingue. Un reranker anglais "
+            f"coûte 2,5 points de rappel@10 sur les 30 % de questions translingues "
+            f"du jeu de référence, en silence. Registre des modèles mesurés : "
+            f"{sorted(_RERANKERS_MESURES)}.",
+        )
+    if vocabulaire < _VOCABULAIRE_MULTILINGUE_PLANCHER:
+        return (
+            "warning",
+            f"Reranker '{nom}' : vocabulaire de {vocabulaire} entrées, sous le "
+            f"plancher de {_VOCABULAIRE_MULTILINGUE_PLANCHER} — c'est la signature "
+            f"d'un cross-encoder MONOLINGUE. L'embedder de ce projet est "
+            f"multilingue, et un reranker anglais défait son travail : "
+            f"2,5 points de rappel@10 de moins sur les 30 % de questions "
+            f"translingues du jeu de référence, sans aucune erreur visible. "
+            f"Réparation : RERANK_MODEL sur un modèle du registre "
+            f"{sorted(_RERANKERS_MESURES)}, ou mesurer celui-ci par "
+            f"`make eval` avant de le garder.",
+        )
+    return (
+        "info",
+        f"Reranker '{nom}' : vocabulaire de {vocabulaire} entrées, compatible avec "
+        f"un modèle multilingue, mais ce modèle n'a PAS été mesuré sur ce corpus. "
+        f"Ce n'est pas un défaut, c'est une absence de mesure — le rappel@10 de ce "
+        f"réglage est inconnu. Modèles mesurés : {sorted(_RERANKERS_MESURES)}.",
+    )
+
+
+def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
+    """La taille du vocabulaire du modèle CHARGÉ, `None` si elle est illisible.
+
+    Lue sur l'objet déjà en mémoire : aucun aller-retour réseau, aucune seconde
+    lecture de `config.json`. `CrossEncoder.config` est un attribut de la
+    bibliothèque (sentence-transformers 5.6.1) et non un contrat public ; la
+    lecture est donc défensive, et son échec rend `None` — que
+    `verdict_langue_du_reranker` traite comme un `warning`, jamais comme un
+    silence. Une montée de version qui déplacerait l'attribut rendrait ce garde
+    bavard, pas muet, et c'est le bon sens de l'erreur.
+    """
+    try:
+        taille = getattr(getattr(model, "config", None), "vocab_size", None)
+        return int(taille) if taille is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 @lru_cache(maxsize=1)
 def _get_rerank_model() -> CrossEncoder:
     logger.info("Chargement du modèle de reranking : %s", settings.rerank_model)
     model: CrossEncoder = CrossEncoder(settings.rerank_model)
+    # APRÈS le chargement, et c'est l'inverse du lot 3 — délibérément. Là-bas le
+    # garde passe AVANT, parce qu'il REFUSE et qu'il ne faut pas payer le
+    # téléchargement d'un modèle qu'on va rejeter. Ici on signale et on se sert
+    # du modèle de toute façon : le charger d'abord donne accès à sa propriété
+    # sans aucune lecture supplémentaire. Une fois par processus, `lru_cache`
+    # s'en assurant — c'est la bonne cadence pour un fait de configuration.
+    verdict = verdict_langue_du_reranker(
+        settings.rerank_model, _vocabulaire_du_reranker(model)
+    )
+    if verdict is not None:
+        niveau, message = verdict
+        logger.log(logging.WARNING if niveau == "warning" else logging.INFO, message)
     return model
 
 

@@ -89,9 +89,34 @@ class Settings(BaseSettings):
         default="paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME"
     )
     # Le cross-encoder doit parler les mêmes langues que l'embedder, sinon il
-    # défait son travail : mesuré sur une question française, ms-marco (anglais)
-    # rendait des scores plats — étendue 0,0 % sur 20 candidats, soit un
-    # classement au hasard. Son équivalent multilingue sépare à 75 %.
+    # défait son travail. Le réglage multilingue est le BON — **97,6 % contre
+    # 95,1 % de rappel@10**, `mesuré` sur la campagne de référence du
+    # 8 septembre 2026 — mais pour une raison PLUS FAIBLE que celle qui était
+    # écrite ici, et le motif est corrigé le 8 septembre 2026.
+    #
+    # CE QUE CE SITE A AFFIRMÉ, ET QUI ÉTAIT UNE INFÉRENCE FAUSSE. Il portait
+    # qu'un cross-encoder anglais sur une question française rendait « des
+    # scores plats — étendue 0,0 % sur 20 candidats, **soit un classement au
+    # hasard** ». La conclusion ne suit pas de la prémisse. `mesuré` : la ligne
+    # `chunk.relevance = _sigmoid(score)` applique une sigmoïde au logit du
+    # cross-encoder, et une sigmoïde SATURE — des logits de −6,8 à −11,35
+    # s'écrasent dans 0,11 % d'étendue **en préservant STRICTEMENT l'ordre**
+    # (sonde sans chargement de modèle, par le seul mécanisme). Une étendue
+    # quasi nulle est donc entièrement expliquée par la saturation, et ne dit
+    # RIEN sur le classement. L'audit l'a confirmé contre un témoin de hasard
+    # pur : le modèle anglais est **5× meilleur en rang et 14× meilleur en
+    # perte** qu'un tirage au sort. Un reranker anglais classe — il classe
+    # simplement MOINS BIEN.
+    #
+    # LE COÛT RÉEL, ET C'EST LUI QUI JUSTIFIE LE RÉGLAGE : **−2,5 points de
+    # rappel@10**, concentrés sur les **41 questions translingues sur 138** du
+    # jeu de référence, soit 30 %. Un mal silencieux et modéré, pas une panne.
+    # C'est pourquoi son garde SIGNALE au lieu de refuser — le motif complet est
+    # au site du garde, `retriever.verdict_langue_du_reranker`.
+    #
+    # Ne pas relire « étendue quasi nulle » comme « le modèle ne classe plus » :
+    # c'est l'inférence que ce lot est venu retirer, et le pilote du chantier
+    # s'était appuyé dessus sans la mesurer.
     rerank_model: str = Field(
         default="cross-encoder/mmarco-mMiniLMv2-L12-H384-v1", alias="RERANK_MODEL"
     )
