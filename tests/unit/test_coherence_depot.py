@@ -137,8 +137,16 @@ _VESTIGES_AUTORISES = {
     # Décrit le vestige au lieu de le prescrire.
     "documentation/pour_le_pipeline_ingestion.md": 1,
     # Le §3.2 raconte la correction, le §4.4 nomme les deux candidats et publie
-    # la mesure de leur largeur commune.
-    "documentation/axes_amelioration.md": 3,
+    # la mesure de leur largeur commune. Les deux dernières sont arrivées par la
+    # FUSION du lot 3, et non par son diff : le pilote cite le nom du modèle dans
+    # les §4.19 et §4.25 pour décrire les sondes qui ont mesuré le garde — une
+    # collection bouchonnée sur ce modèle, et la table où il s'écarte de son
+    # auditeur. Ce garde les a attrapées sur le résultat de la fusion, là où
+    # aucune relecture de branche ne pouvait les voir : c'est la famille (f) du
+    # §4.14, et c'est la première fois qu'un garde la trouve au lieu d'un
+    # auditeur. Aucune des cinq n'est une instruction — pas une affectation
+    # `EMBEDDING_MODEL_NAME=` parmi elles, `vérifié` le 7 septembre 2026.
+    "documentation/axes_amelioration.md": 5,
     # Dit que ce document l'a annoncé et que c'était faux.
     "documentation/agent_architecture.md": 1,
     # Le site canonique de cet inventaire, qui porte forcément son aiguille.
