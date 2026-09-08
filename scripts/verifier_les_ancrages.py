@@ -176,8 +176,40 @@ def lire_nebula(
     from nebula3.Config import SessionPoolConfig
     from nebula3.gclient.net.SessionPool import SessionPool
 
-    pool = SessionPool(user, password, space, [(host, port)])
-    if not pool.init(SessionPoolConfig()):
+    try:
+        pool = SessionPool(user, password, space, [(host, port)])
+        joignable = pool.init(SessionPoolConfig())
+    except Exception as erreur:
+        # ABSORPTION LARGE, ET VOICI SON MOTIF, parce qu'un `except Exception`
+        # sans justification écrite est interdit dans ce dépôt.
+        #
+        # `SessionPool.init()` NE REND PAS `False` QUAND LE SERVEUR NE RÉPOND
+        # PAS : il LÈVE un `RuntimeError` nu. Et `StoreInjoignableError` HÉRITE
+        # de `RuntimeError`, donc les deux `except` de `main()` ne l'attrapaient
+        # pas — un `except` ne voit jamais le PARENT de ce qu'il nomme. Le
+        # script sortait en **1** avec une trace, là où ses quatre sites de
+        # contrat promettent **2**. `mesuré` le 8 septembre 2026, ChromaDB
+        # joignable et Nebula sur `192.0.2.1` (TEST-NET-1, non routable) :
+        # `RuntimeError: The services status exception: [services:
+        # ('192.0.2.1', 9669), status: BAD]`, `rc=1`. Et la différence n'est pas
+        # cosmétique : 1 veut dire « ce jeu de questions est périmé », ce qui
+        # enverrait réparer un jeu sain.
+        #
+        # LARGE plutôt que `except RuntimeError`, pour la même raison que
+        # `lire_chroma` : ce chemin lève au moins trois familles sans ancêtre
+        # commun autre que `Exception` — `RuntimeError` sur un service muet,
+        # `InValidHostname` (qui dérive d'`Exception`) sur un nom qui ne résout
+        # pas, et les erreurs de transport du client thrift. Toutes disent la
+        # même chose : *le graphe n'a pas répondu, RIEN n'est prouvé.*
+        #
+        # Garde : `TestUnStoreInjoignableSortEnDeux`, éprouvé dans les deux
+        # directions — un graphe injoignable rend 2, un désaccord réel rend
+        # toujours 1.
+        raise StoreInjoignableError(f"NebulaGraph {host}:{port} / {space} : {erreur}") from erreur
+    if not joignable:
+        # `init()` rend bien `False`, mais sur un SEUL cas : une
+        # `SessionPoolConfig` invalide. Cette branche n'est donc pas morte, et
+        # elle est gardée séparément.
         raise StoreInjoignableError(f"NebulaGraph {host}:{port} / {space} : connexion refusée")
 
     # LES NOMS LOCAUX ÉVITENT `set.add` ET `set.update`, ET CE N'EST PAS UN
@@ -192,7 +224,14 @@ def lire_nebula(
     for debut in range(0, len(identifiants), _LOT_NEBULA):
         lot = identifiants[debut : debut + _LOT_NEBULA]
         liste = ",".join(f'"{x}"' for x in lot)
-        resultat = pool.execute(f"FETCH PROP ON * {liste} YIELD id(vertex) AS vid")
+        try:
+            resultat = pool.execute(f"FETCH PROP ON * {liste} YIELD id(vertex) AS vid")
+        except Exception as erreur:
+            # MÊME MOTIF QUE CI-DESSUS, et le même défaut : un graphe qui meurt
+            # EN COURS de lecture faisait sortir en 1 sur un jeu sain. Le pool
+            # lève ici `NoValidSessionException` — qui dérive d'`Exception`, pas
+            # de `RuntimeError` — et les erreurs de transport du client thrift.
+            raise StoreInjoignableError(f"NebulaGraph {host}:{port} : {erreur}") from erreur
         if not resultat.is_succeeded():
             raise StoreInjoignableError(f"nGQL refusé : {resultat.error_msg()}")
         trouves |= {

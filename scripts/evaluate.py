@@ -35,6 +35,8 @@ import math
 import random
 import statistics
 import sys
+import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -258,6 +260,152 @@ def charger_questions(chemin: Path) -> list[dict]:
     en_yaml = chemin.suffix.lower() in (".yaml", ".yml")
     data = yaml.safe_load(texte) if en_yaml else json.loads(texte)
     return [q for q in data["questions"] if not q.get("_skip")]
+
+
+# ─── La chauffe de l'index BM25, antécédent de toute campagne appariée ────────
+
+# Les trois issues de la chauffe. Des constantes plutôt que des littéraux : les
+# tests les nomment, et un motif de refus se compose derrière `CHAUFFE_REFUS`.
+CHAUFFE_DEJA_CHAUD = "deja_chaud"
+CHAUFFE_FAITE = "chauffe"
+CHAUFFE_REFUS = "refus: "
+# QUATRIÈME ISSUE, ET ELLE N'EST PAS UN REFUS — c'est une décision, pas un
+# détail. Un agent qui ne répond pas du tout n'est pas « un index pas prêt » : la
+# campagne n'aboutira sur AUCUNE question, et le contrat de ce script réserve
+# déjà un code à cela — `1`, « aucune question n'a abouti », distinct du `2`,
+# « la comparaison a été refusée » (garde :
+# `test_comparaison_appariee.test_sans_agent_joignable_le_script_sort_en_un`).
+# Faire rendre 2 à un agent absent réécrirait ce contrat ET ferait mentir le
+# message sur la cause : il parlerait d'index alors que rien n'écoute. On
+# signale, et on laisse la campagne produire son 1.
+#
+# Le trou que cela n'ouvre PAS : un agent muet ne peut rien mesurer de faux. Le
+# cas dangereux est un agent qui RÉPOND et dont l'index reste froid, et celui-là
+# reste un refus — comme le cas « il répond mais ne publie pas le champ », où
+# l'on ne sait pas, ce qui ne doit jamais devenir « c'est chaud ».
+CHAUFFE_AGENT_MUET = "agent_muet: "
+
+# Délai de la requête de chauffe. Elle fait lire tout le corpus à l'agent puis
+# le tokéniser : c'est le parcours coûteux de `retriever._charger_corpus`, dont
+# le « ~9 s » écrit ailleurs dans ce dépôt n'est PAS une mesure (le site
+# canonique le dit : axes_amelioration.md §2). Le plafond est donc large.
+_CHAUFFE_TIMEOUT_S = 300.0
+# Délai de lecture de `/health`. La route borne ses propres sondes ; ce plafond
+# ne fait que refuser d'attendre indéfiniment un agent muet.
+_SANTE_TIMEOUT_S = 60.0
+# Attente APRÈS la chauffe, pour le seul cas où `/health` ne bascule pas tout de
+# suite : un index PÉRIMÉ n'est pas reconstruit par la requête qui le constate,
+# elle programme une reconstruction de fond et sert l'ancien index en attendant
+# (`retriever._planifier_reconstruction`). `index_lexical` reste donc faux le
+# temps de ce parcours.
+_CHAUFFE_PLAFOND_S = 180.0
+_CHAUFFE_PAS_S = 3.0
+# La requête de chauffe elle-même. Son texte n'a aucune importance — on jette le
+# résultat — mais il ne doit RIEN partager avec le jeu de questions : une
+# question du jeu passée ici en avance mettrait le cache de l'agent dans un état
+# que la référence n'a pas connu.
+_QUESTION_DE_CHAUFFE = "mise en chauffe de l'index lexical"
+
+
+def etat_index_lexical(api: str, timeout: float = _SANTE_TIMEOUT_S) -> bool | str:
+    """L'index BM25 est-il prêt ? Rend un `str` quand la question est sans réponse.
+
+    QUATRE ÉTATS, PAS DEUX, et les distinguer est tout l'objet de cette
+    fonction — c'est la distinction que `/health` tient lui-même par
+    `services_unknown` :
+
+    - `True` — prêt ;
+    - `False` — l'agent répond et l'index n'est pas prêt ;
+    - `CHAUFFE_AGENT_MUET + détail` — **rien n'a répondu** ;
+    - une autre chaîne — l'agent répond mais ne publie pas le champ, donc *je ne
+      sais pas*.
+
+    Les deux derniers ne se soignent pas pareil, et aucun ne doit se replier sur
+    `False` : confondre « je ne sais pas » avec « c'est froid » ferait chauffer
+    dans le vide puis refuser avec un motif faux, et confondre l'un des deux avec
+    « c'est chaud » est la façon exacte dont un garde devient décoratif.
+    """
+    try:
+        reponse = httpx.get(f"{api}/health", timeout=timeout)
+        reponse.raise_for_status()
+        charge = reponse.json()
+    except Exception as exc:
+        # ABSORPTION LARGE, ET SON MOTIF : httpx lève des erreurs de transport,
+        # de délai et de décodage sans ancêtre commun, et toutes disent la même
+        # chose ici — rien n'a répondu. Le fait est RENDU, jamais avalé.
+        return f"{CHAUFFE_AGENT_MUET}`/health` illisible — {exc}"
+    valeur = (charge.get("services") or {}).get("index_lexical")
+    if not isinstance(valeur, bool):
+        return "`/health` ne publie pas `services.index_lexical`"
+    return valeur
+
+
+def chauffer_l_index_lexical(
+    api: str,
+    plafond: float = _CHAUFFE_PLAFOND_S,
+    pas: float = _CHAUFFE_PAS_S,
+    dormir: Callable[[float], None] = time.sleep,
+) -> str:
+    """Chauffe l'index BM25, PUIS vérifie, et rend un refus si la vérification échoue.
+
+    L'INDEX LEXICAL DE L'AGENT EST PARESSEUX, et c'est la trappe. `/health`
+    annonce `index_lexical: false` après un redémarrage ; la PREMIÈRE recherche
+    le construit synchroniquement. Un `make eval` sur une pile fraîche faisait
+    donc passer la question 1 par un index froid, quand les 137 suivantes
+    passaient par le chemin hybride complet — et la comparaison de ce dépôt est
+    APPARIÉE question par question, donc cette question-là se comparait à une
+    référence qui, elle, avait été chauffée à la main. La campagne du
+    8 septembre 2026 l'a fait à la main et son compte rendu le raconte ; il n'y
+    en avait aucune trace dans le code.
+
+    **POURQUOI CHAUFFER *ET* REFUSER, ET NON L'UN OU L'AUTRE.** Chauffer seul
+    n'est pas fail-closed : `retriever._lexical_search` absorbe largement et
+    sert la recherche dense seule, donc une chauffe qui échoue ne dit rien.
+    Refuser seul est fail-closed et inutilisable : sur une pile fraîche
+    `index_lexical` est TOUJOURS faux, et un refus sec renverrait l'exploitant à
+    la requête manuelle — c'est-à-dire à sa mémoire. En chauffant d'abord, le
+    refus ne tombe que sur un état qui est une vraie panne.
+
+    **POURQUOI ICI ET PAS DANS LE `Makefile`.** Deux cibles de campagne, donc
+    deux sites qui divergent ; et la documentation invoque ce script
+    directement, ce qu'une recette ne protège pas. Le code de sortie appartient
+    au programme qui porte le contrat.
+    Gardes : `tests/unit/test_chauffe_lexicale.py`.
+
+    `/search` et non `/answer` : la recherche suffit à faire construire l'index,
+    et une génération coûterait un LLM pour un résultat qu'on jette.
+    """
+    etat = etat_index_lexical(api)
+    if etat is True:
+        return CHAUFFE_DEJA_CHAUD
+    if isinstance(etat, str):
+        return etat if etat.startswith(CHAUFFE_AGENT_MUET) else f"{CHAUFFE_REFUS}{etat}"
+
+    try:
+        reponse = httpx.post(
+            f"{api}/search",
+            json={"question": _QUESTION_DE_CHAUFFE, "top_k": 1},
+            timeout=_CHAUFFE_TIMEOUT_S,
+        )
+        reponse.raise_for_status()
+    except Exception as exc:
+        # Même motif que ci-dessus, et la même règle : le fait est rendu.
+        return f"{CHAUFFE_REFUS}la requête de chauffe a échoué — {exc}"
+
+    ecoule = 0.0
+    while True:
+        etat = etat_index_lexical(api)
+        if etat is True:
+            return CHAUFFE_FAITE
+        if isinstance(etat, str):
+            return etat if etat.startswith(CHAUFFE_AGENT_MUET) else f"{CHAUFFE_REFUS}{etat}"
+        if ecoule >= plafond:
+            return (
+                f"{CHAUFFE_REFUS}`/health` annonce toujours `index_lexical: false` "
+                f"apres {ecoule:.0f} s de chauffe"
+            )
+        dormir(pas)
+        ecoule += pas
 
 
 def interroger(api: str, question: dict, timeout: float) -> dict[str, Any]:
@@ -1117,6 +1265,34 @@ def main() -> int:
 
     questions = charger_questions(args.golden)
     print(f"{len(questions)} questions — agent : {args.api}")
+
+    # L'ANTÉCÉDENT, AVANT LA DEMI-HEURE DE GÉNÉRATION. Un refus qui arriverait
+    # après aurait déjà laissé la question 1 traverser un index froid, ce qui est
+    # tout ce qu'on cherche à empêcher. Voir `chauffer_l_index_lexical` pour le
+    # motif de la forme « chauffer PUIS refuser ».
+    chauffe = chauffer_l_index_lexical(args.api)
+    if chauffe.startswith(CHAUFFE_AGENT_MUET):
+        # Signalé, pas refusé : la campagne va rendre 1 sur « aucune question
+        # n'a abouti », et c'est le code juste. Voir `CHAUFFE_AGENT_MUET`.
+        print(
+            f"index lexical : état inconnu — {chauffe.removeprefix(CHAUFFE_AGENT_MUET)}",
+            file=sys.stderr,
+        )
+    elif chauffe.startswith(CHAUFFE_REFUS):
+        print(
+            f"\n{'=' * 72}\nCAMPAGNE REFUSÉE — L'INDEX LEXICAL N'EST PAS PRÊT\n{'=' * 72}\n"
+            f"  {chauffe.removeprefix(CHAUFFE_REFUS)}\n"
+            "  La recherche serait DENSE SEULE sur tout ou partie du jeu, et la\n"
+            "  comparaison appariée à une référence chauffée mesurerait deux\n"
+            "  chemins de recherche différents. Rien n'a été mesuré.",
+            file=sys.stderr,
+        )
+        return 2
+    else:
+        print(
+            "index lexical : "
+            + ("déjà chaud" if chauffe == CHAUFFE_DEJA_CHAUD else "chauffé pour cette campagne")
+        )
 
     lignes = []
     for index, question in enumerate(questions, 1):

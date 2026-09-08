@@ -132,8 +132,14 @@ def test_la_mesure_du_remplissage_est_la_meme_aux_trois_endroits() -> None:
 # désormais un compte, et le compte rougit.
 _VESTIGES_AUTORISES = {
     # Document historique, dont le bandeau de tête nomme explicitement cet écart
-    # comme le plus dangereux du fichier.
-    "documentation/llm_integration_plan.md": 7,
+    # comme le plus dangereux du fichier. **Sept avant le 8 septembre 2026, six
+    # depuis**, et le compte a DESCENDU pour une raison qui mérite d'être écrite
+    # ici : la septième était l'`EMBEDDING_MODEL_NAME=…` du bloc `.env`, la
+    # « ligne d'apparence exécutable » que la trouvaille d'origine nommait — et
+    # que cet inventaire TOLÉRAIT, puisqu'il compte des occurrences. Le garde
+    # d'AFFECTATIONS monté plus bas l'a trouvée, et la correction a été une
+    # PÉRIPHRASE. C'est le premier résultat du dédoublement.
+    "documentation/llm_integration_plan.md": 6,
     # Décrit le vestige au lieu de le prescrire.
     "documentation/pour_le_pipeline_ingestion.md": 1,
     # Le §3.2 raconte la correction, le §4.4 nomme les deux candidats et publie
@@ -184,16 +190,44 @@ def _fichiers_suivis() -> list[str]:
 
 
 def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
-    """Un inventaire qui rougit, plutôt qu'une phrase qui vieillit en silence.
+    """UN FIL DE DÉTENTE DE DÉRIVE DOCUMENTAIRE, ET PAS UN GARDE DE SÛRETÉ.
 
-    Le test échoue dans les deux sens, et c'est ce qui en fait un garde :
+    Cette phrase est la décision du §4.28, et elle corrige ce que ce test
+    prétendait être. Il compte des OCCURRENCES du nom du modèle anglais ; ce
+    qu'il faut protéger sont les INSTRUCTIONS — les lignes qu'un lecteur
+    recopierait. La sûreté est portée depuis le 8 septembre 2026 par
+    `test_aucune_affectation_du_modele_anglais_ne_vit_dans_le_depot`, plus bas,
+    qui ne regarde que les AFFECTATIONS.
+
+    POURQUOI ON NE L'A PAS RETIRÉ POUR AUTANT : il a trouvé CINQ fois, dont deux
+    occurrences arrivées par une FUSION que nulle relecture de branche ne
+    pouvait voir (§4.14, famille (f)). On ne retire pas un instrument qui
+    trouve — on cesse de lui faire porter ce qu'il ne sait pas porter.
+
+    Le test échoue dans les deux sens :
 
     - une occurrence NOUVELLE dans un fichier absent de la table, ou un compte
-      qui monte, signale une mention non justifiée — c'est le cas dangereux,
-      celui qu'une réingestion recopierait ;
+      qui monte, signale que la documentation a dérivé — un document s'est mis à
+      nommer le modèle anglais, et quelqu'un doit décider si c'est justifié ;
     - un compte qui DESCEND signale que la table décrit un état révolu. La
       corriger est alors le geste attendu, et ce rouge-là est le prix de
       l'autre : sans lui, la table pourrait autoriser n'importe quoi.
+
+    **LA RÈGLE DE MAINTENANCE, ET ELLE EST ÉCRITE ICI PARCE QUE LE GESTE NATUREL
+    EST LE MAUVAIS.** Toute page qui RACONTE le déclenchement de ce fil le fait
+    rougir — y compris celle-ci. Le geste qui vient à l'esprit est alors de
+    monter le compte, et *monter le compte desserre le fil d'un cran à chaque
+    récit*. Le pilote de ce chantier l'a fait rougir deux fois, et l'une de ses
+    deux corrections a été exactement cela.
+
+    **On corrige par PÉRIPHRASE : on écrit le récit sans écrire le nom** — « le
+    modèle anglais », « l'autre candidat », « le nom que le §4.4 mesure ». Les
+    deux corrections de ce chantier ont fini par converger vers la périphrase,
+    une fois par hasard et une fois par choix. Monter le compte reste légitime
+    dans un seul cas, et il faut pouvoir le dire à voix haute : une page dont le
+    métier est de citer le nom pour le démentir, et qui ne peut pas le faire
+    sans l'écrire — auquel cas la ligne de la table porte ce motif, comme les
+    six autres.
 
     Ce test est le site canonique de ces comptes. Les documents y renvoient au
     lieu de les recopier.
@@ -214,6 +248,244 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
         "deux candidats rendent des vecteurs de même largeur, et le mauvais "
         "produit un index que l'agent refuse."
     )
+
+
+# ─── Le garde de SÛRETÉ : l'AFFECTATION, jamais la mention ───────────────────
+
+# POURQUOI DEUX INSTRUMENTS ICI ET NON UN SEUL, ET C'EST LA DÉCISION DU §4.28.
+#
+# L'inventaire ci-dessus compte des OCCURRENCES. Ce qu'il protège, lui, sont les
+# INSTRUCTIONS : une ligne qu'un lecteur pressé recopierait dans un `.env` ou
+# dans un `settings.py`. Les deux ne coïncident pas, et l'écart a un coût
+# mesuré : *toute page qui raconte le déclenchement de ce garde le fait rougir*,
+# et le geste que le rouge enseigne est « monter le compte » — ce qui desserre le
+# garde d'un cran à chaque récit. Le pilote de ce chantier a fait rougir
+# l'inventaire DEUX fois, et l'une de ses deux corrections a été précisément de
+# monter le compte.
+#
+# On ne retire pas pour autant l'inventaire : il a trouvé CINQ fois, dont deux
+# occurrences arrivées par une FUSION et qu'aucune relecture de branche ne
+# pouvait voir. Mais on cesse de lui faire porter la sûreté. Il est désormais
+# nommé pour ce qu'il est — un fil de détente de dérive documentaire — et ce
+# garde-ci porte la sûreté, sur les seules formes qu'on peut COPIER.
+#
+# CE QUE CE GARDE ATTRAPE, ET LA FRONTIÈRE EST UN CHOIX ÉCRIT. Une affectation
+# est le nom d'un réglage, un opérateur, et la valeur : `NOM=valeur`,
+# `NOM: valeur` (YAML), `NOM: str = "valeur"` (pydantic), `"NOM": "valeur"`
+# (JSON), et l'appel de constructeur qui reçoit le nom du modèle en littéral.
+# Les délimiteurs admis sont les guillemets — `"` et `'` — et non l'accent
+# grave : une paire d'accents graves est de la MISE EN PAGE Markdown, pas un
+# délimiteur de chaîne, et l'y admettre ferait rougir
+# ``EMBEDDING_MODEL_NAME`` : ``…`` d'une table de documentation, c'est-à-dire un
+# récit. Ce garde n'a aucune raison de rougir sur un récit, et c'est sa
+# propriété la plus importante — c'est elle qui rend sa règle de maintenance
+# tenable.
+#
+# CE QU'IL N'ATTRAPE PAS, ET IL FAUT LE DIRE : une affectation construite par
+# morceaux (`"all-MiniLM" + "-L6-v2"`), ou passée par une variable
+# intermédiaire. Il attrape la façon dont l'instruction arrive vraiment —
+# quelqu'un recopie une ligne d'un document dans son `.env`. C'est exactement ce
+# qui est arrivé, et c'est encore dans le dépôt : `mesuré` le 8 septembre 2026
+# sur `main` = `c5028d6`, **une** affectation, à
+# `documentation/llm_integration_plan.md`, dans un bloc `.env` — le fichier dont
+# le bandeau de tête nomme cet écart comme le plus dangereux qu'il porte, et que
+# l'inventaire d'occurrences TOLÉRAIT en le comptant.
+#
+# LA RÈGLE DE MAINTENANCE, ET ELLE EST DIFFÉRENTE DE CELLE DE L'INVENTAIRE :
+# ce garde n'a pas de compte à monter. Sa seule correction est la PÉRIPHRASE —
+# séparer le nom du réglage de la valeur, ou nommer la valeur sans l'écrire à
+# droite d'un opérateur. Il n'existe aucun geste qui le desserre.
+
+# Les appels dont le premier argument littéral EST le modèle. Copier
+# `SentenceTransformer("…")` charge le mauvais modèle aussi sûrement qu'un `.env`.
+_CONSTRUCTEURS_DE_MODELE = ("SentenceTransformer", "CrossEncoder")
+
+
+def _noms_du_reglage_d_embedding() -> tuple[str, ...]:
+    """Le nom du champ ET son alias d'environnement, LUS dans `settings.py`.
+
+    DÉRIVÉS PLUTÔT QUE RECOPIÉS, et c'est le même motif que partout dans ce
+    fichier : une liste figée survivrait à un renommage du réglage en visant un
+    nom qui n'existe plus — un garde qui ne rougit jamais parce qu'il regarde
+    ailleurs. C'est la forme de défaut que ce chantier a payée six fois.
+    """
+    from src.agent.settings import Settings
+
+    champ = Settings.model_fields["embedding_model_name"]
+    alias = str(champ.alias) if champ.alias else ""
+    return tuple(nom for nom in ("embedding_model_name", alias) if nom)
+
+
+def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern[str]]:
+    """Les formes copiables du nom `modele`, une expression par forme."""
+    valeur = re.escape(modele)
+    motifs = [
+        # `NOM=valeur` / `NOM = "valeur"` / `NOM: valeur` / `"NOM": "valeur"` /
+        # `NOM: str = "valeur"`. Le groupe facultatif absorbe une annotation de
+        # type ou la fermeture d'une clé JSON ; il exclut `=` pour ne jamais
+        # sauter par-dessus l'opérateur qu'on cherche.
+        re.compile(
+            rf'{re.escape(nom)}["\']?\s*(?::[^=\n]{{0,40}})?\s*[:=]\s*["\']?\s*{valeur}'
+        )
+        for nom in noms
+    ]
+    motifs.extend(
+        re.compile(rf'{re.escape(appel)}\s*\(\s*["\']{valeur}')
+        for appel in _CONSTRUCTEURS_DE_MODELE
+    )
+    return motifs
+
+
+def _affectations_dans(texte: str, modele: str, noms: tuple[str, ...]) -> list[str]:
+    """Les fragments de `texte` qui AFFECTENT `modele`, dans l'ordre."""
+    return [
+        trouve.group(0)
+        for motif in _motifs_d_affectation(modele, noms)
+        for trouve in motif.finditer(texte)
+    ]
+
+
+def test_aucune_affectation_du_modele_anglais_ne_vit_dans_le_depot() -> None:
+    """LE GARDE DE SÛRETÉ. Une mention se raconte ; une affectation se copie.
+
+    Le dépôt est PUBLIC : l'ensemble des fichiers suivis est exactement ce qu'un
+    lecteur peut copier, et c'est pourquoi la borne est celle de
+    `_fichiers_suivis()` — la même que l'inventaire d'occurrences, ni plus
+    étroite ni gouvernée par une liste de répertoires.
+
+    Aucune exemption, et c'est la propriété de ce garde : il n'y a rien à
+    autoriser, parce qu'aucun document de ce dépôt n'a besoin d'AFFECTER le
+    modèle anglais pour raconter quoi que ce soit. La correction est toujours la
+    même — la périphrase.
+    """
+    noms = _noms_du_reglage_d_embedding()
+    trouves: dict[str, list[str]] = {}
+    for relatif in _fichiers_suivis():
+        chemin = _RACINE / relatif
+        if not chemin.is_file():
+            continue
+        affectations = _affectations_dans(
+            chemin.read_text(encoding="utf-8", errors="ignore"), _MODELE_ANGLAIS, noms
+        )
+        if affectations:
+            trouves[relatif] = affectations
+
+    assert not trouves, (
+        f"une AFFECTATION de '{_MODELE_ANGLAIS}' vit dans le dépôt : {trouves}. "
+        "Ce n'est pas une mention, c'est une instruction : les deux candidats "
+        "rendent des vecteurs de même largeur, et le mauvais produit un index "
+        "que l'agent refuse. Corrige par PÉRIPHRASE — sépare le nom du réglage "
+        "de la valeur — et non en autorisant la ligne."
+    )
+
+
+class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
+    """Un garde qui ne rougit jamais ne se distingue pas d'un garde cassé.
+
+    ET LA SECONDE DIRECTION EST CELLE QUI COMPTE ICI : sans elle, on aurait
+    reconstruit l'inventaire d'occurrences sous un autre nom. Les récits testés
+    ci-dessous sont les formes RÉELLES que porte ce dépôt, relevées le
+    8 septembre 2026 sur ses 17 occurrences du nom — pas des formes inventées.
+    """
+
+    _NOMS = ("embedding_model_name", "EMBEDDING_MODEL_NAME")
+
+    def _affectations(self, texte: str) -> list[str]:
+        return _affectations_dans(texte, _MODELE_ANGLAIS, self._NOMS)
+
+    def test_une_affectation_plantee_le_fait_rougir(self) -> None:
+        """Les cinq formes copiables, chacune plantée."""
+        formes = (
+            f"EMBEDDING_MODEL_NAME={_MODELE_ANGLAIS}   # DOIT etre le meme",
+            f'embedding_model_name: str = "{_MODELE_ANGLAIS}"',
+            f"  EMBEDDING_MODEL_NAME: {_MODELE_ANGLAIS}",
+            f'{{"embedding_model_name": "{_MODELE_ANGLAIS}"}}',
+            f'model = SentenceTransformer("{_MODELE_ANGLAIS}")',
+        )
+        for forme in formes:
+            assert self._affectations(forme), f"forme non attrapée : {forme!r}"
+
+    def test_un_recit_qui_nomme_le_modele_le_laisse_vert(self) -> None:
+        """LES QUATORZE RÉCITS DU DÉPÔT, ET C'EST LA DIRECTION DÉCISIVE.
+
+        Chacune de ces lignes fait rougir l'inventaire d'occurrences si elle
+        s'ajoute. Aucune ne doit faire rougir CE garde : c'est ce qui les rend
+        deux instruments et non deux copies.
+        """
+        recits = (
+            f"ce document annonce `{_MODELE_ANGLAIS}` comme modèle d'embedding",
+            f"les embeddings bi-encoder ({_MODELE_ANGLAIS}) sont rapides mais",
+            f"| Embedding query | **{_MODELE_ANGLAIS}** | Obligatoire |",
+            f"| embedding | float[384] | Vecteur {_MODELE_ANGLAIS} |",
+            f"**Modele d'embedding** : `{_MODELE_ANGLAIS}` (384 dimensions).",
+            f"Forcer {_MODELE_ANGLAIS} dans les settings",
+            f"la documentation a longtemps annoncé `{_MODELE_ANGLAIS}`",
+            f"  {_MODELE_ANGLAIS}                      -> word_embedding_dimension = 384",
+            f"forcé en mémoire sur `{_MODELE_ANGLAIS}` : la recherche est refusée",
+            f"collection bouchonnée à `{_MODELE_ANGLAIS}`",
+            f"| la **première** | `{_MODELE_ANGLAIS}` (N6) | **`rc=2`, 1 rouge** |",
+            f"Cette entrée annonçait `{_MODELE_ANGLAIS}` comme le modèle en service",
+            f"le réglage `EMBEDDING_MODEL_NAME` valait `{_MODELE_ANGLAIS}`",
+            f"`EMBEDDING_MODEL_NAME` : `{_MODELE_ANGLAIS}` — et c'était faux",
+        )
+        for recit in recits:
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r} — ce garde vient de "
+                "reconstruire l'inventaire d'occurrences sous un autre nom"
+            )
+
+    def test_le_modele_en_service_affecte_ne_fait_pas_rougir(self) -> None:
+        """Le garde vise UNE valeur, pas la forme « affectation ».
+
+        `.env.example` affecte le bon modèle à la même clé. Un garde qui
+        rougirait dessus serait retiré au premier `make test`.
+        """
+        # LA VALEUR EST DÉRIVÉE, PAS ÉCRITE, et pour deux raisons. Un `NOM=valeur`
+        # écrit ici en littéral est un second site pour le modèle en service ; et
+        # `detect-secrets` v1.5.0 le relève comme « Base64 High Entropy String »
+        # — `mesuré` le 8 septembre 2026 : la forme littérale portait le dépôt de
+        # **2** détections à **3**, c'est-à-dire qu'un garde de ce lot rendait
+        # `detect-secrets` moins armable au moment même où le lot retirait un
+        # pragma pour le rendre plus armable (N5). Dérivée, aucune détection, et
+        # aucun pragma.
+        from src.agent.settings import Settings
+
+        en_service = str(Settings.model_fields["embedding_model_name"].default)
+        bon = f"{_noms_du_reglage_d_embedding()[1]}={en_service}"
+        assert not self._affectations(bon)
+        assert (_RACINE / ".env.example").read_text(encoding="utf-8").count(bon) == 1, (
+            "`.env.example` n'affecte plus le modèle en service sous cette forme : "
+            "le test ci-dessus ne prouve plus que le garde reste vert sur le cas réel"
+        )
+
+    def test_les_noms_du_reglage_sont_lus_dans_settings_et_non_recopies(self) -> None:
+        """Un renommage du réglage doit emporter ce garde avec lui.
+
+        Sans cette dérivation, renommer `EMBEDDING_MODEL_NAME` laisserait le
+        garde vert pour toujours — en regardant un nom que plus rien ne lit.
+        """
+        noms = _noms_du_reglage_d_embedding()
+        assert noms == self._NOMS, (
+            f"les noms lus dans settings.py sont {noms} : les récits éprouvés "
+            "ci-dessus ne portent plus sur le réglage réel"
+        )
+
+    def test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire(self) -> None:
+        """« Au moins ce que balaie l'autre », et le périmètre est MESURÉ.
+
+        Les deux gardes partagent `_fichiers_suivis()`, donc l'égalité est
+        structurelle et non une coïncidence à surveiller. Le compte est relevé
+        ici pour qu'un rétrécissement se voie : `mesuré` le 8 septembre 2026,
+        **123** fichiers suivis, dont **123** lisibles — aucun angle mort, et le
+        même ensemble exactement pour les deux instruments.
+        """
+        suivis = _fichiers_suivis()
+        lisibles = [nom for nom in suivis if (_RACINE / nom).is_file()]
+        assert len(suivis) >= 100, len(suivis)
+        assert lisibles == suivis, (
+            "des chemins suivis ne sont pas des fichiers lisibles : les deux "
+            f"gardes ne balaient plus le même ensemble — {set(suivis) - set(lisibles)}"
+        )
 
 
 # ─── La prémisse Docker fausse, et où elle a le droit d'être citée ────────────
@@ -488,8 +760,12 @@ def test_make_eval_ne_vise_plus_aucun_jeu_ni_aucune_cible_retires_par_le_lot_5()
 
     - `tests/fixtures/golden_qa_generated.json` — 0 / 129 ancrages dans le
       graphe, et 34 des 36 détections `detect-secrets` du dépôt ;
-    - `tests/fixtures/golden_qa.json` — 15 questions à réponse portant **0**
-      `gold_element_ids` : toutes ses métriques de rappel valaient `None` ;
+    - `tests/fixtures/golden_qa.json` — **13** de ses 15 questions étaient à
+      réponse (les deux autres, `Q-010` et `Q-011`, sont des abstentions) et
+      portaient **0** `gold_element_ids` : toutes ses métriques de rappel
+      valaient `None`. `mesuré` le 8 septembre 2026 sur le contenu du fichier
+      tel que `4eedb2a` le portait — la description « 15 questions à réponse »
+      était fausse de deux, trouvaille N8 de l'audit du lot 5 ;
     - `runs/final.json` — antécédent d'un corpus remplacé, et il porte les MÊMES
       138 identifiants que le jeu régénéré, donc le refus sur désaccord de jeu ne
       le voyait pas.

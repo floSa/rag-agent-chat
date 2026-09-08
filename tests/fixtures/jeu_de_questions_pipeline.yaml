@@ -23,7 +23,7 @@ _provenance:
   campagne_source: premiere-campagne-de-reference
   date_source: '2026-09-02'
   specification: documentation/axes_amelioration.md, section 1 (La conception du jeu d'evaluation)
-  source_sha256: 960e8bc1dd115fc93c0e9c64557806f5198e69cca35b0a3b248705a0be20d03f  # pragma: allowlist secret
+  source_sha256: sha256:960e8bc1dd115fc93c0e9c64557806f5198e69cca35b0a3b248705a0be20d03f
   transpose_par: scripts/adopter_le_jeu_du_pipeline.py
 _statistiques:
   questions: 30

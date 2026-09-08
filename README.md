@@ -114,9 +114,9 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | `TRUNCATION_FLOOR_SHARE` | `1/3` | Part de sa source qu'un fragment tronqué doit atteindre pour être retenu. Forfait : aucune mesure ne désigne cette valeur, son prix est continu — cf. [llm.md](documentation/llm.md). |
 | `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle qui a indexé la collection. Depuis le 4 septembre 2026 l'agent le vérifie contre l'estampille `embedding_model` de la collection et **refuse de chercher** sinon — `503`, `/health` en `degraded`. Une estampille **absente** est refusée aussi. |
 | `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |
-| `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Mesuré : 20 → rappel 0,900, 50 → 0,962. |
+| `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Le balayage qui a retenu 50 vit à son **site canonique**, le commentaire de `retrieval_top_k` dans [settings.py](src/agent/settings.py) — recopié ici, il en ferait un second site. **Et il est antérieur au corpus en service :** `mesuré` le **3 août 2026** (`git log -S` sur ce chiffre), soit un mois avant le remplacement du corpus du 2 septembre 2026. Il a décidé d'un réglage et n'a pas été rejoué depuis ; le rappel du corpus actuel est celui de la [campagne de référence](documentation/campagnes/2026-09-08-campagne-de-reference.md). |
 | `HYBRID_SEARCH` / `FETCH_K` / `RRF_K` | `true` / `50` / `60` | BM25 en plus du dense, fusionné par rangs. |
-| `CROSS_LINGUAL_SEARCH` / `TRANSLATION_WEIGHT` | `true` / `1.0` | Cherche aussi dans la traduction de la question. Mesuré : rappel translinguistique 0,806 → 1,000. |
+| `CROSS_LINGUAL_SEARCH` / `TRANSLATION_WEIGHT` | `true` / `1.0` | Cherche aussi dans la traduction de la question. Mesuré : rappel translinguistique 0,806 → 1,000 — **même réserve que la ligne précédente**, ce chiffre est du 3 août 2026 et n'a pas été rejoué sur le corpus en service. |
 | `QUERY_REWRITE` | `true` | Rend une question de suivi autonome avant de l'encoder. |
 | `CONTEXT_WINDOW_BEFORE/AFTER` | `6` | Éléments retenus autour du passage trouvé. |
 | `ADJACENT_SECTION_ELEMENTS` | `3` | Éléments repris des sections voisines (0 désactive). |

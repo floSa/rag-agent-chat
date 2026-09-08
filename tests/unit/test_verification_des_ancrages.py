@@ -19,7 +19,9 @@ import importlib.util
 import json
 import pathlib
 import re
+import sys
 
+import nebula3.gclient.net.SessionPool as SessionPoolModule
 import pytest
 
 _RACINE = pathlib.Path(__file__).resolve().parents[2]
@@ -112,13 +114,21 @@ class TestLaSondeEstEnLectureSeule:
 
         sain = "trouves = set()\ntrouves.add(x)\nparser.add_argument('--jeu')"
         assert self._methodes_appelees(sain) & self._ECRITURES_CHROMA == {"add"}
-        # `set.add` EST dans la liste : c'est pourquoi la sonde n'en appelle
-        # aucun, et pourquoi son code le dit à l'endroit où il l'évite.
-        assert ".add(" not in "".join(
-            ligne
-            for ligne in _SCRIPT.read_text(encoding="utf-8").splitlines()
-            if not ligne.lstrip().startswith("#")
-        )
+        # ET C'EST LE POINT : `set.add` EST dans la liste, donc l'arbre
+        # syntaxique NE SAIT PAS distinguer `trouves.add` de `collection.add`.
+        # C'est pourquoi la sonde n'appelle aucun `add` du tout et le dit à
+        # l'endroit où elle l'évite. Il ne sait en revanche distinguer
+        # `parser.add_argument`, ce que la sous-chaîne `.add(` ne savait pas.
+        #
+        # UNE TROISIÈME ASSERTION A VÉCU ICI, ET ELLE EST RETIRÉE LE 8 SEPTEMBRE
+        # 2026 : une recherche de la sous-chaîne `.add(` dans le code de la
+        # sonde — c'est-à-dire exactement la forme que le docstring de cette
+        # classe déclare fausse, revenue trois lignes plus bas. Elle était
+        # STRICTEMENT REDONDANTE : `mesuré` en plantant un `trouves.add(...)`
+        # légitime dans la sonde, `test_le_script_n_appelle_aucun_verbe_d_ecriture`
+        # rougit déjà sur `['add']`. Elle ne détectait donc rien de plus, et
+        # coûtait un second rouge inexplicable sur le même code sain —
+        # précisément ce qui pousse un successeur à affaiblir un garde.
 
     def test_les_seules_lectures_de_store_sont_nommees(self) -> None:
         """Et les lectures qu'elle fait sont celles que son docstring annonce."""
@@ -296,3 +306,276 @@ def test_la_sonde_nomme_les_deux_invocations_qui_atteignent_les_stores() -> None
     assert not re.search(r"\b172\.\d+\.\d+\.\d+\b", docstring), (
         "une adresse IP de conteneur est figée dans le docstring : elle périmera"
     )
+
+
+# ─── Le contrat des codes de sortie, et il n'était gardé nulle part ──────────
+
+
+class TestUnStoreInjoignableSortEnDeux:
+    """« 2 = store injoignable » est écrit à QUATRE sites, et RIEN ne le testait.
+
+    Les quatre : le docstring de `scripts/verifier_les_ancrages.py`, la cible
+    `verifier-les-ancrages` du `Makefile`, le compte rendu de campagne du
+    8 septembre 2026, et `documentation/tests.md`. `grep` rendait **zéro** test
+    sur ce chemin, et le contrat était faux d'un côté sur deux.
+
+    LE DÉFAUT, ET IL TIENT À UN LIEN D'HÉRITAGE. `StoreInjoignableError` hérite
+    de `RuntimeError`. `SessionPool.init()` de `nebula3` ne rend PAS `False`
+    quand le serveur ne répond pas : il **lève** un `RuntimeError` nu. Un
+    `except StoreInjoignableError` n'attrape pas le PARENT de ce qu'il nomme,
+    l'exception traversait donc les deux absorptions de `main()`, et Python
+    sortait en **1** — le code qui veut dire « ce jeu de questions est périmé »
+    — avec une trace, sur un jeu parfaitement sain derrière un graphe éteint.
+
+    `mesuré` le 8 septembre 2026, ChromaDB joignable (`172.20.0.8`) et Nebula
+    sur `192.0.2.1` (TEST-NET-1, non routable) :
+
+        RuntimeError: The services status exception:
+            [services: ('192.0.2.1', 9669), status: BAD]
+        rc=1
+
+    **ET LA PREUVE D'ATTEINTE EST LA MOITIÉ DU TRAVAIL.** Une première sonde
+    rendait `rc=2` — le chiffre attendu — pour la mauvaise raison : sans `.env`,
+    `--chroma-host` vaut `chromadb`, qui ne résout pas, et le script échouait
+    sur ChromaDB **avant** d'atteindre NebulaGraph. Un `rc` juste n'est pas une
+    preuve d'atteinte. Les tests ci-dessous portent donc chacun un TÉMOIN
+    D'ATTEINTE : `lire_chroma` bouchonné inscrit son passage, et le test refuse
+    de conclure si ce passage n'a pas eu lieu.
+    """
+
+    # Le message que `nebula3` 3.8.3 lève VRAIMENT, recopié de la sonde
+    # ci-dessus. Un message inventé rendrait ce bouchon décoratif : c'est la
+    # FORME de l'échec — un `RuntimeError` nu, pas un `False` — qui est le
+    # défaut, et le message est ce qui atteste qu'on l'a bien observée.
+    _MESSAGE_REEL = "The services status exception: [services: ('192.0.2.1', 9669), status: BAD]"
+
+    @staticmethod
+    def _jeu_sain(dossier: pathlib.Path) -> pathlib.Path:
+        """Un jeu minimal et SAIN : le seul défaut possible est le store."""
+        chemin = dossier / "jeu.yaml"
+        chemin.write_text(
+            "questions:\n  - id: G-001\n    gold_element_ids: ['aaaaaaaaaa']\n",
+            encoding="utf-8",
+        )
+        return chemin
+
+    def test_l_heritage_de_runtimeerror_est_bien_le_piege(self) -> None:
+        """La prémisse du défaut, mesurée plutôt que crue.
+
+        Si un jour `StoreInjoignableError` cessait d'hériter de `RuntimeError`,
+        ce test rougirait et dirait au suivant que l'absorption large de
+        `lire_nebula` a perdu son motif.
+        """
+        sonde = _sonde()
+        assert issubclass(sonde.StoreInjoignableError, RuntimeError)
+        attrape = False
+        try:
+            raise RuntimeError(self._MESSAGE_REEL)
+        except sonde.StoreInjoignableError:
+            attrape = True
+        except RuntimeError:
+            attrape = False
+        assert not attrape, (
+            "`except StoreInjoignableError` attraperait un RuntimeError nu : "
+            "le motif de l'absorption large de `lire_nebula` n'est plus le bon"
+        )
+
+    def test_un_nebula_qui_leve_devient_un_store_injoignable(self, monkeypatch) -> None:
+        """`lire_nebula` traduit la levée de la bibliothèque, elle ne la laisse pas passer."""
+
+        message = self._MESSAGE_REEL
+
+        class _PoolQuiLeve:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def init(self, *_args, **_kwargs):
+                raise RuntimeError(message)
+
+        monkeypatch.setattr(SessionPoolModule, "SessionPool", _PoolQuiLeve)
+        sonde = _sonde()
+        with pytest.raises(sonde.StoreInjoignableError, match="services status exception"):
+            sonde.lire_nebula("192.0.2.1", 9669, "root", "x", "rag_space", ["aaaaaaaaaa"])
+
+    def test_un_pool_qui_rend_false_reste_un_store_injoignable(self, monkeypatch) -> None:
+        """L'autre branche n'est pas morte : `init()` rend `False` sur config invalide.
+
+        La correction ÉLARGIT l'absorption, elle ne remplace pas ce test-là.
+        """
+
+        class _PoolQuiRefuse:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def init(self, *_args, **_kwargs) -> bool:
+                return False
+
+        monkeypatch.setattr(SessionPoolModule, "SessionPool", _PoolQuiRefuse)
+        sonde = _sonde()
+        with pytest.raises(sonde.StoreInjoignableError, match="connexion refusée"):
+            sonde.lire_nebula("192.0.2.1", 9669, "root", "x", "rag_space", ["aaaaaaaaaa"])
+
+    def test_main_sort_en_2_et_non_en_1_sur_un_nebula_injoignable(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        """LE CONTRAT LUI-MÊME, avec son témoin d'atteinte.
+
+        `lire_chroma` bouchonné RÉUSSIT et inscrit son passage : c'est ce qui
+        distingue ce test de la fausse sonde qui rendait 2 en échouant sur
+        ChromaDB. Sans le témoin, un 2 obtenu avant NebulaGraph serait
+        indiscernable d'un 2 obtenu à cause de lui.
+        """
+
+        message = self._MESSAGE_REEL
+
+        class _PoolQuiLeve:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def init(self, *_args, **_kwargs):
+                raise RuntimeError(message)
+
+        monkeypatch.setattr(SessionPoolModule, "SessionPool", _PoolQuiLeve)
+        sonde = _sonde()
+
+        atteint: list[str] = []
+
+        def _chroma_joignable(host, port, nom):
+            atteint.append(f"{host}:{port}/{nom}")
+            return {"aaaaaaaaaa": ""}, {"embedding_model": "x"}, 1
+
+        monkeypatch.setattr(sonde, "lire_chroma", _chroma_joignable)
+        jeu = self._jeu_sain(tmp_path)
+        monkeypatch.setattr(sys, "argv", ["verifier_les_ancrages.py", str(jeu)])
+
+        code = sonde.main()
+
+        assert atteint, (
+            "ChromaDB n'a pas été atteint : ce test ne prouve RIEN sur le chemin "
+            "NebulaGraph — c'est exactement la fausse sonde du 8 septembre 2026"
+        )
+        assert code == 2, (
+            f"un graphe injoignable a rendu {code} : le contrat des quatre sites "
+            "promet 2, et 1 voudrait dire « ce jeu de questions est périmé »"
+        )
+
+    def test_un_graphe_qui_meurt_pendant_la_lecture_sort_aussi_en_2(self, monkeypatch) -> None:
+        """Le graphe répond à `init()` puis disparaît : c'est le MÊME défaut.
+
+        Découvert par mutation M3 : élargir la seule absorption de la connexion
+        laissait `pool.execute` lever à travers `main()`, donc `rc=1` sur un jeu
+        sain. `NoValidSessionException` dérive d'`Exception`, pas de
+        `RuntimeError` — un `except RuntimeError` ne l'aurait pas vue non plus.
+        """
+        from nebula3.Exception import NoValidSessionException
+
+        atteint: list[str] = []
+
+        class _PoolQuiMeurtEnRoute:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def init(self, *_args, **_kwargs) -> bool:
+                atteint.append("init")
+                return True
+
+            def execute(self, *_args, **_kwargs):
+                atteint.append("execute")
+                raise NoValidSessionException("graphd est parti")
+
+        monkeypatch.setattr(SessionPoolModule, "SessionPool", _PoolQuiMeurtEnRoute)
+        sonde = _sonde()
+        with pytest.raises(sonde.StoreInjoignableError, match="graphd est parti"):
+            sonde.lire_nebula("192.0.2.1", 9669, "root", "x", "rag_space", ["aaaaaaaaaa"])
+        assert atteint == ["init", "execute"], (
+            f"la lecture n'a pas été atteinte ({atteint}) : ce test ne prouve rien "
+            "sur le chemin `execute`"
+        )
+
+    def test_un_chromadb_injoignable_sort_aussi_en_2(self, monkeypatch, tmp_path) -> None:
+        """L'AUTRE MOITIÉ DU CONTRAT, et elle n'était pas gardée non plus.
+
+        Découverte par une mutation qui a manqué sa cible : narrower
+        l'absorption de `lire_chroma` — `except StoreInjoignableError` au lieu
+        d'`except Exception` — laissait les **19** tests de ce fichier verts.
+        Le contrat des quatre sites dit « les stores », au pluriel ; les deux
+        côtés le méritent donc.
+
+        `mesuré` le 8 septembre 2026 : hôte `chromadb` non résolu, `rc=2`,
+        « RIEN N'EST PROUVÉ — ChromaDB chromadb:8000 / rag_documents ». Ce test
+        est la version hors-réseau de cette mesure.
+        """
+        sonde = _sonde()
+
+        atteint: list[str] = []
+
+        class _ClientMuet:
+            def __init__(self, *_args, **_kwargs) -> None:
+                atteint.append("HttpClient")
+
+            def get_collection(self, *_args, **_kwargs):
+                raise ValueError("Could not connect to a Chroma server.")
+
+        import chromadb
+
+        monkeypatch.setattr(chromadb, "HttpClient", _ClientMuet)
+        # Le graphe ne doit JAMAIS être atteint : `lire_chroma` vient avant.
+        monkeypatch.setattr(
+            sonde,
+            "lire_nebula",
+            lambda *_a, **_k: (_ for _ in ()).throw(
+                AssertionError("le graphe a été atteint alors que ChromaDB avait déjà échoué")
+            ),
+        )
+        jeu = self._jeu_sain(tmp_path)
+        monkeypatch.setattr(sys, "argv", ["verifier_les_ancrages.py", str(jeu)])
+
+        code = sonde.main()
+
+        assert atteint == ["HttpClient"], (
+            "le client ChromaDB n'a pas été construit : ce test ne prouve rien"
+        )
+        assert code == 2, f"un ChromaDB injoignable a rendu {code} au lieu de 2"
+
+    def test_un_vrai_desaccord_sort_toujours_en_1(self, monkeypatch, tmp_path) -> None:
+        """L'ÉLARGISSEMENT NE DOIT PAS AVALER LE 1, et c'est l'autre direction.
+
+        Une absorption trop large rendrait 2 partout, ce qui ferait passer un
+        jeu périmé pour un store éteint — le défaut symétrique, et le plus
+        coûteux des deux : il autorise la campagne à ne rien mesurer.
+        """
+
+        class _PoolVide:
+            def __init__(self, *_args, **_kwargs) -> None:
+                pass
+
+            def init(self, *_args, **_kwargs) -> bool:
+                return True
+
+            def execute(self, *_args, **_kwargs):
+                raise AssertionError("aucun identifiant ne devrait être demandé")
+
+        monkeypatch.setattr(SessionPoolModule, "SessionPool", _PoolVide)
+        sonde = _sonde()
+
+        atteint: list[str] = []
+
+        def _chroma_joignable(host, port, nom):
+            atteint.append(f"{host}:{port}/{nom}")
+            return {}, {}, 0
+
+        monkeypatch.setattr(sonde, "lire_chroma", _chroma_joignable)
+        # Un jeu qui déclare un ancrage que NI l'un NI l'autre store ne porte.
+        jeu = self._jeu_sain(tmp_path)
+        monkeypatch.setattr(
+            sonde, "lire_nebula", lambda *_args, **_kwargs: set()
+        )
+        monkeypatch.setattr(sys, "argv", ["verifier_les_ancrages.py", str(jeu)])
+
+        code = sonde.main()
+
+        assert atteint, "ChromaDB n'a pas été atteint : le désaccord n'a pas été mesuré"
+        assert code == 1, (
+            f"un ancrage absent des deux stores a rendu {code} : le désaccord doit "
+            "rester un 1, sans quoi un jeu périmé se lit comme un store éteint"
+        )
