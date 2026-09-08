@@ -149,7 +149,7 @@ chiffre : chaque constat renvoie à son entrée.
 
 | | L'exigence | État vu d'ici |
 |---|---|---|
-| **1** | modèle d'embedding `paraphrase-multilingual-MiniLM-L12-v2`, identique des deux côtés | ✅ **gardée des deux côtés** depuis le lot 3, livré le 4 septembre 2026 et **pas encore audité ni fusionné**. Le lecteur confronte son réglage à l'estampille de la collection avant chaque recherche dense, refuse aussi l'estampille absente, et rend 503 sans avoir chargé le moindre modèle. §4.4 |
+| **1** | modèle d'embedding `paraphrase-multilingual-MiniLM-L12-v2`, identique des deux côtés | ✅ **tenue et gardée des DEUX côtés** depuis le lot 3, fusionné le 7 septembre 2026 (`c5f9a54`). Le lecteur confronte son réglage à l'estampille de la collection **avant chaque recherche dense**, refuse aussi l'estampille absente, et rend **503** sans avoir chargé le moindre modèle. Quatre audits indépendants — §4.27
 | **2** | `element_id` déterministe, 10 hexadécimaux | ✅ tenue par le pipeline, et l'agent le valide (`^[a-f0-9]{10}$`, `graph_context.py`) |
 | **3** | `source_path` est l'identité d'un document | ✅ tenue |
 | **4** | `sequence` porte l'ordre, monotone | ✅ tenue — et **reproduite de mes mains** : §4.5 |
@@ -175,7 +175,7 @@ le pilote croyait avoir supprimé.
 | identité git | **absente** avant le geste du §2.1 : `git var GIT_AUTHOR_IDENT` rendait `rc=1`. Armée depuis, sur `florian_horellou@laposte.net` |
 | garde-fou d'identité | **armé** depuis le lot 1, `INSTALL_PYTHON` gravé vers le `.venv` du **clone principal** — donc stable. Vérifié de mes mains depuis l'arbre du pilote : adresse interdite → `rc=1`, HEAD immobile ; adresse autorisée → `rc=0`. Et le hook a tiré sur la fusion elle-même (« Identite d'auteur autorisee … Passed ») |
 | historique | `mesuré` le **4 septembre 2026** : **184** commits à `7bcd346`, **deux adresses et elles seules** (216 + 152 occurrences auteur+committer), **0** `@aosis.net`, **0** attribution à un assistant. Relevé antérieur : **167** commits à `d526f6a` (165 à `a6b9c0c`, avant l'ouverture du chantier), **deux adresses et elles seules** (91 + 76), **0** `@aosis.net`, **0** attribution à un assistant de génération de code. **Un compte de commits est un état de poste : il se borne à sa révision ou il ne s'écrit pas** — celui-ci a bougé de 2 en trois heures, et le lot 1 l'a relevé |
-| porte qualité | `mesuré` le **4 septembre 2026** sur `db05162` — le **résultat de la fusion**, pas seulement la branche — dans un arbre dédié monté par le protocole du §2.2 : `make lint` → `rc=0`, `make test` → `rc=0`, **520 passés**. Relevé du lot 1, à `9596720` : **486 passés** (461 avant lui). Le retard de `documentation/tests.md` est traité par le lot 2 — §4.13 |
+| porte qualité | `mesuré` le **7 septembre 2026** sur `c5f9a54` — le **résultat de la fusion** du lot 3, pas seulement la branche — dans un arbre dédié monté par le protocole du §2.2 : `make lint` → `rc=0`, `make test` → `rc=0`, **562 passés**. Relevés antérieurs : 520 au lot 2, 486 au lot 1. Relevé du lot 1, à `9596720` : **486 passés** (461 avant lui). Le retard de `documentation/tests.md` est traité par le lot 2 — §4.13 |
 | tests désactivés | `mesuré` le **4 septembre 2026** sur `d5b2c3c` : **0** `pytest.mark.skip`, **0** `xfail`, **3** `type: ignore`, **90** `noqa` dont **10** hors `PLR2004`. Tous antérieurs à ce chantier, non instruits. **Le lot 2 n'en ajoute aucun** — vérifié sur les lignes ajoutées de son diff, et `pyproject.toml`, `Makefile` et `.pre-commit-config.yaml` ne sont pas touchés |
 | pile Docker | **trois** projets Compose : `rag-ingestion-pipeline` (9 services), `llm-service` (1), et **`elivie` (9, avec son propre Ollama)** — ce dernier ne touche ni `rag_network` ni `llm-net`, mais un second Ollama sur la machine est le genre de voisin qui explique une lenteur qu'on cherchera ailleurs (trouvé par le lot 1). Réseaux `rag_network` et `llm-net` présents |
 | `dagster-daemon` | ⚠️ **EN MARCHE**, `mesuré` le **4 septembre 2026** (`Up About an hour`) — là où le relevé du 3 septembre le donnait `Exited (0)` aux deux bouts du lot 1. **C'est la quatrième fois que ce démon se rallume sans qu'aucune conversation le décide**, et la cause n'a jamais été cherchée. Ce chantier n'y touche pas : le démon est chez le pipeline, ses capteurs sont livrés armés, et son état est **rendu** à son pilote — §4.16. Ce qui protège l'index en ce moment est le défaut §4.32.a du pipeline, pas une décision |
@@ -215,7 +215,7 @@ anglaise → document français » a disparu.
 |---|---|---|
 | **1** | armer le garde-fou d'identité (§4.1), puis démarrer l'agent et **prouver l'exigence 5** (§4.2) | ✅ **fusionné** `9596720` — livré (`Conv' 21`), audité (`Conv' 22`), réparé (`Conv' 23`), fusion tranchée par le pilote après vérification de ses deux gardes par mutation |
 | **2** | les **trois réserves de lecture de `sequence`** (§4.5), et le garde qui les tient | ✅ **fusionné** `db05162` — livré (`Conv' 24`), audité (`Conv' 25`, 8 trouvailles dont 2 bloquantes), réparé (`Conv' 26`), **sa réparation auditée à son tour** (`Conv' 27`, 1 bloquante), réparée une seconde fois (`Conv' 28`). Fusion tranchée par le pilote après vérification des deux directions dangereuses du garde — §4.18. **Trois audits, trois trouvailles matérielles** |
-| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | 🚧 **livré** le 4 septembre 2026 (`Conv' 29`) sur `claude/embedding-model-validation-e6c6c3`, **non poussé, non audité, non fusionné**. Les deux candidats rendent 384 dimensions — `mesuré`, §4.4 — donc aucune sonde de forme ne voit cette panne ; c'est le **nom** qui discrimine, et c'est le nom que le garde confronte. Deux décisions prises et motivées au site : le refus vit sur le chemin de la recherche (pas au démarrage, qui ne fait que le dire), et l'estampille absente est refusée comme une divergence |
+| **3** | le garde du **modèle d'embedding** côté lecteur (§4.4) | ✅ **fusionné** `c5f9a54` — livré (`Conv' 29`), audité (`Conv' 30`, 2 bloquantes), réparé (`Conv' 31`), réaudité (`Conv' 32`, 1 bloquante), réparé (`Conv' 33`), audité en **étroit** sur la couche async (`Conv' 34`, 1 bloquante), réparé (`Conv' 35`). **Quatre audits, quatre trouvailles bloquantes, aucune régression fonctionnelle** — §4.27. Fusion tranchée par le pilote sous le **critère amendé** du §4.18 |
 | **4** | **rendre au pipeline** ce qu'il a fermé, et reprendre ce que la platitude justifiait (§4.6) | à distribuer |
 | **5** | **régénérer le jeu doré sur le corpus actuel ET adopter les 30 questions du pipeline** (§4.3), puis établir une **nouvelle campagne de référence** | ✅ **décidé** le 3 septembre 2026 par l'utilisateur. À distribuer **après** les lots de gardes : mesurer sur un agent dont les gardes ne sont pas posés ferait porter à la campagne le bruit des corrections à venir |
 
@@ -251,9 +251,21 @@ dépôt, pas dans la conversation.*
 | **32** | AUDIT-REPAR-4 — audit de la réparation du lot 3 | **11 mutations reproduites à l'identique**, 6 mutations propres, concurrence réelle avec une sonde **prouvée capable**. **1 bloquante** (B-1), 4 non bloquantes, **aucune mesure du pilote renversée** — §4.23. Recommandation : ne pas fusionner en l'état |
 | **33** | REPAR-5 — fermer B-1 et NB-1 sur la branche du lot 3 | `c8cb37d` : **557 passés**, 8 mutations dont un témoin inerte. B-1 et NB-1 vérifiés par le pilote — §4.24. A fermé **hors mandat** le garde du compte de tests, et **a corrigé le pilote** sur `abandon_on_cancel` |
 | **34** | AUDIT-ASYNC-3 — audit **étroit**, borné à la couche async du lot 3 | 7 mutations sur 8 reproduites à l'unité, 10 propres, scène de charge retournée contre `19f7cec`. **1 bloquante** (B-2 : rafale de 26 → 26 fils) — §4.25. A **validé le cadrage étroit avec une mesure**, et nommé son angle mort |
-| **35** | REPAR-6 — fermer B-2 et les deux phrases fausses | distribué le 7 septembre 2026 |
+| **35** | REPAR-6 — fermer B-2 et les deux phrases fausses | `4849bc1` : rafale de 26 → **1 fil**, 562 passés. Vérifié par le pilote **dans les deux sens** et **fusionné** — §4.27. A trouvé seul la **seconde** raison pour laquelle le garde était décoratif : il comptait les fils par `name` |
 
 **Prochain numéro libre : 36.**
+
+**Le lot 3 est fusionné, et c'est le lot le plus cher du chantier** : sept
+conversations, **quatre audits, quatre trouvailles bloquantes — et aucune n'était
+une régression fonctionnelle.** Le code était strictement meilleur à chaque
+passage ; ce qui bloquait était **ce que le lot affirmait de lui-même**, tenu
+chaque fois par un garde qui construisait la scène où le défaut n'est pas. C'est
+la leçon centrale de ce chantier, et ce lot l'a payée quatre fois.
+
+**Et la porte était ROUGE sur le résultat de la fusion** — verte des deux côtés,
+rouge au milieu. C'est un **garde** qui l'a trouvé, pour la première fois, là où
+la famille (f) avait toujours été trouvée par un auditeur ou par le pilote
+relisant à la main. Détail au §4.27.
 
 **Six audits, six trouvailles bloquantes. Le lot 3 en a consommé quatre.** Les
 quatre vivaient dans la couche async/concurrence, et **les trois dernières

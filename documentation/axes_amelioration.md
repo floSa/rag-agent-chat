@@ -3897,3 +3897,113 @@ et la comparaison AST/`pytest`, remesurée à **532** contre **562**.
 - **`documentation/tests.md` porte un compte qui redeviendra faux** au prochain
   test ajouté. Il est gardé, donc il rougira ; c'est le dispositif du §4.13 et il
   fonctionne.
+
+### 4.27 → FERMÉ — le lot 3 fusionné, et un garde qui attrape enfin la famille (f) tout seul
+
+**`main` = `c5f9a54`.** L'exigence 1 du contrat est tenue **des deux côtés** : le
+producteur refusait de démarrer hors contrat, le lecteur confronte désormais son
+réglage à l'estampille de la collection avant chaque recherche dense.
+
+#### Ce que le pilote a mesuré sur le RÉSULTAT de la fusion, le 7 septembre 2026
+
+| | `mesuré` |
+|---|---|
+| porte, sur la fusion corrigée | `make lint` `rc=0`, `make test` `rc=0`, **562 passés**, compte publié exact |
+| **rafale de 26** | **1 fil lâché**, 26/26 rendues en 3,00 s |
+| **rafale de 60** | **1 fil lâché**, 60/60 rendues |
+| la pose du drapeau **remise côté fil** | **26 fils**, et `make test` rend `rc=2` avec **2 rouges** nommés |
+| B-1 | la collection qui pend rend en **3,00 s**, la boucle rend la main |
+| NB-1 | les deux lignes inversées rendent `rc=2` et 1 rouge nommé |
+
+**La paire prouve dans les deux sens** : la mutation reproduit le défaut à la
+charge exacte que le registre publie, et le garde le voit. C'est la vérification
+la plus complète que ce lot ait reçue.
+
+#### LA PORTE ÉTAIT ROUGE SUR LE RÉSULTAT DE LA FUSION — et c'est un GARDE qui l'a trouvé
+
+Verte sur la branche (562), verte sur `main`, **`rc=2` sur la fusion**.
+L'inventaire de `all-MiniLM-L6-v2` attendait **3** occurrences dans
+`axes_amelioration.md` et en trouvait **5**.
+
+**Les deux de plus sont du pilote.** Ses §4.19 et §4.25 citent le nom du modèle
+pour décrire les sondes qui ont mesuré le garde — une collection bouchonnée sur ce
+modèle, et la table où il s'écarte de son auditeur. Elles n'existaient pas quand
+la branche a écrit sa table, et la branche ne les voit pas : **le défaut naissait
+de la FUSION, pas du diff.**
+
+C'est la **famille (f) du §4.14 pour la quatrième fois** — et **la première fois
+qu'un GARDE la trouve**, au lieu d'un auditeur ou du pilote relisant le résultat
+de fusion à la main. *Le lot 3 a construit le garde qui attrape la dérive que le
+lot 3 lui-même a causée.* C'est la démonstration que le §4.13 attendait : un
+chiffre gardé rougit, un chiffre relu dérive.
+
+`vérifié` avant de toucher au compte : les cinq occurrences sont des
+**citations** — une réfutation au §3.2, deux sorties de mesure au §4.4, les deux
+descriptions de sonde du pilote — et **aucune n'est une instruction** : pas une
+affectation `EMBEDDING_MODEL_NAME=` parmi elles. Compte porté à 5, motif écrit au
+site.
+
+#### La résolution du conflit, à la main, et ce qu'une résolution naïve aurait cassé
+
+Un seul bloc, en fin de `axes_amelioration.md`, les deux côtés y ajoutant des
+sections. **Concaténer aurait rangé les numéros à l'envers ET laissé DEUX §4.24 de
+contenus différents** — celui du pilote et celui de `REPAR-5`, écrit quand `main`
+n'allait qu'au §4.23.
+
+Résolu en **entrelaçant par chronologie**, et en renumérotant le §4.24 de la
+branche en **§4.23 bis** — après avoir `mesuré` qu'**aucun renvoi ne le
+désigne**, ni dans la branche, ni dans `main`, ni dans un autre fichier.
+Contrôles : **0 marqueur**, **3 899 lignes conservées sur 3 899 attendues**,
+**aucun numéro en doublon**, ordre final `4.19 4.20 4.21 4.22 4.23 4.23bis 4.24
+4.25 4.26`.
+
+#### AMENDEMENT au critère de fusion du §4.18 — et le pilote le déclare
+
+Le §4.18 posait : `src/` inchangé → fusion sur vérification du pilote ; `src/`
+changé → audit indépendant. Le §4.24 l'avait invoqué en écrivant qu'*« appliquer
+son critère quand il arrange et l'oublier quand il coûte une conversation, ce
+serait n'avoir pas de critère »*. **`REPAR-6` change `src/`, et le pilote a
+fusionné sans septième audit.** Le critère n'est pas contourné, il est **amendé** :
+
+> `src/` changé → audit indépendant, **sauf si le changement a été spécifié ET
+> pré-mesuré par l'audit indépendant qui l'a exigé**, et que le pilote le vérifie
+> **dans les deux sens**.
+
+C'est exactement le cas : `Conv' 34` n'a pas seulement trouvé B-2, elle a
+**nommé la correction** — « poser le drapeau côté boucle, garder le retrait côté
+fil » — et **mesuré son effet** — « rafale de 26 → 26/26 rendues, 1 fil ». Le
+changement bloquant n'est donc pas de la matière non lue : une conversation
+indépendante l'a conçu. Le pilote a reproduit les deux états à la charge publiée.
+
+**Ce qui n'a PAS été audité indépendamment, et reste rouvrable** : l'**accusé de
+démarrage** (`demarre`, un `threading.Event`) que `REPAR-6` a ajouté de lui-même
+pour traiter — plutôt qu'invoquer — l'objection que son site opposait à la pose
+côté boucle ; et les **cinq gardes neufs** des non-bloquantes. Le pilote a mesuré
+que le garde de l'accusé rougit sous sa mutation, sans l'éprouver seul. *Nommé
+ici pour rester rouvrable, pas fermé.*
+
+#### La trouvaille que `REPAR-6` a faite seul, et elle est fine
+
+Le garde était décoratif pour **deux** raisons, et l'audit n'en avait vu qu'une.
+La seconde : **il comptait les fils par `name`, et tous les fils du réservoir
+anyio portent le même.** `mesuré` en retournant le garde contre le site d'avant,
+comptage par nom rétabli : l'assertion sur les fils **passait en lisant 1 pour 26
+fils**. Il compte désormais par `ident`. *La sonde du pilote comptait déjà par
+`ident` — par chance, non par méthode, et il le consigne.*
+
+#### Le poste après la fusion
+
+**Sept arbres et sept branches retirés**, aucun répertoire mort, aucune branche
+distante hors `main`, rien d'ancré par Compose ni par un bind mount. Garde-fous
+**réarmés puis éprouvés sur les deux adresses** : `@aosis.net` → `rc=1` et HEAD
+immobile ; **`florian.horellou@gmail.com` → `rc=0`**.
+
+**Une note d'identité, pour qu'elle ne soit pas lue plus tard comme une
+anomalie** : le commit `4849bc1` porte `florian.horellou@gmail.com` en auteur et
+en committer, là où les autres commits du chantier portent
+`florian_horellou@laposte.net`. **Les deux sont autorisées**, et `gmail` est
+largement présente dans l'historique antérieur — 152 occurrences sur les 184
+commits mesurés au §4 du mandat. La configuration partagée est intacte sur
+`laposte.net`, aucun `config.worktree` n'existe, et le garde-fou a laissé passer
+**à juste titre**. *Une identité se vérifie sur l'adresse, jamais sur la
+constance.*
