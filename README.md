@@ -112,7 +112,7 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
 | `HISTORY_WINDOW_SHARE` | `0.25` | Part de la fenêtre de prompt laissée à l'historique, le reste allant aux sources. Forfait, cf. [llm.md](documentation/llm.md). |
 | `TRUNCATION_FLOOR_SHARE` | `1/3` | Part de sa source qu'un fragment tronqué doit atteindre pour être retenu. Forfait : aucune mesure ne désigne cette valeur, son prix est continu — cf. [llm.md](documentation/llm.md). |
-| `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle d'ingestion, sinon la recherche rend des passages au hasard sans erreur. |
+| `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle qui a indexé la collection. Depuis le 4 septembre 2026 l'agent le vérifie contre l'estampille `embedding_model` de la collection et **refuse de chercher** sinon — `503`, `/health` en `degraded`. Une estampille **absente** est refusée aussi. |
 | `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |
 | `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Mesuré : 20 → rappel 0,900, 50 → 0,962. |
 | `HYBRID_SEARCH` / `FETCH_K` / `RRF_K` | `true` / `50` / `60` | BM25 en plus du dense, fusionné par rangs. |

@@ -463,6 +463,39 @@ class ReindexResponse(BaseModel):
     stale: bool
 
 
+class EmbeddingModelHealth(BaseModel):
+    """Concordance entre le modèle que l'agent LIT et celui qui a INDEXÉ.
+
+    La panne que ce champ rend visible est silencieuse par construction : les
+    deux modèles candidats du projet rendent des vecteurs de la même largeur
+    (site canonique : `documentation/axes_amelioration.md` §4.4), donc ChromaDB
+    accepte l'un pour l'autre et la recherche rend des passages plausibles et
+    faux. Aucune sonde de forme ne peut la voir ; seul le NOM discrimine.
+
+    Quatre états, et ils ne se soignent pas pareil :
+
+    - `ok` — l'estampille de la collection est celle du réglage ;
+    - `mismatch` — elle en nomme un AUTRE. La recherche est refusée en 503 ;
+    - `missing` — la collection ne porte pas d'estampille, donc on ne sait pas
+      ce qui l'a produite. Traité comme une divergence, délibérément : un garde
+      qui ne comparerait que lorsque l'estampille est présente serait décoratif
+      sur exactement le cas où l'on est aveugle ;
+    - `unknown` — l'estampille n'a pas pu être lue (store injoignable, ou sonde
+      qui n'est pas revenue sous le plafond). « Je n'ai pas pu lire » n'est pas
+      « ça diverge » : cet état-là ne dégrade pas le statut à lui seul, la sonde
+      `chromadb` de `services` portant déjà ce fait. Ce qui distingue un store
+      muet d'une sonde lente est au journal, pas ici : les deux valent « je ne
+      sais pas » pour qui lit cette réponse.
+    """
+
+    status: str                       # "ok" | "mismatch" | "missing" | "unknown"
+    # Ce que le réglage `EMBEDDING_MODEL_NAME` de l'agent nomme.
+    expected: str
+    # L'estampille lue sur la collection. Nulle quand elle est absente ou
+    # illisible — `status` dit lequel des deux.
+    collection: str | None = None
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
@@ -482,3 +515,9 @@ class HealthResponse(BaseModel):
     # État de la purge des sessions. Même raison, cause inverse : ici une purge
     # EXISTE, et c'est le fait qu'elle aboutisse qui doit être vérifiable.
     sessions: SessionStats | None = None
+    # Concordance du modèle d'embedding. Ce champ n'est PAS optionnel, et c'est
+    # la différence avec les deux précédents : leur absence est une information
+    # sur un accessoire, tandis qu'une réponse muette sur la concordance se lit
+    # comme une réponse rassurante. L'inconnu a donc un nom — `unknown` — plutôt
+    # qu'un null.
+    embedding_model: EmbeddingModelHealth

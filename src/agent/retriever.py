@@ -10,7 +10,7 @@ from sentence_transformers import CrossEncoder, SentenceTransformer
 from src.agent.chronometrie import Chrono
 from src.agent.lexical import LexicalIndex, chunk_from_record, fuse
 from src.agent.settings import settings
-from src.api.schemas import ChunkResult, SourceGroup
+from src.api.schemas import ChunkResult, EmbeddingModelHealth, SourceGroup
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +52,226 @@ def _get_chroma_collection() -> chromadb.Collection:
 
 
 def reset_connection() -> None:
-    """Oublie la collection mise en cache, pour la rouvrir au prochain appel."""
+    """Oublie la collection mise en cache, pour la rouvrir au prochain appel.
+
+    Réarme aussi le verdict de concordance : la collection rouverte peut être
+    une AUTRE collection — une réingestion a pu passer entre-temps — donc un
+    verdict établi sur la précédente ne vaut plus rien.
+
+    L'ORDRE DE CES DEUX LIGNES PORTE, ET IL EST GARDÉ. `cache_clear()` d'abord,
+    `rearmer_verification_modele()` ensuite. Inversés, ils réintroduisent B2 à
+    l'identique — un verdict favorable MÉMORISÉ sur une collection divergente —
+    par le seul entrelacement suivant :
+
+        1. `rearmer_verification_modele()` : la génération passe à G+1 ;
+        2. un autre fil vérifie : il relève G+1, puis lit l'estampille — le cache
+           n'est PAS encore vidé, donc il lit l'ANCIENNE collection, concordante ;
+        3. `cache_clear()` : la prochaine ouverture rendra la NOUVELLE collection,
+           que rien ne garantit concordante ;
+        4. le fil vérificateur conclut : la génération n'a pas bougé depuis qu'il
+           l'a relevée, donc il inscrit son verdict favorable. Ce verdict décrit
+           une collection que personne ne lira plus.
+
+    Le compare-et-échange ne peut rien contre cet ordre-là, et c'est le point : il
+    protège contre un réarmement survenu PENDANT la lecture, pas contre un
+    réarmement survenu AVANT une lecture qui porte encore sur l'ancien cache. Dans
+    le bon ordre, la lecture qui suit le vidage ouvre la nouvelle collection et
+    voit la divergence ; celle qui l'a précédé voit sa génération bouger et JETTE
+    son verdict. Les deux issues sont sûres.
+
+    **`mesuré` : inversées, les 552 tests de la campagne restaient VERTS.** Une
+    décision argumentée et non gardée est une décision qui se défera sans un
+    rouge — et celle-ci protège exactement le bloquant que ce lot existe pour
+    fermer. Garde : `tests/unit/test_garde_modele_embedding.py`,
+    `test_l_ordre_de_reset_connection_ne_peut_pas_s_inverser_en_silence`.
+    """
     _get_chroma_collection.cache_clear()
+    rearmer_verification_modele()
+
+
+# ─── Le garde du modèle d'embedding ──────────────────────────────────────────
+#
+# LA PANNE. Les deux modèles candidats du projet rendent des vecteurs de la même
+# largeur — 384 dimensions, site canonique `documentation/axes_amelioration.md`
+# §4.4. ChromaDB accepte donc sans broncher un index produit par l'un et
+# interrogé par l'autre : pas d'exception, pas de ligne de journal, aucune sonde
+# de forme qui voie quoi que ce soit. La recherche rend simplement des passages
+# PLAUSIBLES ET FAUX. Vérifier la dimension ne protège de rien ; c'est le NOM
+# qui discrimine, et c'est déjà arrivé une fois sur ce système.
+#
+# CE QUI REND LE GARDE POSSIBLE. Le pipeline d'ingestion estampille la
+# collection : `collection.metadata["embedding_model"]` porte le nom du modèle
+# qui a produit les vecteurs. Le producteur avait fait sa moitié ; ceci est
+# celle du lecteur.
+#
+# CE QUE LA LECTURE COÛTE, ET C'EST POURQUOI ELLE PEUT VIVRE SUR LE CHEMIN DE
+# CHAQUE RECHERCHE. `Collection.metadata` est une propriété LOCALE du client
+# chromadb (1.5.9 : `return self._model.metadata`), remplie au `get_collection`.
+# La lire ne fait aucun aller-retour — contrairement à `count()`, qui en fait un
+# et dont `lexical_stale` paie le prix à chaque appel.
+#
+# CE QUE CETTE ÉCONOMIE COÛTE EN RETOUR, et c'est une réserve, pas un détail :
+# l'estampille lue est celle capturée à l'ouverture de la collection. Une
+# réingestion qui changerait de modèle pendant que l'agent tourne ne serait vue
+# qu'après `reset_connection()` — donc après une panne de Chroma, ou un
+# redémarrage. Le pipeline ne réingère pas sous l'agent sans que quelqu'un le
+# sache ; ce qui reste ouvert est consigné dans le rapport du lot.
+
+class EmbeddingModelMismatchError(RuntimeError):
+    """La collection n'a pas été produite par le modèle avec lequel on la lit.
+
+    Ou bien on ne sait pas ce qui l'a produite, ce qui revient au même : dans les
+    deux cas, rien ne permet d'affirmer que les vecteurs de la question et ceux
+    de l'index vivent dans le même espace.
+    """
+
+
+# Verdict favorable déjà établi. Seul le FAVORABLE est retenu : un refus est
+# re-mesuré à chaque appel, pour qu'une réparation soit visible sans avoir à
+# redémarrer, et parce qu'on ne sert rien pendant ce temps de toute façon.
+#
+# CE QUE CE SITE A AFFIRMÉ, ET QUI ÉTAIT FAUX. Il portait que « le pire cas est
+# une vérification faite deux fois — un verrou coûterait plus cher que ce qu'il
+# éviterait ». C'est une PERTE DE MISE À JOUR, mesurée :
+# `verifier_modele_embedding()` lit l'estampille, puis écrit le verdict À LA
+# FIN ; un `rearmer_verification_modele()` arrivé entre les deux était écrasé par
+# cette écriture. La conséquence n'est pas une vérification en trop, c'est un
+# garde DÉSARMÉ pour toute la vie du processus, servant des passages plausibles
+# et faux en silence. Site canonique :
+# `documentation/axes_amelioration.md` §4.20, trouvaille B2.
+#
+# ATTEIGNABLE, et c'est ce qui en faisait un bloquant : `reset_connection()`
+# tourne dans un fil du threadpool depuis le `ping()` du healthcheck, toutes les
+# 20 s, et depuis la reprise de `_dense_search`, pendant que d'autres fils
+# vérifient.
+#
+# CE QUI TIENT LA PLACE DU VERROU SUR LE CHEMIN CHAUD. Une GÉNÉRATION, incrémentée
+# à chaque réarmement. La vérification la relève avant de lire, et n'inscrit son
+# verdict favorable que si elle n'a pas bougé — un compare-et-échange. Le verrou
+# ne couvre donc que deux affectations en mémoire, jamais la lecture : un
+# réarmement concurrent n'attend pas derrière l'ouverture d'une collection, et un
+# réarmement survenu pendant la lecture fait JETER le verdict plutôt que l'écraser.
+# Se tromper dans ce sens-là coûte une relecture locale ; se tromper dans l'autre
+# coûte le garde.
+_verrou_concordance = threading.Lock()
+_concordance_etablie = False
+_generation_concordance = 0
+
+
+def rearmer_verification_modele() -> None:
+    """Oublie le verdict favorable, pour que la prochaine lecture le refasse.
+
+    Incrémente la génération : une vérification déjà en cours de lecture verra
+    que le monde a bougé sous elle et renoncera à inscrire son verdict.
+    """
+    global _concordance_etablie, _generation_concordance
+    with _verrou_concordance:
+        _concordance_etablie = False
+        _generation_concordance += 1
+
+
+def _lire_estampille() -> str | None:
+    """Le nom du modèle qui a produit la collection, None s'il n'est pas inscrit.
+
+    LÈVE si le store est illisible, et c'est voulu : « je n'ai pas pu lire » ne
+    doit jamais se confondre avec « la collection ne porte pas d'estampille ».
+    Le premier est un fait sur ChromaDB, le second un fait sur ce qui a indexé.
+    """
+    metadata = _get_chroma_collection().metadata or {}
+    estampille = metadata.get("embedding_model")
+    return str(estampille) if estampille is not None else None
+
+
+def verifier_modele_embedding() -> None:
+    """Refuse de lire une collection qu'un autre modèle a produite.
+
+    Appelée en tête de la recherche dense, AVANT tout chargement de modèle : le
+    constructeur `SentenceTransformer` télécharge ce qui manque au cache, et un
+    garde placé après paierait le rapatriement du mauvais modèle avant de le
+    refuser.
+
+    Une estampille ABSENTE est refusée comme une divergence. C'est la décision du
+    lot, et c'est le cœur du problème : un garde qui ne comparerait que lorsque
+    l'estampille est présente serait décoratif sur exactement le cas où l'on ne
+    sait pas ce qui a indexé. Le prix est réel — une collection produite par un
+    pipeline plus ancien n'en porte pas, et l'agent la refusera — et il est
+    payé sciemment : le geste de réparation est court et nommé dans le message,
+    alors qu'un index lu de travers ne se voit qu'en relisant les réponses une
+    par une.
+
+    Une estampille ILLISIBLE n'est pas refusée ici : l'erreur du store remonte
+    telle quelle. La recherche échouera de toute façon, et masquer une panne de
+    ChromaDB derrière une erreur de configuration enverrait chercher au mauvais
+    endroit.
+    """
+    global _concordance_etablie
+    with _verrou_concordance:
+        if _concordance_etablie:
+            return
+        generation = _generation_concordance
+    attendu = settings.embedding_model_name
+    estampille = _lire_estampille()
+    if estampille is None:
+        raise EmbeddingModelMismatchError(
+            f"La collection '{settings.chroma_collection}' ne porte aucune estampille "
+            f"`embedding_model` : rien ne dit avec quel modèle elle a été indexée, et "
+            f"l'agent s'apprête à la lire avec '{attendu}'. Les modèles candidats de ce "
+            f"projet rendent des vecteurs de même largeur, donc une erreur ici ne "
+            f"produirait aucune exception, seulement des passages plausibles et faux. "
+            f"Réparation : réingérer avec le pipeline courant, qui estampille, ou "
+            f"inscrire l'estampille sur la collection si l'on sait ce qui l'a produite."
+        )
+    if estampille != attendu:
+        raise EmbeddingModelMismatchError(
+            f"La collection '{settings.chroma_collection}' a été indexée avec "
+            f"'{estampille}', et l'agent s'apprête à la lire avec '{attendu}'. Les deux "
+            f"rendent des vecteurs de même largeur : ChromaDB ne s'en plaindra pas et la "
+            f"recherche rendra des passages plausibles et faux. Réparation : aligner "
+            f"EMBEDDING_MODEL_NAME sur '{estampille}', ou réingérer avec '{attendu}'."
+        )
+    with _verrou_concordance:
+        # Le compare-et-échange. Si la génération a bougé pendant la lecture,
+        # un `reset_connection()` est passé : le verdict qu'on tient décrit une
+        # collection dont plus rien ne garantit qu'elle est encore celle-là, et
+        # l'inscrire ÉCRASERAIT le réarmement. On le jette, la prochaine
+        # recherche relira — c'est une lecture locale, elle ne coûte rien.
+        if generation == _generation_concordance:
+            _concordance_etablie = True
+
+
+def etat_modele_embedding() -> EmbeddingModelHealth:
+    """Le même fait, sous la forme d'un rapport plutôt que d'un refus.
+
+    Sert `/health` et le démarrage. Ne lève JAMAIS : une sonde qui tombe fait
+    tomber la route qui la porte, et `/health` doit répondre 200 même dégradé.
+
+    LE MOTIF, ET C'EST LE VRAI. Ce docstring a porté que `/health` devait rendre
+    200 « sous peine de faire redémarrer le service en boucle ». C'est FAUX,
+    mesuré deux fois indépendamment : un healthcheck en échec ne redéclenche
+    aucun conteneur sous Docker Compose — `restart:` répond à la SORTIE du
+    processus, pas à la santé — et 21 échecs consécutifs laissent
+    `RestartCount=0` et `StartedAt` inchangé. Ce qui arrive vraiment est que le
+    conteneur passe `unhealthy`, donc que `frontend`, qui en dépend en
+    `condition: service_healthy` (`docker-compose.yml`), ne lève pas au démarrage
+    à froid : une panne lisible deviendrait une pile muette. Le trou reste
+    acceptable, mais sur ce motif-là. Site canonique :
+    `documentation/axes_amelioration.md` §1.27 et §4.20, trouvaille N2.
+
+    L'absorption est LARGE — le client chromadb remonte des erreurs de transport,
+    de sérialisation et de schéma sans ancêtre commun, cf. `_taille_collection` —
+    et elle n'est pas muette : ce qu'elle attrape devient `unknown`, publié comme
+    tel dans la réponse, et le démarrage le journalise en WARNING.
+    """
+    attendu = settings.embedding_model_name
+    try:
+        estampille = _lire_estampille()
+    except Exception:
+        return EmbeddingModelHealth(status="unknown", expected=attendu, collection=None)
+    if estampille is None:
+        return EmbeddingModelHealth(status="missing", expected=attendu, collection=None)
+    if estampille != attendu:
+        return EmbeddingModelHealth(status="mismatch", expected=attendu, collection=estampille)
+    return EmbeddingModelHealth(status="ok", expected=attendu, collection=estampille)
 
 
 # ─── Index lexical BM25 ───────────────────────────────────────────────────────
@@ -415,7 +633,16 @@ def retrieve(
 
 
 def _dense_search(question: str, k: int) -> list[ChunkResult]:
-    """Recherche vectorielle seule."""
+    """Recherche vectorielle seule.
+
+    La concordance du modèle est vérifiée ICI, avant le moindre chargement : ce
+    site est celui qui PRODUIT le comportement à empêcher — une collection
+    interrogée avec le mauvais embedder — et il est le seul que tout chemin de
+    recherche traverse. Un agent démarré avant une réingestion divergente, ou
+    démarré alors que ChromaDB ne répondait pas, ne passe par aucun garde de
+    démarrage ; il passe par celui-ci.
+    """
+    verifier_modele_embedding()
     embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
@@ -439,6 +666,18 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
         # en WARNING, et un second échec remonte à l'appelant.
         logger.warning("ChromaDB injoignable, réouverture de la connexion et nouvel essai.")
         reset_connection()
+        # LE GARDE EST REPASSÉ ICI, et ce n'est pas une précaution abstraite.
+        # `reset_connection()` a désarmé le verdict précisément parce que la
+        # collection rouverte peut être une AUTRE collection — et une coupure de
+        # ChromaDB est exactement le moment où une réingestion a pu passer
+        # dessous. Sans cette ligne, la requête en cours interrogeait la
+        # collection neuve SANS repasser le garde : une réponse complète et
+        # FAUSSE, sans exception ni ligne de journal, sur le seul chemin où
+        # l'objet collection change d'identité en vol. Mesuré, et site canonique
+        # `documentation/axes_amelioration.md` §4.20, trouvaille B1.
+        # Garde : tests/unit/test_garde_modele_embedding.py,
+        # `test_la_reprise_apres_reouverture_repasse_le_garde`.
+        verifier_modele_embedding()
         results = _query(_get_chroma_collection())
 
     chunks: list[ChunkResult] = []
