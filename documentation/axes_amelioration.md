@@ -4007,3 +4007,83 @@ commits mesurés au §4 du mandat. La configuration partagée est intacte sur
 `laposte.net`, aucun `config.worktree` n'existe, et le garde-fou a laissé passer
 **à juste titre**. *Une identité se vérifie sur l'adresse, jamais sur la
 constance.*
+
+### 4.28 `main` était ROUGE et poussé — l'erreur du pilote, et le récit qui rejouait le défaut
+
+**`mesuré` le 8 septembre 2026 par le lot 5, reproduit par le pilote** : à
+`main` = `origin/main` = `4eedb2a`, dans un arbre de travail détaché monté par le
+protocole du §2.2 — `make lint` `rc=0`, mais **`make test` `rc=2`**, un seul rouge,
+`test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie` : **6**
+occurrences pour **5** autorisées.
+
+**La sixième était la phrase du §4.27 qui RACONTE que ce garde avait rougi sur la
+fusion du lot 3.** *Le récit du rouge a produit le rouge suivant.* Famille (f)
+pour la **cinquième** fois, et **seconde fois qu'un garde la trouve** — cette
+fois sur le travail du pilote.
+
+#### L'erreur est du pilote, et elle a deux moitiés, toutes deux consignées au mandat
+
+1. **il a corrigé le compte de 3 à 5 en mesurant le fichier AVANT d'y ajouter le
+   §4.27**, puis a ajouté la section — qui nomme le modèle — et a poussé **sans
+   remesurer la porte sur `main`** ;
+2. **il a publié « `rc=0`, `rc=0`, 562 verts » comme état de `main` dans le prompt
+   du lot 5**, alors qu'il l'avait mesuré sur `c5f9a54`, **deux commits plus
+   tôt**. Le mandat dit vingt fois *« mesure l'état du poste au lieu de le lire »*
+   et ajoute qu'**un prompt est le dernier endroit où placer une affirmation non
+   mesurée, parce qu'il est lu par quelqu'un qui n'a pas de raison d'en douter.**
+   Le lot 5 en a douté, l'a mesuré, et a renversé le pilote — c'est exactement ce
+   que le mandat lui demande.
+
+**Et une précision que le pilote doit à l'honnêteté** : sa première mesure
+annonçait **deux** rouges. Le second était un **artefact de son harnais** — il
+avait monté l'arbre par `git archive`, donc hors d'un dépôt git, et
+`_fichiers_suivis()` sortait en 128 sur `git ls-files`. Refait dans un vrai arbre
+détaché : **un seul rouge**, exactement ce que le lot 5 rapportait. *Un harnais de
+mesure peut muter ce qu'il observe*, et cette fois il a cassé un test sain.
+
+**Corrigé** par la périphrase que le lot 5 a choisie et que le reste de la section
+employait déjà — « l'inventaire du **modèle anglais** » — identique à la sienne
+pour que la fusion soit triviale. `mesuré` : `main` = `d4b7219`, `make lint`
+`rc=0`, `make test` `rc=0`, **562 passés**, poussé.
+
+#### LA DÉCISION DU PILOTE sur la forme de cet inventaire
+
+Le lot 5 rend un désaccord argumenté et **refuse de trancher lui-même** : cet
+inventaire compte des **occurrences** du nom quand ce qu'il protège sont les
+**instructions**. Sous cette forme, *toute page qui raconte son déclenchement le
+fait rougir, et le geste appris est « monter le compte » — ce qui desserre le
+garde d'un cran à chaque récit.* Il ne l'a pas changé, au motif qu'il a trouvé
+quatre dérives réelles et qu'**affaiblir un instrument qui trouve est une décision
+de pilote**. Il a raison sur les deux points, et le pilote a la preuve en main :
+**il a fait rougir ce garde deux fois, et une de ses deux corrections était
+précisément « monter le compte ».**
+
+**Tranché — et ce n'est ni « garder » ni « remplacer », c'est dédoubler :**
+
+| | ce que ça devient |
+|---|---|
+| l'inventaire d'**occurrences** | **conservé tel quel**, comme *fil de détente de dérive documentaire*. C'est le rôle qu'il joue réellement, et il l'a joué cinq fois. On ne retire pas un instrument qui trouve |
+| un garde **neuf et plus étroit**, sur les **affectations** | `EMBEDDING_MODEL_NAME=…`, `embedding_model_name = "…"` et leurs formes : **c'est l'affectation qu'on peut copier**, jamais la mention. C'est lui qui porte la sûreté, et il n'a aucune raison de rougir sur un récit |
+| la **règle de maintenance**, écrite au site | **on corrige par PÉRIPHRASE, on ne monte pas le compte.** Monter le compte est le geste qui desserre ; la périphrase est le geste qui tient. Les deux corrections de ce chantier ont convergé vers la périphrase — *une fois par hasard, une fois par choix* |
+
+Le motif de ne pas simplement remplacer : un inventaire d'occurrences est un
+**détecteur de dérive**, pas un garde de sûreté, et ce chantier a besoin des deux.
+Les confondre est ce qui a rendu le geste de correction ambigu. **Ce dédoublement
+part au lot suivant** ; il n'est pas du ressort du lot 5, qui l'a signalé sans y
+toucher — et c'était le bon geste.
+
+#### Les deux fautes que le lot 5 a déclarées, vérifiées par le pilote
+
+Le lot déclare avoir laissé passer **une attribution d'assistant** en pied de
+message, puis avoir amendé **avec `--no-verify`** — les deux interdites — avant de
+refaire l'amendement en laissant le hook tirer. `vérifié par le pilote` le
+8 septembre 2026 sur les deux commits de sa branche : **0 attribution** dans les
+messages, **0** dans les lignes ajoutées, auteur **et** committer sur
+`florian_horellou@laposte.net`, aucune adresse hors des deux autorisées.
+**L'historique est propre.**
+
+*Ce qui vaut d'être retenu est la déclaration.* Un `--no-verify` réparé et déclaré
+coûte une ligne de registre ; un `--no-verify` réparé et taxé aurait coûté la
+confiance dans tout le rapport. C'est la troisième fois de ce chantier qu'une
+conversation ouvre son rapport par sa propre faute, et la troisième fois que la
+mesure du pilote confirme qu'elle était sans dégât.
