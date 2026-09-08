@@ -4217,3 +4217,105 @@ coûte une ligne de registre ; un `--no-verify` réparé et taxé aurait coûté
 confiance dans tout le rapport. C'est la troisième fois de ce chantier qu'une
 conversation ouvre son rapport par sa propre faute, et la troisième fois que la
 mesure du pilote confirme qu'elle était sans dégât.
+
+### 4.30 → FERMÉ — le lot 5 fusionné : la mesure de qualité du dépôt est vivante, et en deux instruments
+
+**`main` = `744c2c8`.** La seule mesure de qualité du dépôt était morte — son jeu
+doré désignait un corpus remplacé, **129 ancrages dont zéro existaient**. Elle
+vit à nouveau, et **en deux instruments qui ne mesurent pas la même chose** : un
+jeu de 138 questions régénéré sur le corpus actuel, et les 30 questions du
+pipeline **transposées**, site canonique resté chez lui, empreinte de la source
+gravée.
+
+Livré (`Conv' 36`), audité (`Conv' 37`) : **zéro bloquante**, huit non bloquantes,
+recommandation de fusionner. *Le pilote a vérifié avant de la suivre, parce
+qu'accepter un « fusionner » sur parole est la direction risquée.*
+
+#### Ce que le pilote a mesuré de ses mains, le 8 septembre 2026
+
+| | `mesuré` |
+|---|---|
+| porte sur le lot | `make lint` `rc=0`, `make test` `rc=0`, **603 passés** |
+| porte sur **le résultat de la fusion** | `rc=0`, `rc=0`, **603 passés** ; inventaires intacts (5 et 1), compte publié exact |
+| **N1**, la seule trouvaille qui touche du code | `rc=1` là où le contrat promet **2**, avec **preuve d'atteinte** |
+| conflit de fusion | aucun |
+
+**N1, et pourquoi la cotation non bloquante est juste.** `StoreInjoignableError`
+**hérite** de `RuntimeError`, et `SessionPool.init()` **lève** un `RuntimeError`
+nu au lieu de rendre `False` : l'exception échappe donc à son propre gestionnaire,
+et Python sort en **1**. Le contrat « 2 = store injoignable » est écrit à quatre
+sites. `mesuré` par le pilote, ChromaDB joignable et Nebula bidon —
+`RuntimeError: The services status exception`, trace non absorbée, `rc=1`. **La
+propriété de sûreté tient** : jamais de faux vert, `make eval` s'arrête, et une
+trace Python ne se lit pas comme « jeu périmé ».
+
+**Et la sonde du pilote n'a pas atteint son cas au premier essai** : son arbre
+n'ayant pas de `.env`, le script échouait sur **ChromaDB** avant d'arriver à
+Nebula, et rendait `rc=2` — le chiffre attendu, pour la mauvaise raison. Refaite
+avec un ChromaDB joignable, elle nomme NebulaGraph dans son échec. *Un `rc` juste
+n'est pas une preuve d'atteinte.*
+
+#### Ce que l'audit a établi, et qui vaut d'être gardé
+
+- **les ancrages existent, et la sonde sait dire non** : **130/130** au graphe *et*
+  dans ChromaDB pour le jeu neuf, **0/129** pour l'ancien. L'auditeur a en plus
+  **prouvé l'atteinte du cas asymétrique** avec un identifiant présent au graphe et
+  absent de l'index : `rc=1`, « ABSENT DE CHROMADB » nommé. L'asymétrie vaut un
+  facteur 4 — **15 196** sommets contre **3 750** `element_id`, reconstruits
+  indépendamment ;
+- **l'auto-référentialité est réfutée plus fort que le lot ne l'écrivait** : les
+  21,7 points d'écart brut tombent à **4,5** sur les seules questions à ancrage
+  unique — 11/12 contre 125/130, **une question** — et l'auditeur ajoute un
+  **Fisher exact à p = 0,417**. Le résidu n'est pas distinguable du bruit ;
+- **le déterminisme est plus précis que « la troisième décimale »** : les neuf
+  métriques de recherche se rejouent **bit pour bit**, et
+  `citations_par_reponse` rend une **troisième** valeur distincte (3,8 / 3,5 /
+  3,233) — la non-détermination est dans l'étage de génération, et elle est
+  bornée là ;
+- **l'empreinte des ancrages ferme un piège réel** : les deux corpus portent
+  **exactement les mêmes 138 identifiants**, donc un jeu périmé rend 0 % (visible)
+  mais deux corpus sous une même numérotation rendent des chiffres **plausibles**.
+  L'auditeur a prouvé que la **première** forme était décorative sur le cas visé —
+  `sha256:584a64…` **bit pour bit identique** pour les deux corpus — et que la
+  seconde les sépare, laisse passer une reformulation, et voit un ré-ancrage ;
+- **le chemin de code est celui déclaré, prouvé par les données** :
+  `dense_ms`, `lexical_ms`, `translation_ms` et `rerank_ms` sont **tous > 0 sur les
+  168 questions**, question 1 comprise — donc l'index BM25 était chaud ;
+- **la strate `de_suivi` s'explique par le mécanisme que le pipeline avait nommé**,
+  et l'auditeur l'a **vu s'allumer** : `rewrite_ms > 0` sur exactement `q25`–`q28`
+  et sur **aucune** des 138 autres.
+
+#### Les huit non bloquantes, et où elles vont
+
+| | Ce que c'est | Suite |
+|---|---|---|
+| **N1** | `rc=1` au lieu de `2` quand NebulaGraph est injoignable, contrat écrit à quatre sites, **aucun test sur ce chemin** | **lot suivant, en tête** |
+| **N2** | le réchauffement de l'index BM25 est **raconté, ni fait ni gardé** : aucune chauffe dans `evaluate.py`, aucune dans le `Makefile`, aucun test. `make eval` sur une pile fraîche fera passer la question 1 par un index froid — *la trappe même que le lot a identifiée reste ouverte pour la campagne suivante* | **lot suivant, en tête** |
+| **N3** | une mutation du tableau est **attribuée au mauvais garde** : elle est bien attrapée, mais par le voisin. Le tableau nomme un garde décoratif *pour cette mutation-là* | lot suivant |
+| **N4** | `documentation/tests.md` **affirme une chose fausse** : un `set.add` légitime fait rougir **deux** assertions, alors que la page écrit le contraire. Et la recherche de sous-chaîne que le lot qualifie de « première forme fausse » est **revenue** comme troisième assertion. *Un successeur qui croit la page posera un `set.add`, verra un rouge inexplicable, et sera tenté d'affaiblir le garde* | lot suivant |
+| **N5** | le lot pose un `pragma: allowlist secret` sur `source_sha256` là où sa **propre** technique — préfixer `sha256:` — l'évitait. Deux hachages, deux traitements | lot suivant |
+| **N6** | le **15 196** est publié sans sa commande, seul chiffre du compte rendu dans ce cas. L'auditeur l'a reconstruit et il est exact, mais un lecteur ne peut pas le rejouer | lot suivant |
+| **N7** | la reproductibilité des ancrages **n'est pas ce que la documentation laisse entendre** : la graine fixe le tirage, mais l'ensemble retenu dépend du motif d'acceptation du LLM. **Reproductible en pratique, pas par construction** — et le texte des questions ne l'est pas du tout, `temperature: 0.4` sans `seed` | lot suivant |
+| **N8** | deux inexactitudes chiffrées : `golden_qa.json` est décrit « 15 questions à réponse », c'est **13 sur 15** ; et `README.md` garde un « 50 → 0,962 » hérité du corpus remplacé | lot suivant |
+
+#### Trois chiffres de cadrage du pilote, corrigés par l'audit
+
+**Le §4.29 n'existe pas** — le compte rendu du lot vit au **§4.3**, marqué
+`→ FERMÉ par le lot 5`. **Le diff brut est 13 761 / 3 241**, et non 3 161 : ce
+dernier était le chiffre du *résultat de fusion*, que le pilote a cité comme
+diffstat de branche. **Et la batterie compte dix mutations, pas neuf.** Trois
+erreurs dans un seul prompt, toutes du même genre : *un chiffre recopié d'un
+contexte dans un autre.*
+
+**Et une quatrième, sur le commit de fusion lui-même** : la première rédaction de
+son message portait des accents graves dans un argument entre guillemets doubles,
+et `bash` les a interprétés comme une **substitution de commande** — le nom du
+fichier a disparu du message, remplacé par du vide. Amendé par heredoc, comme
+partout ailleurs dans ce chantier. *Un message de commit est un artefact
+mesurable : il se relit après écriture.*
+
+#### Le poste après la fusion
+
+Trois arbres et trois branches retirés, aucun répertoire mort, un seul arbre
+restant — celui du pilote. Garde-fous **réarmés puis éprouvés** : `@aosis.net` →
+`rc=1` et HEAD immobile, adresse autorisée → `rc=0`.
