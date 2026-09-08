@@ -281,12 +281,11 @@ dépôt, pas dans la conversation.*
 
 | **37** | AUDIT-5 — audit du lot 5 | **10 mutations reproduites**, 9 propres, campagne de contrôle rejouée **bit pour bit**. **ZÉRO bloquante**, 8 non bloquantes — §4.30. A corrigé **quatre** chiffres du pilote et **renforcé** les deux lectures que le lot publiait contre lui-même |
 
-| **38** | LOT-DETTE — les deux trappes ouvertes, et le dédoublement de l'inventaire | livré le **8 septembre 2026**. **N1 à N8 fermées**, `rc=0` / `rc=0`. Les deux trappes : `verifier_les_ancrages` rend enfin **2**, avec **preuve d'atteinte live** (ChromaDB joignable, Nebula sur `192.0.2.1` : `rc=1` → `rc=2`), et la chauffe BM25 est **faite, vérifiée et refusée en 2** dans `evaluate.py`. **L'inventaire est dédoublé** — et le garde neuf a trouvé une affectation copiable sur `main`, puis **la première rédaction du §4.29 lui-même**. Trois trouvailles sur ce lot par ses propres mutations : `lire_chroma` et `pool.execute` non gardés, et une détection `detect-secrets` que le lot ajoutait. §4.29 |
+| **38** | LOT-DETTE — les deux trappes ouvertes, et le dédoublement de l'inventaire | livré le **8 septembre 2026**. **N1 à N8 fermées**, `rc=0` / `rc=0`. Les deux trappes : `verifier_les_ancrages` rend enfin **2**, avec **preuve d'atteinte live** (ChromaDB joignable, Nebula sur `192.0.2.1` : `rc=1` → `rc=2`), et la chauffe BM25 est **faite, vérifiée et refusée en 2** dans `evaluate.py`. **L'inventaire est dédoublé** — et le garde neuf a trouvé une affectation copiable sur `main`, puis **la première rédaction du §4.29 lui-même**. Trois trouvailles sur ce lot par ses propres mutations : `lire_chroma` et `pool.execute` non gardés, et une détection `detect-secrets` que le lot ajoutait. Commit `e577dca`, **629 passés**, fusionné par le pilote — §4.29 et §4.31 |
 
-| **38** | LOT-DETTE — N1 à N8 et le dédoublement du §4.28 | `e577dca` : **629 passés**, N1 et N2 fermées, dédoublement exécuté. **A trouvé, par ses propres mutations, deux moitiés de contrat qui n'étaient gardées par rien** |
 | **39** | AUDIT-DETTE — audit du lot dette | **ZÉRO bloquante**, 5 non bloquantes. A **renversé deux maillons du raisonnement du pilote** avec des mesures, et trouvé que **l'idiome du dépôt échappe au garde de sûreté** — §4.31 |
 
-**Prochain numéro libre : 41.**
+**Prochain numéro libre : 40.**
 
 **Cinq lots fusionnés, huit audits, huit trouvailles — dont six bloquantes.** Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
