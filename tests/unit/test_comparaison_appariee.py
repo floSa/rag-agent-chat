@@ -19,10 +19,12 @@ import importlib.util
 import json
 import os
 import pathlib
+import re
 import subprocess
 import sys
 
 import pytest
+import yaml
 
 _RACINE = pathlib.Path(__file__).resolve().parents[2]
 _SCRIPT = _RACINE / "scripts" / "evaluate.py"
@@ -41,6 +43,20 @@ def _evaluate():
 def _campagne(nom: str) -> list[dict]:
     chemin = _FIXTURES / f"{nom}.json"
     return json.loads(chemin.read_text(encoding="utf-8"))["questions"]
+
+
+def _empreinte_des_fixtures() -> str:
+    """L'empreinte que portent les quatre campagnes synthétiques du dépôt.
+
+    Elle est LUE dans `campagne_reference.json` plutôt que recalculée : ces
+    fixtures ne portent pas de `gold_element_ids` — ce sont des lignes de
+    RÉSULTAT — donc rien ici ne peut la dériver, et c'est précisément pourquoi
+    `comparer_apparie` la reçoit en argument au lieu de la recalculer.
+    """
+    document = json.loads(
+        (_FIXTURES / "campagne_reference.json").read_text(encoding="utf-8")
+    )
+    return document["empreinte_des_ancrages"]
 
 
 # ─── Ce que l'appariement rend visible et que la moyenne cache ───────────────
@@ -247,7 +263,9 @@ def test_la_comparaison_appariee_refuse_et_le_dit(capsys) -> None:
     evaluate = _evaluate()
     chemin = _FIXTURES / "campagne_reference.json"
 
-    resultat = evaluate.comparer_apparie(_campagne("campagne_jeu_tronque"), chemin)
+    resultat = evaluate.comparer_apparie(
+        _campagne("campagne_jeu_tronque"), chemin, _empreinte_des_fixtures()
+    )
     sortie = capsys.readouterr().out
 
     assert resultat is False
@@ -264,9 +282,22 @@ def test_une_reference_sans_lignes_par_question_refuse(tmp_path) -> None:
     précisément ce qu'on cherche à éviter."""
     evaluate = _evaluate()
     chemin = tmp_path / "resume_seul.json"
-    chemin.write_text(json.dumps({"resume": {"questions": 10, "mrr": 0.5}}), encoding="utf-8")
+    chemin.write_text(
+        json.dumps(
+            {
+                "empreinte_des_ancrages": _empreinte_des_fixtures(),
+                "resume": {"questions": 10, "mrr": 0.5},
+            }
+        ),
+        encoding="utf-8",
+    )
 
-    assert evaluate.comparer_apparie(_campagne("campagne_reference"), chemin) is False
+    assert (
+        evaluate.comparer_apparie(
+            _campagne("campagne_reference"), chemin, _empreinte_des_fixtures()
+        )
+        is False
+    )
 
 
 def test_la_comparaison_appariee_aboutit_sur_deux_jeux_identiques(capsys) -> None:
@@ -275,7 +306,9 @@ def test_la_comparaison_appariee_aboutit_sur_deux_jeux_identiques(capsys) -> Non
     evaluate = _evaluate()
 
     resultat = evaluate.comparer_apparie(
-        _campagne("campagne_echange"), _FIXTURES / "campagne_reference.json"
+        _campagne("campagne_echange"),
+        _FIXTURES / "campagne_reference.json",
+        _empreinte_des_fixtures(),
     )
     sortie = capsys.readouterr().out
 
@@ -310,18 +343,155 @@ def test_la_cible_historique_de_make_eval_serait_refusee() -> None:
     assert "117 dans la référence" in desaccord
 
 
-def test_la_nouvelle_cible_de_make_eval_s_apparie() -> None:
-    """`runs/final.json` porte les 138 lignes du jeu doré : c'est la seule cible
-    du dépôt qui s'apparie avec une campagne complète, et `make eval` la prend
-    désormais."""
+def test_la_cible_retiree_de_make_eval_est_desormais_refusee() -> None:
+    """**LA DÉCISION DU LOT 5, ÉPINGLÉE.**
+
+    Ce test remplace `test_la_nouvelle_cible_de_make_eval_s_apparie`, qui
+    affirmait que `runs/final.json` était « la seule cible du dépôt qui
+    s'apparie avec une campagne complète ». C'était vrai sur les identifiants,
+    et faux sur ce qui compte : ce fichier est l'antécédent d'un corpus
+    remplacé le 2 septembre 2026 (§4.3). Il porte bien les 138 identifiants du
+    jeu — parce que `generate_golden.py` numérote dans l'ordre de génération, et
+    que le jeu régénéré en porte 138 aussi — donc `desaccord_de_jeu` ne trouvait
+    RIEN, et `make eval --compare runs/final.json` aurait imprimé des flèches
+    sur 138 paires dont les deux moitiés mesurent deux corpus.
+
+    C'est le piège que l'empreinte des ancrages ferme, et ce test le prouve sur
+    les FICHIERS DU DÉPÔT : les identifiants coïncident, et la comparaison est
+    refusée quand même.
+    """
     evaluate = _evaluate()
     final = json.loads((_RACINE / "runs" / "final.json").read_text(encoding="utf-8"))
-    dore = json.loads(
-        (_FIXTURES / "golden_qa_generated.json").read_text(encoding="utf-8")
+    jeu = yaml.safe_load(
+        (_FIXTURES / "golden_qa_generated.yaml").read_text(encoding="utf-8")
     )["questions"]
 
-    assert {q["id"] for q in dore} == {r["id"] for r in final["questions"]}
+    # Les identifiants coïncident : l'ancien garde ne voit rien.
+    assert {q["id"] for q in jeu} == {r["id"] for r in final["questions"]}
     assert evaluate.desaccord_de_jeu(final["questions"], final["questions"]) is None
+
+    # Et le nouveau refuse : la référence ne porte aucune empreinte.
+    assert "empreinte_des_ancrages" not in final
+
+
+def test_l_empreinte_distingue_deux_corpus_a_numerotation_identique(capsys) -> None:
+    """**LE TEST QUI PROUVE QUE LE GARDE ATTEINT SON CAS.**
+
+    Une empreinte qui refuserait tout, ou qui n'accepterait que l'identité
+    littérale du fichier, ne prouverait rien de plus que `desaccord_de_jeu`. Ce
+    qui est demandé d'elle est précis : distinguer deux jeux de MÊMES
+    identifiants de questions dont les ANCRAGES diffèrent, et ne pas les
+    distinguer quand les ancrages coïncident.
+
+    Les deux directions sont mesurées ici, sur le même appel.
+    """
+    evaluate = _evaluate()
+    memes_ids = ["G-001", "G-002"]
+    corpus_a = [{"id": i, "gold_element_ids": ["aaaaaaaaa1"]} for i in memes_ids]
+    corpus_b = [{"id": i, "gold_element_ids": ["bbbbbbbbb2"]} for i in memes_ids]
+
+    # Même numérotation : le garde des identifiants ne voit RIEN.
+    assert evaluate.desaccord_de_jeu(corpus_a, corpus_b) is None
+    # L'empreinte, elle, les sépare.
+    assert evaluate.empreinte_des_ancrages(corpus_a) != evaluate.empreinte_des_ancrages(
+        corpus_b
+    )
+    # Et elle ne sépare PAS deux lectures du même jeu, quel que soit l'ordre.
+    assert evaluate.empreinte_des_ancrages(corpus_a) == evaluate.empreinte_des_ancrages(
+        list(reversed(corpus_a))
+    )
+
+
+def test_l_empreinte_ignore_une_reformulation_et_voit_un_reancrage() -> None:
+    """Ce que l'empreinte doit LAISSER PASSER, et c'est aussi important.
+
+    Reformuler une question sans toucher son ancrage est précisément le genre de
+    changement qu'une comparaison appariée existe pour mesurer : une empreinte
+    qui le refuserait interdirait l'usage principal de `--compare`.
+    """
+    evaluate = _evaluate()
+    avant = [{"id": "G-001", "question": "Quel est l'écart-type ?",
+              "gold_element_ids": ["aaaaaaaaa1"]}]
+    reformulee = [{"id": "G-001", "question": "Comment mesure-t-on la dispersion ?",
+                   "gold_element_ids": ["aaaaaaaaa1"]}]
+    reancree = [{"id": "G-001", "question": "Quel est l'écart-type ?",
+                 "gold_element_ids": ["cccccccc03"]}]
+
+    assert evaluate.empreinte_des_ancrages(avant) == evaluate.empreinte_des_ancrages(
+        reformulee
+    )
+    assert evaluate.empreinte_des_ancrages(avant) != evaluate.empreinte_des_ancrages(
+        reancree
+    )
+
+
+def test_l_empreinte_ne_se_lit_pas_comme_un_secret() -> None:
+    """**Un garde de ce lot rendait `detect-secrets` moins armable.**
+
+    Une campagne s'écrit en JSON, où aucun `pragma: allowlist secret` n'est
+    possible — le JSON n'admet pas de commentaire. Une empreinte de 64
+    hexadécimaux en valeur de mapping y est donc relevée comme « Hex High
+    Entropy String », et ce champ ramenait **6** détections dans le dépôt : les
+    deux campagnes du 8 septembre 2026 et les quatre campagnes synthétiques de
+    `tests/fixtures/`. Le lot faisait tomber l'inventaire de 36 à 2 d'un côté et
+    en rajoutait 6 de l'autre.
+
+    Le préfixe `sha256:` le corrige, et il est **mesuré** : le détecteur exige
+    que la chaîne ENTIÈRE soit hexadécimale. `mesuré` le 8 septembre 2026,
+    `detect-secrets-hook` v1.5.0, même valeur — `rc=1` nue, `rc=0` préfixée. Il
+    ne cache rien : il nomme l'algorithme.
+
+    Ce test tient la FORME et non le hook, qui n'est pas armé sur ce dépôt :
+    il refuse qu'une empreinte redevienne une chaîne purement hexadécimale.
+    """
+    empreinte = _evaluate().empreinte_des_ancrages(
+        [{"id": "G-001", "gold_element_ids": ["aaaaaaaaa1"]}]
+    )
+    algorithme, _, valeur = empreinte.partition(":")
+    assert algorithme == "sha256"
+    assert re.fullmatch(r"[0-9a-f]{64}", valeur)
+    # La chaîne entière n'est PAS hexadécimale : c'est ce qui la sort du
+    # détecteur, et c'est la propriété gardée.
+    assert not re.fullmatch(r"[0-9a-f]+", empreinte)
+
+    # Et les fichiers du dépôt portent bien cette forme.
+    for chemin in (
+        _RACINE / "runs" / "2026-09-08-reference.json",
+        _RACINE / "runs" / "2026-09-08-controle-30.json",
+        _FIXTURES / "campagne_reference.json",
+    ):
+        portee = json.loads(chemin.read_text(encoding="utf-8"))["empreinte_des_ancrages"]
+        assert portee.startswith("sha256:"), chemin.name
+        assert not re.fullmatch(r"[0-9a-f]+", portee), chemin.name
+
+
+def test_une_reference_sans_empreinte_est_refusee(capsys, tmp_path) -> None:
+    """L'empreinte ABSENTE est refusée, au même titre qu'une divergence.
+
+    C'est la décision 2 du lot 3 réappliquée : un garde qui ne comparerait que
+    lorsque l'estampille est présente serait décoratif sur exactement le cas où
+    l'on ne sait pas ce qui a été mesuré. Le prix est réel et payé sciemment —
+    les huit campagnes de `runs/` antérieures au 8 septembre 2026 sont retirées
+    comme cibles de `--compare`.
+    """
+    evaluate = _evaluate()
+    chemin = tmp_path / "sans_empreinte.json"
+    chemin.write_text(
+        json.dumps(
+            {"resume": {"questions": 1}, "questions": [{"id": "G-001", "rang_reciproque": 1.0}]}
+        ),
+        encoding="utf-8",
+    )
+
+    resultat = evaluate.comparer_apparie(
+        [{"id": "G-001", "rang_reciproque": 1.0}], chemin, "peu importe"
+    )
+    sortie = capsys.readouterr().out
+
+    assert resultat is False
+    assert "REFUSÉE" in sortie
+    assert "empreinte d'ancrages" in sortie
+    assert "Δ moyen" not in sortie
 
 
 # ─── Le script comme commande ────────────────────────────────────────────────
@@ -387,12 +557,12 @@ def _agent_simule(racine: pathlib.Path) -> str:
     return str(racine)
 
 
-def _jeu_dore(chemin: pathlib.Path, *ids: str) -> pathlib.Path:
+def _jeu_dore(chemin: pathlib.Path, *ids: str, ancrage: str = "aaaaaaaaa1") -> pathlib.Path:
     chemin.write_text(
         json.dumps(
             {
                 "questions": [
-                    {"id": i, "question": "q", "gold_element_ids": ["aaaaaaaaa1"]} for i in ids
+                    {"id": i, "question": "q", "gold_element_ids": [ancrage]} for i in ids
                 ]
             }
         ),
@@ -401,10 +571,28 @@ def _jeu_dore(chemin: pathlib.Path, *ids: str) -> pathlib.Path:
     return chemin
 
 
-def _campagne_fichier(chemin: pathlib.Path, *ids: str) -> pathlib.Path:
+def _campagne_fichier(
+    chemin: pathlib.Path, *ids: str, ancrage: str = "aaaaaaaaa1"
+) -> pathlib.Path:
+    """Une campagne de référence synthétique, EMPREINTE COMPRISE.
+
+    Sans l'empreinte, `comparer_apparie` refuse avant d'arriver à
+    l'appariement — c'est le garde du lot 5, et la décision est la même que
+    celle du lot 3 sur l'estampille du modèle d'embedding : une référence qui
+    ne dit pas ce qu'elle a mesuré n'est pas comparable. `ancrage` sert au test
+    qui prouve que l'empreinte distingue deux corpus.
+    """
     lignes = [{"id": i, "rang_reciproque": 1.0} for i in ids]
     chemin.write_text(
-        json.dumps({"resume": {"questions": len(lignes)}, "questions": lignes}),
+        json.dumps(
+            {
+                "empreinte_des_ancrages": _evaluate().empreinte_des_ancrages(
+                    [{"id": i, "gold_element_ids": [ancrage]} for i in ids]
+                ),
+                "resume": {"questions": len(lignes)},
+                "questions": lignes,
+            }
+        ),
         encoding="utf-8",
     )
     return chemin
@@ -471,6 +659,61 @@ def test_une_comparaison_refusee_sort_en_deux(tmp_path) -> None:
     # génération, et c'est la comparaison qui n'a pas eu lieu, pas la mesure.
     assert sortie.exists()
     assert json.loads(sortie.read_text(encoding="utf-8"))["resume"]["questions"] == 1
+
+
+def test_un_compare_qui_pointe_un_fichier_absent_sort_en_deux(tmp_path) -> None:
+    """**Un `--compare` vers un fichier absent ne doit pas se TAIRE.**
+
+    La forme précédente était `if args.compare and args.compare.exists()` : une
+    cible renommée, déplacée, ou jamais commitée faisait sortir `make eval` en
+    **0**, avec le résumé imprimé et aucune comparaison — ce qui se lit « rien
+    n'a bougé ». C'est la famille du §4.3 : un instrument qui ne mesure pas et
+    ne le dit pas. Trouvé en réécrivant la recette de `make eval`, dont la cible
+    est justement remplacée par ce lot.
+
+    Le code 2 est le même que celui d'un refus, et c'est voulu : dans les deux
+    cas la comparaison n'a pas eu lieu, et c'est cela que le shell doit savoir.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    sortie = tmp_path / "campagne.json"
+
+    resultat = _lancer(
+        "--golden", str(dore),
+        "--compare", str(tmp_path / "jamais_ecrite.json"),
+        "--out", str(sortie),
+        pythonpath=pythonpath,
+    )
+
+    assert resultat.returncode == 2
+    assert "COMPARAISON IMPOSSIBLE" in resultat.stdout
+    # La campagne est écrite quand même : c'est la comparaison qui manque.
+    assert sortie.exists()
+
+
+def test_la_campagne_ecrite_porte_son_empreinte_et_son_jeu(tmp_path) -> None:
+    """Une campagne qui ne dit pas contre quoi elle a tourné n'est comparable à rien.
+
+    C'est ce qui rend la prochaine campagne comparable à celle-ci, et c'est le
+    seul endroit du dépôt où l'empreinte est ÉCRITE. Sans ce test, la retirer du
+    fichier de sortie laisserait tous les autres verts : le garde de
+    `comparer_apparie` refuserait alors chaque comparaison, et on le retirerait
+    lui plutôt que de rétablir l'empreinte.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    sortie = tmp_path / "campagne.json"
+
+    resultat = _lancer(
+        "--golden", str(dore), "--out", str(sortie), pythonpath=pythonpath
+    )
+
+    assert resultat.returncode == 0
+    ecrite = json.loads(sortie.read_text(encoding="utf-8"))
+    assert ecrite["jeu"] == str(dore)
+    assert ecrite["empreinte_des_ancrages"] == _evaluate().empreinte_des_ancrages(
+        json.loads(dore.read_text(encoding="utf-8"))["questions"]
+    )
 
 
 def test_une_comparaison_qui_aboutit_sort_en_zero(tmp_path) -> None:

@@ -20,7 +20,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 - **Backend (FastAPI)** : expose le flux complet (`/chat/start` + `/chat/resume`), des endpoints unitaires (`/search`, `/sources`, `/context/{id}`, `/chat/simple`, `/answer`) et un `/reindex` que l'ingestion appelle en fin de pipeline, avec réponses en streaming SSE.
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
 - **Recherche** : hybride — dense (`paraphrase-multilingual-MiniLM-L12-v2`, le **même modèle** que l'ingestion, obligatoire) et lexicale BM25, sur la question **et sa traduction**, fusionnées par Reciprocal Rank Fusion. Reranking par cross-encoder multilingue `mmarco-mMiniLMv2-L12-H384-v1`, local.
-- **Évaluation** : jeu doré de 138 questions généré depuis le corpus, campagne déterministe sans juge LLM (`make eval`), banc de réglage rapide pour les paramètres de recherche.
+- **Évaluation** : **deux** jeux de questions et aucun ne remplace l'autre — 138 questions générées depuis le corpus pour le *réglage* (`make eval`), 30 questions écrites à la main par le pipeline d'ingestion pour le *contrôle* (`make eval-controle`). Campagne déterministe sans juge LLM, et un antécédent obligatoire : `make verifier-les-ancrages` prouve que les jeux désignent des passages qui existent, en lecture seule, avant toute mesure. Plus un banc de réglage rapide pour les paramètres de recherche.
 - **LLM** : servi par le projet [`llm-service`](https://github.com/floSa/llm-service) (conteneur `ollama-central`, réseau `llm-net`). Ce projet n'embarque aucune instance Ollama : il consomme le service central.
 - **Stores en lecture** : ChromaDB, NebulaGraph et MinIO du projet d'ingestion, joints via le réseau Docker externe `rag_network`.
 
@@ -136,7 +136,9 @@ make format            # ruff format + fix
 make typecheck         # mypy
 make test              # tests unitaires (pytest)
 make test-integration  # tests d'intégration (stores requis)
-make eval              # campagne d'évaluation, comparée — APPARIÉE — à runs/final.json
+make verifier-les-ancrages  # l'ANTECEDENT : les jeux designent-ils des passages qui existent ?
+make eval                   # reglage — 138 questions, comparee APPARIEE a la reference
+make eval-controle          # controle — les 30 questions du pipeline d'ingestion
 make models            # modèles servis par llm-service
 make health            # état de l'API et de ses dépendances
 make audit             # pip-audit sur requirements.txt

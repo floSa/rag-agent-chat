@@ -18,7 +18,29 @@ Le résultat est du **silver**, pas du gold : chaque question sort avec
 mécanique, il ne remplace pas le jugement.
 
     uv run python scripts/generate_golden.py --count 120
-    uv run python scripts/generate_golden.py --count 20 --out tests/fixtures/essai.json
+    uv run python scripts/generate_golden.py --count 20 --out tests/fixtures/essai.yaml
+
+LE JEU S'ECRIT EN YAML, ET C'EST UNE RAISON MESUREE, PAS UN GOUT. Un jeu de
+questions porte des `element_id` — dix hexadecimaux derives du contenu d'un
+passage public (contrat, exigence 2) — et `detect-secrets` les lit comme des
+chaines hexadecimales a forte entropie. `mesure` le 8 septembre 2026,
+`detect-secrets-hook` v1.5.0 sur le jeu de 138 questions que ce lot remplace :
+
+    tests/fixtures/golden_qa_generated.json   -> rc=1, 34 detections
+    le jeu de 30 questions du pipeline, YAML  -> rc=0
+
+La cause vit chez le pipeline, qui l'a mesuree le 3 septembre 2026 et qui en est
+le site canonique — l'en-tete de
+`documentation/campagnes/2026-09-02-jeu-de-questions.yaml` : le transformateur
+YAML de `detect-secrets` rend les VALEURS DE MAPPING et pas les ELEMENTS DE
+SEQUENCE. Les `element_id` d'un jeu de questions vivent en elements de sequence.
+Donc : `--out` en `.yaml` ou `.yml` ecrit du YAML, tout autre suffixe du JSON, et
+le defaut est le YAML.
+
+`detect-secrets` n'est PAS arme sur ce depot (`.pre-commit-config.yaml` le dit
+et dit pourquoi), donc rien ne rougirait d'un jeu en JSON aujourd'hui. C'est
+precisement l'argument INVERSE de celui qu'on croit : un jeu en JSON rend ce
+hook inarmable sans un audit de ses 34 detections. Le YAML le laisse armable.
 """
 
 from __future__ import annotations
@@ -34,6 +56,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -60,6 +83,61 @@ _UNANSWERABLE = [
     ("en", "What is the recipe for a traditional Basque cheesecake?"),
     ("en", "How many employees work in the Tokyo office?"),
 ]
+
+_LISEZ_MOI = [
+    "Jeu SILVER : questions générées automatiquement à partir des passages",
+    "du corpus, par scripts/generate_golden.py. La vérité terrain est connue",
+    "par construction — la question a été écrite POUR le passage — donc sans",
+    "la circularité d'une annotation faite depuis les résultats du retrieval.",
+    "",
+    "reviewed: false = non relu par un humain. Une relecture promeut la",
+    "question en gold. Cette approche est reconnue fiable pour régler un",
+    "retriever, moins pour arbitrer entre deux générateurs.",
+    "",
+    "_origine porte la traçabilité : document, section, page et la phrase",
+    "exacte du passage qui contient la réponse.",
+    "",
+    "CE JEU NE PROUVE RIEN TANT QUE SES `gold_element_ids` N'ONT PAS ÉTÉ",
+    "CONFRONTÉS AUX STORES : un jeu qui désigne le vide rend 0 % de rappel",
+    "sans dire si la recherche est cassée ou si le jeu est périmé. C'est la",
+    "panne exacte que le jeu précédent a portée. L'instrument est",
+    "scripts/verifier_les_ancrages.py, et il sort en 1 au premier désaccord.",
+]
+
+# Suffixes qui déclenchent l'écriture en YAML. Voir le docstring du module : le
+# YAML n'est pas un goût, il garde les `element_id` hors de portée du
+# transformateur de `detect-secrets`.
+_SUFFIXES_YAML = (".yaml", ".yml")
+
+
+def ecrire(chemin: Path, contenu: dict[str, Any]) -> None:
+    """Écrit le jeu, en YAML par défaut, en JSON si le suffixe le demande.
+
+    `default_flow_style=False` est ce qui rend les `gold_element_ids` en
+    ÉLÉMENTS DE SÉQUENCE (`- 05f988efec`) et non en style de flux
+    (`[05f988efec]`) : le style de flux les rendrait à nouveau visibles au
+    transformateur YAML de `detect-secrets`, qui ne les voit pas en style de
+    bloc. La mesure qui l'établit est au docstring du module.
+
+    `sort_keys=False` préserve l'ordre d'écriture, `allow_unicode=True` garde
+    les questions françaises lisibles dans le diff.
+    """
+    if chemin.suffix.lower() in _SUFFIXES_YAML:
+        chemin.write_text(
+            yaml.safe_dump(
+                contenu,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+                width=100,
+            ),
+            encoding="utf-8",
+        )
+        return
+    chemin.write_text(
+        json.dumps(contenu, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
 
 PROMPT = """Tu lis un extrait de document technique. Écris UNE question à laquelle
 cet extrait — et lui seul — permet de répondre.
@@ -101,8 +179,15 @@ def _normalise(text: str) -> set[str]:
     return {t for t in re.findall(r"\w+", sans_accents) if len(t) > 3}  # noqa: PLR2004
 
 
-def charger_passages(host: str, port: int) -> list[dict[str, Any]]:
-    """Lit tout l'index et ne garde que les passages exploitables."""
+def charger_passages(host: str, port: int) -> tuple[list[dict[str, Any]], int]:
+    """Lit tout l'index et ne garde que les passages exploitables.
+
+    Returns:
+        Les passages retenus, et le nombre TOTAL de chunks indexés. Le second
+        est rendu parce qu'il va dans le jeu : un jeu de questions dont on ne
+        sait pas contre quel index il a été écrit ne peut pas être déclaré
+        périmé, et c'est exactement ce qui est arrivé au jeu précédent.
+    """
     import chromadb
 
     collection = chromadb.HttpClient(host=host, port=port).get_collection("rag_documents")
@@ -134,14 +219,25 @@ def charger_passages(host: str, port: int) -> list[dict[str, Any]]:
             )
 
     print(f"{len(passages)} passages exploitables sur {total} chunks indexés.")
-    return passages
+    return passages, total
 
 
 def echantillonner(passages: list[dict], combien: int, graine: int) -> list[dict]:
     """Tire des passages en équilibrant documents et langues.
 
-    Sans stratification, `statisticsfordatascience.pdf` — un sixième de l'index —
-    monopoliserait le jeu, et le français (10 % du corpus) en disparaîtrait.
+    Sans stratification, le document le plus gros monopoliserait le jeu : sur le
+    corpus du 8 septembre 2026, `Hands-On_RAG_for_Production` porte 124 des
+    1 266 passages exploitables, et deux ouvrages HTML en portent 1 142.
+
+    LA MOITIÉ RÉSERVÉE À LA LANGUE MINORITAIRE NE MORD PLUS, et il faut le
+    savoir avant de lire un chiffre translinguistique. Une version antérieure de
+    ce docstring donnait « le français (10 % du corpus) » : `mesuré` le
+    8 septembre 2026 contre ChromaDB, les 4 367 chunks portent
+    `language: en` — **4 367 sur 4 367**, aucun autre. La stratification par
+    langue est donc un no-op sur ce corpus (une seule langue, un seul quota), et
+    l'axe translinguistique ne survit que par `_PART_TRANSLINGUISTIQUE`, qui pose
+    la QUESTION dans l'autre langue. « Question française → document anglais »
+    reste mesurable ; l'inverse a disparu avec le corpus français.
     """
     hasard = random.Random(graine)
     par_langue: dict[str, list[dict]] = defaultdict(list)
@@ -271,14 +367,25 @@ def main() -> int:
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--seed", type=int, default=42, help="Rend le tirage reproductible")
     parser.add_argument(
-        "--out", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.json"
+        "--out", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
     )
     args = parser.parse_args()
 
-    passages = charger_passages(args.chroma_host, args.chroma_port)
+    passages, total_chunks = charger_passages(args.chroma_host, args.chroma_port)
     if not passages:
         print("Aucun passage exploitable — l'index est-il peuplé ?")
         return 1
+    # Les langues du CORPUS, comptées sur les passages exploitables. Elles
+    # bornent la mesure translinguistique et ne sont pas décoratives : le
+    # 2 septembre 2026, le corpus a été remplacé par un corpus ENTIÈREMENT
+    # ANGLAIS, ce qui a coupé en deux l'axe translinguistique — « question
+    # française → document anglais » reste mesurable, l'inverse a disparu. Un
+    # jeu qui n'inscrit pas cette borne laisse le lecteur suivant croire qu'il
+    # mesure les deux sens.
+    langues_du_corpus: dict[str, int] = defaultdict(int)
+    for passage in passages:
+        langues_du_corpus[passage["language"] or "??"] += 1
+    langues_du_corpus = dict(sorted(langues_du_corpus.items()))
 
     # Marge : une partie des générations est rejetée par les garde-fous.
     candidats = echantillonner(passages, int(args.count * 1.8), args.seed)
@@ -326,34 +433,24 @@ def main() -> int:
         langues[q["language"]] += 1
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(
-        json.dumps(
-            {
-                "_lisez_moi": [
-                    "Jeu SILVER : questions générées automatiquement à partir des passages",
-                    "du corpus, par scripts/generate_golden.py. La vérité terrain est connue",
-                    "par construction — la question a été écrite POUR le passage — donc sans",
-                    "la circularité d'une annotation faite depuis les résultats du retrieval.",
-                    "",
-                    "reviewed: false = non relu par un humain. Une relecture promeut la",
-                    "question en gold. Cette approche est reconnue fiable pour régler un",
-                    "retriever, moins pour arbitrer entre deux générateurs.",
-                    "",
-                    "_origine porte la traçabilité : document, section, page et la phrase",
-                    "exacte du passage qui contient la réponse.",
-                ],
-                "_statistiques": {
-                    "questions": len(questions),
-                    "par_langue": dict(langues),
-                    "rejetees_par_les_garde_fous": rejets,
-                    "graine": args.seed,
+    ecrire(
+        args.out,
+        {
+            "_lisez_moi": _LISEZ_MOI,
+            "_statistiques": {
+                "questions": len(questions),
+                "par_langue": dict(langues),
+                "rejetees_par_les_garde_fous": rejets,
+                "graine": args.seed,
+                "corpus": {
+                    "chunks_indexes": total_chunks,
+                    "passages_exploitables": len(passages),
+                    "documents_porteurs": len({p["source_path"] for p in passages}),
+                    "langues_du_corpus": langues_du_corpus,
                 },
-                "questions": questions,
             },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
+            "questions": questions,
+        },
     )
 
     print(f"\n{len(questions)} questions écrites dans {args.out}")

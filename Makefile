@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs
+.PHONY: install lint format typecheck test audit up down logs eval eval-controle verifier-les-ancrages
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -91,14 +91,62 @@ models:
 health:
 	curl -s http://localhost:8011/health
 
+# DEUX INSTRUMENTS, DEUX CIBLES, ET AUCUN NE REMPLACE L'AUTRE. La decision est
+# celle du §4.3 de `documentation/axes_amelioration.md`, prise le 3 septembre
+# 2026 : le jeu REGENERE porte le volume de reglage, les 30 questions du
+# pipeline portent le controle independant du generateur. Le premier ne sait pas
+# se contredire — la question est ecrite POUR le passage qu'elle designe — le
+# second est trop peu nombreux pour arbitrer un reglage.
+#
 # Campagne d'evaluation : rappel du retrieval, precision du contexte, completude
 # des citations, abstention et latence par etage. Deterministe, sans juge LLM.
 #
-# La comparaison est APPARIEE question par question, et elle REFUSE de tourner si
-# les deux jeux de questions diffèrent (code de sortie 2). La cible etait
-# `runs/reference.json`, qui ne porte que 117 des 138 lignes : chaque `make eval`
-# confrontait donc 138 moyennes a 117 moyennes, en silence. `runs/final.json`
-# porte les 138 et c'est la configuration retenue, donc la bonne base.
-eval:
-	uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.json \
-		--out runs/$(shell date +%Y%m%d-%H%M).json --compare runs/final.json
+# La comparaison est APPARIEE question par question, et elle REFUSE de tourner
+# (code de sortie 2) dans trois cas : les deux jeux de questions divergent, la
+# reference ne porte pas d'empreinte d'ancrages, ou la cible n'existe pas.
+#
+# CE QUE CE LOT A RETIRE, ET POURQUOI. La cible etait `runs/final.json`, commite
+# le 3 aout 2026. Elle est l'antecedent d'un corpus REMPLACE le 2 septembre
+# 2026, et le piege etait arme : `generate_golden.py` numerote ses questions
+# dans l'ordre de generation, donc le jeu regenere porte EXACTEMENT les memes
+# 138 identifiants. Le refus sur desaccord de jeu ne voyait rien, et cette
+# recette aurait imprime des fleches sur 138 paires dont les deux moities
+# mesurent deux corpus. C'est pourquoi une campagne inscrit desormais
+# l'empreinte de ses ancrages, et pourquoi les huit campagnes anterieures de
+# `runs/` sont retirees comme cibles — elles n'en portent pas.
+# Gardes : tests/unit/test_comparaison_appariee.py,
+# `test_la_cible_retiree_de_make_eval_est_desormais_refusee` et
+# `test_l_empreinte_distingue_deux_corpus_a_numerotation_identique`.
+#
+# L'ORDRE N'EST PAS INDIFFERENT : `verifier-les-ancrages` d'abord. Un rappel
+# mesure sur un jeu qui designe le vide rend 0 sans dire si la recherche est
+# cassee ou si le jeu est perime, et c'est la panne exacte que ce lot repare.
+# La cible `eval` en depend donc, et un desaccord d'ancrage arrete la campagne
+# avant qu'elle ne coute une demi-heure de generation.
+eval: verifier-les-ancrages
+	uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.yaml \
+		--out runs/$(shell date +%Y%m%d-%H%M)-reglage.json \
+		--compare runs/2026-09-08-reference.json
+
+# Le CONTROLE : les 30 questions du pipeline, ecrites a la main apres
+# l'ingestion. Sa reserve n'est pas negociable et elle voyage avec le fichier —
+# controle de bon fonctionnement, JAMAIS decision d'architecture. Un ecart de
+# deux points sur trente questions est du bruit.
+eval-controle: verifier-les-ancrages
+	uv run python scripts/evaluate.py --golden tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--out runs/$(shell date +%Y%m%d-%H%M)-controle.json \
+		--compare runs/2026-09-08-controle-30.json
+
+# L'ANTECEDENT DE TOUTE CAMPAGNE. Sort en 1 au premier ancrage qui n'existe pas
+# dans les stores, en 2 si un store est injoignable — un jeu sain derriere un
+# store eteint ne doit pas passer pour un jeu perime.
+#
+# `chromadb` et `graphd` n'exposent aucun port sur l'hote : les adresses sont
+# DECOUVERTES ici plutot que figees, une adresse ecrite en dur perimant a la
+# premiere reconstruction de la pile.
+verifier-les-ancrages:
+	uv run python scripts/verifier_les_ancrages.py \
+		--chroma-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
+		--nebula-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' graphd)" \
+		tests/fixtures/golden_qa_generated.yaml \
+		tests/fixtures/jeu_de_questions_pipeline.yaml

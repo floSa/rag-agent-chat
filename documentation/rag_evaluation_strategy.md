@@ -31,14 +31,31 @@ second dit si l'écart est significatif.
 ## La boucle courte
 
 ```bash
-make eval                                    # compare, APPARIÉ, à runs/final.json
-uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.json \
-    --out runs/essai.json --compare runs/final.json
+make verifier-les-ancrages   # L'ANTÉCÉDENT : les ancrages existent-ils ?
+make eval                    # jeu de RÉGLAGE, 138 questions, comparé APPARIÉ
+make eval-controle           # jeu de CONTRÔLE, les 30 questions du pipeline
 ```
 
+**`verifier-les-ancrages` n'est pas une précaution, c'est l'antécédent**, et les
+deux cibles d'évaluation en DÉPENDENT. Un jeu de questions qui désigne le vide
+rend 0 % de rappel, et un 0 % ne dit pas si la recherche est cassée ou si le jeu
+est périmé. C'est arrivé, et pendant deux mois : §4.3 de
+[`axes_amelioration.md`](axes_amelioration.md).
+
 Codes de sortie : `0` la campagne a abouti, `1` aucune question n'a abouti, `2`
-la comparaison a été **refusée** — les deux jeux de questions diffèrent. La
-campagne est écrite dans les trois cas.
+la comparaison a été **refusée**. La campagne est écrite dans les trois cas.
+Trois causes de refus, et la deuxième est celle du lot 5 :
+
+1. les deux jeux de questions diffèrent — identifiants manquants, en trop, ou
+   répétés ;
+2. **la référence ne porte pas la même `empreinte_des_ancrages`, ou n'en porte
+   pas du tout.** Deux jeux peuvent partager tous leurs identifiants de
+   questions et désigner deux corpus : `generate_golden.py` numérote dans
+   l'ordre de génération. L'empreinte est le SHA-256 des couples (identifiant,
+   ancrages triés) — elle change avec le corpus, et pas avec une reformulation
+   de question ;
+3. la cible de `--compare` n'existe pas. Avant le 8 septembre 2026, ce cas
+   sortait en **0** sans comparaison et sans un mot.
 
 Le script interroge `POST /answer` sur le jeu doré et calcule :
 
@@ -354,8 +371,8 @@ Ce dépôt en portait le cas : `make eval` visait `runs/reference.json`, que
 `runs/README.md` annonçait à 138 questions. Le fichier n'en contient que **117**
 — 21 questions (G-118 à G-138) n'ont pas abouti lors de cette campagne. Chaque
 `make eval` confrontait donc 138 moyennes à 117 moyennes sans que rien ne le
-dise. La cible est passée à `runs/final.json`, qui porte les 138 lignes du jeu
-doré, et un test épingle le refus sur l'ancienne.
+dise. La cible est alors passée à `runs/final.json`, qui porte les 138 lignes du
+jeu doré, et un test épingle le refus sur l'ancienne.
 
 C'est la même règle que celle du banc et de la campagne, appliquée un cran plus
 loin : **un écart entre deux mesures n'est jamais du bruit.**
@@ -365,14 +382,66 @@ d'un côté (l'appariement serait ambigu) et une référence sans lignes par que
 (l'appariement est impossible, et comparer les seuls résumés est ce qu'on cherche
 à éviter).
 
-## Le jeu doré
+### CE REFUS-LÀ NE VOYAIT PAS LE CAS LE PLUS GRAVE, et le lot 5 l'a mesuré
 
-`tests/fixtures/golden_qa_generated.json` — 138 questions, 70 françaises et
-68 anglaises. Chaque question porte :
+Il apparie sur les **identifiants de questions**, et rien d'autre. Or
+`generate_golden.py` numérote dans l'ordre de génération : le jeu régénéré le
+8 septembre 2026 sur le corpus ACTUEL porte **exactement les mêmes 138
+identifiants** que celui du 3 août 2026, écrit sur un corpus qui n'existe plus.
+`runs/final.json` — devenu la cible juste au-dessus — était donc accepté sans
+réserve, et `make eval` aurait imprimé flèches et p-values sur 138 paires dont
+les deux moitiés mesurent deux corpus.
+
+**Un jeu périmé rend 0 % de rappel, ce qui se voit. Deux corpus sous une même
+numérotation rendent des chiffres plausibles, ce qui ne se voit pas.**
+
+Ce que le lot 5 a posé : une campagne inscrit `empreinte_des_ancrages`, le
+SHA-256 des couples (identifiant de question, ancrages triés), et la comparaison
+refuse une référence dont l'empreinte **diffère ou est absente**. L'absence est
+refusée au même titre qu'une divergence — c'est la décision 2 du lot 3 sur
+l'estampille du modèle d'embedding, réappliquée : un garde qui ne comparerait que
+lorsque l'estampille est là serait décoratif sur exactement le cas où l'on ne
+sait pas ce qui a été mesuré. Prix payé sciemment : les huit campagnes de `runs/`
+antérieures au 8 septembre 2026 sont retirées comme cibles.
+
+Et l'empreinte **laisse passer ce qu'elle doit laisser passer** : reformuler une
+question sans toucher son ancrage ne la change pas, ce qui est l'usage principal
+de `--compare`. Gardes :
+`test_comparaison_appariee.test_l_empreinte_distingue_deux_corpus_a_numerotation_identique`
+et `..._ignore_une_reformulation_et_voit_un_reancrage`.
+
+## Les deux jeux — et aucun ne remplace l'autre
+
+**La décision est celle du §4.3, prise le 3 septembre 2026 : les DEUX.** Le motif
+tient en une phrase — *le régénéré règle, les trente contrôlent.*
+
+| | `tests/fixtures/golden_qa_generated.yaml` | `tests/fixtures/jeu_de_questions_pipeline.yaml` |
+|---|---|---|
+| effectif | **138** questions, 45 en français et 93 en anglais (`mesuré`, 8 septembre 2026) | **30** questions, 29 anglaises et 1 française |
+| origine | `scripts/generate_golden.py`, écrites **depuis** les passages par un LLM | écrites **à la main** par le pipeline, APRÈS l'ingestion, en lisant quatre chapitres dans le store |
+| ce qu'il donne | du **volume de réglage** : assez de questions pour qu'un écart sorte du bruit | un **contrôle indépendant** du générateur — il sait le contredire |
+| sa faiblesse | **auto-référentiel** : la question est écrite POUR le passage qu'elle désigne, donc il ne révèle pas un défaut de retrieval que le générateur partage. Et `reviewed: false` partout | **trop peu nombreuses pour arbitrer un réglage** : un écart de deux points est du bruit. Sa réserve voyage dans le fichier, champ `_reserve` |
+| cible de | `make eval` | `make eval-controle` |
+
+Les deux sont en **YAML**, et c'est une raison mesurée, pas un goût :
+`detect-secrets` lit un `element_id` comme une chaîne hexadécimale à forte
+entropie, et son transformateur JSON rend les éléments de séquence là où son
+transformateur YAML ne rend que les valeurs de mapping. `mesuré` le 8 septembre
+2026, `detect-secrets-hook` v1.5.0 sur les fichiers suivis : **36** détections
+avant, dont **34** dans le seul jeu en JSON ; **2** après. Site canonique de la
+CAUSE : l'en-tête du jeu de questions du pipeline.
+
+### Le jeu de réglage, question par question
+
+Chaque question porte :
 
 - `gold_element_ids` — les identifiants des éléments qui contiennent la réponse.
-  Ils sont **déterministes** : l'ingestion les dérive du contenu, ils survivent
-  à une réingestion. C'est ce qui rend le rappel calculable exactement.
+  Ils sont **déterministes** : l'ingestion les dérive du contenu et du chemin,
+  donc réingérer LE MÊME corpus rend LES MÊMES identifiants. **Ils ne survivent
+  pas au REMPLACEMENT d'un corpus, et rien ne le pourrait** — un passage qui
+  n'existe plus n'a pas d'identifiant valide. C'est ce qui rend le rappel
+  calculable exactement, et ce qui oblige à confronter le jeu aux stores avant
+  chaque campagne.
 - `gold_documents` — repli quand on n'annote qu'au niveau du document. Plus
   rapide à produire, mais beaucoup moins discriminant.
 - `chat_history` — présent, la question est une question de **suivi**. C'est ce

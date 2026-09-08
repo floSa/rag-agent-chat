@@ -4,6 +4,43 @@ Chaque fichier est le résultat d'une exécution de `scripts/evaluate.py`. Ils s
 versionnés pour que `make eval` puisse comparer, et pour que les décisions de
 réglage restent vérifiables plutôt que d'être affirmées.
 
+> ## LE 2 SEPTEMBRE 2026 COUPE CE RÉPERTOIRE EN DEUX, ET AUCUNE COMPARAISON NE TRAVERSE LA COUPURE
+>
+> Le corpus indexé a été **REMPLACÉ** ce jour-là. Les 23 documents en service
+> n'ont **aucun ouvrage en commun** avec ceux que mesuraient les huit campagnes
+> antérieures. Ce n'est pas une dérive d'identifiants — le déterminisme
+> d'`element_id` est tenu par le pipeline — c'est un autre corpus.
+> `mesuré` le 3 septembre 2026, reproduit le 8 septembre 2026 : le jeu de
+> questions de ces huit campagnes désignait **129** `element_id` distincts dont
+> **0** existe dans le graphe. Site canonique :
+> [`axes_amelioration.md`](../documentation/axes_amelioration.md) §4.3.
+>
+> **`final.json` est donc perdu comme antécédent, définitivement.** Ses chiffres
+> — `rappel_recherche` 0,985 et `mrr` 0,963 — ne décrivent plus rien d'actuel.
+> Il reste versionné parce qu'il est la seule trace du régime d'avant, et
+> **il est retiré comme cible de `--compare`.** Idem pour les sept autres.
+>
+> **LE PIÈGE ÉTAIT ARMÉ, ET IL NE SE VOYAIT PAS.** `generate_golden.py` numérote
+> ses questions dans l'ordre de génération : le jeu régénéré le 8 septembre 2026
+> porte **exactement les mêmes 138 identifiants** que celui du 3 août 2026. Le
+> refus sur désaccord de jeu — qui compare les identifiants — ne voyait donc
+> **rien**, et `make eval --compare runs/final.json` aurait imprimé des flèches
+> et des p-values sur 138 paires dont les deux moitiés mesurent deux corpus.
+> Un jeu périmé rend 0 % de rappel, ce qui se voit ; deux corpus sous une même
+> numérotation rendent des chiffres **plausibles**, ce qui ne se voit pas.
+>
+> **Ce qui ferme le piège** : une campagne inscrit désormais
+> `empreinte_des_ancrages`, le SHA-256 des couples (identifiant de question,
+> ancrages triés), et `comparer_apparie` refuse une référence dont l'empreinte
+> diffère **ou est absente**. Les huit campagnes ci-dessous n'en portent pas :
+> elles sont refusées par construction, sans qu'on ait à s'en souvenir. C'est la
+> même décision que celle du lot 3 sur l'estampille du modèle d'embedding —
+> l'absence est refusée au même titre qu'une divergence, sans quoi le garde
+> serait décoratif sur exactement le cas où l'on ne sait pas ce qui a été mesuré.
+>
+> **La nouvelle référence** est `2026-09-08-reference.json`, et son compte rendu
+> est [`2026-09-08-campagne-de-reference.md`](../documentation/campagnes/2026-09-08-campagne-de-reference.md).
+
 **La comparaison est appariée question par question, et elle refuse de tourner si
 les deux jeux diffèrent.** Le tableau ci-dessous donne le nombre de lignes
 réellement présentes dans chaque fichier — pas le nombre de questions du jeu
@@ -19,8 +56,16 @@ comparait 138 moyennes à 117.
 | `c-final.json` | 15 questions | Après le lot complet : hybride, texte intégral, tool-calling |
 | `reference.json` | **117 lignes, et biaisées**, annotées à l'**élément** | Première mesure exploitable. C'est elle qui a révélé l'écart translinguistique. La ligne annonçait 138 : le fichier n'en porte que 117, et le compte n'est pas le vrai problème — **aucune** des 8 questions `unanswerable` n'y figure, et l'anglais y survit moins bien (79 % contre 90 %). Ce qui en est tiré sur l'abstention est sans objet ; son résumé porte d'ailleurs `abstention_correcte: None`, l'instrument s'étant abstenu. **Il ne peut pas servir de base à une comparaison appariée**, et `make eval` ne le prend plus pour cible. |
 | `c3-translingue.json` | 138 questions | Après la recherche dans la traduction, avant réglage du vivier |
-| `final.json` | 138 questions | Configuration retenue |
+| `final.json` | 138 questions | Configuration retenue. **Corpus d'avant le 2 septembre 2026 — retiré comme cible de `--compare` par le lot 5.** |
 | `c-deps-a-jour.json` | 138 questions | Contrôle après la montée de toutes les dépendances. Aucune métrique de recherche ne bouge. |
+
+### Après le remplacement de corpus — la nouvelle série
+
+| Fichier | Jeu | Ce qu'il mesure |
+|---|---|---|
+| `2026-09-08-ancrages.json` | — | **L'ANTÉCÉDENT DE TOUT LE RESTE**, et ce n'est pas une campagne : le bilan de `scripts/verifier_les_ancrages.py`, qui prouve que les ancrages des deux jeux existent dans ChromaDB **et** dans NebulaGraph. Sans ce vert, un 0 % de rappel ne dit pas si la recherche est cassée ou si le jeu désigne le vide. |
+| `2026-09-08-reference.json` | 138 questions régénérées | **La nouvelle référence de réglage**, et la cible de `make eval`. Corpus du 2 septembre 2026, recherche **hybride + reranking**. |
+| `2026-09-08-controle-30.json` | 30 questions du pipeline | **Le contrôle indépendant du générateur**, cible de `make eval-controle`. Sa réserve n'est pas négociable : contrôle de bon fonctionnement, jamais décision d'architecture. |
 
 `.traductions.json` est le cache des traductions de questions utilisé par
 `scripts/sweep_retrieval.py`. Il est versionné à dessein : sans lui, rejouer un
@@ -29,6 +74,15 @@ d'une exécution à l'autre — le balayage ne serait plus comparable. Le suppri
 le fait simplement se reconstruire.
 
 ## Avertissement — le remplissage au plus juste invalide les comparaisons de contexte
+
+> **CES DEUX AVERTISSEMENTS SONT PÉRIMÉS PAR LA COUPURE DE CORPUS, et ils sont
+> conservés pour ce qu'ils apprennent.** Ils disaient à quoi s'attendre en
+> comparant à `final.json` ; `final.json` est retiré comme cible, et **aucune
+> comparaison ne traverse le 2 septembre 2026**. Les sens attendus qu'ils
+> tabulent restent justes comme raisonnement sur le remplissage et le budget ;
+> ils ne sont plus vérifiables, l'antécédent ayant péri. La campagne du
+> 8 septembre 2026 mesure ces grandeurs pour la première fois **après** les deux
+> corrections, et c'est elle qui devient leur antécédent.
 
 **À lire avec celui qui suit, et avant de comparer quoi que ce soit à
 `final.json`.** Depuis le lot du remplissage des sources (cf.
@@ -64,11 +118,14 @@ lacune du protocole, pas un signe que le défaut était sans effet.
 
 ## Avertissement — aucune campagne depuis la correction du budget de contexte
 
-**À lire avant de comparer une nouvelle campagne à `final.json`.** Le budget de la
-fenêtre de contexte a été corrigé (cf. [llm.md](../documentation/llm.md) et
+**Le fait qui ouvrait cette section n'est plus vrai : une campagne a tourné.**
+Le budget de la fenêtre de contexte a été corrigé (cf.
+[llm.md](../documentation/llm.md) et
 [axes_amelioration.md](../documentation/axes_amelioration.md) §1.13 à §1.19), et
-aucune campagne n'a tourné depuis : la stack n'était pas joignable. Ce que la
-première fera bouger, et dans quel sens :
+aucune campagne n'avait tourné depuis, la pile n'étant pas joignable. **Les deux
+campagnes du 8 septembre 2026 sont les premières à tourner après cette
+correction** — et sur un autre corpus, ce qui interdit de lire les sens
+ci-dessous comme des deltas. Ce qu'ils annonçaient, et dans quel sens :
 
 | Métrique | Sens attendu | Pourquoi |
 |---|---|---|
@@ -104,7 +161,8 @@ défaut était atteignable en production est le multi-tour : le modèle recite u
 `[src:ID]` d'un tour précédent, que `fit_history` resoumet marqueurs compris.
 Aucune campagne de ce dépôt ne l'exerce. **Mesuré** sur les deux jeux :
 `golden_qa_generated.json`, les 138 questions que vise `make eval`, porte
-`chat_history` sur **0** d'entre elles ; `golden_qa.json`, le jeu de 15 questions
+`chat_history` sur **0** d'entre elles ; `golden_qa.json` — le jeu de 15 questions
+RETIRÉ par le lot 5, voir plus bas —
 utilisé par défaut, en porte 3, mais leurs historiques sont écrits à la main et
 contiennent **0 marqueur `[src:]`**. La campagne verra donc les deux autres causes
 — l'ancre imprimée sans son texte, et un identifiant de section entièrement

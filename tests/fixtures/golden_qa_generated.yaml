@@ -1,0 +1,2410 @@
+_lisez_moi:
+- 'Jeu SILVER : questions générées automatiquement à partir des passages'
+- du corpus, par scripts/generate_golden.py. La vérité terrain est connue
+- par construction — la question a été écrite POUR le passage — donc sans
+- la circularité d'une annotation faite depuis les résultats du retrieval.
+- ''
+- 'reviewed: false = non relu par un humain. Une relecture promeut la'
+- question en gold. Cette approche est reconnue fiable pour régler un
+- retriever, moins pour arbitrer entre deux générateurs.
+- ''
+- '_origine porte la traçabilité : document, section, page et la phrase'
+- exacte du passage qui contient la réponse.
+- ''
+- CE JEU NE PROUVE RIEN TANT QUE SES `gold_element_ids` N'ONT PAS ÉTÉ
+- 'CONFRONTÉS AUX STORES : un jeu qui désigne le vide rend 0 % de rappel'
+- sans dire si la recherche est cassée ou si le jeu est périmé. C'est la
+- panne exacte que le jeu précédent a portée. L'instrument est
+- scripts/verifier_les_ancrages.py, et il sort en 1 au premier désaccord.
+_statistiques:
+  questions: 138
+  par_langue:
+    en: 93
+    fr: 45
+  rejetees_par_les_garde_fous: 36
+  graine: 42
+  corpus:
+    chunks_indexes: 4367
+    passages_exploitables: 1266
+    documents_porteurs: 23
+    langues_du_corpus:
+      en: 1266
+questions:
+- id: G-001
+  question: Who provided discussions that pushed the author to think in new ways?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - a1d47a35bc
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/Preface.html
+    section_title: Acknowledgments
+    page_no: 1
+    preuve: Thanks to Hamza Tahir, Eric Riddoch, Paul Iusztin, and Hugo Bowne-Anderson for discussions
+      that push me to think in new ways.
+  reviewed: false
+- id: G-002
+  question: Quels types de scénarios aériens réalistes peuvent être testés dans un environnement *Staging*
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - d6c7b77af5
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+      with MLflow.html
+    section_title: Environment Management
+    page_no: 1
+    preuve: For instance, we might onboard some business stakeholders or test users to help validate realistic
+      airline scenarios such as rebooking a missed flight, checking baggage fees, or handling refund policies.
+  reviewed: false
+- id: G-003
+  question: What are the three things to focus on to keep the workflow useful over time?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - cb7f66f0b8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+      with MLflow.html
+    section_title: Conclusion and Key Takeaways
+    page_no: 1
+    preuve: 'To keep this workflow useful over time, focus on three things:'
+  reviewed: false
+- id: G-004
+  question: What specific operations necessitate the use of the span type?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 96c9c664f4
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+      Observability.html
+    section_title: Note
+    page_no: 1
+    preuve: This span type is used for operations that involve retrieving data from a data store (for
+      example, a vector database).
+  reviewed: false
+- id: G-005
+  question: What is a common pattern for handling model artifacts in traditional ML systems?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 15e10d52cb
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Deployment Considerations
+    page_no: 1
+    preuve: A common pattern is to train once and promote the resulting model artifact across environments.
+  reviewed: false
+- id: G-006
+  question: What is the international or local telephone number for O'Reilly Media, Inc.?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 091bd5a2a6
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: How to Contact Us
+    page_no: 1
+    preuve: 707-827-7019 (international or local)
+  reviewed: false
+- id: G-007
+  question: Quelles sont les trois modalités d'accès mentionnées et quelle condition doit être remplie
+    pour utiliser les emplacements de scripts initiaux et de roues en mode d'accès standard ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 4ae7eb92b1
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: Policies and access modes
+    page_no: 1
+    preuve: Dedicated (formerly Single), Standard (formerly Shared), and No Isolation Shared. For example,
+      you need to put init script locations and wheel locations in ALLOW_LIST to use them in standard
+      access mode.
+  reviewed: false
+- id: G-008
+  question: Quel fichier contient les enregistrements des cas de test pour l'évaluation d'un agent ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 0f72b267a2
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: Evaluation in Practice
+    page_no: 1
+    preuve: 'Our test cases are stored in an *eval_inputs.txt* file that contains the following records:'
+  reviewed: false
+- id: G-009
+  question: What is currently not possible to specify for a SQL warehouse?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 027789f768
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+    section_title: Alerting
+    page_no: 1
+    preuve: 'At the moment of writing this book, it''s not possible to specify a usage policy for a SQL
+      warehouse, so we''ve provided tags for cost tracking purposes:'
+  reviewed: false
+- id: G-010
+  question: What mechanism is typically used by the application backend to pass the correct conversation
+    history to stateless AI agent endpoints?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - b61ecd1c18
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+    section_title: Context Engineering
+    page_no: 1
+    preuve: This is often handled with a database querying the latest conversation turns or history, by
+      identifying the user, while being in session.
+  reviewed: false
+- id: G-011
+  question: What types of future work remain after an initial smooth launch?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 060f125779
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  _origine:
+    source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+    section_title: Ensuring Continued RAG success
+    page_no: 67
+    preuve: From menial tasks like systems maintenance, or compute upgrades as query volume and usage
+      grows, to fixing systems uptime issues.
+  reviewed: false
+- id: G-012
+  question: What type of compute did the authors rely on for their jobs in the MLOps chapters when features
+    like hyperparameter tuning with Ray Tune were unavailable in serverless compute?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 764ec9f8e0
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Data preprocessing job
+    page_no: 1
+    preuve: In the MLOps chapters, we relied on classic compute for our jobs.
+  reviewed: false
+- id: G-013
+  question: Quels éléments sont visibles sur la page de configuration pour créer un nouveau cluster de
+    calcul sur Databricks ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 93aaa30c97
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: All-Purpose and Jobs Compute Configuration
+    page_no: 1
+    preuve: Screenshot of a configuration page for creating a new compute cluster on Databricks, showing
+      options for compute name, policy, performance settings, and tagging for project tracking.
+  reviewed: false
+- id: G-014
+  question: What are the two methods available for querying an AI Search index created from a Delta table?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 42152b4037
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Databricks AI Search
+    page_no: 1
+    preuve: You can query the index by using a representational state transfer API (REST API) or the Databricks
+      vector search Python client.
+  reviewed: false
+- id: G-015
+  question: What does the *ml_pipeline.yml* file contain that brings together data preprocessing, model
+    retraining, and evaluation?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - bbff056b09
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: Machine Learning Pipeline
+    page_no: 1
+    preuve: The file contains a Lakeflow job that brings together data preprocessing, model retraining
+      and evaluation, and model deployment.
+  reviewed: false
+- id: G-016
+  question: Quels éléments sont exploités pour construire une base solide d'observabilité en production
+    afin de garantir la fiabilité et les résultats de haute qualité d'une application ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - a0bacf564c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Conclusion and Key Takeaways
+    page_no: 1
+    preuve: By leveraging MLflow traces, human feedback, and online scorers, we built a strong foundation
+      for production observability to help ensure that our application remains reliable and delivers high-quality
+      results.
+  reviewed: false
+- id: G-017
+  question: What specific types of information does MLflow tracing capture for every request to transform
+    an agent's "black box" into a transparent process?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 5e16433da6
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: MLflow Tracing
+    page_no: 1
+    preuve: By capturing inputs, outputs, and metadata at each intermediate step (including model calls,
+      tool invocations, and control-flow decisions), it transforms the "black box" of an agent into a
+      transparent process.
+  reviewed: false
+- id: G-018
+  question: Quelle est la convention de nommage à trois parties utilisée pour faire référence aux assets
+    dans Unity Catalog ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - a83dfac3d8
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: Databricks Platform Design
+    page_no: 1
+    preuve: 'We refer to these assets with this three-part naming convention: *catalog.schema.asset*.'
+  reviewed: false
+- id: G-019
+  question: What does MLflow provide a way to do regarding agents' behavior?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - a396026511
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: The Road Ahead
+    page_no: 1
+    preuve: It provides a way to package agents, trace their behavior, evaluate their outputs, and connect
+      development-time and production-time workflows without tightly coupling every part of the system.
+  reviewed: false
+- id: G-020
+  question: Under what condition might simply rerunning preprocessing scripts fail to reproduce the original
+    training set when considering data arrival order?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 73ee4519d6
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Data version control
+    page_no: 1
+    preuve: Simply rerunning preprocessing scripts with a certain filter may not work and may erroneously
+      include data that arrived later and was not included in the original training set, unless the scripts
+      are designed in a specific way (which may not be straightforward).
+  reviewed: false
+- id: G-021
+  question: What type of tests are described as being performed on critical data slices?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 9e2569371c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: ML Model Testing
+    page_no: 1
+    preuve: '**Minimum functionality tests**'
+  reviewed: false
+- id: G-022
+  question: Where can the captured traces be viewed in real time?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 25be0dced3
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Real-Time Capturing of Traces
+    page_no: 1
+    preuve: You will be able to see the traces captured in real time, and you can view them in either
+      the MLflow Experiment page or the Model Serving Endpoint page
+  reviewed: false
+- id: G-023
+  question: What are the two specific Databricks resources that the tool-calling agent relies on?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d7c8da118b
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: Model Signatures and Dependent Resources
+    page_no: 1
+    preuve: 'Specifically, our tool-calling agent relies on two Databricks resources: the Databricks Foundation
+      Model API and Databricks Vector Search.'
+  reviewed: false
+- id: G-024
+  question: What factors must be considered when evaluating the 'goodness' of GenAI application outputs?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 7540352a91
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+      Lifecycle with MLflow.html
+    section_title: What This Lifecycle Solves
+    page_no: 1
+    preuve: You need to consider relevance, groundedness, safety, tone, completeness, latency, cost, and
+      many more.
+  reviewed: false
+- id: G-025
+  question: Qu'est-ce que l'utilisation de *Serverless Model and Feature Serving* permet à Databricks
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - dcdf61586e
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: 'Chapter 4. Model Serving: Architectures and Implementation'
+    page_no: 1
+    preuve: With *Serverless Model and Feature Serving*, Databricks simplifies deployment infrastructure.
+  reviewed: false
+- id: G-026
+  question: What specific temporal split structure is recommended when dealing with potentially time-correlated
+    features such as product recommendations that vary seasonally?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - b6d6bc9f53
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+    section_title: Training Data
+    page_no: 1
+    preuve: For example, you should train your model on two weeks of data and evaluate it on the following
+      week.
+  reviewed: false
+- id: G-027
+  question: Under what condition does a system transition from being a traditional retrieval-augmented
+    generation (RAG) system to becoming agentic?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - b2f909b05a
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: What Is an Agent?
+    page_no: 1
+    preuve: However, once the LLM is responsible for deciding whether retrieval is necessary and which
+      tools to call, the system becomes agentic.
+  reviewed: false
+- id: G-028
+  question: What function does Optuna perform when used with Ray Tune?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 3e557b736e
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+    section_title: Hyperparameter Tuning and Nested Runs
+    page_no: 1
+    preuve: Optuna defines the search strategy, and Ray Tune handles parallelization and distributed execution.
+  reviewed: false
+- id: G-029
+  question: What capabilities does MLflow provide for deploying, governing, and versioning a developed
+    agent specifically on Databricks?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 25e41b1150
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+      with MLflow.html
+    section_title: Chapter 8. Deploying a GenAI Application with MLflow
+    page_no: 1
+    preuve: This is where the specific components MLflow uses to deploy, govern, and version your developed
+      agent on Databricks will shine, and help you reliably transition your application from development
+      to a production environment.
+  reviewed: false
+- id: G-030
+  question: What specific subjective qualities can human input transform into structured feedback to guide
+    future versions?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 5755f87642
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+      Lifecycle with MLflow.html
+    section_title: Human-in-the-Loop Feedback
+    page_no: 1
+    preuve: Their input turns subjective qualities such as tone, empathy, or compliance into structured
+      feedback that can guide future versions.
+  reviewed: false
+- id: G-031
+  question: Quelles sont les catégories de questions les plus fréquemment posées par les utilisateurs
+    finaux ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - aa9cb1d2c6
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Natural Language Processing Analysis on Traces
+    page_no: 1
+    preuve: '*what are the most commonly asked question categories by end users?*'
+  reviewed: false
+- id: G-032
+  question: Quelles capacités permettent aux agents de réaliser un raisonnement multiétapes et une prise
+    de décision autonome en développement d'applications GenAI ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 53bffca1a8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+    section_title: Chapter 7. Advanced Agents and Tools
+    page_no: 1
+    preuve: They can plan, invoke tools, observe results, and iterate based on feedback, enabling autonomous
+      decision making and multistep reasoning.
+  reviewed: false
+- id: G-033
+  question: Quel est l'avantage théorique des 'pre-commit hooks' et quel risque cela présente-t-il en
+    pratique ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - e5b222f8f3
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Code Hygiene
+    page_no: 1
+    preuve: Traditionally, pre-commit hooks run locally, before a developer commits code, to enforce formatting
+      and basic coding standards.
+  reviewed: false
+- id: G-034
+  question: Quelles informations sont nécessaires pour afficher les traces OTel de manière significative
+    dans MLflow ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 15014f9d6c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: OpenTelemetry for Cross-Stack Tracing
+    page_no: 1
+    preuve: To display OTel traces meaningfully in MLflow, applications need to emit the expected span
+      types and related attributes.
+  reviewed: false
+- id: G-035
+  question: Quelles informations détaillées concernant les requêtes de traces et les pièges courants sont
+    disponibles dans la documentation MLflow ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - c666c63be7
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+      Observability.html
+    section_title: Querying Traces
+    page_no: 1
+    preuve: The documentation also includes detailed examples on querying traces and highlights common
+      pitfalls that practitioners often encounter.
+  reviewed: false
+- id: G-036
+  question: What type of specialized agent can be added as a tool to the GenAI application?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - f653d1f934
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+    section_title: Multiagents Orchestration and Agents As Tools
+    page_no: 1
+    preuve: We can add this agent specialized in flight recommendation as a tool to our GenAI application.
+  reviewed: false
+- id: G-037
+  question: Quel fichier doit spécifier toutes les dépendances du projet et les configurations des outils
+    pour chaque projet Python ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 8b34daa337
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: Conclusion
+    page_no: 1
+    preuve: Treat every Python project as a package and specify all the project dependencies and tool
+      configurations in the *pyproject.toml* file.
+  reviewed: false
+- id: G-038
+  question: Quels éléments sont intégrés dans le même système que suit l'évaluation dans MLflow 3.x ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 43641415bc
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+      with MLflow.html
+    section_title: Chapter 6. Evaluating GenAI Applications with MLflow
+    page_no: 1
+    preuve: In MLflow 3.x, evaluation is part of the same system that tracks prompts, code, data, and
+      traces.
+  reviewed: false
+- id: G-039
+  question: Quel est le rôle de Delta Lake en tant que couche de stockage open source basée sur Apache
+    Parquet ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 3dc484f55c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Experiment and Model Tracking for Reproducibility
+    page_no: 1
+    preuve: MLflow on Databricks also integrates with Delta Lake, an open source storage layer built on
+      Apache Parquet that adds ACID transactions and schema enforcement.
+  reviewed: false
+- id: G-040
+  question: What specific elements must full execution paths trace in order to effectively debug agent
+    behavior?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 0c04ac19cf
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Observability tools
+    page_no: 1
+    preuve: 'You need to trace full execution paths through your application: API calls to LLM providers,
+      tool invocations, document retrieval steps, and chain-of-thought reasoning.'
+  reviewed: false
+- id: G-041
+  question: How does MLflow 3.x treat human feedback?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - a550f0b6ba
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+      with MLflow.html
+    section_title: Capturing Human Feedback
+    page_no: 1
+    preuve: MLflow 3.x treats that human feedback as a first-class signal by letting you attach feedback
+      directly to traces, store it in a structured way, and reuse it for evaluation, fine-tuning, or targeted
+      debugging later.
+  reviewed: false
+- id: G-042
+  question: What capability allows creating a new branch from any point in time within the specified restore
+    window?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 055db3f32f
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Lakebase Autoscaling for agent workloads
+    page_no: 1
+    preuve: You can create a new branch from any point in time within your restore window, so it's easier
+      to recover data or debug issues.
+  reviewed: false
+- id: G-043
+  question: Qu'est-ce qui constitue la fondation pour l'observabilité en production des applications GenAI
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 61c027785b
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Conclusion and Key Takeaways
+    page_no: 1
+    preuve: MLflow traces are the foundation for production observability.
+  reviewed: false
+- id: G-044
+  question: What must providers of high-risk AI systems establish under the EU AI Act besides meeting
+    technical standards?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - e0509dba44
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/10. AI Governance.html
+    section_title: Requirements for High-Risk AI
+    page_no: 1
+    preuve: Under the EU AI Act, providers of high-risk AI systems are not only required to meet technical
+      standards but must also establish a *quality management system*
+  reviewed: false
+- id: G-045
+  question: Qu'est-ce que l'offre de MLflow gérée par Databricks ajoute en plus des capacités open source
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - b5d44dc12c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Open Source Versus Databricks Implementations
+    page_no: 1
+    preuve: Databricks offers a fully managed MLflow experience that removes the need to operate the underlying
+      infrastructure and adds an enterprise-grade governance layer on top of the open source capabilities.
+  reviewed: false
+- id: G-046
+  question: Pour les systèmes d'apprentissage automatique (ML), quel type de validation est nécessaire
+    en raison des étiquettes différées et du déplacement progressif des distributions de prédiction ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - fd2f38d949
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: End-to-end testing
+    page_no: 1
+    preuve: For ML systems, with their delayed labels and gradually shifting prediction distributions,
+      some of the most important validation can only happen in production.
+  reviewed: false
+- id: G-047
+  question: What specific types of subcomponents can MLflow 3.x provide enhanced end-to-end tracing for
+    in complex GenAI applications?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 2bee51bc08
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Comprehensive tracing
+    page_no: 1
+    preuve: MLflow 3.x provides enhanced end-to-end tracing for complex GenAI applications, allowing developers
+      to debug and monitor the behavior of each subcomponent such as LLM calls, database retrieval, and
+      external API requests.
+  reviewed: false
+- id: G-048
+  question: What is the required user notification for 'limited-risk' AI systems?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 882a832bb1
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/10. AI Governance.html
+    section_title: Risk Categories and Whom They Apply To
+    page_no: 1
+    preuve: so users must be informed that they are interacting with an AI system.
+  reviewed: false
+- id: G-049
+  question: What should be done if failures concentrate in missing or wrong context?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - b0cfcc1f1a
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+      Lifecycle with MLflow.html
+    section_title: What Improvement Looks Like in Practice
+    page_no: 1
+    preuve: If failures concentrate in missing or wrong context, adjust retrieval first.
+  reviewed: false
+- id: G-050
+  question: What relationship is highlighted regarding the organization of multiple workspaces?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - e82fb421fd
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: Access Control Strategy
+    page_no: 1
+    preuve: Diagram showing the relationships between Databricks accounts, workspaces, and metastores,
+      highlighting the organization of multiple workspaces under different regional metastores.
+  reviewed: false
+- id: G-051
+  question: What are the three main problems that AI and machine learning development teams repeatedly
+    encounter?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 7ea03c8e25
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Chapter 1. Introduction to MLflow for GenAI on Databricks
+    page_no: 1
+    preuve: manually tracking training experiments, struggling to manage models in production, and working
+      without a reliable monitoring stack.
+  reviewed: false
+- id: G-052
+  question: What does the MLflow logo represent regarding the platform's function?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d53c88744f
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: What Is MLflow?
+    page_no: 1
+    preuve: MLflow logo, representing the platform's role in managing and tracking ML experiments for
+      reproducibility.
+  reviewed: false
+- id: G-053
+  question: Dans quelles circonstances l'utilisation des Client APIs est-elle recommandée par rapport
+    aux Fluent APIs ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 1823a4cd0d
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+      Observability.html
+    section_title: Low-level MLflow Client APIs
+    page_no: 1
+    preuve: The Client APIs should be used only when you truly need fine-grained control or are working
+      with advanced scenarios that go beyond what the Fluent APIs provide.
+  reviewed: false
+- id: G-054
+  question: Quels composants d'une application GenAI peuvent produire des signaux utiles mais dont la
+    communication incohérente rend l'investigation des échecs et la vérification des améliorations difficiles
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - acf4f69a80
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: Chapter 10. Unifying GenAI Systems with MLflow
+    page_no: 1
+    preuve: Your application framework, agent runtime, retrieval layer, tools, background services, IDE
+      assistant, and evaluation stack may all produce useful signals, but if each one speaks a different
+      dialect, every failure becomes harder to investigate and every improvement becomes harder to verify.
+  reviewed: false
+- id: G-055
+  question: Quelles sont les conditions de déclenchement du pipeline d'intégration continue (CI) pour
+    la partie MLOps, spécifiquement concernant le type de requête et les chemins de fichiers modifiés
+    ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 7b29190883
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: Continuous Integration Pipeline
+    page_no: 1
+    preuve: 'on : pull_request : branches : - ''main'' paths : - ''mlops/**'''
+  reviewed: false
+- id: G-056
+  question: What is the advantage of using a context manager for capturing traces?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 0a2cc6c821
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+      Observability.html
+    section_title: Note
+    page_no: 1
+    preuve: The difference is that the context manager is useful for capturing traces in arbitrary code
+      blocks that aren't wrapped in a function or when you need to trace only a specific portion of a
+      function.
+  reviewed: false
+- id: G-057
+  question: What is the ultimate goal of monitoring across models, data, and infrastructure?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 58b204edca
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+    section_title: System and Infrastructure Health
+    page_no: 1
+    preuve: Monitoring, in the end, is about *closing feedback loops* across models, data, and infrastructure
+      so that issues are detected early and can be acted on before they affect users or business outcomes.
+  reviewed: false
+- id: G-058
+  question: What specific libraries can MLflow natively integrate with besides LangChain?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 4952d540d6
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: Building a LangChain Agent and Versioning in MLflow
+    page_no: 1
+    preuve: However, MLflow also has native integration with many popular libraries, such as CrewAI, OpenAI
+      SDK, and even custom Python code that you write.
+  reviewed: false
+- id: G-059
+  question: Quels sont les trois domaines de compromis considérés par les stratégies abordées dans les
+    sections suivantes ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 3d77cfd060
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Chunking
+    page_no: 1
+    preuve: 'The strategies we cover in the following sections make trade-offs in three areas: how well
+      a chunk respects the content''s structure, how much it inflates your index, and how it fits inside
+      your embedding model''s limits.'
+  reviewed: false
+- id: G-060
+  question: What specific technologies did the DTAP pattern predate?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 876bf0a3fe
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+    section_title: How Many Environments Do You Need?
+    page_no: 1
+    preuve: so it predates cloud computing, IaC, and the widespread adoption of version control.
+  reviewed: false
+- id: G-061
+  question: What does MLflow provide a structured way to track regarding a given result?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 803d324732
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Management of Iterative Prompts and Models
+    page_no: 1
+    preuve: MLflow provides a structured way to track the specific combination of a prompt, its configuration,
+      and the model that produced a given result.
+  reviewed: false
+- id: G-062
+  question: What is the reason why the scores produced by an LLM-as-a-judge are not absolute or perfectly
+    reliable?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 5fdcd150d3
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Warning
+    page_no: 1
+    preuve: Because LLM generations are nondeterministic, the same evaluation can sometimes produce slightly
+      different scores across runs or could hallucinate in some instances.
+  reviewed: false
+- id: G-063
+  question: Quels types de *scorers* nécessitent un accès aux traces pour inspecter l'utilisation des
+    outils, les paramètres et l'ordre d'exécution ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 3437c94f29
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: MLflow GenAI Evaluation Framework
+    page_no: 1
+    preuve: '*Tool-calling* and *retrieval-related scorers* need access to traces so they can inspect
+      tool usage, parameters, and execution order.'
+  reviewed: false
+- id: G-064
+  question: What is the difference between the *randomization unit* and the *analysis unit*?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 6b52bccda7
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: Choosing a routing strategy
+    page_no: 1
+    preuve: The experimentation literature distinguishes between the randomization unit and the analysis
+      unit.
+  reviewed: false
+- id: G-065
+  question: What three core components constitute an agent according to the pragmatic definition inspired
+    by the OpenAI Agent SDK?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 9ae6923bc5
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: What Is an Agent?
+    page_no: 1
+    preuve: 'Concretely, an agent consists of three core components:'
+  reviewed: false
+- id: G-066
+  question: Quels types de fonctionnalités sont généralement suffisants pour la majorité des systèmes
+    de production d'applications IA ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - a97a2fdd92
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: 'Chapter 4. Model Serving: Architectures and Implementation'
+    page_no: 1
+    preuve: The majority of production systems work perfectly well with precomputed (batch) features that
+      are refreshed on a schedule.
+  reviewed: false
+- id: G-067
+  question: What specific features, such as the MLflow AI Gateway and MLflow Model Serving, will not be
+    covered because of the focus on the Databricks-managed version of MLflow?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 4ceb238b09
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+    section_title: Chapter 3. MLflow for Traditional ML
+    page_no: 1
+    preuve: As a result, instead of covering features like the MLflow AI Gateway and MLflow Model Serving
+      in their open-source form, we'll highlight the corresponding alternatives that are available within
+      the Databricks platform.
+  reviewed: false
+- id: G-068
+  question: What is the consequence of not setting a proper retention period on the delta table when the
+    VACUUM command has been executed?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 98d70d32c5
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+    section_title: Note
+    page_no: 1
+    preuve: Otherwise, you may not be able to access the exact version of the table if the VACUUM command
+      has been executed.
+  reviewed: false
+- id: G-069
+  question: Quelle est l'expression cron utilisée pour planifier la tâche de pipeline 'arxiv-data' ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 259756f229
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Data preprocessing job
+    page_no: 1
+    preuve: 'schedule : quartz_cron_expression : "0 0 6 * *"'
+  reviewed: false
+- id: G-070
+  question: What method allows for direct tagging of usage attributed to a specific project when an endpoint
+    serves only that single project?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - f0f9cb7af9
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Cost-monitoring dashboard
+    page_no: 1
+    preuve: An external model endpoint or a dedicated serving endpoint used by only one project attributes
+      to that project by endpoint name, and you can tag it directly since you created it.
+  reviewed: false
+- id: G-071
+  question: What types of tasks are these models particularly well-suited for?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - ea5948edd8
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Types of Foundation Models
+    page_no: 1
+    preuve: They are best suited to content creation, summarization, and agent orchestration.
+  reviewed: false
+- id: G-072
+  question: Quel outil est recommandé pour gérer des LLMs ou des modèles IA en production sur Databricks
+    afin d'assurer la meilleure évolutivité, sécurité et intégration ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 5df3694b2c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+    section_title: MLflow AI Gateway Interface for LLM Integration
+    page_no: 1
+    preuve: If you are managing LLMs or AI models in production on Databricks, using the Unity AI Gateway
+      is recommended for best scalability, security, and integration.
+  reviewed: false
+- id: G-073
+  question: À quel niveau de l'agentif workflow les scénarios d'utilisation des guardrails sont-ils abordés
+    en premier lieu ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 43ba0e34c7
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+      with MLflow.html
+    section_title: Guardrails Examples
+    page_no: 1
+    preuve: 'At the gateway level:'
+  reviewed: false
+- id: G-074
+  question: How can both Databricks AI Search and Genie be made available to an agent?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 48fdca7a34
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Conclusion
+    page_no: 1
+    preuve: Finally, we saw how both Databricks AI Search and Genie can be exposed to an agent as tools
+      through MCP.
+  reviewed: false
+- id: G-075
+  question: What specific types of documents can question answering systems assist with, besides general
+    user queries?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 4bfc8482d4
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  _origine:
+    source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+    section_title: Question Answering Systems
+    page_no: 30
+    preuve: One common use case of question answering is for helping respond to Requests for Proposals
+      (RFPs) or Requests for Information (RFIs).
+  reviewed: false
+- id: G-076
+  question: What core capabilities across the platform does Unity Catalog underpin?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 42f964fec0
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Unity Catalog
+    page_no: 1
+    preuve: Unity Catalog underpins many core capabilities across the platform, including model registry,
+      feature engineering, data versioning, serving, and AI governance.
+  reviewed: false
+- id: G-077
+  question: What methods are sometimes used by practitioners to analyze the impact of a deployed GenAI
+    application beyond technological tool capture?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 9c70d4632d
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Business Impact Metrics
+    page_no: 1
+    preuve: In practice, it is also common for practitioners to conduct an internal organizational study
+      to analyze the impact of a deployed GenAI application on business processes or conduct qualitative
+      surveys and user interviews to gain deeper insights.
+  reviewed: false
+- id: G-078
+  question: Quels types de contraintes un prompt engineering doit-il permettre aux instructions de survivre
+    lors du contact avec des utilisateurs réels ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 2071097a4d
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: Fundamentals of Prompt Engineering
+    page_no: 1
+    preuve: Prompt engineering is about designing instructions that survive contact with real users, real
+      ambiguity, and real constraints such as latency, cost, and downstream parsing.
+  reviewed: false
+- id: G-079
+  question: What factor leads some companies to favor turnkey RAG solutions?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - a73e066592
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  _origine:
+    source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+    section_title: Additional TCO Considerations
+    page_no: 58
+    preuve: Cost and TCO is another common reason companies prefer turnkey RAG solutions -where a single
+      vendor provides all the functionality for RAG.
+  reviewed: false
+- id: G-080
+  question: What specific types of customer assistance functions will the chatbot be designed to handle
+    for Unity Airways?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 10bbafb5fc
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for GenAI
+      on Databricks.html
+    section_title: Introducing the Book's Core Use Case
+    page_no: 1
+    preuve: This chatbot's goal is to help customers with actions such as booking, rescheduling, or canceling
+      their flight reservations.
+  reviewed: false
+- id: G-081
+  question: What oversight measures are suggested for higher-volume operational systems like predictive
+    maintenance?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 0a4ccd7676
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/10. AI Governance.html
+    section_title: 'Article 14: Human Oversight'
+    page_no: 1
+    preuve: In higher-volume operational systems (such as predictive maintenance), periodic audits or
+      threshold-based alerts may be sufficient.
+  reviewed: false
+- id: G-082
+  question: What characterizes the operational environment for an application after it has been launched
+    into production?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 42694757a4
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with MLflow.html
+    section_title: Chapter 9. Production Monitoring with MLflow
+    page_no: 1
+    preuve: What comes next is often even more critical as the application is now operating in a higher-stakes,
+      more dynamic environment, with more users (almost a total opposite of the controlled environment
+      during development and testing).
+  reviewed: false
+- id: G-083
+  question: Quel système doit être utilisé comme source de vérité pour les invites (prompts) et comment
+    doivent-elles y être gérées ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 3b4471a740
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: Conclusion and Key Takeaways
+    page_no: 1
+    preuve: Use the MLflow Prompt Registry as the source of truth.
+  reviewed: false
+- id: G-084
+  question: What is the overall pass rate shown when comparing two trace responses against guideline criteria?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 620bc6d80d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: MLflow GenAI Evaluation Framework
+    page_no: 1
+    preuve: A table compares two trace responses to guideline criteria, showing one response passing and
+      the other failing escalation handling, with an overall pass rate of 50%.
+  reviewed: false
+- id: G-085
+  question: What specific type of company is described as embedding AI into its physical products?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 857c4597d6
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/10. AI Governance.html
+    section_title: Risk Categories and Whom They Apply To
+    page_no: 1
+    preuve: These are the "integrators," meaning companies that embed AI into their physical products.
+  reviewed: false
+- id: G-086
+  question: What three factors are used to judge a GenAI application in production?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 7843ebb88c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: Preface
+    page_no: 1
+    preuve: In production, a GenAI application is judged by the average experience, the worst failure,
+      and the operational burden it creates over time.
+  reviewed: false
+- id: G-087
+  question: What constitutes the model's input contract when logging a model using the feature-engineering
+    client after creating a training set?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - baafff0066
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: Model Serving with Feature Lookup
+    page_no: 1
+    preuve: Databricks uses the training set schema (excluding the label) as the model's input contract.
+  reviewed: false
+- id: G-088
+  question: What do AI and ML architects care about regarding sharing prompts, managing models, enforcing
+    access control, and proving compliance?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 6fb99bae05
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: Who This Book Is For
+    page_no: 1
+    preuve: You care about how teams share prompts, manage models, enforce access control, and prove compliance.
+  reviewed: false
+- id: G-089
+  question: Quelles étapes sont nécessaires pour disposer d'un plan complet de construction, mesure, déploiement
+    et amélioration continue d'une application GenAI de niveau production ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - b84094db9a
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: Preface
+    page_no: 1
+    preuve: You start with prompts and a baseline workflow, add retrieval, introduce tracing and evaluation
+      discipline, extend the system with more tools, and finally deploy and monitor.
+  reviewed: false
+- id: G-090
+  question: What is the function of storing vector embeddings in a vector database?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 00e06ad54d
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: Embedding and indexing the chunks
+    page_no: 1
+    preuve: The vector embeddings are stored in a vector database as an index, which is a data structure
+      to organize and store vector embeddings for fast, efficient search.
+  reviewed: false
+- id: G-091
+  question: What specific components must be provided when incorporating Databricks Vector Search alongside
+    the foundation model endpoint name and LLM query parameters?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 0b6bc1d50c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: Full Tool-Calling Agent Application
+    page_no: 1
+    preuve: For example, along with specifying the foundation model endpoint name and the query parameters
+      for the LLM, we need to provide the Databricks Vector Search endpoint name, index name, their respective
+      query parameters, and more.
+  reviewed: false
+- id: G-092
+  question: What specific columns are displayed when viewing a logged trace in the MLflow Experiment UI?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d4471813f5
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: MLflow App Versioning
+    page_no: 1
+    preuve: Traces tab in the MLflow Experiment UI displays a logged trace with columns for Trace ID,
+      Request, Response, Version, Tokens, and Execution time.
+  reviewed: false
+- id: G-093
+  question: What is recommended regarding the quantity of high-quality examples when creating them?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d5cf85446b
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: How to Evaluate LLM Systems
+    page_no: 1
+    preuve: start small; 10-20 high-quality examples are better than 100 mediocre ones.
+  reviewed: false
+- id: G-094
+  question: Qu'est-ce qui fait ressortir Databricks, selon l'auteur, lorsque le défi passe de la construction
+    de démos d'IA à l'opération des systèmes d'IA en production ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - fd1743efca
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/Preface.html
+    section_title: Why Databricks?
+    page_no: 1
+    preuve: I've repeatedly seen where it stands out from the crowd when the challenge shifts from building
+      AI demos to operating AI systems reliably in production.
+  reviewed: false
+- id: G-095
+  question: What are the three characteristics that the goal of integration aims to achieve regarding
+    behavior changes?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 7a672144ba
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: Integrating Prompts into Applications
+    page_no: 1
+    preuve: The goal of integration is to make those behavior changes safe, repeatable, and reversible,
+      without forcing an application to redeploy every time you refine wording.
+  reviewed: false
+- id: G-096
+  question: What is the overall transition described regarding model deployment?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 421d528e6c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+    section_title: Chapter 6. Monitoring ML Applications
+    page_no: 1
+    preuve: In short, this chapter will move you from "Model deployed" to "Model managed."
+  reviewed: false
+- id: G-097
+  question: What is the expectation for Data scientists regarding model delivery?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 54ec58051b
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: Who This Book Is For
+    page_no: 1
+    preuve: These are the visionaries who prototype and validate models and are now expected to deliver
+      measurable improvements, not just promising demos.
+  reviewed: false
+- id: G-098
+  question: Which mlflow function is used to search for logged models similarly to searching for experiment
+    runs?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - ab9d5af8e4
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+    section_title: Viewing the Logged Model
+    page_no: 1
+    preuve: mlflow.search_logged_models() - This allows us to search for logged models, in much the same
+      way we can search for experiment runs.
+  reviewed: false
+- id: G-099
+  question: Quelles sont les deux catégories d'APIs que MLflow fournit pour instrumenter manuellement
+    des tracings ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 694407ab24
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+      Observability.html
+    section_title: Manual Tracing
+    page_no: 1
+    preuve: '- **High-level Fluent APIs**
+
+      - Low-level MLflow Client APIs'
+  reviewed: false
+- id: G-100
+  question: Qu'est-ce qui rend l'évaluation d'un agent IA significativement plus coûteuse ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 00cba32b59
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: LLM System Monitoring
+    page_no: 1
+    preuve: Evaluation of an AI agent, however, can be significantly more expensive.
+  reviewed: false
+- id: G-101
+  question: What specific type of sensitive information is automatically removed from a user's input if
+    they paste it into the chat?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - e6809c60a5
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+      with MLflow.html
+    section_title: Guardrails Examples
+    page_no: 1
+    preuve: A traveler who pastes their passport number into the chat has it stripped before it reaches
+      the LLM or appears in any trace log.
+  reviewed: false
+- id: G-102
+  question: What are some examples of basic questions teams struggle to answer reliably when they adopt
+    a registry?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 3106f26bb8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: The "Why" Behind the Registry
+    page_no: 1
+    preuve: '- Which exact prompt is running in production right now?'
+  reviewed: false
+- id: G-103
+  question: What is the specific version of the operating system provided by the serverless environment
+    version 4?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - ce1a44fd37
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: Serverless environments
+    page_no: 1
+    preuve: 'Operating system: Ubuntu 24.04.2 LTS'
+  reviewed: false
+- id: G-104
+  question: Quelle approche est appropriée lorsque les prédictions doivent être calculées à la demande
+    mais que certaines fonctionnalités doivent être récupérées d'un magasin de fonctionnalités en ligne
+    pendant l'inférence ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - eda4f1e10c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: Conclusion
+    page_no: 1
+    preuve: This is appropriate when predictions are computed on demand but some features must be fetched
+      from an online feature store during inference.
+  reviewed: false
+- id: G-105
+  question: What specific types of assets can Unity Catalog provide centralized access control, lineage
+    tracking, auditing, and discoverability for?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - cdf9b43dee
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Unity Catalog
+    page_no: 1
+    preuve: These assets include ML models, functions, Delta tables, views, and files stored in Databricks
+      Volumes.
+  reviewed: false
+- id: G-106
+  question: What characteristic of this design pattern makes it less effective when dealing with ambiguous
+    or unexpected inputs?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - a5db6f9537
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a Tool-Calling
+      Agent.html
+    section_title: What Is a Tool-Calling Agent?
+    page_no: 1
+    preuve: However, its rigidity makes it less effective when handling ambiguous or unexpected inputs.
+  reviewed: false
+- id: G-107
+  question: Does reproducing a significant portion of the code from this book necessitate contacting the
+    publisher for permission?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 4f328014d9
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/Preface.html
+    section_title: Using Code Examples
+    page_no: 1
+    preuve: You do not need to contact us for permission unless you're reproducing a significant portion
+      of the code.
+  reviewed: false
+- id: G-108
+  question: What action causes the creation of a new version when using the same prompt name?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 45c71f7dd8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: Publishing Versions and Assigning Aliases
+    page_no: 1
+    preuve: 'Registering again with the same prompt name creates a new version, which is exactly what
+      you want: history stays intact and comparisons stay meaningful.'
+  reviewed: false
+- id: G-109
+  question: What specific metrics are visualized in a dashboard designed for the ArXiv Agent?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 09a92a8e14
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Monitoring dashboard
+    page_no: 1
+    preuve: A dashboard displaying metrics for the ArXiv Agent, including graphs on average request time,
+      tool and LLM calls, tokens used per minute, and percentage passed assessments over time.
+  reviewed: false
+- id: G-110
+  question: Quel outil doit être attaché à l'enveloppe externe dès que l'application répond de manière
+    cohérente pour rendre tout le chemin visible par des étapes cohérentes ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 7a72e9bacd
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+      Lifecycle with MLflow.html
+    section_title: Practicing Trace-First Development
+    page_no: 1
+    preuve: As soon as your application responds coherently, attach MLflow Tracing to the outer envelope
+      so the entire path is visible through consistent steps.
+  reviewed: false
+- id: G-111
+  question: What two sources of data should be combined to obtain a complete view of infrastructure spend?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - b232ada84a
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: Cost tracking
+    page_no: 1
+    preuve: To obtain a complete view of infrastructure spend, you should combine Databricks billing data
+      from system tables with cost data from the cloud provider.
+  reviewed: false
+- id: G-112
+  question: What component is selected and hosted when building foundation models?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 1adfce548d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Structure of the LLMOps Chapters
+    page_no: 1
+    preuve: When you build these, you will be selecting and hosting the "brain" of your system.
+  reviewed: false
+- id: G-113
+  question: Quels éléments doivent composer un jeu de données de validation pour une requête comme "What
+    is the flight schedule for 6 September 2024 in Singapore?" lorsqu'on utilise un LLM pour évaluer la
+    performance des outils ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - f3a92b0597
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+    section_title: Testing Tools
+    page_no: 1
+    preuve: 'This means that if a query is, "What is the flight schedule for 6 September 2024 in Singapore?,"
+      our validation dataset to this question not only contains the question and expected answer but also:'
+  reviewed: false
+- id: G-114
+  question: What determines the package version when setuptools is used as the build backend specified
+    in the `build-system` section of the *pyproject.toml* file?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d4385a3fa7
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+    section_title: Build-system section
+    page_no: 1
+    preuve: In this case, we are using setuptools as the build backend, and the package version is dynamically
+      determined based on the contents of the *version.txt* file.
+  reviewed: false
+- id: G-115
+  question: What capability allows teams to analyze traces from different parts of the stack?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d1c473e01c
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: OpenTelemetry for Cross-Stack Tracing
+    page_no: 1
+    preuve: Once traces from different parts of the stack can be analyzed in a common environment, debugging
+      stops being a framework-by-framework exercise.
+  reviewed: false
+- id: G-116
+  question: Quel est l'avantage du mode journalisation (log mode) concernant le fonctionnement d'un garde-fou
+    (guardrail) ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - fd9f8fa574
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+    section_title: Guardrails on the LLM level
+    page_no: 1
+    preuve: Log mode lets you see how often a guardrail would fire against real traffic without affecting
+      anyone, so a common pattern is to start in log mode, confirm that the guardrail behaves as expected,
+      and switch to enforce once you trust it.
+  reviewed: false
+- id: G-117
+  question: What type of variables must be used when applying the Kolmogorov-Smirnov test?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 251336aaa0
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+    section_title: Kolmogorov-Smirnov Test
+    page_no: 1
+    preuve: it's applied to numeric variables.
+  reviewed: false
+- id: G-118
+  question: What does MLOps provide as its foundation regarding building, deploying, and maintaining ML
+    systems?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 6a85a1a5c1
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/Preface.html
+    section_title: Preface
+    page_no: 1
+    preuve: 'In that sense, MLOps provides the *foundation* : the principles and practices for building,
+      deploying, and maintaining ML systems.'
+  reviewed: false
+- id: G-119
+  question: Quelles informations spécifiques les utilisateurs se posent-ils concernant une application
+    IA passant d'un environnement contrôlé à la production ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 40f85d8e89
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+    section_title: Why We Wrote This Book
+    page_no: 1
+    preuve: 'People start asking questions that no one can answer confidently: Which prompt is running
+      in production right now? Why did quality regress last week? Which retrieval settings were used in
+      the version that performed best? How much does each request cost, and why did the bill spike?'
+  reviewed: false
+- id: G-120
+  question: What is the purpose of bringing human judgment into the loop during a mature evaluation workflow?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - c3f1894a26
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+      with MLflow.html
+    section_title: Diagnosing Regressions and Troubleshooting with Traces
+    page_no: 1
+    preuve: The final step in a mature evaluation workflow is to bring human judgment into the loop, but
+      to do it with structure so that human input becomes useful evaluation data, not folklore.
+  reviewed: false
+- id: G-121
+  question: What do unit tests specifically verify regarding individual components and functions?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 842a8884da
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+    section_title: Code Hygiene
+    page_no: 1
+    preuve: Unit tests verify that individual components and functions are behaving as expected
+  reviewed: false
+- id: G-122
+  question: What qualities, beyond code assessment, can model-based graders assess?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 786c1d0a51
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+    section_title: How to Evaluate LLM Systems
+    page_no: 1
+    preuve: These are often referred to as *LLM judges* , and they use a language model to assess qualities
+      that are difficult to capture with code alone, such as adherence to guidelines, correctness of reasoning,
+      and appropriateness of text based on tone and context.
+  reviewed: false
+- id: G-123
+  question: What two authentication modes does this class support for connecting to Lakebase?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 6166d65f5a
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+    section_title: Utilizing a connection pool
+    page_no: 1
+    preuve: 'This class supports two authentication modes: a *service principal* for production use and
+      *user credentials* for local development and testing.'
+  reviewed: false
+- id: G-124
+  question: Quelles sont les limites de taille des requêtes et des réponses qui ne sont pas capturées
+    dans les tables d'inférence ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - 9497e2ec81
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: Serving Limitations
+    page_no: 1
+    preuve: Separately, requests or responses larger than 1 MB are not captured in inference tables, so
+      very large payloads can serve successfully but fall outside your logged data.
+  reviewed: false
+- id: G-125
+  question: What potential issue arises when the granularity setting for metrics aggregation is set too
+    small for drift detection?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - 58203d876d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+    section_title: Note
+    page_no: 1
+    preuve: If the granularity is set too small, each window may contain few records, and that can cause
+      excessive noise and potentially lead to false drift detections.
+  reviewed: false
+- id: G-126
+  question: What is required for a *feature function* to ensure its governance, reusability, and accessibility
+    during both training and inference?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - c5db0ee7f0
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+    section_title: Creating Feature Functions and a Feature Table
+    page_no: 1
+    preuve: A feature function relies on a user-defined function (UDF) that's registered in Databricks
+      Unity Catalog.
+  reviewed: false
+- id: G-127
+  question: Quel est le problème de support des serveurs MLflow MCP concernant les traces stockées dans
+    Unity Catalog au moment de la rédaction ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - cfbbe99901
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: MLflow MCP As the Bridge to Assistants and IDEs
+    page_no: 1
+    preuve: At the time of writing, the MLflow MCP server does not support interacting with traces stored
+      in Unity Catalog.
+  reviewed: false
+- id: G-128
+  question: What sequence of technologies might a single user request traverse in modern GenAI systems?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - f19c6cb618
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+      MLflow.html
+    section_title: MLflow Traces As the Shared Integration Artifact
+    page_no: 1
+    preuve: A single user request might pass through a TypeScript frontend, a Python orchestration layer,
+      a Java retrieval service, and a Go backend for tools or policy checks.
+  reviewed: false
+- id: G-129
+  question: What types of systems are included under the 'This category' description following the 'Limited
+    risk' heading?
+  language: en
+  doc_language: en
+  type: factuelle
+  gold_element_ids:
+  - d59fa23f7b
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/MLOps with Databricks/10. AI Governance.html
+    section_title: Risk Categories and Whom They Apply To
+    page_no: 1
+    preuve: This category includes chatbots, AIs that generate texts and images, and ecommerce systems
+      that make recommendations based on user preferences.
+  reviewed: false
+- id: G-130
+  question: Quelles étapes sont nécessaires pour traiter les mouvements d'alias comme des actions de publication
+    formelles, même si le code sous-jacent n'a pas changé ?
+  language: fr
+  doc_language: en
+  type: factuelle-translinguistique
+  gold_element_ids:
+  - ec7912c508
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+    section_title: Promoting to Production and Rolling Back Safely
+    page_no: 1
+    preuve: Treating alias moves as formal release actions, even when the underlying code hasn't changed,
+      requires a lightweight checklist covering evaluation results, prompt text review, and a clear rollback
+      plan.
+  reviewed: false
+- id: N-001
+  question: Quel est le chiffre d'affaires de l'entreprise en 2024 ?
+  language: fr
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-002
+  question: Quelle est la procédure de remboursement des notes de frais ?
+  language: fr
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-003
+  question: Combien de salariés compte le service juridique ?
+  language: fr
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-004
+  question: Quelles sont les dates des congés annuels cette année ?
+  language: fr
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-005
+  question: Who won the 2026 football world cup?
+  language: en
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-006
+  question: What is the current stock price of the company?
+  language: en
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-007
+  question: What is the recipe for a traditional Basque cheesecake?
+  language: en
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true
+- id: N-008
+  question: How many employees work in the Tokyo office?
+  language: en
+  type: sans-reponse
+  gold_element_ids: []
+  gold_documents: []
+  unanswerable: true
+  reviewed: true

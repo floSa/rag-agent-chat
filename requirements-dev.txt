@@ -35,3 +35,29 @@ pip-audit==2.10.1
 # dont zero `torch` et zero `nvidia-*`. Armer un hook git ne telecharge pas la
 # pile CUDA.
 pre-commit==4.6.2
+
+# PyYAML — LES JEUX DE QUESTIONS SONT EN YAML, et c'est une raison mesuree.
+#
+# `detect-secrets` lit un `element_id` — dix hexadecimaux derives du contenu
+# d'un passage public (contrat, exigence 2) — comme une chaine hexadecimale a
+# forte entropie, ce qu'elle est. Son transformateur JSON rend les elements de
+# sequence ; son transformateur YAML ne rend que les valeurs de mapping. Or les
+# `element_id` d'un jeu de questions vivent en elements de sequence.
+# `mesure` le 8 septembre 2026, `detect-secrets-hook` v1.5.0 :
+#     tests/fixtures/golden_qa_generated.json (l'ancien jeu) -> rc=1, 34 detections
+#     les deux jeux en YAML de ce lot                        -> rc=0
+# Le site canonique de la CAUSE est l'en-tete du jeu de questions du pipeline,
+# `documentation/campagnes/2026-09-02-jeu-de-questions.yaml`, qui l'a mesuree le
+# 3 septembre 2026 sur un fichier d'essai de trois chaines.
+#
+# POURQUOI ICI ET NON DANS `requirements.txt`. `Dockerfile.agent` ne copie que
+# `src/agent` et `src/api` : aucun script de `scripts/` ne tourne dans l'image
+# de production, donc rien de ce qui lit un jeu de questions n'y vit. Mettre
+# PyYAML dans `requirements.txt` alourdirait l'image pour un besoin qui n'y
+# existe pas. La CI installe les deux fichiers, `make test` aussi.
+#
+# CE QUE CELA COUTE, ET C'EST ASSUME : `yaml` etait deja present par transitivite
+# (chromadb le tire), donc rien ne cassait sans cette ligne — jusqu'au jour ou
+# une mise a jour de chromadb la retire. Une dependance directe non declaree est
+# une panne differee, pas une economie.
+PyYAML==6.0.3
