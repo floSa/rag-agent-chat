@@ -4707,3 +4707,129 @@ lit ; il est donc le seul dont la dérive ne rougit pas. C'est exactement ce que
 **§4.13** dit du reste, et c'est le dernier endroit où la leçon n'avait pas encore
 été appliquée. **Un garde sur le journal — pas de doublon, pas de trou, et un
 « prochain libre » égal au maximum plus un — monte au plan.**
+
+---
+
+### 4.32 → EN COURS — le lot 6 livré : un garde qui SIGNALE, et un cadrage que le pilote avait encore laissé vieillir
+
+`Conv' 40` (LOT-6) a livré le 8 septembre 2026 deux commits, `a2d2081` et
+`e6fc175`, **non poussés**, sur `claude/reranker-guard-affectations-782d7e`.
+
+**Ce que le pilote a mesuré de ses mains**, le 8 septembre 2026 à 14:18 UTC,
+avant toute décision :
+
+| | `mesuré` |
+|---|---|
+| identité des deux commits | auteur ET committer `Florian Horellou <florian_horellou@laposte.net>` sur les deux — **adresse autorisée**. `git log --format='%h %an <%ae> %cn <%ce>'` |
+| attribution d'assistant | **aucune occurrence** de `claude`, `anthropic`, `co-authored`, `generated`, `assistant` ni d'émoji de robot dans les deux messages complets (`git log --format='%B' \| grep -inE`) |
+| position de la branche | `git rev-list --left-right --count main...claude/reranker-…` rend **`0 2`** : la branche est **0 en retard**, 2 en avance |
+| `main` est-il un ancêtre ? | `git merge-base --is-ancestor main claude/reranker-…` rend **`rc=0`**. **Donc l'arbre d'une fusion `--no-ff` est exactement l'arbre de la branche**, et la porte passée sur la branche EST la porte sur le résultat de fusion. Ce n'est pas une supposition, c'est ce `rc=0` |
+| la porte, dans l'arbre du lot, sur son propre `.venv` | `make lint` → **`rc=0`** (mypy 18 fichiers, ruff *All checks passed*) ; `make test` → **`rc=0`**, **643 passés** en 28,92 s. `rc` du processus `make`, jamais derrière un tube |
+| propreté de l'arbre du lot | `git status --porcelain` **vide** : les mutations ont bien été restaurées, rien n'a été laissé tomber |
+
+**Et un piège de poste, relevé au passage.** Le premier `make lint` du pilote a
+rendu **`rc=2`** sur `make: mypy: No such file or directory` — non pas un rouge
+du lot, mais un `.venv` absent du `PATH`. C'est exactement le cas que le
+`Makefile` documente en tête de sa cible `install`. *Un `rc=2` qui nomme un
+fichier introuvable n'est pas un rouge de comportement* — même famille que
+« le symbole n'existe pas n'est pas un rouge de comportement », déjà au §12.
+
+#### Ce que le lot a trouvé contre le pilote, et il avait raison les deux fois
+
+**Le cadrage annonçait `main` = `origin/main` = `2bb511c`. Mesuré : `3638240`,
+et `2bb511c` est `main@{1}` — trois commits d'écart** (`git rev-list --count
+2bb511c..main` rend 3). Le prompt mettait en garde contre exactement cette faute,
+en la nommant, et la commettait dans le même souffle : le pilote avait mesuré
+`main` **avant** d'y pousser la chaîne de correction du journal, puis n'avait pas
+remesuré avant d'écrire. **C'est la QUATRIÈME occurrence du même motif** — après
+les 562 tests publiés deux commits trop tôt, le « prochain numéro libre 41 » tiré
+d'une arithmétique, et l'antécédent de la sigmoïde repris sans mesure.
+
+**Et la CINQUIÈME est dans le même prompt** : le relevé du démon d'orchestration
+y était annoncé comme le **huitième**, et le lot a compté le **neuvième**. Un
+compte, lui aussi, déduit au lieu d'être lu.
+
+*La règle opérationnelle est déjà écrite et n'a pas suffi : « mesurer avant de
+pousser, jamais après ». Il lui manquait sa moitié — **remesurer `main` juste
+avant de sceller le prompt, et non au moment où l'on commence à l'écrire**. Un
+cadrage vieillit entre sa première ligne et sa dernière.*
+
+#### Les deux décisions du lot, et la mesure qui les a tranchées
+
+Le lot 3 n'était **pas copiable** : il confronte le réglage d'embedding à
+l'**estampille** que le pipeline inscrit sur la collection — une égalité exacte
+contre un fait extérieur. Le reranker ne produit **rien de persistant**, donc
+aucun fait extérieur n'existe. Le lot a donc confronté une **propriété du modèle
+lui-même**, la taille de son vocabulaire, doublée d'un registre des modèles
+réellement mesurés.
+
+**Et sa propre mesure a renversé son dessin initial**, par lecture des seuls
+`config.json` (60 Ko, aucun poids téléchargé) : le multilingue mBERT a un
+vocabulaire de **119 547** entrées, **plus petit** que le DeBERTa-v3 **anglais**
+à **128 100**. **Les deux classes se chevauchent : aucun seuil n'est un
+classifieur.** C'est écrit au site comme un **indice, jamais un verdict**.
+
+**D'où la seconde décision : SIGNALER, ne pas refuser**, pour deux raisons qui se
+cumulent — *la proportion* (refuser porterait la disponibilité de 100 % à 0 %
+pour épargner 2,5 points de rappel, ce qui est pire sur tous les axes) et *la
+nature de la preuve* (un 503 sur un indice dont le chevauchement prouve qu'il se
+trompe **dans les deux sens** est un garde qu'on arrache au premier faux
+positif, là où le 503 du lot 3 s'appuie sur une égalité exacte). Trois niveaux,
+parce que « je ne sais pas » ne se replie ni sur « c'est bon » ni sur « c'est
+cassé » : `warning` sous le plancher, `warning` si la propriété est illisible,
+`info` pour un modèle hors registre simplement non mesuré. C'est la discipline
+d'`etat_index_lexical`, réemployée.
+
+#### Le motif faux du §4.31, corrigé — et désormais gardé
+
+Le site canonique de `rerank_model` portait « étendue 0,0 % … **soit un
+classement au hasard** ». La conclusion ne suit pas de la prémisse : des logits
+de −6,8 à −11,35 passés par `_sigmoid` s'écrasent dans **0,11 % d'étendue en
+préservant STRICTEMENT l'ordre**. Saturation, pas perte d'ordre. La propriété est
+maintenant **gardée par un test** — `_sigmoid` rendu constant fait rougir. Le
+coût réel, **−2,5 points de rappel@10** concentrés sur les 41 questions
+translingues sur 138, est écrit comme **cité de l'audit et non remesuré**, aux
+deux sites, dans un commit qui n'existe que pour cela.
+
+#### Deux trous que ce lot ouvre, nommés par lui, et qui montent au plan
+
+- **le garde d'affectations ne surveille que les noms du réglage d'EMBEDDING.**
+  Un `Field(default=…)` plantant un reranker non conforme sous `rerank_model`
+  n'est attrapé par **rien**. C'est le trou **symétrique** de celui que ce lot
+  vient de fermer, et le lot l'a trouvé **par son propre faux résultat** — sa
+  mutation M3, posée sur `rerank_model`, restait verte. Il ne l'a pas fermé pour
+  une raison juste : le faire demande de décider ce qu'est un reranker non
+  conforme comme **valeur littérale**, or sa décision (a) est précisément que le
+  chevauchement mesuré interdit de le décider sur un nom ;
+- **le verdict du reranker ne rejaillit pas dans `/health`.** Une ligne de
+  journal une fois par processus est facile à manquer, et le défaut est *le
+  silence*. Le fermer change le contrat d'une route et le schéma
+  `EmbeddingModelHealth` — à ne pas empaqueter dans un lot qui construit déjà
+  deux gardes.
+
+#### L'assertion décorative que le lot a trouvée contre lui-même
+
+Sa première borne de périmètre — « un fichier à deux niveaux de profondeur » —
+est satisfaite par `tests/unit/*` quoi qu'il arrive. La mutation qui retire
+`documentation/audits/` et `documentation/campagnes/` du balayage laissait **122
+fichiers sur 124**, sous un plancher `>= 100` aveugle, et l'assertion **verte**.
+Corrigée, portée sur `documentation/`, elle rougit sur cette mutation-là.
+**C'est la septième fois de ce chantier qu'un garde vert sous une scène que le
+défaut ne rencontre pas est trouvé — et la première fois qu'il l'est par le lot
+qui vient de l'écrire.** L'échec est consigné à son site.
+
+Le lot a par ailleurs **refusé d'asserter le compte exact de fichiers suivis**
+(124, corrigé de 123) et asserte à la place la **forme** du périmètre, avec un
+motif écrit : un compte exact rougirait à chaque fichier ajouté — l'événement le
+plus banal du dépôt — et enseignerait le geste « monter le chiffre » que ce même
+fichier désapprend ailleurs. *Même famille que la maintenance du §4.29 : on
+corrige par périphrase, on ne monte pas le compte.*
+
+#### Décision du pilote
+
+**`src/` change de 178 lignes de code neuf, et ces lignes portent deux décisions
+de conception prises par le lot lui-même** — contre quoi confronter, et signaler
+plutôt que refuser. Le critère amendé du §4.18 ne s'applique donc pas : il
+n'exempte que le changement **spécifié ET pré-mesuré par l'audit qui l'a exigé**.
+**Audit indépendant requis**, par une conversation qui n'a écrit aucune de ces
+lignes — `Conv' 41`, **neuvième audit du chantier**.

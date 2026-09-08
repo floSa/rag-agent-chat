@@ -285,9 +285,11 @@ dépôt, pas dans la conversation.*
 
 | **39** | AUDIT-DETTE — audit du lot dette | **ZÉRO bloquante**, 5 non bloquantes. A **renversé deux maillons du raisonnement du pilote** avec des mesures, et trouvé que **l'idiome du dépôt échappe au garde de sûreté** — §4.31 |
 
-**Prochain numéro libre : 40.**
+| **40** | LOT-6 — le garde du reranker, les formes d'affectation qui échappaient, le bouchon de l'index périmé | livré le **8 septembre 2026** : `a2d2081` + `e6fc175`, **643 passés** (+14), `rc=0` / `rc=0`, **non poussés**. A **mesuré son cadrage faux** — le prompt annonçait `main` = `2bb511c`, mesuré `3638240`, **trois commits d'écart**. Le garde du reranker **SIGNALE** au lieu de refuser, et c'est une mesure qui l'a décidé : les vocabulaires multilingue et anglais **se chevauchent** (mBERT 119 547 < DeBERTa-v3 128 100), donc aucun seuil n'est un classifieur. A trouvé une **sixième** forme d'affectation non vue (`monkeypatch.setenv`), **corrigé le motif faux du §4.31** (saturation de sigmoïde, l'ordre survit) et **attrapé son propre faux résultat** deux fois — une mutation posée sur le mauvais réglage, et une assertion de périmètre décorative que sa propre mutation a montrée verte. Vérifié par le pilote — §4.32 |
 
-**Cinq lots fusionnés, huit audits, huit trouvailles — dont six bloquantes.** Les
+**Prochain numéro libre : 41.**
+
+**Cinq lots fusionnés, huit audits, huit trouvailles — dont six bloquantes** ; le lot 6 est livré et attend le **neuvième**. Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
 audits ont porté leurs trouvailles **sur le pilote** plutôt que sur les lots : un
 état de `main` qu'il avait publié sans le mesurer, et deux maillons d'un
@@ -689,6 +691,41 @@ Celles du 7 septembre 2026 :
   au projet jumeau, celle-là ayant été découverte par quelqu'un d'autre.* **Écris
   le chemin absolu de ton arbre dans chaque prompt, et exige qu'il soit mesuré
   avant la première commande.**
+
+Celles du 8 septembre 2026 :
+
+- **Un cadrage vieillit entre sa première ligne et sa dernière.** Le prompt du
+  lot 6 annonçait `main` = `2bb511c` ; le lot a mesuré `3638240`, **trois commits
+  d'écart**. Le pilote avait relevé `main` avant d'y pousser la chaîne de
+  correction du journal, puis avait écrit le prompt sans remesurer. Le même
+  prompt annonçait le **huitième** relevé du démon d'orchestration là où le lot a
+  compté le **neuvième**. La règle « mesurer avant de pousser, jamais après » ne
+  suffit pas : **remesure `main` juste avant de SCELLER le prompt**, et non au
+  moment où tu commences à l'écrire — §4.32.
+- **Un numéro est une mesure comme une autre.** « Prochain numéro libre : 41 »
+  a été écrit depuis l'arithmétique d'un script d'édition au lieu d'être **compté
+  dans le journal**. Trois défauts en sont sortis d'un coup, dont une ligne `38`
+  en double, et **c'est l'utilisateur qui les a vus, sur une question de quatre
+  mots** — §4.31.
+- **Reprendre un antécédent du dépôt sans le mesurer est la même faute que de
+  l'inventer.** Le pilote a bâti un raisonnement sur « étendue 0,0 % donc
+  classement au hasard », lu au site canonique de `rerank_model`. C'est une
+  **saturation de sigmoïde** : l'ordre survit intégralement. Deux audits de suite
+  ont porté leur trouvaille sur le pilote pour ce motif, et le lot 6 a corrigé le
+  site — §4.32.
+- **Le clone principal n'est pas seulement à un `cd` de distance : on y écrit
+  sans le vouloir.** Le pilote a lu le journal depuis le clone principal — ce qui
+  est le bon geste, c'est là que vit `main` — puis y a **édité** le fichier dans
+  la même commande, laissant le clone principal sale. Rattrapé en extrayant le
+  `git diff`, en restaurant le clone et en appliquant le patch dans l'arbre du
+  pilote ; `git status --porcelain` vérifié vide ensuite. *Lis depuis le clone
+  principal si tu veux, mais **écris toujours depuis ton arbre** — et vérifie
+  `pwd -P` avant chaque écriture, pas seulement avant la première commande.*
+- **Le piège du tube, une sixième fois.** `git merge main 2>&1 | tail -3` puis
+  `echo "rc=$?"` : le `rc` relevé était celui de `tail`. Le pilote ne s'en est
+  sorti qu'en **vérifiant l'état** (`git rev-parse`, `rev-list --left-right`)
+  plutôt que le code de retour. *Quand tu as filtré une sortie, ce n'est plus le
+  `rc` qui te renseigne : c'est l'état.*
 
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te
