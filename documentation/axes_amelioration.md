@@ -2077,7 +2077,7 @@ l'a pas éprouvée.*
    fenêtre n'avait jamais été payé en campagne. Ce qui précède dit ce que
    l'encadrement **couvre**, pas ce qu'il **rapporte** : aucune de ces trois
    définitions n'avait été confrontée à la campagne de référence du 8 septembre
-   2026. **Le lot 4 l'a fait, et le résultat est au §4.40** — c'est lui qui dit
+   2026. **Le lot 4 l'a fait, et le résultat est au §4.41** — c'est lui qui dit
    si le gain de couverture rapporte, et il faut le lire avant de citer les
    pourcentages ci-dessus comme un gain.
 
@@ -6369,3 +6369,144 @@ propre coût.
 `.legacy` sous **git 2.54+**, dont le chemin de code n'existe pas en 2.53.0, à
 remesurer à la montée de version. *Les deux sont des pannes muettes, et c'est
 pourquoi elles sont écrites plutôt que supposées absentes.*
+
+### 4.41 → Le lot 4 livré : la couverture passe de 71 % à 98 % pour ZÉRO point de rappel, et l'agent en service est cinq lots en retard
+
+**LE RÉSULTAT PRINCIPAL EST NÉGATIF, ET C'EST LE PLUS UTILE DES DEUX.** La
+réserve 2 du §4.6 demandait ce que l'encadrement **rapporte**, et non ce qu'il
+couvre. La réponse est mesurée, sur les deux instruments, et elle est nette : la
+définition (C) porte la couverture de **71,2 % à 98,0 %** des éléments servis
+(direction « avant ») et de **67,6 % à 95,5 %** (« après »), et **elle ne gagne
+aucun point de rappel**.
+
+`mesuré` le 9 septembre 2026, `make eval` sur les 138 questions du jeu de
+réglage, comparaison **appariée** contre `runs/2026-09-08-reference.json` :
+
+| métrique | avant | après | Δ apparié, IC 95 % |
+|---|---|---|---|
+| `rappel_recherche` | 0,962 | 0,962 | **+0,0000** [+0,000, +0,000], 130 ex æquo sur 130 |
+| `rappel_elements` | 0,954 | 0,954 | **+0,0000**, 130 / 130 |
+| `rang_reciproque` (mrr) | 0,942 | 0,942 | **+0,0000**, 130 / 130 |
+| `rappel_documents` | 1,0 | 1,0 | **+0,0000**, 130 / 130 |
+| `rappel_contexte` | 0,946 | 0,946 | **+0,0000**, 130 / 130 |
+| `taux_citation_complete` | 1,0 | 1,0 | **+0,0000**, 129 / 129 |
+| `taux_contexte_utile` | 0,273 | 0,279 | +0,0062 [+0,001, +0,013], **p=0,109** |
+| `part_utile_caracteres` | 0,281 | 0,290 | +0,0097 [+0,001, +0,019], **p=0,850** |
+| `caracteres_retenus` ↓ | 9 529 (p50) | 10 633 (p50) | **+914,6** [+777, +1 060], **p=0,000** |
+
+**Les six métriques de rappel sont IDENTIQUES À LA QUATRIÈME DÉCIMALE, sur 130
+questions appariées, sans une seule bascule.** Les deux métriques d'utilité
+bougent de moins d'un point et le test apparié ne les distingue pas du bruit
+(p = 0,109 et p = 0,850). La seule métrique dont l'écart soit significatif est
+le **coût** : +915 caractères retenus par question, 119 questions sur 138 en
+retenant davantage.
+
+**Ce que ça coûte, en fenêtre et en latence** (`mesuré`, même campagne) :
+
+| | avant | après |
+|---|---|---|
+| `caracteres_retenus_p50` | 9 529 | **10 633** (+11,6 %) |
+| `prompt_eval_count_p50` | 3 131 | **3 291** (+5,1 %) |
+| `prompt_eval_count_p95` | 3 582 | **3 800** (+6,1 %) |
+| `contextes_ecartes_total` | 26 | **32** |
+| `total_ms_p50` | 7 835 | 8 378 (+6,9 %) |
+
+**`contextes_ecartes_total` est la ligne à lire.** Six contextes de plus sont
+écartés avant le LLM parce que chaque source coûte désormais plus de fenêtre :
+l'encadrement ne s'ajoute pas, il **évince**. `rappel_contexte` ne bouge pas —
+aucun passage doré n'a été perdu sur CE jeu, à CE budget —, mais le mécanisme est
+là, et un budget plus serré le paierait.
+
+**Le jeu de CONTRÔLE dit la même chose, et sa réserve reste entière** — trente
+questions ne tranchent pas un réglage, un écart de deux points y est du bruit
+(§5 du registre de pilotage). `rappel_recherche` 0,801 → 0,801, `rappel_elements`
+0,686 → 0,686, `mrr` 0,770 → 0,770, `rappel_documents` 0,962 → 0,962 : **Δ
+apparié +0,0000 sur les 26 questions appariables, aucune bascule.** Ce qui bouge
+va dans le bon sens sans être décidable : `rappel_contexte` 0,712 → 0,731,
+`taux_contexte_utile` 0,315 → 0,350. **Ce n'est pas une confirmation du gain,
+c'est l'absence de contradiction.**
+
+**CE QUE CE RÉSULTAT NE DIT PAS, et il faut le borner.** Les deux jeux mesurent
+le **rappel de passages** et l'utilité du contexte retenu ; **aucun des deux ne
+mesure la qualité de la réponse générée**, et l'encadrement sert précisément à
+donner au LLM de quoi situer un passage. Un jeu doré à `reviewed: false` et sans
+notation de réponse ne peut pas voir un gain de compréhension. *L'encadrement
+peut donc rapporter quelque chose que ces deux instruments sont structurellement
+incapables de mesurer — et c'est une raison de ne pas conclure, pas une raison
+de croire au gain.*
+
+**LA DÉCISION APPARTIENT AU PILOTE**, et elle se pose ainsi : (C) achète une
+couverture presque complète et une absence — le bloc d'encadrement qui
+disparaissait, titre compris, pour un tiers des éléments servis — au prix de
++5 % de fenêtre de prompt et de six sources évincées sur 138 questions, sans
+aucun gain de rappel mesurable. **Le lot livre la décision tranchée ; il ne
+prétend pas qu'elle rapporte.**
+
+#### Le défaut que le lot a trouvé DANS SON PROPRE CODE, par la mesure
+
+`_last_header_descendant` établissait la liste complète des enfants en-tête avant
+d'en prendre le dernier : elle demandait donc le tag de **chaque** enfant, et
+`_get_node_properties` n'est pas mémoïsée. `mesuré` sur le graphe en service, sur
+les 189 remontées « avant » et leurs 136 niveaux de descente : **2 018**
+aller-retours nGQL, **pire cas 180 pour une seule reconstruction** — un en-tête
+du corpus porte 183 enfants. À rebours : **136** aller-retours, **pire cas 1**.
+
+*Ce défaut n'était visible ni au lint, ni à la suite, ni à la relecture : aucun
+garde de ce dépôt ne compte les aller-retours, et une régression de latence ne
+rougit nulle part.* Deux gardes le comptent désormais, dont un sur
+`reconstruct_section` — le point d'entrée réel —, parce qu'un garde posé sur la
+seule fonction interne se laisse contourner par une réécriture qui déplace le
+balayage.
+
+#### ⚠️ LA TROUVAILLE BLOQUANTE, ET ELLE N'EST PAS DANS LE PÉRIMÈTRE DU LOT
+
+**L'agent en service ne fait pas tourner le code de `main`. Il fait tourner
+celui du 3 septembre 2026, et il est CINQ LOTS EN RETARD.**
+
+`mesuré` le 9 septembre 2026 :
+
+```bash
+docker image inspect $(docker inspect -f '{{.Image}}' rag-agent-api) --format '{{.Created}}'
+# → 2026-09-03T09:57:02Z
+docker exec rag-agent-api sh -c "grep -rho 'verifier_modele_embedding' /app/src | wc -l"   # → 0
+grep -rho 'verifier_modele_embedding' src/ | wc -l                                          # → 8
+```
+
+Quatre fichiers divergent, dont **trois par leur AST hors docstrings**, donc par
+leur comportement : `src/agent/retriever.py`, `src/api/main.py`,
+`src/api/schemas.py`. Ce qui est ABSENT du service en marche, à **0** occurrence
+contre 8, 5, 8, 13, 4 et 5 sur `main` : `verifier_modele_embedding`,
+`etat_modele_embedding`, `EmbeddingModelMismatchError`, `EmbeddingModelHealth`,
+`verdict_langue_du_reranker`, `_RERANKERS_MESURES`.
+
+**Autrement dit : le garde du modèle d'embedding du lot 3 — quatre audits, quatre
+trouvailles bloquantes, §4.27 — et le garde du reranker du lot 6 — §4.31 à §4.35
+— n'ont JAMAIS tourné dans le service déployé.** Le §3 de
+`documentation/pilotage_du_chantier.md` écrit l'exigence 1 « ✅ tenue et gardée
+des DEUX côtés » : c'est vrai sur `main`, **faux en production**.
+
+**Confirmation indépendante, sans lire le conteneur** : sur `main`,
+`HealthResponse.embedding_model` est un champ **requis**, donc un agent construit
+depuis `main` l'émet toujours. `GET :8011/health` ne le porte pas.
+
+**RIEN DANS CE DÉPÔT NE POUVAIT LE VOIR.** `make lint` → `rc=0`, `make test` →
+`rc=0` sur 720 tests, et **`make test-integration` → `rc=0`, 10 passés**, contre
+cet agent-là. C'est la forme exacte que ce chantier a payée huit fois — *un garde
+VERT sous une scène que le défaut ne rencontre jamais* — portée cette fois au
+niveau du **déploiement** : le garde est vert en intégration continue et **absent
+de l'artefact livré**.
+
+**Ce que ça fait aux campagnes de ce dépôt** : les deux références du 8 septembre
+2026 et les quatre campagnes de ce lot mesurent toutes le **même** agent du
+3 septembre. La comparaison avant / après de ce lot reste donc valide — les deux
+côtés ne diffèrent que par le seul fichier substitué, empreinte SHA-256 relevée
+aux deux bouts —, mais **toute campagne postérieure à une reconstruction de
+l'image se déplacera pour des raisons étrangères au changement mesuré.**
+
+**Le geste minimal qui l'arme, et le lot ne l'a PAS écrit** : une assertion
+`"embedding_model" in /health` dans `tests/integration/test_stack.py` rougirait
+aujourd'hui. Le lot ne l'ajoute pas, parce qu'ajouter un test qui échoue sur
+l'état présent du poste n'est pas une correction : la reconstruction de l'image
+est une décision de pilotage, et elle se prend depuis le clone principal — aucun
+`docker compose` ne se lance depuis un arbre de travail, `docker-compose.yml`
+montant `./prompts`.
