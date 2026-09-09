@@ -43,6 +43,7 @@ taille de vocabulaire réellement mesurée : c'est le mécanisme qui est testé,
 un nom fictif l'éprouve aussi bien qu'un vrai sans rien apprendre à personne.
 """
 
+import asyncio
 import json
 import logging
 import pathlib
@@ -267,12 +268,293 @@ def test_une_propriete_absente_ou_illisible_rend_none_sans_lever() -> None:
 
     Une exception ici casserait le CHARGEMENT du reranker, donc la recherche —
     un garde qui provoque la panne qu'il surveille. C'est le cas que
-    `_vocabulaire_du_reranker` absorbe, et l'absorption est bornée à
-    `TypeError`/`ValueError` : elle ne masque pas une panne d'une autre nature.
+    `_vocabulaire_du_reranker` absorbe.
+
+    **LA PHRASE QUI SUIVAIT ÉTAIT FAUSSE ET A ÉTÉ RETIRÉE LE 9 SEPTEMBRE 2026** :
+    elle disait l'absorption « bornée à `TypeError`/`ValueError`, elle ne masque
+    pas une panne d'une autre nature » — et ces trois scènes-là ne sont
+    justement PAS celles qui levaient. Les deux `object()` ci-dessous rendent
+    `None` par le `default` de `getattr`, jamais par l'`except`. La borne
+    étroite laissait donc propager tout ce qui LÈVE en lisant la propriété, et
+    c'est mesuré : voir
+    `TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche` juste dessous, où
+    les deux directions sont désormais gardées.
     """
     assert retriever._vocabulaire_du_reranker(object()) is None
     assert retriever._vocabulaire_du_reranker(_FauxCrossEncoder(object())) is None
     assert retriever._vocabulaire_du_reranker(_FauxCrossEncoder(_Config("ni un entier"))) is None
+
+
+class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
+    """LA SURFACE D'EXCEPTION DE LA LECTURE DÉFENSIVE, QUE RIEN NE GARDAIT.
+
+    **LE DÉFAUT, `mesuré` le 9 septembre 2026.** `_vocabulaire_du_reranker`
+    écrivait que son échec rend `None`, traité en `warning`, et qu'« une montée
+    de version rendrait ce garde bavard, pas muet ». L'`except` ne retenait que
+    `TypeError` et `ValueError`. Une sonde de dix lignes, sans charger de
+    modèle, a montré que la phrase ne tenait que pour l'attribut ABSENT : un
+    `config` qui est une `property` levant `RuntimeError`, `OSError`, `KeyError`
+    ou `ImportError` **propageait**.
+
+    **ET LA PROPAGATION N'ÉTAIT PAS BAVARDE, ELLE ÉTAIT MORTELLE.**
+    `_get_rerank_model()` est appelé par `rerank()`, que `node_rerank` appelle
+    sans aucun `try` : l'exception traversait tout et cassait la recherche. *Un
+    garde qui provoque la panne qu'il surveille* — ce que le docstring du test
+    voisin nomme lui-même sans l'avoir gardé.
+
+    **CE N'EST PAS THÉORIQUE.** En sentence-transformers 5.6.1 — la version
+    épinglée, `vérifié` le 9 septembre 2026 — `CrossEncoder.config` **est** une
+    `property`, chaînée sur une seconde (`transformers_model`) qui parcourt la
+    hiérarchie de modules du modèle. La version installée est sûre ; ce garde
+    existe pour celle qui vient.
+
+    **LES DEUX DIRECTIONS, et la seconde est celle qui rend l'élargissement
+    tenable** : ce qui doit être absorbé l'est, et ce qui doit traverser
+    traverse — `KeyboardInterrupt` et `SystemExit` en tête. Un `except` qui
+    avale tout est aussi inutile qu'un `except` qui n'avale rien.
+    """
+
+    class _ConfigQuiLeve:
+        """Un `config` qui est une `property` levant — la forme réelle de 5.6.1."""
+
+        def __init__(self, nature: type[BaseException]) -> None:
+            self._nature = nature
+
+        @property
+        def config(self) -> object:
+            raise self._nature("la bibliothèque a changé sous nous")
+
+    # LES SIX NATURES PLAUSIBLES, et la liste est raisonnée plutôt que
+    # inventée. `AttributeError` : l'attribut déplacé, le cas nominal d'une
+    # montée de version. `RuntimeError` : un modèle mal initialisé, ce que lève
+    # `transformers` quand un module attendu manque. `OSError` : une lecture de
+    # `config.json` faite paresseusement par la property. `KeyError` : une clé
+    # absente d'un dictionnaire de configuration. `ImportError` : un backend
+    # optionnel (`optimum-onnx`, `optimum-intel`) que la chaîne de property
+    # touche. `NotImplementedError` : une property qui refuse le cas.
+    #
+    # **CETTE PHRASE ÉTAIT FAUSSE, ET C'EST LA CORRECTION DU 9 SEPTEMBRE 2026.**
+    # Elle affirmait : « les quatre du milieu PROPAGEAIENT ; les deux autres
+    # étaient déjà absorbées, l'une par le `default` de `getattr`, l'autre par
+    # l'`except` étroit ». La seconde moitié est démentie par la mesure.
+    #
+    # `NotImplementedError` **est une sous-classe de `RuntimeError`** —
+    # `mesuré` le 9 septembre 2026, `NotImplementedError.__mro__` rend
+    # `(NotImplementedError, RuntimeError, Exception, BaseException, object)` —
+    # donc `except (TypeError, ValueError)` ne l'attrapait PAS. Elle propageait
+    # comme les quatre autres.
+    #
+    # Sonde rejouée le même jour, `except` étroit reconstruit à l'identique,
+    # sur ces six natures :
+    #
+    #     ABSORBÉES   : AttributeError                                    -> **1**
+    #     PROPAGEANTES: RuntimeError, OSError, KeyError, ImportError,
+    #                   NotImplementedError                               -> **5**
+    #
+    # Cinq des six propageaient, et une seule était absorbée — par le `default`
+    # de `getattr`, jamais par l'`except`. *Une sous-classe lue comme une classe
+    # sœur : le compte était juste sur quatre noms et faux sur le sixième.*
+    #
+    # ── « SIX » EST DÉFINI ICI, ET CE N'EST PAS LE « SEPT » DU SITE ──
+    #
+    # `retriever.py` écrit « quatre natures sur les sept sondées ». Ce fichier
+    # énumère six natures ici, et **neuf** en tout avec celles qui doivent
+    # traverser. Les trois comptes sont exacts sous trois définitions, et leur
+    # silence sur celles-ci était le défaut. Les définitions sont désormais
+    # écrites aux deux sites. Celle-ci :
+    #
+    #     **SIX = les natures dont l'ABSORPTION est sondée par ce fichier**,
+    #     choisies pour être plausibles sous une montée de version de
+    #     `sentence-transformers`, et non pour reproduire la sonde d'origine.
+    #     Les natures qui doivent TRAVERSER sont comptées à part —
+    #     `test_l_interruption_l_annulation_et_la_sortie_traversent_toujours`
+    #     en tient **trois**.
+    #
+    # Celle de `retriever.py` : les sept natures que la sonde du 9 septembre
+    # 2026 a soumises à l'`except` étroit, `TypeError` et `ValueError`
+    # comprises — deux natures que ce fichier ne sonde pas, parce qu'un
+    # `except Exception` les couvre sans qu'on ait à les nommer.
+    _NATURES = (
+        AttributeError,
+        RuntimeError,
+        OSError,
+        KeyError,
+        ImportError,
+        NotImplementedError,
+    )
+
+    def test_la_liste_des_six_natures_ne_retrecit_pas_en_silence(self) -> None:
+        """LE TROU QUE MA PROPRE MUTATION M-j A TROUVÉ, ET IL EST DANS CE TEST.
+
+        `mesuré` le 9 septembre 2026 : retirer `NotImplementedError` de
+        `_NATURES` laissait les **16** tests de ce fichier VERTS. Une liste de
+        sondes qui rétrécit ne fait rougir personne — le test voisin sonde
+        simplement une nature de moins, et sa couverture se perd en silence.
+
+        **UN COMPTE EST LÉGITIME ICI, ET LA DISTINCTION IMPORTE.** Ce fichier et
+        `test_coherence_depot.py` refusent d'asserter des comptes, et ils ont
+        raison : un inventaire d'occurrences GRANDIT à chaque test ajouté, et un
+        garde qui rougit sur l'événement normal enseigne le geste « monter le
+        chiffre » — la leçon du §4.35. `_NATURES` n'est pas un inventaire : c'est
+        une liste FERMÉE et raisonnée, dont la seule évolution normale est de
+        s'allonger. Un plancher la garde donc sans jamais rougir à tort.
+
+        **ET IL TIENT LE FAIT QUI AVAIT ÉTÉ ÉCRIT FAUX.**
+        `NotImplementedError` est une sous-classe de `RuntimeError`, donc
+        l'`except (TypeError, ValueError)` d'avant le 9 septembre 2026 ne
+        l'attrapait pas : elle propageait, contrairement à ce que le commentaire
+        de `_NATURES` affirmait. Si la hiérarchie de la bibliothèque standard
+        changeait, ce commentaire redeviendrait faux, et c'est cette assertion
+        qui le dirait.
+        """
+        assert len(self._NATURES) >= 6, (
+            f"la liste des natures sondées est tombée à {len(self._NATURES)} : "
+            f"{[n.__name__ for n in self._NATURES]}. Une sonde retirée ne fait "
+            "rougir personne, et sa couverture se perd en silence. Allonger cette "
+            "liste est normal ; la raccourcir demande une mesure écrite"
+        )
+        assert len(set(self._NATURES)) == len(self._NATURES), (
+            f"une nature est répétée : {[n.__name__ for n in self._NATURES]}. Le "
+            "plancher ci-dessus serait alors tenu par un doublon"
+        )
+        assert NotImplementedError in self._NATURES, (
+            "`NotImplementedError` a quitté la liste. C'est la nature dont le "
+            "commentaire de `_NATURES` a écrit le comportement FAUX — elle "
+            "propageait, n'étant pas couverte par l'`except` étroit — et c'est "
+            "elle qui rend la correction du 9 septembre 2026 relisible"
+        )
+        assert issubclass(NotImplementedError, RuntimeError), (
+            "`NotImplementedError` ne dérive plus de `RuntimeError` : le "
+            "commentaire de `_NATURES` explique la correction du 9 septembre 2026 "
+            "par cette hiérarchie, et il vient de redevenir faux. Remesure "
+            "`NotImplementedError.__mro__` et réécris-le"
+        )
+        for nature in self._NATURES:
+            assert not issubclass(nature, (KeyboardInterrupt, SystemExit)), (
+                f"{nature.__name__} est une nature qui doit TRAVERSER, et elle est "
+                "dans la liste de celles qui doivent être absorbées : les deux "
+                "sens de ce garde viennent de se contredire"
+            )
+
+    def test_aucune_des_six_natures_ne_traverse_la_lecture(self) -> None:
+        """LA PREUVE D'ATTEINTE EST DANS LE MESSAGE : chaque nature est nommée.
+
+        Un test qui se contenterait d'un `is None` global ne dirait pas
+        LAQUELLE des six est retombée à travers. Chacune est donc sondée
+        séparément, et l'échec la nomme.
+        """
+        for nature in self._NATURES:
+            modele = self._ConfigQuiLeve(nature)
+            # Preuve que la sonde ATTEINT son cas : la property lève bien.
+            leve = False
+            try:
+                _ = modele.config
+            except nature:
+                leve = True
+            assert leve, (
+                f"la sonde n'atteint pas son cas pour {nature.__name__} : la "
+                "property ne lève pas, donc ce tour de boucle ne mesure rien"
+            )
+
+            assert retriever._vocabulaire_du_reranker(modele) is None, (
+                f"{nature.__name__} traverse la lecture défensive du vocabulaire. "
+                "`_get_rerank_model()` est appelé par `rerank()` sans aucun `try` : "
+                "cette exception ne rend pas le garde bavard, elle casse la "
+                "recherche — un garde qui provoque la panne qu'il surveille"
+            )
+
+    def test_une_property_qui_leve_sur_vocab_size_est_absorbee_aussi(self) -> None:
+        """Le SECOND maillon de la chaîne, et il n'était pas gardé non plus.
+
+        `config` peut être lisible et `vocab_size` lever : c'est exactement la
+        forme de 5.6.1, où `config` délègue à un `PretrainedConfig` dont les
+        attributs sont eux-mêmes calculés.
+        """
+
+        class _VocabQuiLeve:
+            @property
+            def vocab_size(self) -> int:
+                raise RuntimeError("attribut calculé, et le calcul a échoué")
+
+        modele = _FauxCrossEncoder(_VocabQuiLeve())
+        leve = False
+        try:
+            _ = modele.config.vocab_size
+        except RuntimeError:
+            leve = True
+        assert leve, "la sonde n'atteint pas son cas : `vocab_size` ne lève pas"
+
+        assert retriever._vocabulaire_du_reranker(modele) is None
+
+    def test_l_interruption_l_annulation_et_la_sortie_traversent_toujours(
+        self,
+    ) -> None:
+        """LE SENS DANGEREUX DE L'ÉLARGISSEMENT, ET C'EST SA BORNE.
+
+        `except Exception` et non `except BaseException` : un
+        `KeyboardInterrupt` ou un `SystemExit` doit traverser cette lecture
+        comme il traverse le reste du programme. Un `except` qui avale tout
+        rendrait ce garde impossible à interrompre — et il serait alors aussi
+        inutile que l'`except` étroit qu'il remplace, dans l'autre sens.
+
+        **`asyncio.CancelledError` REJOINT CETTE LISTE LE 9 SEPTEMBRE 2026, ET
+        ELLE Y MANQUAIT.** Elle traversait déjà — `vérifié` ce jour-là,
+        `asyncio.CancelledError.__mro__` rend `(CancelledError, BaseException,
+        object)` sous Python 3.12.13, et `issubclass(…, Exception)` rend
+        `False` — et c'est le bon comportement : *une annulation doit propager.*
+        Mais elle ne le devait à rien qui fût écrit ou éprouvé : elle le devait
+        à une propriété de la bibliothèque standard que personne n'avait
+        relevée. *On cherchait un trou et on a trouvé un choix juste ; un choix
+        juste que rien ne garde est un choix qu'un lot suivant défait.*
+
+        Le cas est réel sur ce dépôt : `pyproject.toml` porte
+        `asyncio_mode = "strict"` et le graphe est piloté par `ainvoke` et
+        `astream`. `node_rerank` est aujourd'hui un nœud **synchrone**, donc
+        l'annulation arrive d'abord sur la coroutine qui attend — raison de plus
+        pour garder la propriété maintenant : le jour où ce nœud devient
+        `async`, un `except BaseException` rendrait la requête inannulable, et
+        rien ne le dirait.
+        """
+        for nature in (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+            # PREUVE D'ATTEINTE : la nature sondée est bien HORS de `Exception`.
+            # Sans elle, ajouter par erreur une nature ordinaire à cette liste
+            # ferait rougir le test pour la bonne raison mais sur le mauvais
+            # fait — et une nature ordinaire DOIT être absorbée.
+            assert not issubclass(nature, Exception), (
+                f"{nature.__name__} dérive de `Exception` : elle doit être "
+                "ABSORBÉE, pas traverser. C'est le test voisin qui la sonde"
+            )
+            modele = self._ConfigQuiLeve(nature)
+            try:
+                retriever._vocabulaire_du_reranker(modele)
+            except nature:
+                continue
+            raise AssertionError(
+                f"{nature.__name__} est désormais AVALÉ par la lecture défensive : "
+                "l'`except Exception` est devenu un `except BaseException`, et ce "
+                "garde n'est plus interruptible"
+            )
+
+    def test_le_verdict_reste_un_avertissement_et_non_un_silence(self) -> None:
+        """L'ABSORPTION NE DOIT PAS DEVENIR UN SILENCE, et c'est le point.
+
+        Élargir l'`except` sans cette assertion échangerait une panne bruyante
+        contre un garde muet — le troc que `verdict_langue_du_reranker` refuse
+        explicitement. Le `None` rendu par l'absorption doit produire un
+        `warning`, pas un `None` de verdict.
+        """
+        modele = self._ConfigQuiLeve(RuntimeError)
+        vocabulaire = retriever._vocabulaire_du_reranker(modele)
+        assert vocabulaire is None
+
+        verdict = retriever.verdict_langue_du_reranker("un/modele-hors-registre", vocabulaire)
+        assert verdict is not None, (
+            "une propriété illisible ne dit plus rien : l'absorption est devenue "
+            "un silence, ce qui est le seul choix interdit ici"
+        )
+        niveau, message = verdict
+        assert niveau == "warning", f"niveau attendu 'warning', obtenu {niveau!r}"
+        assert "vocabulaire" in message
 
 
 def test_le_chargement_du_reranker_journalise_le_verdict(monkeypatch, caplog) -> None:
