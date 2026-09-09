@@ -751,3 +751,57 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
             "deux vérités possibles sans le dire est précisément ce qui a produit "
             "la faute du 8 septembre 2026"
         )
+
+    def test_le_scope_reste_porteur_pour_la_ligne_d_autorite(self, journal: str) -> None:
+        """LE TROU QUE MA PROPRE MUTATION A TROUVÉ, ET IL ÉTAIT DANS CE FICHIER.
+
+        `mesuré` le 9 septembre 2026, mutation **M-8** : retirer le scope de
+        `prochain_numero_annonce` laissait les **17** tests de ce fichier
+        ENTIÈREMENT VERTS. L'ancrage sur la forme suffisait à discriminer les
+        deux lignes du document courant, donc le scope était devenu — pour cette
+        fonction-là, et pour elle seule — **une borne inerte**. C'est la famille
+        de défaut dominante de ce chantier, retrouvée contre la correction qui
+        venait de la fermer ailleurs.
+
+        **CE QUE LA SCÈNE MANQUANTE DEVAIT ÊTRE.** Une seconde ligne d'autorité
+        **en gras et en tête de ligne**, mais **HORS** du §6.1 — c'est-à-dire ce
+        que devient le récit du §12 le jour où quelqu'un le réécrit sans ses
+        guillemets. Alors la forme ne discrimine plus, et seul le scope tranche :
+
+            avec le scope   → 44, l'état, correctement lu
+            sans le scope   → deux lignes d'autorité, donc `None`, donc rouge
+
+        Le scope et la forme ne sont donc pas redondants : la forme protège de
+        ce qui est DANS la fenêtre, le scope de ce qui est DEHORS. Chacun a
+        désormais sa mutation.
+        """
+        ancre = "- **Un numéro est une mesure comme une autre.**"
+        assert journal.count(ancre) == 1, (
+            f"l'ancre du récit du §12 apparaît {journal.count(ancre)} fois : la "
+            "scène ne peut plus être plantée à un endroit connu"
+        )
+        seconde = "**Prochain numéro libre : 99.**"
+        mute = journal.replace(ancre, f"{seconde}\n\n{ancre}", 1)
+
+        debut = mute.find(_DEBUT_DU_JOURNAL)
+        fin = mute.find("\n## ", debut)
+        fenetre = mute[debut : fin if fin > 0 else len(mute)]
+
+        # PREUVE D'ATTEINTE — la seconde ligne est DEHORS, et elle est bien de la
+        # forme que le motif reconnaît. Sans ces deux faits, la scène ne
+        # distinguerait pas le scope de la forme.
+        assert len(_LIGNE_DU_PROCHAIN.findall(fenetre)) == 1, (
+            "la seconde ligne d'autorité est tombée DANS le scope : cette scène "
+            "mesure alors la forme, et non le scope — c'est le test voisin"
+        )
+        assert len(_LIGNE_DU_PROCHAIN.findall(mute)) == 2, (
+            "la seconde ligne d'autorité n'est pas reconnue par le motif : la "
+            "scène n'atteint pas son cas"
+        )
+
+        assert prochain_numero_annonce(mute) == prochain_numero_annonce(journal), (
+            "une seconde ligne d'autorité posée HORS du §6.1 change ce que le "
+            f"garde lit ({prochain_numero_annonce(mute)}). Le scope ne borne donc "
+            "plus la lecture de la ligne d'autorité, et la forme seule ne peut pas "
+            "s'en charger : elle ne distingue pas le dedans du dehors"
+        )
