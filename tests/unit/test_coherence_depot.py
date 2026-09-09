@@ -542,11 +542,87 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
     return motifs
 
 
+# LA FORME QUI ÉCHAPPAIT PAR SON INDIRECTION, ET NON PAR SA SYNTAXE.
+#
+# `scripts/verifier_les_ancrages.py:355` écrit `env = os.environ.get`, puis
+# appelle `env("NOM", "défaut")` **huit** fois. Aucun des motifs ci-dessus ne le
+# voit : ils nomment `environ.get`, `getenv` et `setattr`, et l'appel réel ne
+# porte aucun de ces trois mots. *Une forme peut échapper par son indirection et
+# non par sa syntaxe.*
+#
+# **LA SURFACE EST MESURÉE, PAS SUPPOSÉE.** `mesuré` le 9 septembre 2026 :
+#
+#     git grep -nE '^\s*[a-zA-Z_]+\s*=\s*(os\.)?(environ\.get|getenv)\s*$'
+#         -> 1 liaison, `scripts/verifier_les_ancrages.py:355`
+#     grep -c 'env(' scripts/verifier_les_ancrages.py
+#         -> 8 appels
+#     git grep -nE '^\s*[a-zA-Z_]+\s*=\s*setattr\s*$'
+#         -> aucun
+#     git grep -nE 'from os import .*(environ|getenv)'
+#         -> aucun en code (une seule occurrence, dans un COMMENTAIRE de ce fichier)
+#
+# C'est donc **la seule indirection du dépôt**, pour **8 appels**.
+#
+# ── POURQUOI CETTE FERMETURE N'EST PAS SPÉCULATIVE, ET OÙ EST SA BORNE ──
+#
+# Le geste écarté était d'ÉLARGIR les motifs à « n'importe quel appel d'un nom
+# quelconque portant le nom du réglage et un littéral » : `\w+\s*\(`. Cela
+# aurait attrapé toute phrase de rapport citant un appel, et surtout cela aurait
+# deviné plutôt que lu — la famille d'élargissement que ce dépôt refuse.
+#
+# Ce qui est fait à la place est une LECTURE, en deux passes : on relève les
+# liaisons RÉELLES d'un nom à l'un des trois appelables, puis on n'engendre de
+# motif que pour les noms ainsi liés. Rien n'est supposé ; si aucune liaison
+# n'existe dans un texte, aucun motif n'est ajouté.
+#
+# **LA BORNE EST ÉCRITE ET ASSUMÉE** : la liaison doit être une affectation
+# NUE en fin de ligne. Un alias reçu en argument, rangé dans un dictionnaire,
+# ou reconstruit par `getattr(os, "getenv")` n'est PAS vu — cela demanderait de
+# suivre les données, ce qu'une lecture de texte ne fait pas, et un motif qui
+# prétendrait le faire serait faux plutôt qu'incomplet. Ces formes n'existent
+# pas dans ce dépôt (mesure ci-dessus), et si l'une y entre, c'est ce
+# commentaire qu'il faudra relire.
+_LIAISON_D_ALIAS = re.compile(
+    r"^[ \t]*([A-Za-z_]\w*)\s*=\s*(?:os\.)?(environ\.get|getenv|setattr)[ \t]*(?:#.*)?$",
+    re.M,
+)
+
+
+def _motifs_des_alias(texte: str, modele: str, noms: tuple[str, ...]) -> list[re.Pattern[str]]:
+    """Un motif par (alias réellement lié, nom du réglage) trouvé dans `texte`.
+
+    Voir le commentaire de `_LIAISON_D_ALIAS` pour le motif de cette lecture en
+    deux passes, et pour la borne de ce qu'elle ne voit pas.
+    """
+    valeur = re.escape(modele)
+    motifs: list[re.Pattern[str]] = []
+    for alias, appelable in _LIAISON_D_ALIAS.findall(texte):
+        a = re.escape(alias)
+        for nom in noms:
+            n = re.escape(nom)
+            if appelable == "setattr":
+                # Même forme que le motif direct : l'objet précède le nom, et la
+                # fenêtre comme `[^)]` sont bornés pour les mêmes raisons.
+                motifs.append(
+                    re.compile(rf'{a}\s*\([^)]{{0,80}}?["\']{n}["\']\s*,\s*["\']{valeur}')
+                )
+            else:
+                motifs.append(
+                    re.compile(rf'{a}\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}')
+                )
+    return motifs
+
+
 def _affectations_dans(texte: str, modele: str, noms: tuple[str, ...]) -> list[str]:
-    """Les fragments de `texte` qui AFFECTENT `modele`, dans l'ordre."""
+    """Les fragments de `texte` qui AFFECTENT `modele`, dans l'ordre.
+
+    Les motifs des ALIAS sont dérivés du texte lui-même : voir
+    `_motifs_des_alias`. C'est pourquoi cette fonction prend le texte entier et
+    non une ligne — une indirection ne se lit pas dans la ligne qui l'emploie.
+    """
     return [
         trouve.group(0)
-        for motif in _motifs_d_affectation(modele, noms)
+        for motif in _motifs_d_affectation(modele, noms) + _motifs_des_alias(texte, modele, noms)
         for trouve in motif.finditer(texte)
     ]
 
@@ -912,6 +988,264 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
                 f"récit attrapé à tort : {recit!r} — l'ajout des deux formes "
                 "réflexives vient de reconstruire l'inventaire d'occurrences "
                 "sous un autre nom"
+            )
+
+    def test_la_forme_aliasee_ne_lui_echappe_plus(self) -> None:
+        """LA FORME QUI ÉCHAPPAIT PAR SON INDIRECTION, ET NON PAR SA SYNTAXE.
+
+        `scripts/verifier_les_ancrages.py:355` écrit `env = os.environ.get` puis
+        appelle `env("NOM", "défaut")` **huit** fois. Les motifs directs nomment
+        `environ.get`, `getenv` et `setattr` ; l'appel réel ne porte aucun de ces
+        trois mots, et il échappait donc entièrement.
+
+        **LA SURFACE EST MESURÉE** (`mesuré` le 9 septembre 2026, commandes au
+        commentaire de `_LIAISON_D_ALIAS`) : **1** liaison dans tout le dépôt,
+        pour **8** appels. Aucun alias de `setattr`, aucun
+        `from os import environ/getenv` en code.
+
+        **LES TROIS DIRECTIONS**, parce qu'une lecture en deux passes peut
+        échouer de trois façons : ne pas voir la liaison, voir une liaison qui
+        n'existe pas, ou attraper le récit qui la raconte.
+        """
+        alias = self._NOMS[1]
+        champ = self._NOMS[0]
+
+        # SENS 1 — LA FORME ALIASÉE EST ATTRAPÉE. La liaison et l'appel sont
+        # dans le même texte, comme au site réel ; les fragments sont assemblés
+        # à l'exécution, le dépôt étant public.
+        for liaison, appel in (
+            ("env = os.environ.get", f'env("{alias}", "{_MODELE_ANGLAIS}")'),
+            ("lire = os.getenv", f'lire("{champ}", "{_MODELE_ANGLAIS}")'),
+            ("poser = setattr", f'poser(settings, "{champ}", "{_MODELE_ANGLAIS}")'),
+        ):
+            texte = f"import os\n\n\n{liaison}\nvaleur = {appel}\n"
+            # PREUVE D'ATTEINTE : la liaison est bien RECONNUE comme telle.
+            assert _LIAISON_D_ALIAS.search(texte), (
+                f"la liaison {liaison!r} n'est plus reconnue : le motif dérivé "
+                "n'est pas engendré, et tout ce tour de boucle mesure le vide"
+            )
+            assert self._affectations(texte), (
+                f"la forme aliasée échappe encore : {texte!r}. C'est l'idiome réel "
+                "de `scripts/verifier_les_ancrages.py`, et une affectation qui "
+                "échappe par son indirection est aussi copiable qu'une autre"
+            )
+
+        # SENS 2 — SANS LIAISON, AUCUN MOTIF. Le même appel, privé de sa
+        # liaison, ne doit RIEN déclencher : sinon la lecture en deux passes
+        # serait devenue l'élargissement `\w+\s*\(` qu'elle existe pour éviter,
+        # et toute phrase citant un appel quelconque rougirait.
+        sans_liaison = f'valeur = env("{alias}", "{_MODELE_ANGLAIS}")\n'
+        assert not _LIAISON_D_ALIAS.search(sans_liaison), "scène non atteinte"
+        assert not self._affectations(sans_liaison), (
+            f"un appel dont l'alias n'est lié à RIEN est attrapé : {sans_liaison!r}. "
+            "La lecture en deux passes est devenue une devinette sur tout nom "
+            "suivi d'une parenthèse — c'est l'élargissement que la borne écrite "
+            "au-dessus de `_motifs_des_alias` refuse explicitement"
+        )
+
+        # SENS 3 — UN APPEL N'EST PAS UNE LIAISON, et c'est ce que l'ancrage
+        # de fin de ligne garantit. `mesuré` le 9 septembre 2026, mutation
+        # **M-g** : retirer le `$` de `_LIAISON_D_ALIAS` laissait les 27 tests de
+        # ce fichier VERTS. Sans lui, chaque ligne d'appel DIRECT enregistre sa
+        # cible comme un alias — `hote` ci-dessous serait lié à `environ.get`
+        # alors qu'il porte une chaîne — et le motif dérivé rougirait sur toute
+        # phrase citant un appel de ce nom. La lecture en deux passes
+        # redeviendrait la devinette qu'elle existe pour éviter.
+        for appel_direct in (
+            f'hote = os.environ.get("{alias}", "un-modele-quelconque")',
+            f'valeur = os.getenv("{champ}", "autre-chose")',
+        ):
+            assert not _LIAISON_D_ALIAS.search(appel_direct), (
+                f"un APPEL est lu comme une LIAISON : {appel_direct!r} enregistre "
+                f"{_LIAISON_D_ALIAS.findall(appel_direct)} comme alias. L'ancrage de "
+                "fin de ligne a été perdu, et un motif dérivé va rougir sur des "
+                "noms qui ne sont pas des appelables"
+            )
+
+        # SENS 4 — LE RÉCIT RESTE VERT. Ces phrases sont celles qu'un rapport
+        # écrit pour nommer cette fermeture, celui-ci compris.
+        for recit in (
+            f"`scripts/verifier_les_ancrages.py` lie `env` a `os.environ.get` "
+            f"puis l'appelle huit fois, et {_MODELE_ANGLAIS} n'y figure pas",
+            f"| forme aliasée | `env(<nom>, <valeur>)` | {_MODELE_ANGLAIS} | **NON vue** |",
+            f"un alias de `os.getenv` dont le défaut vaudrait {_MODELE_ANGLAIS} "
+            "déciderait du réglage sans que le nom du module apparaisse",
+        ):
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r}. La fermeture de la forme "
+                "aliasée vient de rendre irracontable la trouvaille qui l'a "
+                "motivée — le sens dangereux"
+            )
+
+    def test_la_seule_indirection_du_depot_reste_la_seule(self) -> None:
+        """LE CHIFFRE DE CETTE FERMETURE, ET IL EST GARDÉ PLUTÔT QUE CITÉ.
+
+        `mesuré` le 9 septembre 2026 : **1** liaison d'alias dans tout le dépôt,
+        `scripts/verifier_les_ancrages.py`. Ce test n'asserte PAS le chiffre 1 —
+        une liaison nouvelle est un événement normal, et un garde qui rougit sur
+        l'événement normal enseigne le geste « monter le chiffre », la leçon du
+        §4.35. Il asserte la propriété qui compte : **toute liaison trouvée est
+        couverte**, c'est-à-dire qu'aucun de ses appels n'affecte le modèle.
+
+        Et il tient le PLANCHER — la forme est VIVANTE dans le dépôt — sans quoi
+        `_motifs_des_alias` pourrait n'être plus jamais exercé par ce balayage.
+        """
+        liaisons: dict[str, list[str]] = {}
+        rougis: dict[str, list[str]] = {}
+        for relatif in _fichiers_suivis():
+            chemin = _RACINE / relatif
+            if not chemin.is_file():
+                continue
+            texte = chemin.read_text(encoding="utf-8", errors="ignore")
+            trouvees = [f"{a} -> {c}" for a, c in _LIAISON_D_ALIAS.findall(texte)]
+            if trouvees:
+                liaisons[relatif] = trouvees
+            fragments = [
+                trouve.group(0)
+                for motif in _motifs_des_alias(texte, _MODELE_ANGLAIS, self._NOMS)
+                for trouve in motif.finditer(texte)
+            ]
+            if fragments:
+                rougis[relatif] = fragments
+
+        # LE PLANCHER — la forme est vivante, donc ce balayage exerce vraiment
+        # `_motifs_des_alias`. À zéro liaison, il serait vert sans rien lire.
+        assert liaisons, (
+            "aucune liaison d'alias n'est plus trouvée dans le dépôt. Ce balayage "
+            "ne lit alors plus rien, et `_motifs_des_alias` n'est plus exercé que "
+            "par des textes construits. Si l'indirection de "
+            "`scripts/verifier_les_ancrages.py` a disparu, ce test doit être "
+            "relu — pas supprimé : c'est lui qui dit que la forme existait"
+        )
+
+        assert not rougis, (
+            f"un alias du dépôt affecte le modèle anglais : {rougis}. Corrige par "
+            "PÉRIPHRASE — passe une constante nommée au lieu du littéral — et non "
+            f"en retirant la liaison. Liaisons relevées : {liaisons}"
+        )
+
+    def test_les_cinq_bornes_des_deux_motifs_reflexifs_sont_porteuses(self) -> None:
+        """LES CINQ BORNES QUE RIEN NE GARDAIT, ET ELLES SONT TOUTES INERTES.
+
+        `mesuré` le 9 septembre 2026, cinq mutations sur les deux motifs
+        réflexifs, batterie de ce fichier **entièrement verte** à chaque fois :
+
+        | mutation | borne visée | sur le motif |
+        |---|---|---|
+        | M-a | guillemets rendus facultatifs | `environ.get` |
+        | M-b | virgule rendue facultative | `environ.get` |
+        | M-c | `[^)]` remplacé par `[\\s\\S]` | `setattr` |
+        | M-d | fenêtre de 80 portée à 400 | `setattr` |
+        | M-e | virgule rendue facultative | `setattr` |
+
+        **LE MOTIF `environ.get` N'AVAIT JAMAIS REÇU SON RÉCIT.** Le lot a
+        trouvé lui-même que rendre les guillemets facultatifs sur `setattr`
+        laissait tout vert, et a ajouté les trois phrases qui l'attrapent. Le
+        motif JUMEAU, ajouté dans le même commit, est resté sans les siennes —
+        *une correction qui ne se transporte pas à son jumeau est une
+        correction à moitié faite.*
+
+        **ET LA BORNE `[^)]` MÉRITE SA MUTATION PLUS QUE LES AUTRES**, parce
+        qu'elle est la RÉPONSE à la question que ce fichier posait : *ce que la
+        permission du retour à la ligne ouvre d'autre* — rien, parce que la
+        parenthèse fermante borne la traversée. C'est la bonne réponse, et rien
+        ne la gardait : sous `[\\s\\S]`, le motif confond **deux instructions
+        séparées** et reste vert.
+
+        **LE SENS DE CHAQUE MUTATION EST LE SENS DANGEREUX**, et c'est ce qui
+        rend ces cinq phrases nécessaires : chacune est verte sous le motif livré
+        et **rouge** sous la mutation. Une phrase de rapport qui devient rouge
+        est un rapport qu'on ne peut plus écrire, donc un garde qu'on retire.
+
+        Aucun littéral n'est écrit : les noms viennent de `settings.py`, la
+        valeur de `_MODELE_ANGLAIS`, et les fragments sont assemblés à
+        l'exécution. Le dépôt est public.
+        """
+        alias = self._NOMS[1]
+        champ = self._NOMS[0]
+
+        # LA PHRASE DE BOURRAGE de la borne M-d : elle porte la distance, et
+        # elle est mesurée plus bas plutôt que supposée.
+        remplissage = (
+            "le motif tient le nom pres de son appel, et cette phrase mesure "
+            "exactement ce que la fenetre autorise avant de renoncer ; "
+        )
+        recits = {
+            # M-a — l'appel PARAPHRASÉ sans guillemets. C'est la phrase qu'un
+            # rapport écrit pour nommer la forme sans en écrire une copie.
+            "M-a": (
+                f"un `os.environ.get({alias}, {_MODELE_ANGLAIS})` sans guillemets"
+                " decide du reglage"
+            ),
+            # M-b — le nom et la valeur cités SANS virgule. En Python les deux
+            # littéraux se concatènent : ce n'est pas un appel, et c'est
+            # précisément pourquoi la virgule doit rester exigée.
+            "M-b": (
+                f'la forme `os.environ.get("{alias}"  "{_MODELE_ANGLAIS}")` n\'est pas'
+                " un appel : la virgule manque"
+            ),
+            # M-c — DEUX INSTRUCTIONS SÉPARÉES. La parenthèse fermante de la
+            # première interdit la traversée ; `[\s\S]` l'autoriserait.
+            "M-c": (
+                "la forme setattr(settings, cle) puis un tableau qui cite "
+                f'"{champ}", "{_MODELE_ANGLAIS}"'
+            ),
+            # M-d — le nom cité PLUS LOIN que la fenêtre ne le permet.
+            "M-d": f'setattr( {remplissage}"{champ}", "{_MODELE_ANGLAIS}"',
+            # M-e — même geste que M-b, sur l'autre motif.
+            "M-e": (
+                f'on lisait setattr(reglages, "{champ}"  "{_MODELE_ANGLAIS}")'
+                " sans virgule, donc rien"
+            ),
+        }
+
+        # PREUVE D'ATTEINTE DE M-d — la distance est MESURÉE. Une phrase de
+        # bourrage raccourcie par un lot suivant rendrait ce récit vert sous la
+        # mutation aussi, et la borne redeviendrait inerte en silence.
+        depart = recits["M-d"].index("setattr(") + len("setattr(")
+        arrivee = recits["M-d"].index(f'"{champ}"')
+        assert 81 <= arrivee - depart <= 400, (
+            f"la distance entre `setattr(` et le nom cité est de {arrivee - depart} "
+            "caractères : elle doit rester STRICTEMENT au-delà de la fenêtre de 80 "
+            "et en deçà de 400, sans quoi la mutation M-d ne se distingue plus du "
+            "motif livré et cette borne redevient inerte"
+        )
+        assert ")" not in recits["M-d"][depart:arrivee], (
+            "une parenthèse fermante est apparue dans la phrase de bourrage : "
+            "`[^)]` arrête alors la traversée, et ce récit mesure M-c au lieu de M-d"
+        )
+        # PREUVE D'ATTEINTE DE M-c — la parenthèse fermante est bien LÀ, entre
+        # l'appel et le nom cité. C'est elle, et elle seule, qui rend ce récit
+        # vert sous le motif livré.
+        depart_c = recits["M-c"].index("setattr(") + len("setattr(")
+        arrivee_c = recits["M-c"].index(f'"{champ}"')
+        assert ")" in recits["M-c"][depart_c:arrivee_c], (
+            "la parenthèse fermante a disparu du récit M-c : il ne mesure plus la "
+            "borne `[^)]`, mais seulement la fenêtre"
+        )
+        # PREUVE D'ATTEINTE DE M-b ET M-e — aucune virgule entre le nom et la
+        # valeur, sinon les deux récits mesureraient le motif livré.
+        for cle in ("M-b", "M-e"):
+            entre = recits[cle][
+                recits[cle].index(f'"{alias if cle == "M-b" else champ}"')
+                + len(f'"{alias if cle == "M-b" else champ}"') : recits[cle].index(
+                    f'"{_MODELE_ANGLAIS}"'
+                )
+            ]
+            assert "," not in entre, (
+                f"une virgule s'est glissée dans le récit {cle} entre le nom et la "
+                f"valeur ({entre!r}) : il mesure alors le motif livré, pas la borne"
+            )
+
+        # LE VERDICT — les cinq restent VERTS sous le motif LIVRÉ. Chacun est
+        # nommé, parce qu'un rouge global ne dirait pas quelle borne est perdue.
+        for cle, recit in recits.items():
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort ({cle}) : {recit!r}. La borne que cette "
+                "phrase garde vient d'être perdue — le motif s'est élargi, et une "
+                "phrase de rapport légitime est devenue refusée. C'est le sens "
+                "dangereux : un garde qui interdit d'écrire le rapport qui le "
+                "documente est un garde qu'on retire"
             )
 
     def test_les_formes_reflexives_ne_rougissent_sur_aucun_site_du_depot(self) -> None:
