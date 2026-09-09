@@ -75,7 +75,36 @@ ADRESSES_AUTORISEES="florian.horellou@gmail.com florian_horellou@laposte.net"
 # Les FORMES d'attribution, et non le vocabulaire en prose. `-i` est applique a
 # l'appel. `^[[:space:]]*` : un trailer vit en tete de ligne, un recit ne s'y
 # trouve pas par accident.
-FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
+#
+# **LA DEUXIEME ALTERNATIVE N'ETAIT PAS ANCREE, ET C'EST LA CORRECTION DU
+# 9 SEPTEMBRE 2026.** Les trois autres portaient leur `^[[:space:]]*` ; la
+# ligne de signature, non. Un message de commit qui RACONTE la forme — et ce
+# depot documente sa propre regle sur plusieurs pages — etait donc refuse au
+# milieu d'une phrase, et les deux seules sorties etaient `--no-verify`, que ce
+# chantier interdit absolument, ou le retrait du garde.
+#
+# `mesure` le 9 septembre 2026, motif d'alors, chaine assemblee par programme :
+# les trois phrases « le motif refuse la forme … », « on documente que … » et la
+# forme nue etaient TOUTES LES TROIS refusees. Apres ancrage : les deux recits
+# passent, la forme nue reste refusee.
+#
+# **C'EST MOT POUR MOT LE DEFAUT CORRIGE DANS `e42d3e6` POUR LE MOTIF DE
+# SECRET**, une ligne plus bas, sur ce meme raisonnement : un garde qui provoque
+# la panne qu'il surveille. Le trouver deux fois dans le meme motif dit que la
+# propriete « chaque alternative porte sa borne » doit etre gardee, pas relue.
+#
+# Il etait LATENT — `git log --format='%B' | grep -icE 'generated (with|by) \['`
+# rend **0** sur toute l'histoire (`mesure` le meme jour) — et c'est precisement
+# ce qui le rendait invisible : le premier rapport qui nomme la forme est le
+# premier a ne plus pouvoir etre commite.
+#
+# La borne de ce choix est ecrite et assumee : une signature INDENTEE reste
+# refusee (`[[:space:]]*`), une signature au milieu d'une ligne de prose passe.
+# C'est la meme borne que les trois autres alternatives, et celle que ce hook
+# s'est deja donnee en tete — seules les FORMES sont refusees, jamais les
+# MENTIONS. Garde dans les deux sens par
+# `test_un_message_qui_RACONTE_la_signature_n_est_pas_refuse`.
+FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|^[[:space:]]*generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
 
 # Les formes de secret a haute confiance. Chacune porte un prefixe ou un en-tete
 # qui ne se rencontre pas par hasard dans une ligne de prose.

@@ -1615,6 +1615,78 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
                 "voit pas, et le depot est public"
             )
 
+    def test_un_message_qui_RACONTE_la_signature_n_est_pas_refuse(
+        self, depot_pousse: Path
+    ) -> None:
+        """LE DEFAUT DU 9 SEPTEMBRE 2026, ET IL ETAIT LATENT.
+
+        La deuxieme alternative du motif d'attribution — la ligne de
+        SIGNATURE — n'etait pas ancree en tete de ligne, contrairement aux trois
+        autres. Un message de commit qui NOMME la forme au milieu d'une phrase
+        etait donc refuse, et les deux seules sorties etaient `--no-verify` — que
+        ce chantier interdit absolument — ou le retrait du garde.
+
+        **C'EST MOT POUR MOT LE DEFAUT CORRIGE DANS `e42d3e6`** pour le motif de
+        secret, une ligne plus bas dans le meme fichier : *un garde qui provoque
+        la panne qu'il surveille.* Le trouver deux fois dans le meme motif dit
+        que la propriete « chaque alternative porte sa borne » doit etre gardee,
+        pas relue.
+
+        **LATENT, ET C'EST CE QUI LE RENDAIT INVISIBLE.** `mesure` le 9 septembre
+        2026 : `git log --format='%B' | grep -icE 'generated (with|by) \\['` rend
+        **0** sur toute l'histoire du depot. Le premier rapport a nommer la forme
+        aurait ete le premier a ne plus pouvoir etre commite.
+
+        **LES DEUX DIRECTIONS**, parce que l'ancrage ne doit rien ouvrir : le
+        recit passe, et la signature en tete de ligne — indentee comprise — reste
+        refusee. La chaine n'est ecrite dans aucun fichier : elle est assemblee
+        a l'execution, le depot etant public.
+        """
+        signature = "Generated" + " with" + " ["
+        base_avant_tout = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+
+        # SENS 1 — LE RECIT PASSE. Ces trois phrases sont celles qu'un rapport
+        # de lot ecrit forcement pour nommer cette fermeture, celui-ci compris.
+        recits = (
+            f"fix(pre-push): la forme « {signature}… » n'etait pas ancree",
+            f"on documente que {signature}Nom] est une forme d'attribution",
+            f"le motif refusait {signature}Nom] au milieu d'une phrase de prose",
+        )
+        for i, recit in enumerate(recits, start=1):
+            base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+            self._commit(depot_pousse, 300 + i, ADRESSE_AUTORISEE, recit)
+            # PREUVE D'ATTEINTE : la forme est bien dans le message pousse.
+            assert signature in _git(
+                depot_pousse, "show", "-s", "--format=%B", "HEAD"
+            ).stdout, "la forme n'est pas dans le message : scene non atteinte"
+
+            acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+            assert acheve.returncode == 0, (
+                f"un message qui RACONTE la forme est refuse : {recit!r}. Les deux "
+                "seules sorties seraient `--no-verify`, que ce chantier interdit, "
+                f"ou le retrait du garde.\n{acheve.stderr}"
+            )
+
+        # SENS 2 — LA FORME EN TETE DE LIGNE RESTE REFUSEE, indentee comprise.
+        # Sans ce sens, l'ancrage ne serait pas une correction mais un
+        # relachement : le garde accepterait la signature qu'il existe pour voir.
+        for i, prefixe in enumerate(("", "   "), start=1):
+            base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+            self._commit(
+                depot_pousse,
+                310 + i,
+                ADRESSE_AUTORISEE,
+                f"un travail\n\n{prefixe}{signature}un outil](https://exemple.invalid)\n",
+            )
+            refus = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+            assert refus.returncode == 1, (
+                f"la signature prefixee par {prefixe!r} passe desormais : "
+                "l'ancrage a ete pose sans `[[:space:]]*`, ou le motif a perdu "
+                f"son alternative.\n{refus.stdout}"
+            )
+
+        assert base_avant_tout, "garde-fou de lecture"
+
     def test_une_mention_en_prose_n_est_pas_refusee(self, depot_pousse: Path) -> None:
         """LA BORNE ECRITE DU CONTROLE D'ATTRIBUTION, ET ELLE EST DELIBEREE.
 
