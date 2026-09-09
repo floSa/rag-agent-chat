@@ -5395,3 +5395,157 @@ antécédent du dépôt — ou d'un rapport — sans le mesurer est la même fau
 l'inventer. Cette fois c'est le pilote, dans la section qu'il venait d'écrire, et
 il s'est arrêté au moment de la republier. *La règle qui a fonctionné est
 exactement celle du §12 : remesurer juste avant de sceller le prompt.*
+
+---
+
+### 4.37 → Le lot 7 livré : trois fermetures, quatre faux verts trouvés par le lot, et deux antécédents que le pilote avait INVENTÉS
+
+> **POURQUOI CETTE SECTION N'EST PAS SUR `main`, et c'est le garde neuf appliqué
+> à son auteur.** Le §4.36 vit sur la branche du lot 7, non fusionnée. Porter le
+> §4.37 sur `main` seul y laisserait un **TROU** — `4.35` puis `4.37` —, soit
+> précisément l'une des quatre dérives que ce lot vient de rendre rougissantes.
+> Le pilote a donc **retenu sa propre fusion** : ce commit reste sur
+> `claude/audit-rag-agent-chat-eefc61` jusqu'à ce que le lot 7 soit fusionné,
+> après quoi la suite est complète de `4.1` à `4.37`. *Le trou a été trouvé en
+> relisant la queue du fichier avant d'y ajouter un numéro — la consigne écrite
+> au §12 la veille, après la collision `4.34`.*
+
+`Conv' 43` (LOT-7) a livré le 9 septembre 2026 six commits sur
+`claude/lot-7-rag-agent-chat-425c4e`, rattrapés sur `main` par une **fusion** du
+pilote (`c628b0a`). **Non poussés.**
+
+#### Ce que le pilote a mesuré de ses mains
+
+Le 9 septembre 2026 entre 10:52 et 11:20 UTC. Empreintes SHA-256 relevées avant
+et après chaque mutation ; `rc` du processus, jamais derrière un tube.
+
+| | `mesuré` |
+|---|---|
+| identité des six commits | auteur ET committer `florian_horellou@laposte.net` — adresse autorisée |
+| désactivations ajoutées | **aucune** : zéro `skip`, `xfail`, `type: ignore`, `noqa`, `pragma` |
+| `src/` | **une seule ligne de comportement** — `except (TypeError, ValueError)` devenu `except Exception` —, spécifiée ET pré-mesurée par l'audit (§4.33, trouvaille C), **justifiée au site** avec les trois autres réponses pesées et écartées, et `BaseException` explicitement non attrapé |
+| conflit de fusion | `git merge-tree --write-tree main <branche>` (forme à **deux** arguments) → `rc=0`, aucun conflit |
+| **la porte sur le RÉSULTAT de fusion** | `make lint` `rc=0`, `make test` `rc=0`, **682 passés** — et c'est la fusion la plus risquée du chantier, les deux derniers commits du pilote ayant édité **les deux documents que le garde neuf lit** |
+| le compte annoncé | `documentation/tests.md` porte 682, concordant |
+
+#### Le hook `pre-push`, éprouvé par de VRAIS `git push` vers un distant jetable
+
+C'est la fermeture dangereuse, et le pilote l'a retournée dans les deux sens.
+
+| scène | `rc` du `git push` | la ref est-elle arrivée ? |
+|---|---|---|
+| 5 commits, le **3ᵉ** sous une adresse professionnelle, `HEAD` conforme | **1** | **non** — et le message nomme le commit, rappelle les 165 commits réécrits, et interdit `--no-verify` |
+| plage propre | **0** | oui — le hook ne refuse pas tout |
+| **mutation : la plage repliée sur `HEAD`** | **0** | **OUI, avec le commit fautif** — le calcul de plage est donc porteur |
+| une ligne ajoutée de forme secrète, hook intact | **1** | non |
+| **mutation : le `-e` retiré des trois `grep`** | **0** | **OUI, avec la ligne de forme secrète** |
+
+**La dernière ligne est la mesure qui compte.** Sans le `-e`, `grep` lit le motif
+— qui commence par un tiret — comme une **option**, écrit « unrecognized
+option » et rend `rc=2`, que le `if` lit comme faux : **le hook sortait en 0 sans
+avoir rien vérifié**. Le lot l'a trouvé lui-même, et il ne l'a pas trouvé par ses
+37 tests verts — il l'a trouvé par un vrai `push`. *Un `rc` juste n'est pas une
+preuve d'atteinte*, et sur un hook la scène propre ne distingue pas un garde qui
+marche d'un garde creux.
+
+Et la scène de refus a été construite **hooks désarmés par un `core.hooksPath`
+vide**, jamais par `--no-verify` — c'est la scène réelle : les sept commits qui
+ont coûté ce dépôt sont partis avant qu'aucun hook n'existe. Le refus a bien
+porté sur l'**ADRESSE** et non sur le nom, les deux identités du cas de test
+portant le même nom.
+
+#### DEUX ANTÉCÉDENTS QUE LE PILOTE AVAIT INVENTÉS, et c'est la septième occurrence de son motif — dans une robe pire
+
+Le prompt du lot 7 annonçait deux preuves d'atteinte **disponibles dans `git`**.
+Aucune des deux n'y est. `mesuré` par le lot, **reproduit par le pilote** :
+
+| ce que le prompt affirmait | `mesuré` |
+|---|---|
+| « le registre à `a92e78a` porte **deux `### 4.34`** » | `git show a92e78a:… \| grep -c '^### 4\.34'` rend **1**. Et le balayage de **toute** l'histoire du fichier ne trouve **aucune** révision portant un doublon de titre |
+| « va lire la **mutation M3bis** du lot 6 » | `git grep`, `git log -S`, `git log --grep` : **absente du dépôt**. Elle n'apparaît que dans les commits que le lot 7 vient d'écrire pour raconter cette correction |
+
+**La cause est la même pour les deux, et elle est nouvelle** : le pilote a publié
+comme **présent dans `git`** ce qui n'a existé que dans une **conversation**. La
+collision `4.34` a bien eu lieu, mais elle a été attrapée par l'`assert` d'ancre
+unique **avant** le commit — le prompt l'écrit lui-même deux paragraphes plus
+loin, et n'en a pas tiré la conséquence. `M3bis` était une ligne du **rapport**
+du lot 6, pas un objet du dépôt.
+
+*Les six occurrences précédentes étaient des chiffres périmés ou déduits. Celle-ci
+est un antécédent qui n'a jamais existé, et elle est plus grave : un chiffre faux
+se remesure, un antécédent inventé envoie un lot chercher ce qui n'est pas là.*
+**C'est exactement ce que le pilote venait d'écrire au §4.6 une heure plus tôt** :
+une affirmation sans site rejouable devient fausse en silence. Il l'a écrit pour
+ses propres chiffres de graphe et l'a commis sur ses propres preuves d'atteinte
+dans le prompt suivant.
+
+**Ce que le lot a fait à la place, et c'est la bonne conduite** : il a construit
+la scène de doublon **à partir du document réel de `a92e78a`**, et il a **asserté
+que l'histoire est propre** plutôt que de faire semblant. Il a suivi le
+*mécanisme* de `M3bis` — planter la forme par `f`-chaîne — qui est bien dans le
+dépôt, sous un autre nom.
+
+**Et il a trouvé une troisième dérive réelle, datée, que le prompt n'avait pas** :
+à `2bb511c` le journal annonce « prochain numéro libre : **41** » pour un maximum
+consigné de **39**, en plus de sa ligne `38` en double. `mesuré` par le pilote.
+
+#### Trois chiffres du pilote corrigés
+
+- **`environ.get` / `getenv` : SIX sites suivis, pas cinq.** Le sixième est
+  `scripts/verifier_les_ancrages.py:355`, et c'est le plus instructif : il écrit
+  `env = os.environ.get` puis appelle `env("NOM", "défaut")`. **Un ALIAS**, que le
+  motif du pilote — qui exigeait une parenthèse collée — ne pouvait pas voir.
+  *Une forme peut échapper non par sa syntaxe mais par son indirection* ;
+- **la lecture défensive : quatre natures propageaient, pas une.** `RuntimeError`,
+  `OSError`, `KeyError`, `ImportError` — sur sept sondées, trois étaient déjà
+  absorbées. Le prompt en nommait une ;
+- **la ligne 7 du plan de lots** portait ces deux chiffres du pilote et a été
+  laissée intacte par le lot, délibérément, parce que cette cellule porte le
+  statut de fusion que le pilote pose. Corrigée par le pilote avec cette section.
+
+#### Les quatre faux verts que le lot a trouvés contre lui-même
+
+1. **une seconde direction décorative** : rendre les guillemets facultatifs dans
+   le motif `setattr` laissait la batterie **entièrement verte**, aucun des cinq
+   récits ne mettant le nom du réglage à côté de sa valeur. Trois récits ajoutés,
+   la mutation rejouée rougit ;
+2. **le `-e` du `grep`**, mesuré ci-dessus ;
+3. **le hook refusait le commit qui l'introduit** — une alternative de secret
+   écrite en clair se reconnaissait elle-même. Invisible à 37 tests verts,
+   trouvée par un vrai `push`. Le commit non poussé a été réécrit, ce que le
+   message de refus du hook prescrit lui-même ;
+4. **et sa propre correction du point 3 visait la mauvaise cause** : la mutation
+   qui devait reproduire le défaut est **revenue verte**, prouvant que
+   l'assemblage n'y était pour rien. La vraie cause était une alternative
+   redondante ; l'assemblage a été **retiré** plutôt que gardé sur un motif faux.
+
+*Un lot qui trouve quatre faux verts chez lui et écrit les quatre est un lot
+crédible. C'est aussi un lot dont la densité de défauts est mesurée, et c'est ce
+qui décide de la suite.*
+
+#### Ce que le lot rend au pilote sur son découpage
+
+« Il tient, mais il ne prévoyait pas que la troisième fermeture soit la plus
+dangereuse : c'est elle qui a produit trois des quatre faux verts, et la seule
+dont l'échec silencieux se paye sur un dépôt public. Si vous refaites une série
+de trois, mettez le garde-fou d'identité **en premier**, pas en dernier. » *Retenu
+et consigné : on ordonne une série par le coût de l'échec, pas par la difficulté
+apparente.*
+
+#### Décision du pilote
+
+**Audit indépendant requis — `Conv' 44`, dixième audit du chantier.**
+
+Le critère amendé du §4.18 exempte le changement de `src/`, et il est bien
+exempté : une ligne, spécifiée et pré-mesurée par l'audit qui l'a exigée,
+vérifiée dans les deux sens. **Mais ce lot ajoute 199 lignes de garde-fou qui
+s'exécute à chaque poussée, et le critère ne parle que de `src/`.** Or l'esprit du
+critère — des yeux indépendants sur du code neuf qui porte la sûreté —
+s'applique ici avec **plus** de force : la panne de ce hook est **silencieuse**
+(sur un dépôt propre, un hook creux et un hook juste rendent le même `rc=0`),
+elle protège contre la faute qui a **détruit ce dépôt une fois**, et le lot y a
+lui-même trouvé trois faux verts sur quatre.
+
+*Neuf audits de ce chantier ont trouvé quelque chose neuf fois. Fusionner le
+premier garde-fou d'identité de l'histoire de ce dépôt sans lecteur indépendant
+serait le seul pari du chantier, et il porterait sur son artefact le plus cher.*
