@@ -74,18 +74,60 @@ _REGISTRE = "documentation/axes_amelioration.md"
 # NÉCESSAIRE, ET C'EST MESURÉ : `pilotage_du_chantier.md` porte D'AUTRES
 # tableaux dont la première colonne est un numéro en gras — le plan de lots
 # (`1 2 3 4 5`) et la table des exigences (`1 … 7`). Un extracteur qui
-# balaierait tout le fichier lirait `1 2 3 4 5 1 2 3 4 5 6 7 20 21 …`, c'est-à-
-# dire onze doublons et un trou de 7 à 20 sur un document parfaitement sain :
-# le garde rougirait au premier `make test` et serait retiré. `mesuré` le
-# 9 septembre 2026.
+# balaierait tout le fichier lirait la suite que voici, et le garde rougirait au
+# premier `make test` sur un document parfaitement sain.
+#
+# **LES DEUX NOMBRES DE CE COMMENTAIRE ÉTAIENT FAUX, ET C'EST LA CORRECTION DU
+# 9 SEPTEMBRE 2026.** Il annonçait « onze doublons et un trou de 7 à 20 ». Les
+# deux sont démentis par la suite que le commentaire écrit lui-même — `7` et
+# `20` y sont l'un et l'autre PRÉSENTS. Le mécanisme est juste et le scope reste
+# nécessaire ; seuls les chiffres mentaient, sous l'étiquette `mesuré`. Ils ont
+# de plus été repris tels quels dans le prompt de l'audit, ce qui est
+# exactement le geste que le §4.6 de ce dépôt refuse.
+#
+# `mesuré` le 9 septembre 2026 — commande : `_NUMERO_DU_JOURNAL.finditer()` sur
+# le fichier ENTIER, puis `collections.Counter` sur les jetons :
+#
+#     suite lue : 1 2 3 4 5 1 2 3 4 5 6 7 20 21 … 20-bis … 43
+#     doublons  : **5** (les jetons `1` à `5`, chacun deux fois)
+#     trou      : **8 à 19** — douze entiers absents, `7` et `20` présents
+#
+# La propriété est gardée par `test_le_scope_du_journal_est_porteur`, qui
+# reproduit la lecture non bornée et exige qu'elle soit fautive : un scope dont
+# le retrait ne changerait rien serait un scope décoratif.
 _DEBUT_DU_JOURNAL = "### 6.1 Le journal des conversations"
 
 # La ligne d'autorité, et il y en a DEUX dans ce fichier. Celle du §6.1 est
 # l'état ; l'autre, au §12, RACONTE la faute du 8 septembre 2026 (« Prochain
-# numéro libre : 41 » écrit depuis l'arithmétique d'un script). Un extracteur
-# qui prendrait la première du fichier entier pourrait lire le récit et non
-# l'état — le scope ci-dessus est ce qui l'en empêche.
-_LIGNE_DU_PROCHAIN = re.compile(r"Prochain num[ée]ro libre\s*:\s*(\d+)")
+# numéro libre : 41 » écrit depuis l'arithmétique d'un script).
+#
+# **CE COMMENTAIRE AFFIRMAIT QUE LE SCOPE EST CE QUI EMPÊCHE DE LIRE LE RÉCIT.
+# C'ÉTAIT FAUX, ET C'EST LA CORRECTION DU 9 SEPTEMBRE 2026.** Ce qui protégeait
+# était l'ORDRE DU FICHIER — le §6.1 précède le §12 — et rien d'autre. `mesuré`
+# ce jour-là, sur une COPIE, le fichier réel intact : en remontant le paragraphe
+# du récit juste sous le titre du §6.1, il entre DANS le scope, `search()` rend
+# la première occurrence de la fenêtre, et `prochain_numero_annonce` lit **41**
+# — le faux nombre de la faute du 8 septembre — au lieu de **44**.
+#
+# Un garde dont la justesse dépend de l'ordre de deux paragraphes est un garde
+# qu'une réorganisation de document casse en silence. La discrimination porte
+# donc désormais sur la FORME de la ligne, qui est la seule chose qui distingue
+# vraiment un état d'un récit :
+#
+# - l'état est une ligne À ELLE SEULE, ouverte par le gras : `**Prochain numéro
+#   libre : 44.**` ;
+# - le récit CITE le nombre au milieu d'une phrase, entre guillemets français,
+#   derrière une puce et un autre gras.
+#
+# `^\*\*` avec `re.M` sépare les deux sans rien devoir à l'ordre. Et
+# l'AMBIGUÏTÉ EST UNE ERREUR, PAS UN PREMIER-ARRIVÉ : si deux lignes d'autorité
+# apparaissaient un jour dans le scope, `prochain_numero_annonce` refuse de
+# choisir. Un extracteur qui tranche en silence entre deux vérités possibles est
+# précisément ce qui a produit la faute du 8 septembre.
+#
+# Gardé dans les deux sens par `test_le_recit_remonte_au_dessus_du_journal_ne_
+# fait_plus_lire_le_faux_nombre`.
+_LIGNE_DU_PROCHAIN = re.compile(r"^\*\*Prochain num[ée]ro libre\s*:\s*(\d+)", re.M)
 
 # `| **20-bis** |` — le numéro EST la première colonne, en gras. La forme `-bis`
 # est admise : elle nomme une reprise, elle est légitime, et sa tolérance ne
@@ -147,13 +189,23 @@ def numeros_du_registre(texte: str) -> list[str]:
 
 
 def prochain_numero_annonce(texte: str) -> int | None:
-    """Le « prochain numéro libre » du §6.1, `None` s'il n'y est plus."""
+    """Le « prochain numéro libre » du §6.1, `None` s'il n'y est plus.
+
+    L'AMBIGUÏTÉ REND `None`, ELLE NE TRANCHE PAS. Voir le commentaire de
+    `_LIGNE_DU_PROCHAIN` : deux lignes d'autorité dans le scope signifient que
+    la forme ne discrimine plus, et choisir la première est exactement le geste
+    qui a produit la faute du 8 septembre 2026. Le `None` fait rougir
+    `test_le_prochain_numero_libre_est_le_maximum_plus_un`, qui nomme alors la
+    cause — un silence aurait laissé le garde lire un récit pour un état.
+    """
     debut = texte.find(_DEBUT_DU_JOURNAL)
     if debut < 0:
         return None
     fin = texte.find("\n## ", debut)
-    trouve = _LIGNE_DU_PROCHAIN.search(texte[debut : fin if fin > 0 else len(texte)])
-    return int(trouve.group(1)) if trouve else None
+    trouves = _LIGNE_DU_PROCHAIN.findall(texte[debut : fin if fin > 0 else len(texte)])
+    if len(trouves) != 1:
+        return None
+    return int(trouves[0])
 
 
 # ─── Les quatre défauts, en fonctions PURES ───────────────────────────────────
@@ -533,3 +585,169 @@ class TestLesQuatreReglesMordentSurLaDeriveReelleDuDepot:
         # Et un `bis` sans base est un numéro inventé, pas une reprise.
         assert bis_orphelins(["20", "20-bis", "27-bis"]) == ["27-bis"]
         assert bis_orphelins(["20", "20-bis"]) == []
+
+
+# ─── LE SCOPE ET LA FORME, QUE RIEN NE GARDAIT ────────────────────────────────
+
+
+class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
+    """DEUX BORNES QUE CE FICHIER AFFIRMAIT SANS LES GARDER.
+
+    **LA PREMIÈRE.** Le commentaire de `_DEBUT_DU_JOURNAL` écrit que le scope est
+    nécessaire, et il a raison — mais rien ne le mesurait. Un scope dont le
+    retrait ne changerait rien serait décoratif, et c'est la famille de défaut
+    dominante de ce chantier : un garde vert sous une scène que le défaut ne
+    rencontre jamais.
+
+    **LA SECONDE, ET ELLE ÉTAIT UNE PHRASE FAUSSE.** Le commentaire de
+    `_LIGNE_DU_PROCHAIN` affirmait que le scope est ce qui empêche de lire le
+    RÉCIT du §12 au lieu de l'état du §6.1. `mesuré` le 9 septembre 2026 : ce qui
+    protégeait était l'ORDRE DU FICHIER, le §6.1 précédant le §12. En remontant le
+    paragraphe du récit sous le titre du §6.1, il entre dans le scope et le garde
+    lit **41** — le faux nombre de la faute du 8 septembre — au lieu de **44**.
+
+    *Un garde dont la justesse dépend de l'ordre de deux paragraphes est un garde
+    qu'une réorganisation de document casse en silence.*
+
+    Les scènes sont construites sur le document RÉEL, par programme : aucun
+    document d'essai n'est inventé, et le fichier du dépôt n'est jamais touché.
+    """
+
+    _RECIT = "Prochain numéro libre : 41"
+
+    def test_le_scope_du_journal_est_porteur(self, journal: str) -> None:
+        """SANS SCOPE, LA LECTURE EST FAUTIVE — et voici de combien.
+
+        La suite non bornée est celle que le commentaire de `_DEBUT_DU_JOURNAL`
+        écrit, et ses deux chiffres y sont désormais exacts : **5** doublons, et
+        un trou de **8 à 19**. Le commentaire annonçait « onze doublons et un
+        trou de 7 à 20 », et les deux étaient faux sous l'étiquette `mesuré`.
+        """
+        bornee = numeros_du_journal(journal)
+        non_bornee = _extraire(journal, _NUMERO_DU_JOURNAL)
+
+        # PREUVE D'ATTEINTE — les deux lectures diffèrent réellement. Sans cette
+        # assertion, tout ce qui suit pourrait mesurer deux fois la même chose.
+        assert len(non_bornee) > len(bornee), (
+            "la lecture non bornée ne ramène plus rien de plus que la lecture "
+            f"bornée ({len(non_bornee)} contre {len(bornee)}) : les autres "
+            "tableaux numérotés du journal ont disparu, et le scope est devenu "
+            "décoratif. Retire-le, ou remesure ce qui le justifie"
+        )
+
+        # LA LECTURE BORNÉE EST SAINE, et c'est la moitié qui rend l'autre lisible.
+        assert doublons(bornee) == [], f"le journal borné porte des doublons : {bornee}"
+        assert trous(bornee) == [], f"le journal borné porte des trous : {trous(bornee)}"
+
+        # LA LECTURE NON BORNÉE EST FAUTIVE, et ses deux chiffres sont EXACTS.
+        assert doublons(non_bornee) == ["1", "2", "3", "4", "5"], (
+            f"les doublons de la lecture non bornée ne sont plus les cinq attendus : "
+            f"{doublons(non_bornee)}. Le commentaire de `_DEBUT_DU_JOURNAL` porte ce "
+            "chiffre : remesure-le AVANT de le réécrire — il a déjà été faux une fois"
+        )
+        assert trous(non_bornee) == list(range(8, 20)), (
+            f"le trou de la lecture non bornée n'est plus 8→19 : {trous(non_bornee)}. "
+            "Le commentaire annonçait « 7 à 20 », et c'était faux : `7` et `20` sont "
+            "tous deux présents dans la suite. Remesure avant de réécrire"
+        )
+
+    def test_le_recit_remonte_au_dessus_du_journal_ne_fait_plus_lire_le_faux_nombre(
+        self, journal: str
+    ) -> None:
+        """LA SCÈNE EXACTE DE L'AUDIT, ET ELLE EST DÉSORMAIS VERTE POUR LA BONNE
+        RAISON.
+
+        Le paragraphe du récit est remonté sous le titre du §6.1 — donc DANS le
+        scope. Avant la correction du 9 septembre 2026, `search()` rendait la
+        première occurrence de la fenêtre et le garde lisait 41. La
+        discrimination porte désormais sur la FORME de la ligne, qui ne doit rien
+        à l'ordre.
+        """
+        etat = prochain_numero_annonce(journal)
+        assert etat == max(int(j.split("-")[0]) for j in numeros_du_journal(journal)) + 1
+
+        lignes = journal.splitlines(keepends=True)
+        i_titre = next(
+            k for k, ligne in enumerate(lignes) if ligne.startswith(_DEBUT_DU_JOURNAL)
+        )
+        i_recit = next(k for k, ligne in enumerate(lignes) if self._RECIT in ligne)
+
+        # PREUVE D'ATTEINTE 1 — le récit est bien APRÈS le titre dans le document
+        # réel : c'est cet ordre, et lui seul, qui protégeait.
+        assert i_recit > i_titre, (
+            "le récit du §12 précède désormais le §6.1 dans le document réel. La "
+            "scène de ce test est alors l'état normal du fichier, et c'est le test "
+            "voisin qu'il faut relire"
+        )
+
+        recit = lignes[i_recit]
+        mute = "".join(
+            lignes[: i_titre + 1]
+            + [recit]
+            + lignes[i_titre + 1 : i_recit]
+            + lignes[i_recit + 1 :]
+        )
+
+        # PREUVE D'ATTEINTE 2 — le récit est bien ENTRÉ dans le scope. Sans elle,
+        # un déplacement raté rendrait ce test vert sans rien mesurer.
+        debut = mute.find(_DEBUT_DU_JOURNAL)
+        fin = mute.find("\n## ", debut)
+        assert self._RECIT in mute[debut : fin if fin > 0 else len(mute)], (
+            "le récit n'est pas entré dans le scope du §6.1 : la scène n'atteint "
+            "pas son cas, et ce test ne mesure rien"
+        )
+
+        # PREUVE D'ATTEINTE 3 — le motif NON ancré, celui d'avant la correction,
+        # lisait bien 41. Si cette lecture cesse d'être fautive, la scène ne
+        # reproduit plus le défaut et ce test perd son sujet.
+        non_ancre = re.compile(r"Prochain num[ée]ro libre\s*:\s*(\d+)")
+        premiere = non_ancre.search(mute[debut : fin if fin > 0 else len(mute)])
+        assert premiere is not None and premiere.group(1) == "41", (
+            "le motif non ancré ne lit plus 41 sur cette scène : elle ne reproduit "
+            f"plus le défaut mesuré le 9 septembre 2026 ({premiere})"
+        )
+
+        # ET LE VERDICT — la forme discrimine, l'ordre n'y est pour rien.
+        assert prochain_numero_annonce(mute) == etat, (
+            f"le garde lit {prochain_numero_annonce(mute)} au lieu de {etat} dès que "
+            "le récit du §12 remonte au-dessus du §6.1. Ce qui le protège est donc "
+            "encore l'ORDRE DU FICHIER, et non la forme de la ligne d'autorité : "
+            "une réorganisation de document le casserait en silence"
+        )
+
+    def test_deux_lignes_d_autorite_ne_sont_pas_tranchees_en_silence(
+        self, journal: str
+    ) -> None:
+        """L'AMBIGUÏTÉ EST UNE ERREUR, PAS UN PREMIER-ARRIVÉ.
+
+        Si deux lignes d'autorité apparaissaient dans le scope, la forme ne
+        discriminerait plus. Choisir la première est exactement le geste qui a
+        produit la faute du 8 septembre 2026 : `prochain_numero_annonce` rend
+        donc `None`, et le rouge remonte jusqu'au test qui nomme la cause.
+
+        Sans ce test, l'ancrage sur la forme aurait remplacé une dépendance à
+        l'ordre par une autre, silencieuse elle aussi.
+        """
+        ligne = f"**Prochain numéro libre : {prochain_numero_annonce(journal)}.**"
+        assert journal.count(ligne) == 1, (
+            f"la ligne d'autorité n'a plus sa forme attendue : {ligne!r} apparaît "
+            f"{journal.count(ligne)} fois. C'est cette forme que `_LIGNE_DU_PROCHAIN` "
+            "reconnaît, et son commentaire écrit pourquoi"
+        )
+
+        double = journal.replace(ligne, ligne + "\n\n**Prochain numéro libre : 99.**", 1)
+        # PREUVE D'ATTEINTE : la seconde ligne est bien dans le scope.
+        debut = double.find(_DEBUT_DU_JOURNAL)
+        fin = double.find("\n## ", debut)
+        fenetre = double[debut : fin if fin > 0 else len(double)]
+        assert len(_LIGNE_DU_PROCHAIN.findall(fenetre)) == 2, (
+            "la seconde ligne d'autorité n'est pas dans le scope : la scène "
+            "n'atteint pas son cas"
+        )
+
+        assert prochain_numero_annonce(double) is None, (
+            f"le garde tranche en silence entre deux lignes d'autorité et rend "
+            f"{prochain_numero_annonce(double)}. Un extracteur qui choisit entre "
+            "deux vérités possibles sans le dire est précisément ce qui a produit "
+            "la faute du 8 septembre 2026"
+        )
