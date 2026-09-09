@@ -136,6 +136,107 @@ def test_un_index_deja_chaud_ne_paie_pas_de_requete_de_chauffe(monkeypatch) -> N
     assert agent.appels == ["GET http://agent/health"], agent.appels
 
 
+class _AgentQuiChauffeApresNSondages(_Agent):
+    """L'INDEX PÉRIMÉ, et c'est le cas pour lequel la boucle de reprise existe.
+
+    Le bouchon `_Agent` bascule `chaud` DANS le `post` : `/health` est donc vrai
+    au premier sondage qui suit la chauffe, et une chauffe sans aucune reprise le
+    satisfait. `_AgentQuiResteFroid` ne bascule jamais, et un refus le satisfait
+    aussi sans reprise. **Aucun des deux ne distingue les deux codes**, et c'est
+    ce qui laissait la reprise non gardée.
+
+    Celui-ci reproduit `retriever._planifier_reconstruction` : la requête qui
+    CONSTATE l'index périmé ne le reconstruit pas — elle programme une
+    reconstruction de fond et sert l'ancien index en attendant. `/health`
+    annonce donc `index_lexical: false` pendant `sondages_froids` relevés APRÈS
+    la chauffe, puis bascule. C'est exactement l'état que le commentaire de
+    `_CHAUFFE_PLAFOND_S` décrit, et rien ne l'éprouvait.
+    """
+
+    def __init__(self, *, sondages_froids: int) -> None:
+        super().__init__(chaud=False)
+        self._restants = sondages_froids
+        self._chauffe_emise = False
+
+    def post(self, url, **_kwargs):
+        self.appels.append(f"POST {url}")
+        self._chauffe_emise = True
+        # On ne bascule PAS `chaud` : la reconstruction est de fond.
+        return _Reponse({"question": "x", "chunks": []})
+
+    def get(self, url, **_kwargs):
+        self.appels.append(f"GET {url}")
+        if self._chauffe_emise and self._restants > 0:
+            self._restants -= 1
+            return _sante(False)
+        return _sante(self._chauffe_emise)
+
+
+def test_un_index_perime_qui_chauffe_en_fond_est_attendu_et_non_refuse(
+    monkeypatch,
+) -> None:
+    """LA BOUCLE DE REPRISE, ET ELLE N'ÉTAIT GARDÉE PAR RIEN.
+
+    `mesuré` le 8 septembre 2026 : remplacer la boucle `while True` de
+    `chauffer_l_index_lexical` par un **sondage unique** laisse **629 tests
+    verts**, `rc=0`. Le code était juste et son garde manquait — la famille de
+    défaut que ce chantier paie le plus cher.
+
+    Ce que ce test exige, et les trois assertions ne sont pas redondantes :
+
+    - l'état final est `CHAUFFE_FAITE` — la reprise a rattrapé l'index périmé,
+      là où un sondage unique refuse ;
+    - `dormir` a été appelé **au moins autant de fois qu'il y a eu de sondages
+      froids** — c'est la PREUVE D'ATTEINTE. Sans elle, un bouchon qui
+      basculerait trop tôt rendrait ce test vert sans jamais exercer la reprise,
+      et on aurait écrit un second `_Agent` sous un autre nom ;
+    - le pas dormi est bien celui qu'on a passé, et non une valeur en dur.
+    """
+    evaluate = _evaluate()
+    agent = _AgentQuiChauffeApresNSondages(sondages_froids=4)
+    _brancher(monkeypatch, evaluate, agent)
+    dormi: list[float] = []
+
+    etat = evaluate.chauffer_l_index_lexical(
+        "http://agent", plafond=60.0, pas=2.0, dormir=dormi.append
+    )
+
+    assert etat == evaluate.CHAUFFE_FAITE, (
+        f"un index périmé qui chauffe en fond a été REFUSÉ ({etat!r}) : la boucle "
+        "de reprise ne rattrape plus le cas que `_CHAUFFE_PLAFOND_S` décrit"
+    )
+    assert len(dormi) >= 4, (
+        f"la reprise n'a dormi que {len(dormi)} fois pour 4 sondages froids : ce "
+        "test ne prouve pas qu'il a atteint la boucle, et un bouchon qui bascule "
+        "trop tôt le rendrait vert sans elle"
+    )
+    assert set(dormi) == {2.0}, f"le pas dormi n'est pas celui passé : {dormi}"
+
+
+def test_un_index_perime_au_dela_du_plafond_est_refuse(monkeypatch) -> None:
+    """L'AUTRE BORD DE LA MÊME BOUCLE : la reprise n'attend pas indéfiniment.
+
+    Sans ce test, la reprise pourrait boucler sans plafond et une campagne
+    partirait pour l'éternité au lieu de refuser. Le plafond est éprouvé par le
+    nombre de pas dormis, et non par une horloge — le test ne dort pas.
+    """
+    evaluate = _evaluate()
+    agent = _AgentQuiChauffeApresNSondages(sondages_froids=10**6)
+    _brancher(monkeypatch, evaluate, agent)
+    dormi: list[float] = []
+
+    etat = evaluate.chauffer_l_index_lexical(
+        "http://agent", plafond=6.0, pas=2.0, dormir=dormi.append
+    )
+
+    assert etat.startswith(evaluate.CHAUFFE_REFUS), etat
+    assert "index_lexical" in etat
+    assert len(dormi) == 3, (
+        f"le plafond de 6 s au pas de 2 s a dormi {len(dormi)} fois au lieu de 3 : "
+        "la reprise ne compte pas le temps qu'elle croit compter"
+    )
+
+
 # ─── Le refus, et c'est lui qui rend la chauffe fail-closed ───────────────────
 
 

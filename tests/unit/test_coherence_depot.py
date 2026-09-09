@@ -6,6 +6,7 @@ présents ont réellement divergé — y compris le dernier, qui ne porte pas su
 constante mais sur une **mesure** recopiée à trois endroits.
 """
 
+import collections
 import importlib.util
 import re
 import subprocess
@@ -189,6 +190,26 @@ def _fichiers_suivis() -> list[str]:
     return [nom for nom in acheve.stdout.split("\0") if nom]
 
 
+# LE RELEVÉ DU PÉRIMÈTRE, ET C'EST UN PLANCHER — pas un compte exact, pas une
+# forme. `mesuré` le 9 septembre 2026 par REPAR-7, par la recette publiée dans
+# le docstring de `test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire`.
+#
+# Ces deux chiffres ne bougent QUE VERS LE HAUT, et seulement contre une mesure
+# fraîche. Un rouge ici dit qu'un fichier est sorti de la portée des deux gardes
+# de cette classe ; le baisser pour retrouver le vert, c'est retirer le garde.
+_PERIMETRE_TOTAL_RELEVE = 125
+_PERIMETRE_PAR_ZONE_RELEVE = {
+    "tests": 54,
+    "src": 18,
+    "documentation": 14,
+    "runs": 13,
+    "(racine)": 12,
+    "scripts": 9,
+    "prompts": 4,
+    ".github": 1,
+}
+
+
 def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
     """UN FIL DE DÉTENTE DE DÉRIVE DOCUMENTAIRE, ET PAS UN GARDE DE SÛRETÉ.
 
@@ -281,11 +302,66 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 # propriété la plus importante — c'est elle qui rend sa règle de maintenance
 # tenable.
 #
-# CE QU'IL N'ATTRAPE PAS, ET IL FAUT LE DIRE : une affectation construite par
-# morceaux (`"all-MiniLM" + "-L6-v2"`), ou passée par une variable
-# intermédiaire. Il attrape la façon dont l'instruction arrive vraiment —
-# quelqu'un recopie une ligne d'un document dans son `.env`. C'est exactement ce
-# qui est arrivé, et c'est encore dans le dépôt : `mesuré` le 8 septembre 2026
+# LA BORNE DE COUVERTURE, NOMMÉE FORME PAR FORME — ET C'EST LA CORRECTION DU
+# 8 SEPTEMBRE 2026. Ce bloc disait déjà ce qu'il n'attrape pas, mais seulement
+# pour DEUX formes exotiques, et il était MUET sur les formes ordinaires. Ce
+# n'était donc pas une phrase fausse : c'était une phrase muette sur sa
+# couverture, et la règle de ce chantier est *soit bornée, soit gardée par un
+# test*. Les deux, ici.
+#
+# ATTRAPÉES, et chacune est éprouvée dans les deux directions par
+# `TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections` :
+#
+#   `NOM=valeur`, `NOM = "valeur"`, `NOM: valeur` (YAML),
+#   `"NOM": "valeur"` (JSON), `NOM: str = "valeur"` (pydantic nu),
+#   `ENV NOM=valeur` (Dockerfile, l'idiome réel de ce dépôt),
+#   `SentenceTransformer("valeur")` et `CrossEncoder("valeur")`,
+#   `NOM: str = Field(default="valeur")` — sur une ligne ou deux,
+#   `os.environ["NOM"] = "valeur"`,
+#   `setenv`/`putenv`/`setdefault("NOM", "valeur")`,
+#   `ENV NOM valeur` (forme espacée, héritée).
+#
+# NON ATTRAPÉES, ET LA LISTE EST AUSSI UTILE QUE L'AUTRE :
+#
+# - une affectation construite par MORCEAUX, ou passée par une variable
+#   intermédiaire. **CETTE FORME EST VIVANTE DANS CE DÉPÔT, et la phrase qui
+#   figurait ici — « personne ne recopie une instruction sous cette forme » —
+#   était fausse.** `mesuré` le 9 septembre 2026 : la seule affectation vivante
+#   du modèle anglais au réglage réel est exactement de cette forme, deux lignes
+#   de `tests/unit/test_garde_modele_embedding.py` à **136 lignes d'écart** — le
+#   nom posé dans une constante de module (ligne 47), puis passé à un
+#   `monkeypatch.setattr` sur le réglage réel (ligne 183), pour éprouver le
+#   garde du lot 3 en lui plantant un modèle non conforme. Elle est LÉGITIME et
+#   tolérée ; c'est l'affirmation qui ne l'était pas.
+#
+#   Ce qui est vrai, et c'est plus faible : une affectation en morceaux ne se
+#   copie pas en UNE ligne, donc elle ne peut pas être prise pour une
+#   instruction par un lecteur pressé. La borne est là, pas dans un « personne ».
+#   Fermer cette forme n'est pas non plus gratuit — le site ci-dessus rougirait,
+#   et décider quoi en faire est un lot, pas une réparation ;
+# - un drapeau de ligne de commande — `--un-modele valeur`. **Écarté par
+#   choix, et le motif est mesuré** : ce dépôt n'a AUCUN drapeau de ce genre
+#   pour ses deux modèles (`vérifié` le 8 septembre 2026 : les deux
+#   `add_argument("--model")` de `scripts/` visent le LLM). Le motif serait donc
+#   spéculatif, et il devrait accepter une valeur NUE — c'est-à-dire pouvoir
+#   rougir au milieu d'une phrase, sur une ligne de commande citée entre accents
+#   graves dans un document. Un garde spéculatif qui peut rougir sur un récit est
+#   exactement le troc que la règle de ce fichier refuse. À reprendre le jour où
+#   un tel drapeau existe, et pas avant ;
+# - une valeur entre ACCENTS GRAVES. Ce n'est pas un trou, c'est la propriété
+#   qui rend la règle de maintenance tenable — voir le paragraphe ci-dessus ;
+# - la MENTION du nom hors de toute affectation, qui est le métier de l'autre
+#   instrument, le fil d'occurrences.
+#
+# CE QUE « AUCUNE EXEMPTION » VEUT DIRE, PARCE QUE LA PHRASE A ÉTÉ LUE POUR PLUS
+# QU'ELLE NE DIT. Elle porte sur l'absence de LISTE D'AUTORISATION — il n'y a
+# rien à inscrire pour desserrer ce garde, contrairement au fil d'occurrences et
+# à sa table de comptes. Elle n'a jamais prétendu attraper toutes les formes, et
+# la liste ci-dessus est désormais l'endroit où cette question se lit.
+#
+# Ce garde attrape la façon dont l'instruction arrive vraiment — quelqu'un
+# recopie une ligne d'un document dans son `.env` ou dans son `settings.py`.
+# C'est exactement ce qui est arrivé, et c'est encore dans le dépôt : `mesuré` le 8 septembre 2026
 # sur `main` = `c5028d6`, **une** affectation, à
 # `documentation/llm_integration_plan.md`, dans un bloc `.env` — le fichier dont
 # le bandeau de tête nomme cet écart comme le plus dangereux qu'il porte, et que
@@ -324,6 +400,10 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
         # `NOM: str = "valeur"`. Le groupe facultatif absorbe une annotation de
         # type ou la fermeture d'une clé JSON ; il exclut `=` pour ne jamais
         # sauter par-dessus l'opérateur qu'on cherche.
+        #
+        # CETTE FORME COUVRE DÉJÀ `ENV NOM=valeur`, l'idiome réel des deux
+        # Dockerfiles de ce dépôt — `vérifié` le 8 septembre 2026. C'est la
+        # forme ESPACÉE, sans `=`, qui échappait, et elle est reprise plus bas.
         re.compile(
             rf'{re.escape(nom)}["\']?\s*(?::[^=\n]{{0,40}})?\s*[:=]\s*["\']?\s*{valeur}'
         )
@@ -333,6 +413,53 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
         re.compile(rf'{re.escape(appel)}\s*\(\s*["\']{valeur}')
         for appel in _CONSTRUCTEURS_DE_MODELE
     )
+    for nom in noms:
+        n = re.escape(nom)
+        motifs.extend(
+            (
+                # `NOM: str = Field(default="valeur")`, ET C'EST L'IDIOME PAR
+                # LEQUEL `settings.py` DÉCLARE SES DEUX MODÈLES. Le motif
+                # `NOM: str = "valeur"` ci-dessus ne le voit pas : entre
+                # l'opérateur et la valeur il y a `Field(`, et le groupe
+                # d'annotation exclut `=`.
+                #
+                # `re.S` et non un motif à une ligne : `settings.py` écrit
+                # réellement ses deux champs sur DEUX lignes, le `default`
+                # passant à la ligne suivante. Un motif qui exigerait une seule
+                # ligne manquerait le site réel — c'est-à-dire tout ce qui
+                # compte. La borne de 200 caractères tient le motif près de son
+                # `Field(` sans jamais franchir une parenthèse fermante.
+                re.compile(
+                    rf'{n}\s*(?::[^=\n]{{0,40}})?\s*=\s*Field\s*\('
+                    rf'[^)]{{0,200}}?default\s*=\s*["\']{valeur}',
+                    re.S,
+                ),
+                # `os.environ["NOM"] = "valeur"`. Contourne `.env` ET
+                # `settings.py` sans laisser de trace dans l'un ni l'autre : le
+                # réglage est lu par alias au démarrage, donc une écriture dans
+                # l'environnement du processus le décide aussi sûrement qu'un
+                # fichier. Le motif ne nomme pas `os.environ` : n'importe quelle
+                # indexation par le nom du réglage, suivie d'une affectation,
+                # est la même instruction.
+                re.compile(rf'\[\s*["\']{n}["\']\s*\]\s*=\s*["\']{valeur}'),
+                # `monkeypatch.setenv("NOM", "valeur")`, `os.putenv`,
+                # `environ.setdefault`. Ce dépôt utilise DÉJÀ `setenv`
+                # (`test_installation_des_garde_fous.py`), donc la forme est
+                # relevée et non inventée — et un test qui poserait le mauvais
+                # modèle par là serait un réglage en vigueur pendant tout le
+                # test, invisible aux deux fichiers de configuration.
+                re.compile(
+                    rf'(?:setenv|putenv|setdefault)\s*\(\s*["\']{n}["\']\s*,'
+                    rf'\s*["\']{valeur}'
+                ),
+                # `ENV NOM valeur`, la forme HÉRITÉE de Dockerfile, sans `=`.
+                # Ancrée en début de ligne, parce que c'est là que vit une
+                # directive Dockerfile : sans cet ancrage, le motif accepte une
+                # valeur NUE et deviendrait le premier de ce fichier à pouvoir
+                # rougir au milieu d'une phrase.
+                re.compile(rf'^\s*ENV\s+{n}\s+["\']?{valeur}', re.M),
+            )
+        )
     return motifs
 
 
@@ -357,6 +484,16 @@ def test_aucune_affectation_du_modele_anglais_ne_vit_dans_le_depot() -> None:
     autoriser, parce qu'aucun document de ce dépôt n'a besoin d'AFFECTER le
     modèle anglais pour raconter quoi que ce soit. La correction est toujours la
     même — la périphrase.
+
+    **CETTE PHRASE PORTE SUR L'ABSENCE DE LISTE D'AUTORISATION, ET SUR RIEN
+    D'AUTRE.** Elle ne dit pas que toutes les formes d'affectation sont
+    attrapées, et le lot du 8 septembre 2026 a mesuré qu'elles ne l'étaient pas :
+    `Field(default=…)` — l'idiome par lequel `settings.py` déclare ses deux
+    modèles — échappait, ainsi qu'une écriture dans `os.environ`. La couverture
+    est donc désormais BORNÉE FORME PAR FORME, dans le bloc de commentaire au-
+    dessus de ce test, et chaque forme y est éprouvée dans les deux directions.
+    Lire ce garde comme « rien ne passe » est l'erreur que la borne existe pour
+    empêcher.
     """
     noms = _noms_du_reglage_d_embedding()
     trouves: dict[str, list[str]] = {}
@@ -404,6 +541,192 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         )
         for forme in formes:
             assert self._affectations(forme), f"forme non attrapée : {forme!r}"
+
+    def test_les_formes_qui_echappaient_au_garde_le_font_rougir(self) -> None:
+        """LES QUATRE FORMES AJOUTÉES LE 8 SEPTEMBRE 2026, ET POURQUOI CELLES-LÀ.
+
+        `mesuré` ce jour-là en appelant `_affectations_dans` directement : le
+        garde ne voyait **ni** `Field(default="…")` — *l'idiome par lequel
+        `settings.py` déclare ses deux modèles* — **ni** une écriture dans
+        `os.environ`. L'étiquetage était donc INVERSÉ pour la modification la
+        plus probable de toutes : changer le `default` d'un modèle dans
+        `settings.py` ne faisait rougir que le fil d'occurrences, que le §4.28
+        vient de rétrograder au rang de détecteur de dérive, et pas le garde de
+        sûreté.
+
+        Chaque forme est plantée sur DEUX lignes de front : celle du modèle
+        d'embedding et celle du reranker. Les deux réglages se déclarent par le
+        même idiome, et un garde qui n'attraperait `Field(default=…)` que pour
+        l'un serait à moitié écrit.
+        """
+        formes = (
+            # L'IDIOME DE `settings.py`, sur une ligne puis sur deux — pydantic
+            # accepte les deux, et `settings.py` utilise RÉELLEMENT la forme sur
+            # deux lignes pour ses deux modèles. Un motif qui n'admettrait pas le
+            # retour à la ligne manquerait le site réel.
+            f'embedding_model_name: str = Field(default="{_MODELE_ANGLAIS}", '
+            'alias="EMBEDDING_MODEL_NAME")',
+            f'    embedding_model_name: str = Field(\n        '
+            f'default="{_MODELE_ANGLAIS}", alias="EMBEDDING_MODEL_NAME"\n    )',
+            # `default` APRÈS un autre argument : l'ordre des mots-clés est libre.
+            f'embedding_model_name: str = Field(alias="EMBEDDING_MODEL_NAME", '
+            f'default="{_MODELE_ANGLAIS}")',
+            # L'écriture dans l'environnement du processus, qui contourne
+            # `.env` ET `settings.py` sans laisser de trace dans aucun des deux.
+            f'os.environ["EMBEDDING_MODEL_NAME"] = "{_MODELE_ANGLAIS}"',
+            f"os.environ['EMBEDDING_MODEL_NAME'] = '{_MODELE_ANGLAIS}'",
+            # La même chose sous le nom que pytest lui donne. Ce dépôt s'en sert
+            # déjà (`test_installation_des_garde_fous.py`), donc la forme est
+            # réelle et non inventée.
+            f'monkeypatch.setenv("EMBEDDING_MODEL_NAME", "{_MODELE_ANGLAIS}")',
+            # La forme ESPACÉE de Dockerfile. `ENV NOM=v` — l'idiome réel des
+            # deux Dockerfiles de ce dépôt — était DÉJÀ attrapé par le motif
+            # `NOM=valeur` ; `vérifié` le 8 septembre 2026. Seule la forme
+            # héritée, sans `=`, échappait.
+            f"ENV EMBEDDING_MODEL_NAME {_MODELE_ANGLAIS}",
+        )
+        for forme in formes:
+            assert self._affectations(forme), f"forme non attrapée : {forme!r}"
+
+    def _recits_des_formes_neuves(self) -> tuple[str, ...]:
+        """Les six récits que l'élargissement du 8 septembre 2026 doit épargner.
+
+        Partagés par les deux tests qui suivent plutôt que recopiés : le second
+        MESURE une propriété de ces récits-là, et il ne la mesurerait pas s'il
+        regardait une copie qu'on peut faire diverger.
+        """
+        return (
+            f"le `default` du champ vaut `{_MODELE_ANGLAIS}`, et c'est l'idiome",
+            f"un `Field(default=…)` posé sur `{_MODELE_ANGLAIS}` échappait au garde",
+            f"un `os.environ` forcé sur `{_MODELE_ANGLAIS}` contourne les deux",
+            f"`monkeypatch.setenv` sur `{_MODELE_ANGLAIS}` ne laissait aucune trace",
+            f"un `ENV` de Dockerfile portant `{_MODELE_ANGLAIS}` en valeur espacée",
+            f"| `Field(default=…)` | `{_MODELE_ANGLAIS}` | **NON vue** |",
+        )
+
+    def test_le_recit_de_ces_formes_reste_vert(self) -> None:
+        """LA SECONDE DIRECTION, ET C'EST ELLE QUI BORNE L'ÉLARGISSEMENT.
+
+        Élargir un garde est facile ; l'élargir sans le transformer en fil
+        d'occurrences est le travail. Chaque récit ci-dessous NOMME l'une des
+        formes ajoutées au-dessus et doit rester vert : ce sont les phrases
+        qu'un rapport de lot écrit forcément pour raconter cette correction —
+        y compris celui-ci.
+
+        **CE QUI LES PROTÈGE N'EST PAS L'ACCENT GRAVE**, contrairement à ce que
+        ce docstring a d'abord affirmé, et c'est mesuré dans les deux sens par
+        `test_ce_qui_protege_un_recit_n_est_pas_l_accent_grave` juste dessous.
+        Ce qui les protège est qu'aucun d'eux ne pose le NOM du réglage à côté
+        de sa VALEUR : c'est la juxtaposition qui fait l'instruction, pas le
+        délimiteur.
+        """
+        for recit in self._recits_des_formes_neuves():
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r} — l'élargissement vient de "
+                "reconstruire l'inventaire d'occurrences sous un autre nom"
+            )
+
+    def test_l_ancrage_de_la_directive_env_est_garde(self) -> None:
+        """L'ANCRAGE `^` DU MOTIF `ENV`, QUE RIEN NE GARDAIT.
+
+        Le commentaire de `_motifs_d_affectation` écrit pourquoi cet ancrage est
+        décisif : sans lui, le motif accepte une valeur NUE et devient le
+        premier de ce fichier à pouvoir rougir au MILIEU d'une phrase. Le lot du
+        8 septembre 2026 a sondé la propriété à la main et ne l'a pas gardée —
+        `mesuré` le 9 septembre 2026, retirer le `^` laissait **643 tests
+        verts**. *Une décision motivée, sondée, et non gardée* : c'est la
+        famille de défaut dominante de ce chantier, à un neuvième site.
+
+        Les deux directions, et l'ancrage est le SEUL qui les sépare.
+        """
+        alias = self._NOMS[1]
+
+        # LE VRAI CAS — une directive Dockerfile vit en tête de ligne, éventuel
+        # retrait compris. Il doit être attrapé, sinon le motif ne sert à rien.
+        for directive in (
+            f"ENV {alias} {_MODELE_ANGLAIS}",
+            f"   ENV {alias} {_MODELE_ANGLAIS}",
+            f"FROM python:3.12\nENV {alias} {_MODELE_ANGLAIS}\nRUN pip install .",
+        ):
+            assert self._affectations(directive), (
+                f"la forme héritée de Dockerfile échappe : {directive!r} — c'est "
+                "la forme même que l'élargissement du 8 septembre 2026 a ajoutée"
+            )
+
+        # LE SENS DANGEREUX — les mêmes mots au milieu d'une phrase ne sont pas
+        # une directive : ce sont les phrases qu'un rapport de lot écrit pour
+        # raconter la correction. Sans l'ancrage, les trois rougissent.
+        for recit in (
+            f"le Dockerfile posait ENV {alias} {_MODELE_ANGLAIS} sans signe égal",
+            f"| forme héritée | ENV {alias} {_MODELE_ANGLAIS} | attrapée |",
+            f"la forme espacée, ENV {alias} {_MODELE_ANGLAIS}, échappait au garde",
+        ):
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r}. L'ancrage `^` du motif `ENV` "
+                "a disparu, et ce motif est le seul de ce fichier qui accepte une "
+                "valeur NUE : sans ancrage il rougit au milieu d'une phrase, et "
+                "le garde redevient un fil d'occurrences"
+            )
+
+    def test_ce_qui_protege_un_recit_n_est_pas_l_accent_grave(self) -> None:
+        """LA PHRASE QUE CE FICHIER A ÉCRITE, ET QUI ÉTAIT FAUSSE DANS LES DEUX
+        SENS.
+
+        Le docstring de `test_le_recit_de_ces_formes_reste_vert` affirmait que
+        ce qui épargne ces récits est la propriété « les délimiteurs admis sont
+        `"` et `'`, jamais l'accent grave ». Une phrase de cette famille —
+        « jamais », « quelle que soit » — doit être bornée ou gardée ; celle-ci
+        n'était ni l'un ni l'autre, et `mesuré` le 9 septembre 2026 elle est
+        fausse dans les deux directions. Ce test est la garde qui manquait, et
+        il tient les trois faits mesurés.
+
+        Le nom du réglage et sa valeur ne sont JAMAIS écrits en littéral ici :
+        ils sont dérivés de `settings.py`, comme partout dans ce fichier. Le
+        dépôt est public, et raconter une affectation non conforme ne justifie
+        pas d'en écrire une copiable — la correction est la périphrase.
+        """
+        alias = self._NOMS[1]
+
+        # PREMIER FAIT — les accents graves ne jouent AUCUN rôle dans les six
+        # récits que la phrase prétendait expliquer. Les leur retirer tous les
+        # laisse verts : c'est la juxtaposition du nom et de la valeur qui
+        # manque, pas le délimiteur qui protège.
+        for recit in self._recits_des_formes_neuves():
+            assert not self._affectations(recit.replace("`", "")), (
+                f"récit attrapé une fois ses accents graves retirés : {recit!r}. "
+                "Ce qui l'épargnait était donc bien l'accent grave — refais la "
+                "mesure et réécris le docstring voisin, qui affirme l'inverse"
+            )
+
+        # DEUXIÈME FAIT — l'accent grave ne protège PAS d'une citation de la
+        # ligne fautive. Le nom collé à sa valeur par `=` est attrapé quel que
+        # soit ce qui l'entoure, et c'est le bon sens de l'erreur : une ligne
+        # citée reste une ligne copiable.
+        for entourage in ("`{}`", '"{}"', "**{}**", "{}"):
+            cite = f"la ligne fautive portait {entourage.format(f'{alias}={_MODELE_ANGLAIS}')}"
+            assert self._affectations(cite), (
+                f"une citation de la ligne fautive échappe au garde : {cite!r}. "
+                "Le dépôt est public : cette ligne est copiable, et un garde qui "
+                "la laisse passer parce qu'elle est entre accents graves ne garde "
+                "plus rien"
+            )
+
+        # TROISIÈME FAIT — et c'est la SEULE scène où l'accent grave décide. Un
+        # récit qui met le nom du réglage à côté de sa valeur avec un `:` pour
+        # tout séparateur est attrapé ; les accents graves l'épargnent. `mesuré`
+        # le 9 septembre 2026 : sur les quatorze récits du test voisin, UN SEUL
+        # est dans ce cas — la propriété est donc réelle, mais elle explique un
+        # récit sur quatorze, et aucun des six ci-dessus.
+        juxtapose = f"{alias} : {_MODELE_ANGLAIS} — et c'était faux"
+        assert self._affectations(juxtapose), (
+            "le nom du réglage suivi de sa valeur, sans accents graves, n'est "
+            f"plus attrapé : {juxtapose!r} — le motif `NOM: valeur` a été perdu"
+        )
+        assert not self._affectations(f"`{alias}` : `{_MODELE_ANGLAIS}` — et c'était faux"), (
+            "la même phrase entre accents graves est désormais attrapée : le "
+            "garde s'est mis à rougir sur de la mise en page Markdown, et c'est "
+            "le sens dangereux de l'élargissement"
+        )
 
     def test_un_recit_qui_nomme_le_modele_le_laisse_vert(self) -> None:
         """LES QUATORZE RÉCITS DU DÉPÔT, ET C'EST LA DIRECTION DÉCISIVE.
@@ -471,20 +794,120 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         )
 
     def test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire(self) -> None:
-        """« Au moins ce que balaie l'autre », et le périmètre est MESURÉ.
+        """« Au moins ce que balaie l'autre », et le périmètre est un PLANCHER.
 
         Les deux gardes partagent `_fichiers_suivis()`, donc l'égalité est
-        structurelle et non une coïncidence à surveiller. Le compte est relevé
-        ici pour qu'un rétrécissement se voie : `mesuré` le 8 septembre 2026,
-        **123** fichiers suivis, dont **123** lisibles — aucun angle mort, et le
-        même ensemble exactement pour les deux instruments.
+        structurelle et non une coïncidence à surveiller.
+
+        **CE QUE CETTE ASSERTION A ÉTÉ, ET LES DEUX FAÇONS DONT ELLE A MANQUÉ.**
+        Elle a d'abord porté un plancher `>= 100` et un compte recopié dans ce
+        docstring. Le compte recopié s'est périmé deux fois — 123 quand le dépôt
+        en portait 124, puis **124 dans le commit même qui ajoutait un
+        cent-vingt-cinquième fichier**, quatre lignes au-dessus du paragraphe
+        qui racontait la première péremption. Et le plancher, laissé à 100 quand
+        le dépôt en portait 125, ne bornait plus rien : `mesuré` le 9 septembre
+        2026, retirer du balayage le SEUL `src/agent/settings.py` — le fichier
+        dont l'idiome `Field(default=…)` porte le motif le plus neuf de ce lot —
+        laissait ce fichier de tests **`rc=0`, 20 passés**. *Un plancher qui ne
+        suit pas le dépôt n'est plus un plancher : c'est un souvenir.*
+
+        **ET LE MOTIF QUI OPPOSAIT « compte exact » À « forme » ÉTAIT FAUX.** Il
+        portait que la forme est *« plus fort qu'un compte »*. C'est
+        mesurablement l'inverse : un compte exact rougit sur **tout**
+        rétrécissement, par construction. Il n'est pas plus faible — il est plus
+        **bruyant à la croissance**, ce qui est une autre critique.
+
+        **CE QUI EST ASSERTÉ, ET C'EST UNE TROISIÈME FORME.** Un **plancher
+        MONOTONE dérivé du dernier relevé**, global et zone par zone. Il rougit
+        sur tout rétrécissement, comme un compte exact ; il ne rougit **jamais**
+        sur une croissance ; et le seul geste qu'il enseigne est de monter le
+        chiffre **dans la direction sûre**, quand on resserre volontairement.
+        Le relevé se remesure ainsi :
+
+            git ls-files -z | tr '\0' '\n' \
+              | awk -F/ 'NF>1{print $1} NF==1{print "(racine)"}' | sort | uniq -c
+
+        La ventilation par zone n'est pas décorative : le plancher global seul
+        est aveugle à un rétrécissement compensé par un ajout ailleurs, et
+        l'ajout est l'événement le plus banal de ce dépôt.
+
+        **REMESURE LE RELEVÉ JUSTE AVANT DE SCELLER TON DERNIER COMMIT**, pas au
+        moment où tu ouvres le lot : c'est très exactement la faute que ce
+        docstring vient de payer deux fois.
+
+        Sont conservées, parce qu'elles portent ce qu'un compte ne dit pas, les
+        deux assertions de forme qui visent la panne d'origine — un balayage
+        `documentation/*.md` **non récursif** : la récursion dans
+        `documentation/`, et `.env.example` nommément.
         """
         suivis = _fichiers_suivis()
         lisibles = [nom for nom in suivis if (_RACINE / nom).is_file()]
-        assert len(suivis) >= 100, len(suivis)
+
+        # LE PLANCHER MONOTONE. `mesuré` le 9 septembre 2026 par REPAR-7, sur
+        # l'arbre de ce commit. Au rouge, le geste est de REMESURER et d'écrire
+        # ce que la recette du docstring rend — jamais de baisser un chiffre
+        # pour faire passer un rétrécissement.
+        assert len(suivis) >= _PERIMETRE_TOTAL_RELEVE, (
+            f"le périmètre a RÉTRÉCI : {len(suivis)} fichiers suivis contre "
+            f"{_PERIMETRE_TOTAL_RELEVE} au dernier relevé. Les deux gardes de ce "
+            "fichier balaient moins qu'hier, et ce qui sort de leur portée n'est "
+            "gardé par rien. Remesure la recette du docstring : si le dépôt a "
+            "volontairement maigri, monte le relevé ; sinon, `_fichiers_suivis()` "
+            "est redevenu un balayage étroit"
+        )
+        par_zone = collections.Counter(
+            nom.split("/")[0] if "/" in nom else "(racine)" for nom in suivis
+        )
+        maigres = {
+            zone: (par_zone.get(zone, 0), plancher)
+            for zone, plancher in _PERIMETRE_PAR_ZONE_RELEVE.items()
+            if par_zone.get(zone, 0) < plancher
+        }
+        assert not maigres, (
+            f"des zones ont rétréci — {maigres} en (vu, relevé). Un plancher "
+            "global seul ne le verrait pas si un fichier était ajouté ailleurs, "
+            "et c'est le cas que ce garde existe pour attraper : retirer le seul "
+            "`src/agent/settings.py` du balayage laissait ce fichier VERT"
+        )
         assert lisibles == suivis, (
             "des chemins suivis ne sont pas des fichiers lisibles : les deux "
             f"gardes ne balaient plus le même ensemble — {set(suivis) - set(lisibles)}"
+        )
+
+        # L'ASSERTION « chaque zone est représentée » A ÉTÉ RETIRÉE ICI, et ce
+        # n'est pas un relâchement : les planchers par zone ci-dessus la
+        # contiennent strictement — un plancher de 1 sur une zone exige sa
+        # présence, et les huit planchers valent tous au moins 1. Deux
+        # instruments dont l'un est le sous-ensemble de l'autre donnent
+        # l'impression de deux mesures là où il n'y en a qu'une.
+        #
+        # Les DEUX assertions qui suivent, elles, ne se déduisent d'aucun
+        # compte, et elles visent la panne d'origine — un balayage
+        # `documentation/*.md` NON RÉCURSIF.
+
+        # LA RÉCURSION **DANS `documentation/`**, parce que le défaut d'origine
+        # était `documentation/*.md` NON RÉCURSIF. Le sous-répertoire est nommé
+        # explicitement, et voici pourquoi : une première version de cette
+        # assertion demandait « un fichier suivi à deux niveaux de profondeur »,
+        # n'importe lequel. Elle était DÉCORATIVE — `tests/unit/…` la satisfait
+        # à lui seul, quoi qu'il arrive à `documentation/`. `mesuré` le
+        # 8 septembre 2026 par la mutation qui retire `documentation/audits/` et
+        # `documentation/campagnes/` du balayage : **122 fichiers sur 124**, le
+        # plancher `>= 100` aveugle, et cette assertion-là VERTE. Elle est
+        # désormais portée sur la zone où le défaut a réellement vécu.
+        recursifs = [nom for nom in suivis if nom.startswith("documentation/")]
+        assert any(nom.count("/") >= 2 for nom in recursifs), (
+            "aucun fichier de `documentation/` ne vit dans un sous-répertoire : le "
+            "balayage a perdu sa récursion, et `documentation/audits/` comme "
+            "`documentation/campagnes/` sont hors de portée des deux gardes — "
+            "c'est le défaut d'origine de `_fichiers_suivis()`, à l'identique"
+        )
+        # `.env.example` nommément : c'est le fichier que la trouvaille d'origine
+        # désignait — « une ligne de `.env` d'apparence exécutable » — et le seul
+        # de la racine dont le métier est de porter des affectations.
+        assert ".env.example" in suivis, (
+            "`.env.example` est sorti du périmètre : c'est le fichier même que la "
+            "trouvaille d'origine de ce garde désignait"
         )
 
 
