@@ -1955,6 +1955,24 @@ chiffres que cette section portait déjà — 214 / 214, intersection 47, union 
 soit 51,1 %, et 25 en-têtes premiers sous leur parent — et c'est ce contrôle qui
 autorise à croire ses chiffres neufs.
 
+**Tout ce qui suit a été REMESURÉ par le lot 4 le 9 septembre 2026, par
+l'instrument versionné**, et chaque chiffre est tombé à l'unité :
+
+```bash
+docker exec -i rag-agent-api python - < scripts/mesurer_le_graphe.py
+```
+
+> **ET UNE COÏNCIDENCE QUE CETTE SECTION JUXTAPOSAIT SANS LA NOMMER.** Elle
+> écrit « 25 en-têtes premiers sous leur parent » et, plus bas, « jamais trouvé
+> pour 25 / 24 ». Les deux comptes valent 25 **et ce ne sont pas les mêmes 25** :
+> `mesuré` par le lot 4, l'intersection vaut **22**, et elle vaut **0** pour la
+> direction « après » — un en-tête que (C) ne sert pas en « après » est le
+> DERNIER sous son parent, pas le premier. C'est exactement la faute que le lot 2
+> a corrigée sur les « mêmes 214 dans les deux directions » : *deux ensembles de
+> même cardinal ne sont pas le même ensemble.* L'instrument imprime désormais
+> l'intersection à côté des comptes, pour que la coïncidence ne puisse plus se
+> lire comme une identité.
+
 | définition | en-têtes servis | éléments privés d'encadrement |
 |---|---|---|
 | **(A)** frère en-tête sous le parent commun — *l'actuelle* | 532 / 746 | **4 157 avant (28,8 %)**, **4 678 après (32,4 %)** |
@@ -1971,7 +1989,10 @@ le dit à l'exploitant.
 
 (B) gagne **2 en-têtes** sur (C) et les paie de **191 dégénérescences** : le
 titre suivant en ordre de lecture, après un titre qui a des enfants, **est son
-propre premier enfant**. On servirait comme « section suivante » un morceau de la
+propre premier enfant**. *Le lot 4 a remesuré ce chiffre et lui a donné l'unité
+qui manquait : ce sont **191 ADJACENCES**, soit **382 couples (en-tête,
+direction)** — chaque adjacence dégénérée compte deux fois, une par bout. Les
+deux écritures sont justes sous leur unité, et aucune ne la portait.* On servirait comme « section suivante » un morceau de la
 section courante. **(C) ne peut pas produire ce cas par construction**, la
 remontée ne pouvant rendre ni un ancêtre ni un descendant de la section de
 départ. *L'élargissement que cette section suggérait était le mauvais.*
@@ -2000,28 +2021,65 @@ mesurés** (le dernier descendant est à 1 cran sous l'oncle dans 80 cas, 2 dans
 - **« après » → l'oncle lui-même.** Dans « 3.2.1 » dernière fille de « 3.2 », on
   sert la tête de « 3.3 », qui est bien la première chose lue ensuite.
 
-**C'est asymétrique parce que la lecture l'est.** *Et cette symétrie-là est
+**C'est asymétrique parce que la lecture l'est.** *Et cette symétrie-là était
 `calculé`, pas `mesuré` : le pilote l'a déduite de la forme du parcours, il ne
-l'a pas éprouvée. Le lot qui portera cette décision doit la vérifier avant de
-s'en servir — c'est exactement la faute que ce chantier a payée six fois.*
+l'a pas éprouvée.*
+
+> **ÉPROUVÉE PAR LE LOT 4 LE 9 SEPTEMBRE 2026, ET LE VERDICT EST PARTAGÉ.** La
+> vérification confronte chaque remontée au **parcours en profondeur par
+> `sequence`**, c'est-à-dire à l'ordre où un humain lit, et demande quel en-tête
+> porte l'élément réellement lu juste avant / juste après le sous-arbre de la
+> section. Commande ci-dessus, section « le SOUS-CHOIX, confronté à l'ordre de
+> lecture réel ».
+>
+> - **« après » → l'oncle lui-même : CONFIRMÉ.** L'oncle porte le premier
+>   élément réellement lu ensuite dans **188 des 190** remontées. Les **2**
+>   exceptions sont les oncles dont le premier enfant est un sous-titre, et non
+>   un élément ;
+> - **« avant » → le dernier descendant en-tête de l'oncle : LA RÈGLE TIENT, SON
+>   MOTIF EST FAUX.** Cette section écrivait « le texte qui précède
+>   **réellement** » ; il ne le précède pas. Sur les **189** remontées
+>   « avant », ce qui précède vraiment la section en ordre de lecture est
+>   l'**INTRODUCTION DE SON PROPRE PARENT** — les frères non-titres qui la
+>   précèdent sous le parent commun — dans **186** cas ; l'oncle lui-même dans
+>   **2** ; le dernier descendant de l'oncle dans **1**. Ce qui reste vrai, et
+>   qui a été mesuré séparément : **DANS le sous-arbre de l'oncle**, le dernier
+>   descendant en-tête porte bien le dernier élément lu, **186 fois sur 189**.
+>   La règle est donc le bon choix *parmi les descendants de l'oncle*, et c'est
+>   à ce titre qu'elle est implémentée — pas au titre que cette section lui
+>   donnait.
+>
+> *La faute n'était pas la décision, c'était sa justification — la même forme
+> que `_SIBLING_CANDIDATES`, dont « le commentaire est faux, la constante est
+> saine ». Un motif faux sous une règle juste survit à toutes les relectures,
+> parce que le comportement, lui, ne rougit jamais.*
+>
+> **CE QUE ÇA OUVRE, ET C'EST UNE DÉCISION DE PLAN.** Servir l'introduction du
+> parent est ce que l'ordre de lecture désigne dans 186 des 189 cas, et rien ne
+> la sert aujourd'hui : le fil d'Ariane ne porte que des titres. Le lot 4 ne l'a
+> pas écrit — ce n'était pas la décision tranchée.
 
 #### DEUX RÉSERVES, et la première est un manquement du pilote
 
-1. **Ces chiffres n'ont PAS de site rejouable.** L'en-tête de
-   `scripts/mesurer_le_graphe.py` interdit précisément cela : *« une page qui les
-   affirme sans laisser de quoi les rejouer devient fausse en silence »*, et
-   c'est un **état de store**, qui périme à la prochaine réingestion. La sonde du
-   pilote a vécu dans un répertoire de travail temporaire. **Le lot 4 doit porter
-   cette mesure dans `scripts/mesurer_le_graphe.py`** — les trois définitions
-   confrontées, avec la pondération par éléments — avant que ces chiffres ne
-   puissent être cités par quiconque. En attendant, ils sont `mesuré` **et sans
-   instrument**, ce qui est une moitié de ce que ce dépôt exige ;
+1. ~~**Ces chiffres n'ont PAS de site rejouable.**~~ ✅ **FERMÉE par le lot 4
+   le 9 septembre 2026.** La mesure vit dans `scripts/mesurer_le_graphe.py`,
+   section « Section voisine : (A), (B), (C) confrontées », et elle rejoue tout
+   ce que cette entrée affirme : les trois définitions en en-têtes servis **et**
+   en éléments réellement servis, le coût de (C) en crans, le sous-choix
+   confronté à l'ordre de lecture, et (B) avec ses dégénérescences. La commande
+   est celle donnée plus haut. *Ce que la fermeture a coûté de plus que du
+   portage : trois des chiffres de cette entrée ont changé de sens en passant
+   sous instrument — la coïncidence des 25, l'unité des 191, et le motif du
+   sous-choix « avant ». Un chiffre sans instrument n'est pas seulement
+   invérifiable : il est **relu par son auteur**, et c'est ce que l'instrument
+   remplace* ;
 2. **la qualité n'est pas mesurée.** Cette section écrivait déjà que le coût de
    fenêtre n'avait jamais été payé en campagne. Ce qui précède dit ce que
    l'encadrement **couvre**, pas ce qu'il **rapporte** : aucune de ces trois
-   définitions n'a été confrontée à la campagne de référence du 8 septembre 2026.
-   Le lot 4 doit le faire, et il peut y trouver que le gain de rappel ne suit pas
-   le gain de couverture.
+   définitions n'avait été confrontée à la campagne de référence du 8 septembre
+   2026. **Le lot 4 l'a fait, et le résultat est au §4.40** — c'est lui qui dit
+   si le gain de couverture rapporte, et il faut le lire avant de citer les
+   pourcentages ci-dessus comme un gain.
 
 ### 4.7 Le contrat d'interface ignore cinq métadonnées que le pipeline émet déjà
 
