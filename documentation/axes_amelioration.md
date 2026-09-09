@@ -4710,7 +4710,7 @@ lit ; il est donc le seul dont la dérive ne rougit pas. C'est exactement ce que
 
 ---
 
-### 4.32 → EN COURS — le lot 6 livré : un garde qui SIGNALE, et un cadrage que le pilote avait encore laissé vieillir
+### 4.32 → CLOS par le §4.35 — le lot 6 livré : un garde qui SIGNALE, et un cadrage que le pilote avait encore laissé vieillir
 
 `Conv' 40` (LOT-6) a livré le 8 septembre 2026 deux commits, `a2d2081` et
 `e6fc175`, **non poussés**, sur `claude/reranker-guard-affectations-782d7e`.
@@ -5179,3 +5179,113 @@ depuis le `Up 5 hours` du 8 septembre, sans qu'aucune conversation le décide.
 **Aucun numéro ne lui est attribué ici**, faute de pouvoir le compter : c'est
 exactement le geste que le §12 interdit, et le corriger demande de fusionner les
 deux comptes du registre — ce qui est une décision du pilote, pas une réparation.
+
+---
+
+### 4.35 → FERMÉ — le lot 6 fusionné : le câblage du garde est enfin éprouvé, et le périmètre a un plancher qui monte
+
+`Conv' 42` (REPAR-7) a livré le 9 septembre 2026 quatre commits plus une fusion
+de rattrapage sur la branche du lot. **Fusionné dans `main` par le pilote.**
+
+#### Ce que le pilote a mesuré de ses mains avant de trancher
+
+Le 9 septembre 2026 entre 08:40 et 09:05 UTC, dans l'arbre du lot, restauration
+par empreinte SHA-256 vérifiée à chaque mutation :
+
+| | `mesuré` |
+|---|---|
+| identité des quatre commits + la fusion | auteur ET committer `florian_horellou@laposte.net` partout — adresse autorisée |
+| rien de poussé | `git ls-remote --heads origin` ne rend que `refs/heads/main` |
+| désactivations ajoutées | **aucune** sur tout le lot : zéro `skip`, `xfail`, `type: ignore`, `noqa` ou `pragma` dans les lignes ajoutées. Le seul `type: ignore[dict-item]` de `retriever.py` est **antérieur** — vérifié présent sur `main` |
+| **B-1 fermé** | la mutation qui laissait 643 verts (mauvais réglage ET vocabulaire non lu) rend **`rc=1`, 2 rouges** : `test_le_chargement_du_reranker_journalise_le_verdict` et `test_le_modele_en_service_ne_dit_rien_par_le_chemin_reel`. Empreintes `77decd9c…` → `3ca39e0d…` → `77decd9c…` |
+| **B-2 + H8 fermés** | le rétrécissement **compensé** — sortir le seul `src/agent/settings.py` et ajouter un fichier ailleurs, total inchangé à 125 — laisse le **plancher global vert** et fait rougir **la zone `src` à `(17, 18)`**, l'assertion nommant le cas. Empreintes `575744be…` → `f6be0d52…` → `575744be…` |
+| **le niveau borné, dans les deux sens** | un quatrième niveau ajouté à `verdict_langue_du_reranker` rend `make lint` en **`rc=2`** — mypy : *« Incompatible return value type (got `tuple[Literal['critical'], str]`, expected `tuple[Literal['info', 'warning'], str] \| None`) »* — là où il passait en `rc=0` avec 643 verts et journalisait en `INFO` |
+| la porte sur la branche | `make lint` `rc=0`, `make test` `rc=0`, **647 passés** |
+| le compte de tests | **647 sur 42 fichiers** par la recette du site (`pytest tests/unit/ -v`), concordant avec `documentation/tests.md` |
+| la prémisse de fusion, **remesurée juste avant** | `merge-base --is-ancestor main <branche>` → `rc=0` ; `merge-tree --write-tree` et `rev-parse <branche>^{tree}` rendent tous deux `74d78f7…` |
+| **la porte sur le RÉSULTAT de fusion** | `main` = `137d780`, arbre `74d78f7…` comme prédit ; `make lint` `rc=0`, `make test` `rc=0`, **647 passés** — et cette fois dans le **clone principal avec son propre `.venv`**, parce que l'égalité des arbres ne dit rien de l'égalité des environnements |
+
+#### Le critère de fusion, et pourquoi il n'a pas fallu un dixième audit
+
+`src/` change, mais **de 53 lignes et pas d'une de plus que ce que l'audit avait
+spécifié ET pré-mesuré** — vérifié au `numstat` : le registre dont les valeurs
+étaient mortes (D-1), le `Literal` du niveau (B), la définition de la marge
+(D-2). Aucun quatrième changement de production n'a été emporté, et la
+fermeture de B-1 n'a coûté **aucune** ligne de `src/` : c'est le test qui
+discriminait mal, pas le code qui se trompait. Le critère amendé du §4.18
+s'applique donc, et le pilote a vérifié les trois dans les deux sens.
+
+#### Ce que la réparation a trouvé contre le pilote, et elle a raison
+
+**Le registre portait TROIS comptes incompatibles du relevé du démon
+d'orchestration** : « sixième relevé en marche » et « **cinquième** relevé en
+marche » **dans la même cellule** — l'ancienne phrase ayant survécu à celle qui
+la remplaçait —, « quatrième fois qu'il se rallume », et « huitième relevé » au
+§12, quand le lot 6 avait compté le neuvième. REPAR-7 a **refusé d'attribuer un
+numéro** à son propre relevé et rendu le fait brut, en écrivant que le déduire
+serait le geste que le §12 interdit. *C'est exactement la bonne conduite.*
+
+La faute n'est pas du même genre que les cinq précédentes du pilote : ce n'est
+pas un état affirmé sans mesure, c'est **un chiffre à plus d'un site canonique**,
+ce que ce chantier interdit depuis le §4.13 — et une **édition sur place
+bâclée**, qui a ajouté la phrase neuve sans retirer l'ancienne. Aucun `rc` ne
+pouvait le dire.
+
+**Corrigé** : le compte est **retiré**, la suite datée des relevés le remplace,
+et le §12 renvoie au site unique. *Un numéro qu'on ne peut pas reconstruire
+depuis le registre est un numéro qui dérive.*
+
+**Et une mesure qui borne le récit du site**, prise par le pilote le 9 septembre
+à 08:40 UTC : `rag-agent-api` est à `Up 2 hours` comme le démon, alors qu'il
+était à `Up 7 hours` la veille. **Les deux conteneurs ont redémarré ensemble** —
+ce qui désigne un redémarrage de l'hôte ou du démon Docker, et non le
+« rallumage sans qu'aucune conversation le décide » que ce site supposait. Les
+occurrences antérieures n'ont jamais été instruites ; celle-ci a une cause plus
+simple.
+
+#### Ce que la réparation a écrit contre elle-même, et il faut le lire
+
+- **elle a mesuré son banc sous une recette inventée avant de s'en apercevoir** :
+  `pytest tests/` rend **653** collectés là où la recette du site,
+  `pytest tests/unit/ -v`, en rend 643. Elle a tout refait avant de conclure.
+  *Un chiffre juste sous une recette inventée reste un chiffre faux* ;
+- **sa première écriture du rétrécissement compensé était cassée par
+  l'échappement bash** : elle rendait le `rc=1` attendu, mais sur
+  `assert 2 >= 125` — le `split("\0")` ne s'était pas fait. **Le `rc` était juste
+  et la raison fausse**, et elle l'a vu en lisant l'assertion. C'est la
+  quatrième fois de ce chantier qu'une sonde rend le bon code pour la mauvaise
+  raison, et la deuxième fois de suite qu'un lot l'attrape seul.
+
+#### Les deux mesures que la réparation ajoute, et que personne n'avait faites
+
+- **la propriété des accents graves n'était pas seulement fausse : elle n'était
+  exercée que par UN récit sur les 14** du test voisin. L'audit avait établi que
+  les six récits neufs étaient verts pour une autre raison que celle écrite ;
+  REPAR-7 a compté ce qui exerçait réellement la propriété. Corrigée et gardée
+  dans les trois directions ;
+- **l'assertion « chaque zone est représentée » a été RETIRÉE, et ce n'est pas
+  un relâchement** : les huit planchers par zone valent tous au moins 1, donc ils
+  la contiennent strictement. *Deux instruments dont l'un est le sous-ensemble de
+  l'autre donnent l'impression de deux mesures là où il n'y en a qu'une.* Les
+  deux assertions qui ne se déduisent d'aucun compte — la récursion de
+  `documentation/` et `.env.example` nommément — sont conservées, et elles
+  visent la panne d'origine.
+
+#### Le bilan du lot 6
+
+Livré, audité, réparé, fusionné. **Une bloquante par audit sur les deux qu'il a
+subis**, et les deux étaient un garde vert sous une scène que le défaut ne
+rencontre jamais. Le garde du reranker **signale** au lieu de refuser, sur un
+chevauchement de vocabulaires reproduit deux fois, et son câblage est
+maintenant éprouvé sur *ce qu'il dit* et non sur *le fait qu'il parle*. Le
+périmètre de l'inventaire a un plancher qui **ne descend jamais**, global et
+zone par zone, et le rétrécissement qu'un plancher global ne peut pas voir
+rougit.
+
+**Ce qui reste ouvert, et monte au lot 7** : `monkeypatch.setattr(settings, …)`
+et la lecture d'environnement à valeur par défaut échappent au garde de sûreté
+(102 et 6 sites), et la lecture défensive de la propriété du reranker ne tient
+que dans trois natures d'exception sur six. Les deux demandent une décision, pas
+une réparation — et REPAR-7 a confirmé le découpage avec un argument : fermer
+`setattr` ferait rougir le site légitime qu'elle venait de citer comme
+contre-preuve.
