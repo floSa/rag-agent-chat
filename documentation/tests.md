@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 697 tests, aucune dépendance
+## Unitaire — 718 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,10 +20,13 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 9 septembre 2026 par REPAR-8 : **697** tests sur **43** fichiers,
+> `mesuré` le 9 septembre 2026 à 14:30 UTC par LOT-4 : **718** tests sur **44** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total que
-> `pytest` annonce — concordent.
-> Relevés antérieurs : **682** sur **43** le 9 septembre 2026 (LOT-7),
+> `pytest` annonce — concordent. Le fichier neuf est
+> `tests/unit/test_section_voisine.py`, qui garde la définition (C) de « section
+> voisine » (§4.6).
+> Relevés antérieurs : **697** sur **43** le 9 septembre 2026 (REPAR-8),
+> **682** sur **43** le même jour (LOT-7),
 > **668** sur **43** le même jour (LOT-7, ses
 > fermetures (a) et (b)), **647** sur **42** le même jour (REPAR-7),
 > **643** sur **42** le 8 septembre 2026 (lot 6), **629**
