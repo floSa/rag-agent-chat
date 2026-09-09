@@ -6,6 +6,7 @@ présents ont réellement divergé — y compris le dernier, qui ne porte pas su
 constante mais sur une **mesure** recopiée à trois endroits.
 """
 
+import collections
 import importlib.util
 import re
 import subprocess
@@ -187,6 +188,26 @@ def _fichiers_suivis() -> list[str]:
         check=True,
     )
     return [nom for nom in acheve.stdout.split("\0") if nom]
+
+
+# LE RELEVÉ DU PÉRIMÈTRE, ET C'EST UN PLANCHER — pas un compte exact, pas une
+# forme. `mesuré` le 9 septembre 2026 par REPAR-7, par la recette publiée dans
+# le docstring de `test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire`.
+#
+# Ces deux chiffres ne bougent QUE VERS LE HAUT, et seulement contre une mesure
+# fraîche. Un rouge ici dit qu'un fichier est sorti de la portée des deux gardes
+# de cette classe ; le baisser pour retrouver le vert, c'est retirer le garde.
+_PERIMETRE_TOTAL_RELEVE = 125
+_PERIMETRE_PAR_ZONE_RELEVE = {
+    "tests": 54,
+    "src": 18,
+    "documentation": 14,
+    "runs": 13,
+    "(racine)": 12,
+    "scripts": 9,
+    "prompts": 4,
+    ".github": 1,
+}
 
 
 def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
@@ -646,69 +667,98 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         )
 
     def test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire(self) -> None:
-        """« Au moins ce que balaie l'autre », et le périmètre est MESURÉ.
+        """« Au moins ce que balaie l'autre », et le périmètre est un PLANCHER.
 
         Les deux gardes partagent `_fichiers_suivis()`, donc l'égalité est
-        structurelle et non une coïncidence à surveiller. `mesuré` le
-        8 septembre 2026 : **124** fichiers suivis, dont **124** lisibles —
-        aucun angle mort, et le même ensemble exactement pour les deux
-        instruments. Répartition du même relevé : 53 `tests/`, 18 `src/`,
-        14 `documentation/`, 13 `runs/`, 12 à la racine, 9 `scripts/`,
-        4 `prompts/`, 1 `.github/`.
+        structurelle et non une coïncidence à surveiller.
 
-        **CE CHIFFRE ÉTAIT PÉRIMÉ D'UN — il portait 123 — et son garde ne le
-        voyait pas**, puisqu'il n'assertait que `>= 100`. C'est la famille de
-        défaut de ce fichier retournée contre lui : une mesure recopiée dans un
-        docstring, que rien ne force à rester vraie.
+        **CE QUE CETTE ASSERTION A ÉTÉ, ET LES DEUX FAÇONS DONT ELLE A MANQUÉ.**
+        Elle a d'abord porté un plancher `>= 100` et un compte recopié dans ce
+        docstring. Le compte recopié s'est périmé deux fois — 123 quand le dépôt
+        en portait 124, puis **124 dans le commit même qui ajoutait un
+        cent-vingt-cinquième fichier**, quatre lignes au-dessus du paragraphe
+        qui racontait la première péremption. Et le plancher, laissé à 100 quand
+        le dépôt en portait 125, ne bornait plus rien : `mesuré` le 9 septembre
+        2026, retirer du balayage le SEUL `src/agent/settings.py` — le fichier
+        dont l'idiome `Field(default=…)` porte le motif le plus neuf de ce lot —
+        laissait ce fichier de tests **`rc=0`, 20 passés**. *Un plancher qui ne
+        suit pas le dépôt n'est plus un plancher : c'est un souvenir.*
 
-        **DÉCISION : LE COMPTE EXACT N'EST PAS ASSERTÉ, ET LE MOTIF EST ÉCRIT.**
-        Un `== 124` rougirait à chaque fichier ajouté — l'événement le plus
-        banal de ce dépôt — et il enseignerait le geste « monter le chiffre »,
-        que ce fichier passe son temps à désapprendre ailleurs. Le rouge serait
-        de plus INUTILE : un fichier ajouté ne rétrécit aucun périmètre, et
-        c'est le rétrécissement qui est le risque.
+        **ET LE MOTIF QUI OPPOSAIT « compte exact » À « forme » ÉTAIT FAUX.** Il
+        portait que la forme est *« plus fort qu'un compte »*. C'est
+        mesurablement l'inverse : un compte exact rougit sur **tout**
+        rétrécissement, par construction. Il n'est pas plus faible — il est plus
+        **bruyant à la croissance**, ce qui est une autre critique.
 
-        **CE QUI EST ASSERTÉ À LA PLACE, ET C'EST PLUS FORT QU'UN COMPTE.** Le
-        défaut réel, celui qui est arrivé, était un balayage NARROW : il ne
-        regardait que `documentation/*.md` **non récursif** plus `README.md`, et
-        laissait dehors `src/`, `scripts/`, `tests/`, `.env.example` et
-        `documentation/audits/`. Un compte exact ne l'aurait pas vu — un
-        balayage narrow rend un compte, et il suffisait de l'écrire. Ce qui le
-        voit est la FORME du périmètre : chaque zone porteuse de risque y est
-        représentée, et la récursion y est éprouvée. Cette assertion ne rougit
-        jamais sur un ajout, ne se périme pas avec la croissance du dépôt, et
-        vise exactement la panne qui a eu lieu.
+        **CE QUI EST ASSERTÉ, ET C'EST UNE TROISIÈME FORME.** Un **plancher
+        MONOTONE dérivé du dernier relevé**, global et zone par zone. Il rougit
+        sur tout rétrécissement, comme un compte exact ; il ne rougit **jamais**
+        sur une croissance ; et le seul geste qu'il enseigne est de monter le
+        chiffre **dans la direction sûre**, quand on resserre volontairement.
+        Le relevé se remesure ainsi :
 
-        Le plancher est conservé pour le cas grossier — un `git ls-files` qui
-        rendrait presque rien — mais il ne porte plus la charge.
+            git ls-files -z | tr '\0' '\n' \
+              | awk -F/ 'NF>1{print $1} NF==1{print "(racine)"}' | sort | uniq -c
+
+        La ventilation par zone n'est pas décorative : le plancher global seul
+        est aveugle à un rétrécissement compensé par un ajout ailleurs, et
+        l'ajout est l'événement le plus banal de ce dépôt.
+
+        **REMESURE LE RELEVÉ JUSTE AVANT DE SCELLER TON DERNIER COMMIT**, pas au
+        moment où tu ouvres le lot : c'est très exactement la faute que ce
+        docstring vient de payer deux fois.
+
+        Sont conservées, parce qu'elles portent ce qu'un compte ne dit pas, les
+        deux assertions de forme qui visent la panne d'origine — un balayage
+        `documentation/*.md` **non récursif** : la récursion dans
+        `documentation/`, et `.env.example` nommément.
         """
         suivis = _fichiers_suivis()
         lisibles = [nom for nom in suivis if (_RACINE / nom).is_file()]
-        assert len(suivis) >= 100, len(suivis)
+
+        # LE PLANCHER MONOTONE. `mesuré` le 9 septembre 2026 par REPAR-7, sur
+        # l'arbre de ce commit. Au rouge, le geste est de REMESURER et d'écrire
+        # ce que la recette du docstring rend — jamais de baisser un chiffre
+        # pour faire passer un rétrécissement.
+        assert len(suivis) >= _PERIMETRE_TOTAL_RELEVE, (
+            f"le périmètre a RÉTRÉCI : {len(suivis)} fichiers suivis contre "
+            f"{_PERIMETRE_TOTAL_RELEVE} au dernier relevé. Les deux gardes de ce "
+            "fichier balaient moins qu'hier, et ce qui sort de leur portée n'est "
+            "gardé par rien. Remesure la recette du docstring : si le dépôt a "
+            "volontairement maigri, monte le relevé ; sinon, `_fichiers_suivis()` "
+            "est redevenu un balayage étroit"
+        )
+        par_zone = collections.Counter(
+            nom.split("/")[0] if "/" in nom else "(racine)" for nom in suivis
+        )
+        maigres = {
+            zone: (par_zone.get(zone, 0), plancher)
+            for zone, plancher in _PERIMETRE_PAR_ZONE_RELEVE.items()
+            if par_zone.get(zone, 0) < plancher
+        }
+        assert not maigres, (
+            f"des zones ont rétréci — {maigres} en (vu, relevé). Un plancher "
+            "global seul ne le verrait pas si un fichier était ajouté ailleurs, "
+            "et c'est le cas que ce garde existe pour attraper : retirer le seul "
+            "`src/agent/settings.py` du balayage laissait ce fichier VERT"
+        )
         assert lisibles == suivis, (
             "des chemins suivis ne sont pas des fichiers lisibles : les deux "
             f"gardes ne balaient plus le même ensemble — {set(suivis) - set(lisibles)}"
         )
 
-        # LA FORME DU PÉRIMÈTRE. Chaque zone d'où une instruction peut être
-        # copiée doit être représentée ; c'est ce qu'un balayage narrow perd, et
-        # un compte ne le dit pas.
-        zones = {nom.split("/")[0] if "/" in nom else "(racine)" for nom in suivis}
-        attendues = {
-            "src",
-            "tests",
-            "scripts",
-            "documentation",
-            "prompts",
-            "(racine)",
-        }
-        assert attendues <= zones, (
-            f"le périmètre ne couvre plus {attendues - zones} : `_fichiers_suivis()` "
-            "est redevenu un balayage étroit, et c'est EXACTEMENT le défaut que son "
-            "docstring raconte — un inventaire avec un angle mort autorise "
-            "n'importe quoi dans cet angle"
-        )
-        # ET LA RÉCURSION **DANS `documentation/`**, parce que le défaut d'origine
+        # L'ASSERTION « chaque zone est représentée » A ÉTÉ RETIRÉE ICI, et ce
+        # n'est pas un relâchement : les planchers par zone ci-dessus la
+        # contiennent strictement — un plancher de 1 sur une zone exige sa
+        # présence, et les huit planchers valent tous au moins 1. Deux
+        # instruments dont l'un est le sous-ensemble de l'autre donnent
+        # l'impression de deux mesures là où il n'y en a qu'une.
+        #
+        # Les DEUX assertions qui suivent, elles, ne se déduisent d'aucun
+        # compte, et elles visent la panne d'origine — un balayage
+        # `documentation/*.md` NON RÉCURSIF.
+
+        # LA RÉCURSION **DANS `documentation/`**, parce que le défaut d'origine
         # était `documentation/*.md` NON RÉCURSIF. Le sous-répertoire est nommé
         # explicitement, et voici pourquoi : une première version de cette
         # assertion demandait « un fichier suivi à deux niveaux de profondeur »,
