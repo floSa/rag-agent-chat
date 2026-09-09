@@ -267,12 +267,174 @@ def test_une_propriete_absente_ou_illisible_rend_none_sans_lever() -> None:
 
     Une exception ici casserait le CHARGEMENT du reranker, donc la recherche —
     un garde qui provoque la panne qu'il surveille. C'est le cas que
-    `_vocabulaire_du_reranker` absorbe, et l'absorption est bornée à
-    `TypeError`/`ValueError` : elle ne masque pas une panne d'une autre nature.
+    `_vocabulaire_du_reranker` absorbe.
+
+    **LA PHRASE QUI SUIVAIT ÉTAIT FAUSSE ET A ÉTÉ RETIRÉE LE 9 SEPTEMBRE 2026** :
+    elle disait l'absorption « bornée à `TypeError`/`ValueError`, elle ne masque
+    pas une panne d'une autre nature » — et ces trois scènes-là ne sont
+    justement PAS celles qui levaient. Les deux `object()` ci-dessous rendent
+    `None` par le `default` de `getattr`, jamais par l'`except`. La borne
+    étroite laissait donc propager tout ce qui LÈVE en lisant la propriété, et
+    c'est mesuré : voir
+    `TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche` juste dessous, où
+    les deux directions sont désormais gardées.
     """
     assert retriever._vocabulaire_du_reranker(object()) is None
     assert retriever._vocabulaire_du_reranker(_FauxCrossEncoder(object())) is None
     assert retriever._vocabulaire_du_reranker(_FauxCrossEncoder(_Config("ni un entier"))) is None
+
+
+class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
+    """LA SURFACE D'EXCEPTION DE LA LECTURE DÉFENSIVE, QUE RIEN NE GARDAIT.
+
+    **LE DÉFAUT, `mesuré` le 9 septembre 2026.** `_vocabulaire_du_reranker`
+    écrivait que son échec rend `None`, traité en `warning`, et qu'« une montée
+    de version rendrait ce garde bavard, pas muet ». L'`except` ne retenait que
+    `TypeError` et `ValueError`. Une sonde de dix lignes, sans charger de
+    modèle, a montré que la phrase ne tenait que pour l'attribut ABSENT : un
+    `config` qui est une `property` levant `RuntimeError`, `OSError`, `KeyError`
+    ou `ImportError` **propageait**.
+
+    **ET LA PROPAGATION N'ÉTAIT PAS BAVARDE, ELLE ÉTAIT MORTELLE.**
+    `_get_rerank_model()` est appelé par `rerank()`, que `node_rerank` appelle
+    sans aucun `try` : l'exception traversait tout et cassait la recherche. *Un
+    garde qui provoque la panne qu'il surveille* — ce que le docstring du test
+    voisin nomme lui-même sans l'avoir gardé.
+
+    **CE N'EST PAS THÉORIQUE.** En sentence-transformers 5.6.1 — la version
+    épinglée, `vérifié` le 9 septembre 2026 — `CrossEncoder.config` **est** une
+    `property`, chaînée sur une seconde (`transformers_model`) qui parcourt la
+    hiérarchie de modules du modèle. La version installée est sûre ; ce garde
+    existe pour celle qui vient.
+
+    **LES DEUX DIRECTIONS, et la seconde est celle qui rend l'élargissement
+    tenable** : ce qui doit être absorbé l'est, et ce qui doit traverser
+    traverse — `KeyboardInterrupt` et `SystemExit` en tête. Un `except` qui
+    avale tout est aussi inutile qu'un `except` qui n'avale rien.
+    """
+
+    class _ConfigQuiLeve:
+        """Un `config` qui est une `property` levant — la forme réelle de 5.6.1."""
+
+        def __init__(self, nature: type[BaseException]) -> None:
+            self._nature = nature
+
+        @property
+        def config(self) -> object:
+            raise self._nature("la bibliothèque a changé sous nous")
+
+    # LES SIX NATURES PLAUSIBLES, et la liste est raisonnée plutôt que
+    # inventée. `AttributeError` : l'attribut déplacé, le cas nominal d'une
+    # montée de version. `RuntimeError` : un modèle mal initialisé, ce que lève
+    # `transformers` quand un module attendu manque. `OSError` : une lecture de
+    # `config.json` faite paresseusement par la property. `KeyError` : une clé
+    # absente d'un dictionnaire de configuration. `ImportError` : un backend
+    # optionnel (`optimum-onnx`, `optimum-intel`) que la chaîne de property
+    # touche. `NotImplementedError` : une property qui refuse le cas.
+    #
+    # Les quatre du milieu PROPAGEAIENT avant le 9 septembre 2026 ; les deux
+    # autres étaient déjà absorbées, l'une par le `default` de `getattr`,
+    # l'autre par l'`except` étroit.
+    _NATURES = (
+        AttributeError,
+        RuntimeError,
+        OSError,
+        KeyError,
+        ImportError,
+        NotImplementedError,
+    )
+
+    def test_aucune_des_six_natures_ne_traverse_la_lecture(self) -> None:
+        """LA PREUVE D'ATTEINTE EST DANS LE MESSAGE : chaque nature est nommée.
+
+        Un test qui se contenterait d'un `is None` global ne dirait pas
+        LAQUELLE des six est retombée à travers. Chacune est donc sondée
+        séparément, et l'échec la nomme.
+        """
+        for nature in self._NATURES:
+            modele = self._ConfigQuiLeve(nature)
+            # Preuve que la sonde ATTEINT son cas : la property lève bien.
+            leve = False
+            try:
+                _ = modele.config
+            except nature:
+                leve = True
+            assert leve, (
+                f"la sonde n'atteint pas son cas pour {nature.__name__} : la "
+                "property ne lève pas, donc ce tour de boucle ne mesure rien"
+            )
+
+            assert retriever._vocabulaire_du_reranker(modele) is None, (
+                f"{nature.__name__} traverse la lecture défensive du vocabulaire. "
+                "`_get_rerank_model()` est appelé par `rerank()` sans aucun `try` : "
+                "cette exception ne rend pas le garde bavard, elle casse la "
+                "recherche — un garde qui provoque la panne qu'il surveille"
+            )
+
+    def test_une_property_qui_leve_sur_vocab_size_est_absorbee_aussi(self) -> None:
+        """Le SECOND maillon de la chaîne, et il n'était pas gardé non plus.
+
+        `config` peut être lisible et `vocab_size` lever : c'est exactement la
+        forme de 5.6.1, où `config` délègue à un `PretrainedConfig` dont les
+        attributs sont eux-mêmes calculés.
+        """
+
+        class _VocabQuiLeve:
+            @property
+            def vocab_size(self) -> int:
+                raise RuntimeError("attribut calculé, et le calcul a échoué")
+
+        modele = _FauxCrossEncoder(_VocabQuiLeve())
+        leve = False
+        try:
+            _ = modele.config.vocab_size
+        except RuntimeError:
+            leve = True
+        assert leve, "la sonde n'atteint pas son cas : `vocab_size` ne lève pas"
+
+        assert retriever._vocabulaire_du_reranker(modele) is None
+
+    def test_l_interruption_et_la_sortie_traversent_toujours(self) -> None:
+        """LE SENS DANGEREUX DE L'ÉLARGISSEMENT, ET C'EST SA BORNE.
+
+        `except Exception` et non `except BaseException` : un
+        `KeyboardInterrupt` ou un `SystemExit` doit traverser cette lecture
+        comme il traverse le reste du programme. Un `except` qui avale tout
+        rendrait ce garde impossible à interrompre — et il serait alors aussi
+        inutile que l'`except` étroit qu'il remplace, dans l'autre sens.
+        """
+        for nature in (KeyboardInterrupt, SystemExit):
+            modele = self._ConfigQuiLeve(nature)
+            try:
+                retriever._vocabulaire_du_reranker(modele)
+            except nature:
+                continue
+            raise AssertionError(
+                f"{nature.__name__} est désormais AVALÉ par la lecture défensive : "
+                "l'`except Exception` est devenu un `except BaseException`, et ce "
+                "garde n'est plus interruptible"
+            )
+
+    def test_le_verdict_reste_un_avertissement_et_non_un_silence(self) -> None:
+        """L'ABSORPTION NE DOIT PAS DEVENIR UN SILENCE, et c'est le point.
+
+        Élargir l'`except` sans cette assertion échangerait une panne bruyante
+        contre un garde muet — le troc que `verdict_langue_du_reranker` refuse
+        explicitement. Le `None` rendu par l'absorption doit produire un
+        `warning`, pas un `None` de verdict.
+        """
+        modele = self._ConfigQuiLeve(RuntimeError)
+        vocabulaire = retriever._vocabulaire_du_reranker(modele)
+        assert vocabulaire is None
+
+        verdict = retriever.verdict_langue_du_reranker("un/modele-hors-registre", vocabulaire)
+        assert verdict is not None, (
+            "une propriété illisible ne dit plus rien : l'absorption est devenue "
+            "un silence, ce qui est le seul choix interdit ici"
+        )
+        niveau, message = verdict
+        assert niveau == "warning", f"niveau attendu 'warning', obtenu {niveau!r}"
+        assert "vocabulaire" in message
 
 
 def test_le_chargement_du_reranker_journalise_le_verdict(monkeypatch, caplog) -> None:

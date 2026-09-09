@@ -319,7 +319,29 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 #   `NOM: str = Field(default="valeur")` — sur une ligne ou deux,
 #   `os.environ["NOM"] = "valeur"`,
 #   `setenv`/`putenv`/`setdefault("NOM", "valeur")`,
-#   `ENV NOM valeur` (forme espacée, héritée).
+#   `ENV NOM valeur` (forme espacée, héritée),
+#   `setattr(<objet>, "NOM", "valeur")` — l'affectation par RÉFLEXION, ajoutée
+#     le 9 septembre 2026, et c'est l'idiome le plus répandu de ce dépôt : **47**
+#     occurrences suivies dans **7** fichiers, dont **27** sur le réglage
+#     d'embedding (`mesuré` ce jour-là),
+#   `environ.get("NOM", "valeur")` / `getenv("NOM", "valeur")` — ajoutée le même
+#     jour, et c'est le DÉFAUT qui affecte : quand la variable est absente, c'est
+#     cette valeur qui décide du réglage.
+#
+# CES DEUX FORMES-LÀ SONT VERTES SUR TOUT LE DÉPÔT, ET C'EST POURQUOI LEUR
+# MORDANT EST PROUVÉ AILLEURS. Aucun des 47 sites de `setattr` ne passe de
+# littéral — ils nomment tous une constante (`mesuré` le 9 septembre 2026 :
+# `git grep -E 'setattr\(\s*settings\s*,\s*"[a-z_]*model[a-z_]*"\s*,\s*"'`
+# ne rend AUCUN résultat) — et aucun des 6 `environ.get` ne porte de modèle. Un
+# motif vert partout ne se distingue pas d'un motif qui ne garde rien : le
+# mordant de ces deux formes est donc établi sur des cas CONSTRUITS à
+# l'exécution par `test_les_formes_reflexives_le_font_rougir`, où le littéral
+# n'apparaît dans aucun fichier du dépôt.
+#
+# **ET L'OBSTACLE QUI AVAIT FAIT DIFFÉRER CETTE FERMETURE N'EXISTAIT PAS.** Il
+# était écrit que fermer `setattr` ferait rougir un site légitime ; la mesure
+# ci-dessus dit le contraire, et le dépôt est resté vert à l'ajout. C'est la
+# septième fois que ce chantier mesure faux un antécédent qu'il avait recopié.
 #
 # NON ATTRAPÉES, ET LA LISTE EST AUSSI UTILE QUE L'AUTRE :
 #
@@ -351,7 +373,16 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 # - une valeur entre ACCENTS GRAVES. Ce n'est pas un trou, c'est la propriété
 #   qui rend la règle de maintenance tenable — voir le paragraphe ci-dessus ;
 # - la MENTION du nom hors de toute affectation, qui est le métier de l'autre
-#   instrument, le fil d'occurrences.
+#   instrument, le fil d'occurrences ;
+# - **le RERANKER.** Tous les motifs ci-dessus sont construits sur les noms du
+#   réglage d'EMBEDDING, lus dans `settings.py` par
+#   `_noms_du_reglage_d_embedding()`. Un modèle non conforme planté sous
+#   `rerank_model` n'est donc attrapé par AUCUN d'eux. Ce n'est pas un oubli :
+#   c'est consigné au §4.32 du registre, et le motif est mesuré — les
+#   vocabulaires multilingue et anglais se chevauchent, donc on ne peut pas
+#   décider d'un reranker sur son NOM. Le garde du reranker vit ailleurs, dans
+#   `src/agent/retriever.py`, il SIGNALE au lieu de refuser, et il regarde le
+#   vocabulaire du modèle chargé — pas son nom.
 #
 # CE QUE « AUCUNE EXEMPTION » VEUT DIRE, PARCE QUE LA PHRASE A ÉTÉ LUE POUR PLUS
 # QU'ELLE NE DIT. Elle porte sur l'absence de LISTE D'AUTORISATION — il n'y a
@@ -451,6 +482,54 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
                 re.compile(
                     rf'(?:setenv|putenv|setdefault)\s*\(\s*["\']{n}["\']\s*,'
                     rf'\s*["\']{valeur}'
+                ),
+                # `setattr(<objet>, "NOM", "valeur")` — L'AFFECTATION PAR
+                # RÉFLEXION, ET C'EST L'IDIOME LE PLUS RÉPANDU DE CE DÉPÔT.
+                # `mesuré` le 9 septembre 2026 sur les fichiers suivis : **47**
+                # occurrences dans **7** fichiers, dont **27** sur le réglage
+                # d'embedding lui-même. La forme est donc RELEVÉE et non
+                # inventée — c'est la façon dont ce dépôt plante réellement un
+                # réglage, et un modèle non conforme posé par là ne laisse aucune
+                # trace ni dans `.env` ni dans `settings.py`.
+                #
+                # ET AUCUN DE CES 47 SITES NE PORTE DE LITTÉRAL : `mesuré` le
+                # même jour, les 27 du réglage d'embedding passent tous une
+                # CONSTANTE NOMMÉE. Ce motif est donc vert sur tout le dépôt, et
+                # un motif vert partout ne se distingue pas d'un motif qui ne
+                # garde rien : son mordant est prouvé sur un cas CONSTRUIT par
+                # `test_les_formes_reflexives_le_font_rougir`, où le littéral est
+                # assemblé à l'exécution et n'apparaît dans aucun fichier.
+                #
+                # Le motif ne nomme pas `settings` : n'importe quel objet recevant
+                # le nom du réglage et un littéral est la même instruction, et
+                # `monkeypatch.setattr` est déjà l'enveloppe dominante ici.
+                #
+                # `[^)]` ADMET LE RETOUR À LA LIGNE, et c'est mesuré, pas laissé
+                # passer : la forme réelle de ce dépôt est SOUVENT sur plusieurs
+                # lignes — `git grep -E 'setattr\s*\($'` rend des dizaines de
+                # sites, `mesuré` le 9 septembre 2026 — donc un motif à une seule
+                # ligne manquerait l'idiome. Ce que cette permission ouvre est
+                # borné : il faut que le NOM du réglage ET la valeur soient tous
+                # deux entre guillemets et séparés d'une seule virgule, ce qui est
+                # déjà un fragment copiable où qu'il se trouve. `vérifié` dans les
+                # deux sens par le test cité ci-dessus.
+                re.compile(rf'setattr\s*\([^)]{{0,80}}?["\']{n}["\']\s*,\s*["\']{valeur}'),
+                # `os.environ.get("NOM", "valeur")` / `os.getenv("NOM", "valeur")`
+                # — ET C'EST LE DÉFAUT QUI EST L'AFFECTATION, pas la lecture. Sur
+                # un poste où la variable est absente — le cas ordinaire d'une
+                # installation neuve — c'est cette valeur-là qui décide du
+                # réglage, et elle se recopie telle quelle. La forme est relevée :
+                # `mesuré` le 9 septembre 2026, ce dépôt lit par là en **6** sites
+                # suivis — `scripts/mesurer_le_graphe.py` (2),
+                # `scripts/verifier_les_ancrages.py` (1), `src/frontend/app.py`
+                # (1) et `tests/integration/test_stack.py` (2) — tous sur
+                # d'autres réglages, aucun sur un modèle.
+                #
+                # Le motif exige la virgule ET les deux guillemets : un
+                # `os.environ.get("NOM")` sans défaut ne décide de rien et reste
+                # vert, et la forme ne peut pas rougir au milieu d'une phrase.
+                re.compile(
+                    rf'(?:environ\.get|getenv)\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}'
                 ),
                 # `ENV NOM valeur`, la forme HÉRITÉE de Dockerfile, sans `=`.
                 # Ancrée en début de ligne, parce que c'est là que vit une
@@ -726,6 +805,156 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
             "la même phrase entre accents graves est désormais attrapée : le "
             "garde s'est mis à rougir sur de la mise en page Markdown, et c'est "
             "le sens dangereux de l'élargissement"
+        )
+
+    def test_les_formes_reflexives_le_font_rougir(self) -> None:
+        """LES DEUX FORMES AJOUTÉES LE 9 SEPTEMBRE 2026, ET LEUR PARTICULARITÉ.
+
+        `setattr(<objet>, "NOM", "valeur")` et `environ.get("NOM", "valeur")`.
+        Les deux échappaient, et les deux sont des idiomes RÉELS de ce dépôt —
+        **47** `setattr` suivis dans **7** fichiers dont **27** sur le réglage
+        d'embedding, **6** lectures par `environ.get`/`getenv` (`mesuré` le
+        9 septembre 2026).
+
+        **CE QUI REND CES DEUX MOTIFS DIFFÉRENTS DES SEPT AUTRES : AUCUN SITE DU
+        DÉPÔT NE LES FAIT ROUGIR, ET AUCUN NE LE FERA.** Les 47 `setattr`
+        passent tous une constante nommée, jamais un littéral ; les 6
+        `environ.get` visent d'autres réglages. Un motif vert sur tout le dépôt
+        ne se distingue pas d'un motif qui ne garde rien — c'est la famille de
+        défaut dominante de ce chantier — donc leur mordant se prouve ICI, et
+        nulle part ailleurs.
+
+        LE LITTÉRAL N'APPARAÎT DANS AUCUN FICHIER. Le nom du modèle vient de
+        `_MODELE_ANGLAIS`, les noms du réglage de `settings.py`, et les
+        fragments sont assemblés à l'exécution : le dépôt est public, et prouver
+        qu'un garde attrape une instruction copiable ne justifie pas d'en écrire
+        une. Chaque échec NOMME le fragment qui a échappé, sans quoi un rouge ne
+        dirait pas laquelle des formes est perdue.
+        """
+        alias = self._NOMS[1]
+        champ = self._NOMS[0]
+        formes = (
+            # L'enveloppe dominante de ce dépôt, sur le champ puis sur l'alias.
+            f'monkeypatch.setattr(settings, "{champ}", "{_MODELE_ANGLAIS}")',
+            f"monkeypatch.setattr(settings, '{alias}', '{_MODELE_ANGLAIS}')",
+            # `setattr` nu, et sur un objet qui n'est pas nommé `settings` : le
+            # motif vise le NOM DU RÉGLAGE, pas le nom de la variable qui le
+            # porte. Un `reglages` importé sous un autre alias est le même geste.
+            f'setattr(reglages, "{champ}", "{_MODELE_ANGLAIS}")',
+            # LA FORME MULTI-LIGNES, et c'est celle qui décide de `[^)]` : ce
+            # dépôt écrit RÉELLEMENT ses `setattr` sur plusieurs lignes en
+            # dizaines de sites. Un motif à une seule ligne manquerait l'idiome.
+            f'    monkeypatch.setattr(\n        settings,\n        "{champ}",'
+            f'\n        "{_MODELE_ANGLAIS}",\n    )',
+            # Le DÉFAUT d'une lecture d'environnement : sur un poste où la
+            # variable est absente, c'est cette valeur qui décide du réglage.
+            f'os.environ.get("{alias}", "{_MODELE_ANGLAIS}")',
+            f'os.getenv("{alias}", "{_MODELE_ANGLAIS}")',
+            f"os.environ.get('{champ}', '{_MODELE_ANGLAIS}')",
+            # Sans `os.` devant : l'idiome `from os import environ, getenv` est
+            # le même geste, et le motif ne nomme pas le module.
+            f'environ.get("{alias}", "{_MODELE_ANGLAIS}")',
+        )
+        for forme in formes:
+            assert self._affectations(forme), (
+                f"forme réflexive non attrapée : {forme!r} — c'est l'une des deux "
+                "formes ajoutées le 9 septembre 2026, et le dépôt ne porte aucun "
+                "site qui la ferait rougir : si ce test tombe, plus rien au monde "
+                "ne signale sa perte"
+            )
+
+    def test_le_recit_des_formes_reflexives_reste_vert(self) -> None:
+        """LA SECONDE DIRECTION DES DEUX FORMES DU 9 SEPTEMBRE 2026.
+
+        Ces phrases sont celles qu'un rapport de lot écrit forcément pour
+        raconter cette fermeture — y compris celui-ci, qui parle d'affectations
+        sur plusieurs pages. Aucune ne pose le NOM du réglage à côté de sa
+        VALEUR entre guillemets : c'est cette juxtaposition qui fait
+        l'instruction, et rien d'autre.
+
+        **LE CAS LE PLUS SERRÉ EST LE DERNIER**, et il est là parce que le motif
+        `setattr` admet le retour à la ligne : un document qui nomme la forme
+        puis, des lignes plus loin, cite le nom du modèle ne doit pas rougir.
+        """
+        alias = self._NOMS[1]
+        champ = self._NOMS[0]
+        recits = (
+            f"un `setattr` du réglage posé sur `{_MODELE_ANGLAIS}` échappait",
+            f"le `setattr(settings, …)` qui plante `{_MODELE_ANGLAIS}` n'était pas vu",
+            f"| `setattr(<objet>, …)` | `{_MODELE_ANGLAIS}` | **NON vue** |",
+            f"les 47 sites de setattr, dont 27 sur {alias}, aucun sur {_MODELE_ANGLAIS}",
+            f"un `environ.get` dont le défaut vaut `{_MODELE_ANGLAIS}` décide du réglage",
+            f"`os.getenv` sur {champ}, défaut {_MODELE_ANGLAIS}, sans guillemets",
+            f"`os.environ.get(\"{alias}\")` sans défaut ne décide de rien, et "
+            f"{_MODELE_ANGLAIS} reste hors de l'appel",
+            # LE CAS SERRÉ : la forme nommée, puis la valeur DES LIGNES PLUS
+            # LOIN. Le motif `setattr` traverse les retours à la ligne — c'est
+            # nécessaire pour l'idiome multi-lignes du dépôt — donc cette scène
+            # est exactement celle que la permission ouvre, et elle doit rester
+            # verte.
+            f'la forme `setattr(` a été ajoutée au garde le 9 septembre.\n\n'
+            f"Le modèle qu'elle vise est `{_MODELE_ANGLAIS}`, et il n'est",
+        )
+        for recit in recits:
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r} — l'ajout des deux formes "
+                "réflexives vient de reconstruire l'inventaire d'occurrences "
+                "sous un autre nom"
+            )
+
+    def test_les_formes_reflexives_ne_rougissent_sur_aucun_site_du_depot(self) -> None:
+        """LA MESURE QUI A FAIT TOMBER L'OBSTACLE, ET ELLE EST DÉSORMAIS GARDÉE.
+
+        Fermer `setattr` avait été différé sur l'affirmation qu'un site légitime
+        rougirait. `mesuré` le 9 septembre 2026 : les 47 sites suivis passent
+        tous une CONSTANTE NOMMÉE, jamais un littéral — l'obstacle n'existait
+        pas. Ce test tient les deux moitiés de ce fait, et il est le seul endroit
+        où la première se relit.
+
+        Il n'asserte PAS un compte : un compte de `setattr` monte à chaque test
+        ajouté, et un garde qui rougit sur l'événement normal enseigne le geste
+        « monter le chiffre » — la leçon du §4.35. Il asserte que la forme est
+        VIVANTE dans le dépôt (plancher), et qu'aucun de ses sites ne porte de
+        littéral (zéro exact, car c'est une propriété, pas un volume).
+        """
+        motifs_reflexifs = tuple(
+            motif
+            for motif in _motifs_d_affectation(_MODELE_ANGLAIS, self._NOMS)
+            if "setattr" in motif.pattern or "environ" in motif.pattern
+        )
+        assert len(motifs_reflexifs) == 4, (
+            "les deux formes réflexives ne sont plus au nombre attendu de motifs "
+            f"(2 formes x 2 noms) : {[m.pattern for m in motifs_reflexifs]}"
+        )
+
+        vivants = 0
+        rougis: dict[str, list[str]] = {}
+        for relatif in _fichiers_suivis():
+            chemin = _RACINE / relatif
+            if not chemin.is_file():
+                continue
+            texte = chemin.read_text(encoding="utf-8", errors="ignore")
+            vivants += texte.count("setattr(")
+            fragments = [
+                trouve.group(0) for motif in motifs_reflexifs for trouve in motif.finditer(texte)
+            ]
+            if fragments:
+                rougis[relatif] = fragments
+
+        assert not rougis, (
+            f"un site du dépôt porte désormais une affectation réflexive : {rougis}. "
+            "Corrige par PÉRIPHRASE — passe une constante nommée au lieu du "
+            "littéral, comme le font les 47 sites relevés le 9 septembre 2026"
+        )
+        # UN PLANCHER, PAS UN COMPTE. Relevé à 373 le 9 septembre 2026 sur
+        # `git grep -o 'setattr(' | wc -l`. Il ne descend pas : si la forme
+        # disparaissait du dépôt, les deux motifs ci-dessus deviendraient
+        # spéculatifs, et la règle de ce fichier les retirerait.
+        assert vivants >= 300, (
+            f"la forme `setattr(` n'est plus vivante dans ce dépôt que {vivants} fois, "
+            "sous le plancher de 300 relevé le 9 septembre 2026 : les deux motifs "
+            "réflexifs deviennent spéculatifs, et un garde spéculatif est le troc "
+            "que ce fichier refuse — remesure et décide, ne baisse pas le plancher"
         )
 
     def test_un_recit_qui_nomme_le_modele_le_laisse_vert(self) -> None:

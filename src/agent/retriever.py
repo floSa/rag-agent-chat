@@ -232,11 +232,53 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
     `verdict_langue_du_reranker` traite comme un `warning`, jamais comme un
     silence. Une montée de version qui déplacerait l'attribut rendrait ce garde
     bavard, pas muet, et c'est le bon sens de l'erreur.
+
+    **CETTE DERNIÈRE PHRASE ÉTAIT FAUSSE, ET C'EST LA CORRECTION DU 9 SEPTEMBRE
+    2026.** Elle affirmait « bavard, pas muet » sans borner ce qu'elle appelait
+    un échec, et l'`except` ne retenait que `TypeError` et `ValueError`.
+    `mesuré` ce jour-là par une sonde de dix lignes, sans charger de modèle :
+
+    - un objet SANS `config` rend bien `None` — `getattr` avale l'`AttributeError` ;
+    - un `config` qui est une **`property` levant `RuntimeError`** — ou `OSError`,
+      `KeyError`, `ImportError` — **PROPAGEAIT**. Quatre natures sur les sept
+      sondées, et non une.
+
+    Et `_get_rerank_model()` est appelé par `rerank()`, que `node_rerank`
+    appelle sans aucun `try` : la propagation ne rendait donc pas ce garde
+    bavard, elle CASSAIT la recherche. *Un garde qui provoque la panne qu'il
+    surveille*, et ce n'était pas théorique — en sentence-transformers 5.6.1
+    `CrossEncoder.config` **est** une `property`, chaînée sur une seconde
+    (`transformers_model`), donc n'importe quoi qui lève dans la hiérarchie de
+    modules du modèle traverse cette lecture.
+
+    **POURQUOI L'`except` EST ÉLARGI À `Exception`, ET C'EST UNE JUSTIFICATION
+    ÉCRITE AU SITE — la règle de ce dépôt l'exige.** Les trois autres réponses
+    ont été pesées et écartées :
+
+    - *borner la phrase et laisser l'`except` étroit* : la phrase serait juste
+      et la panne resterait. La version installée est mesurée et sûre, mais ce
+      garde existe précisément pour la montée de version, c'est-à-dire pour le
+      cas qu'il ne survivrait pas ;
+    - *énumérer les quatre natures mesurées* : une liste fermée sur ce qu'une
+      sonde a trouvé aujourd'hui dans une bibliothèque tierce est une liste qui
+      vieillit en silence — la cinquième nature ne rendrait pas ce garde bavard,
+      elle casserait la recherche, et rien ne le dirait ;
+    - *envelopper l'appel de `rerank()`* : ce serait déplacer la latitude d'une
+      lecture de propriété vers tout le chargement du modèle, et avaler du même
+      geste les pannes que `rerank()` DOIT propager (modèle absent, poids
+      illisibles).
+
+    La latitude est donc tenue au plus petit endroit possible : **deux `getattr`
+    et un `int()`**, sur un fait de configuration purement informatif, dont
+    l'échec a une valeur de repli déjà définie et déjà bruyante. `BaseException`
+    n'est PAS attrapé : un `KeyboardInterrupt` ou un `SystemExit` doit traverser
+    cette lecture comme il traverse le reste. Les deux directions sont gardées
+    par `TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche`.
     """
     try:
         taille = getattr(getattr(model, "config", None), "vocab_size", None)
         return int(taille) if taille is not None else None
-    except (TypeError, ValueError):
+    except Exception:  # justifié dans le docstring ci-dessus — voir §4.36
         return None
 
 
