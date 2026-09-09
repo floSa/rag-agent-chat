@@ -5313,3 +5313,233 @@ antécédent du dépôt — ou d'un rapport — sans le mesurer est la même fau
 l'inventer. Cette fois c'est le pilote, dans la section qu'il venait d'écrire, et
 il s'est arrêté au moment de la republier. *La règle qui a fonctionné est
 exactement celle du §12 : remesurer juste avant de sceller le prompt.*
+
+### 4.36 → FERMÉ — le lot 7 : les deux formes réflexives, le garde de numérotation, et le `pre-push` qui manquait
+
+> Livré le **9 septembre 2026** sur `claude/lot-7-rag-agent-chat-425c4e`, sur
+> `main` = `origin/main` = **`d56ffab`**. Porte **VERTE** : `make lint` `rc=0`,
+> `make test` `rc=0`, **682 passés** sur **43** fichiers (+35 sur les 647 du
+> cadrage), par la recette du site — `pytest tests/unit/`. **Rien de poussé.**
+> **Trois fermetures indépendantes, les trois portées**, en trois commits
+> séparés — plus un quatrième, qui ferme un faux résultat que le lot a trouvé
+> contre lui-même.
+
+#### Ce que valent les chiffres du cadrage, et ils sont justes à une exception
+
+Le cadrage a été remesuré avant d'être suivi. **`main` = `origin/main` =
+`d56ffab`, avance `0 0`**, porte verte à **647 passés** sur **42** fichiers :
+tout vérifié. Les cinq lignes mesurées de la fermeture (a) : **47** `setattr`
+suivis dans **7** fichiers, **27** sur le réglage d'embedding, et **l'obstacle
+qui n'existe pas** — vérifié, le motif du cadrage ne rend aucun résultat. Les
+deux ordres de numérotation : vérifiés, jetons par jetons.
+
+**Une correction, et deux précisions.**
+
+- **la seconde collision de numérotation N'EST PAS DANS `git`.** Le cadrage
+  l'annonçait « à `a92e78a` ». `mesuré` : cette révision porte **une seule**
+  section de ce numéro, et sa suite `4.1 … 4.35` est complète, ordonnée et sans
+  doublon. Le balayage de **toute** l'histoire — `git rev-list --all`, chaque
+  révision du registre — ne trouve **aucune** révision portant un doublon de
+  titre. La collision a bien eu lieu, mais elle a été attrapée **avant le
+  commit** par l'`assert` d'ancre unique d'un script d'édition, ce que le
+  cadrage écrit lui-même deux paragraphes plus loin. La preuve d'atteinte de
+  cette règle est donc **construite sur le document réel**, et le fait que
+  l'histoire est propre est lui-même asserté — pour que personne ne reparte la
+  chercher ;
+- **la mutation `M3bis` du lot 6, que le cadrage donnait à lire, n'existe pas
+  dans ce dépôt.** `git grep`, `git log -S`, `git log --grep` : aucun résultat,
+  ni dans les fichiers suivis, ni dans l'histoire, ni dans les messages. Les
+  rapports de lot vivent dans les conversations, `documentation/audits/` ne
+  portant que celui du lot 1. Le **mécanisme** décrit, lui, est bien dans le
+  dépôt — `test_les_formes_qui_echappaient_au_garde_le_font_rougir` plante ses
+  formes par `f`-chaîne — et c'est lui qui a été suivi ;
+- **il y a un `environ.get` suivi de plus que les cinq annoncés** :
+  `scripts/verifier_les_ancrages.py:355`, qui lie la fonction sans clé
+  (`env = os.environ.get`). Six sites, donc, et c'est le chiffre écrit au site
+  du garde. Sans conséquence sur la fermeture : aucun des six ne porte de modèle.
+
+À quoi s'ajoutent **cinq** mentions de `setattr(settings, …)` dans les deux
+documents de pilotage, hors des 47 sites de code — de la prose, que le cadrage
+excluait à juste titre de son périmètre.
+
+#### (a) Les deux formes copiables qui échappaient, et le garde vert de naissance
+
+`setattr(<objet>, "NOM", "valeur")` et `environ.get("NOM", "valeur")` /
+`getenv(…)` sont ajoutées au garde de sûreté. Les deux sont des idiomes réels :
+la première est **la plus répandue de ce dépôt**, la seconde affecte **par son
+défaut** — sur un poste où la variable est absente, c'est cette valeur qui
+décide du réglage.
+
+**LA PARTICULARITÉ DE CES DEUX MOTIFS, ET ELLE EST LE TRAVAIL.** Aucun site du
+dépôt ne les fait rougir, et aucun ne le fera : les 47 passent tous une
+**constante nommée**. Un motif vert sur tout le dépôt ne se distingue pas d'un
+motif qui ne garde rien — la famille de défaut dominante de ce chantier. Leur
+mordant est donc établi sur **huit cas construits à l'exécution**, où le littéral
+n'apparaît dans aucun fichier, et la seconde direction sur **neuf récits**.
+
+**ET LE LOT A TROUVÉ SA PROPRE SECONDE DIRECTION DÉCORATIVE.** La mutation M-a4
+— guillemets rendus **facultatifs** dans le motif `setattr` — laissait la
+batterie **entièrement verte** (`rc=0`, 25 tests). Les cinq premiers récits ne
+mettaient jamais le nom du réglage à côté de sa valeur : aucun ne mesurait donc
+l'exigence des guillemets, qui est précisément ce qui empêche ce motif de rougir
+au milieu d'une phrase. Trois récits ont été ajoutés — **l'appel paraphrasé**,
+nom et valeur nus entre les parenthèses — et M-a4 rejouée rougit en nommant la
+phrase.
+
+`[^)]` **admet le retour à la ligne, et c'est mesuré** : la forme réelle de ce
+dépôt est souvent multi-lignes, donc un motif à une ligne manquerait l'idiome.
+Ce que la permission ouvre est borné, et le cas serré — la forme nommée puis la
+valeur des lignes plus loin — est gardé.
+
+La borne de couverture est reprise **forme par forme**, et ce qui reste non
+attrapé est nommé, **le reranker en tête** : tous les motifs sont construits sur
+les noms du réglage d'embedding, donc un reranker non conforme n'est attrapé par
+aucun. C'est le §4.32, et ce lot n'y a pas touché.
+
+#### (a bis) La lecture défensive du vocabulaire, qui cassait la recherche
+
+Le site écrivait qu'une montée de version rendrait ce garde *« bavard, pas
+muet »*. **La phrase était fausse, et pas d'un cas mais de quatre.** `mesuré`
+sans charger de modèle, sur sept natures d'exception : un objet sans `config`
+rend bien `None`, mais un `config` qui est une **`property` levant
+`RuntimeError`, `OSError`, `KeyError` ou `ImportError` PROPAGEAIT** — l'`except`
+ne retenait que `TypeError` et `ValueError`, et `AttributeError` était avalée par
+le `default` de `getattr`, non par l'`except`.
+
+Et `_get_rerank_model()` est appelé par `rerank()`, que `node_rerank` appelle
+**sans aucun `try`** : la propagation ne rendait pas le garde bavard, elle
+**cassait la recherche**. *Un garde qui provoque la panne qu'il surveille*, ce
+que le docstring de son propre test nomme sans l'avoir gardé. Ce n'est pas
+théorique : en sentence-transformers 5.6.1 — la version épinglée, `vérifié` —
+`CrossEncoder.config` **est** une `property`, chaînée sur une seconde
+(`transformers_model`) qui parcourt la hiérarchie de modules du modèle.
+
+**L'`except` est élargi à `Exception`, la justification est écrite au site**, et
+les trois autres réponses y sont pesées et écartées — borner la phrase laisserait
+la panne ; énumérer les quatre natures mesurées est une liste fermée sur ce
+qu'une sonde a trouvé aujourd'hui dans une bibliothèque tierce ; envelopper
+`rerank()` avalerait les pannes qu'il doit propager. La latitude est tenue au
+plus petit endroit possible : deux `getattr` et un `int()`, sur un fait de
+configuration informatif dont l'échec a une valeur de repli déjà bruyante.
+
+**`BaseException` n'est PAS attrapé**, et c'est gardé : `KeyboardInterrupt` et
+`SystemExit` traversent. **Et l'absorption ne doit pas devenir un silence** :
+gardé aussi. Deux phrases devenues fausses ont été retirées.
+
+#### (b) Le garde de numérotation, et l'asymétrie qui décide de tout
+
+Quatre règles sur des fonctions **pures** : aucun doublon, aucun trou,
+« prochain numéro libre » = maximum + 1, et la forme `bis` tolérée sans que sa
+tolérance ouvre une porte — le jeton comparé est le jeton **complet**, donc deux
+`20-bis` restent un doublon, et un `bis` sans base est un numéro inventé.
+
+**LES DEUX ORDRES ONT ÉTÉ MESURÉS AVANT QU'UNE SEULE ASSERTION NE SOIT ÉCRITE.**
+Le journal est **chronologique** — `20-bis` est délibéré entre `26` et `27` —
+donc asserter l'ordre du fichier sur lui produirait un **faux rouge sur une
+ligne juste** ; le registre est **numérique**, et c'est son désordre né d'une
+fusion sans conflit qui a été corrigé. Un test **mesure** cette asymétrie au lieu
+de l'affirmer, et nomme le couple qui descend, pour qu'un lot suivant ne vienne
+pas « harmoniser » les deux règles.
+
+**LE SCOPE EST LA MOITIÉ DU TRAVAIL, et c'est mesuré.**
+`pilotage_du_chantier.md` porte **deux autres tableaux** dont la première
+colonne est un numéro en gras : un extracteur global lirait
+`1 2 3 4 5 1 2 3 4 5 6 7 20 21 …`, soit onze doublons et un trou de 7 à 20 sur
+un document parfaitement sain — le garde rougirait au premier `make test` et
+serait retiré. Le fichier porte aussi **deux** lignes « prochain numéro libre »,
+dont une, au §12, qui **raconte** la faute.
+
+**CE GARDE NE COMPTE RIEN**, et c'est la leçon du §4.35 : l'ajout d'une ligne est
+l'événement normal, et un garde qui rougirait dessus enseignerait le geste
+« monter le chiffre ».
+
+**La preuve d'atteinte est dans `git` et elle est datée.** À `2bb511c`, trois
+dérives réelles : le doublon `38`, le « prochain libre : 41 » pour un maximum de
+**39** — celle-là n'était pas au cadrage, elle a été trouvée en balayant
+l'histoire — et le désordre `4.28 4.30 4.29 4.31`. Chacune fait rougir **la
+règle qui la vise**, et la même révision reste **verte sur les autres** : la
+batterie discrimine. La quatrième règle, le trou, n'a jamais eu lieu dans ce
+dépôt : son cas est construit, et c'est écrit.
+
+#### (c) Le `pre-push`, et deux faux verts trouvés contre le lot
+
+Le garde-fou d'identité couvrait `commit` et `merge`, jamais `push` : **neuf**
+poussées protégées à la main. `pre-push` entre dans `TYPES`, avec sa **propre
+source** — le contrôle d'identité lit `git var GIT_AUTHOR_IDENT`, c'est-à-dire
+l'identité **configurée** au moment du push, et rien des commits qui partent ;
+le copier sous ce nom aurait donné un hook creux, et la mutation qui les confond
+est interdite par un test. L'ordre porteur des deux gestes est préservé, et la
+couche `.legacy` est posée sur les **trois** types.
+
+**LA PLAGE, ET C'EST TOUT LE SUJET.** Elle arrive sur l'**entrée standard**, une
+ligne par ref. Le cas central de la batterie est donc un commit du **MILIEU** :
+cinq commits, le troisième non conforme, `HEAD` conforme — et le test prouve
+d'abord que la scène est celle-là. Trois vérifications : l'**adresse** d'auteur
+**et** de committer de chaque commit — jamais le nom, deux identités portant le
+même —, les deux **formes** d'attribution que ces outils produisent réellement,
+et l'absence de secret dans les **lignes ajoutées**.
+
+**Trois bornes écrites** : une mention en prose n'est pas refusée, sans quoi le
+hook enseignerait `--no-verify`, le seul geste que ce chantier interdit
+absolument ; le nom n'est filtré que sur deux marqueurs de robot, et pourquoi ;
+la détection de secret est un jeu de formes à haute confiance et non un
+remplacement de `detect-secrets`.
+
+**PREMIER FAUX VERT — un `rc` juste pour la mauvaise raison.** Le motif de secret
+commence par un tiret : passé en argument nu, `grep` le lit comme une **option**,
+rend `rc=2`, le `if` le lit comme faux, et **le hook sort en 0 sans avoir rien
+vérifié**. `mesuré` en le retournant contre les 276 commits de ce dépôt : `rc=0`,
+et le contrôle n'avait pas tourné **une seule fois**. Tous les motifs passent par
+`-e`, et la propriété est gardée au niveau du **texte** du hook — au niveau du
+comportement, la version fautive et la juste rendent le même `rc=0` sur un dépôt
+sain. Le test qui la garde a lui aussi trouvé son propre défaut : il comptait la
+**citation** du piège dans le bandeau comme un appel, et écarte désormais les
+lignes de commentaire — la même distinction récit / instruction qu'en (a), à un
+autre endroit du chantier.
+
+**SECOND FAUX VERT, ET IL A ÉTÉ TROUVÉ PAR UN VRAI `git push` — invisible à une
+batterie de 37 tests verts.** Le motif de clé privée, écrit d'une pièce, **se
+reconnaissait lui-même** : la ligne qui le pose est une ligne ajoutée, elle porte
+l'en-tête en entier, et le hook **refusait donc le commit même qui l'introduit**
+— `rc=1`, et **aucune ref chez le distant**. Un garde qui provoque la panne qu'il
+surveille, à un troisième site dans ce lot, et dont les deux seules sorties
+auraient été `--no-verify` ou le retrait du garde. Corrigé par **périphrase** —
+la correction que le garde de sûreté prescrit pour la même famille — et gardé par
+un test qui voit le défaut **au moment où le motif est écrit** : la batterie ne
+l'avait vu qu'**au commit suivant**, le commit fautif n'existant pas encore quand
+elle a tourné. Le commit de la fermeture a été **réécrit** pour que la ligne
+n'ait jamais existé dans la branche, ce que le message de refus du hook prescrit
+lui-même.
+
+**LES DEUX SENS, PAR DE VRAIS `git push` VERS UN DISTANT JETABLE**, jamais vers
+`origin` : la branche entière du lot part (`rc=0`, ref arrivée), une plage propre
+part (`rc=0`), et une plage dont le **troisième** commit sur cinq porte une
+adresse interdite est **refusée** (`rc=1`, `essai` **absent** du distant). La
+scène non conforme est construite **hooks désarmés** par un `core.hooksPath`
+vide, **jamais** par `--no-verify` — et c'est la scène réelle, les sept commits
+qui ont coûté ce dépôt étant partis avant qu'aucun hook n'existe.
+
+**La preuve d'atteinte du contrôle de secret est COMPTÉE**, parce qu'un `rc=0` ne
+prouve rien ici : **83 129** lignes ajoutées sur **276** commits traversent
+réellement le contrôle, relevé en **plancher** et non en compte exact.
+
+#### Une erreur de harnais du lot, corrigée et écrite
+
+La première sonde de bout en bout de la fermeture (c) a cloné le dépôt **avant
+d'avoir commité** son travail : elle a donc exécuté l'installeur de `main`, qui
+a rendu `rc=0` en armant deux types sur trois. Le `rc` était juste et ne
+mesurait rien. *Un `rc` juste n'est pas une preuve d'atteinte* — à un quatrième
+site dans ce chantier, et celui-ci était le mien.
+
+#### Ce que ce lot n'a PAS fermé
+
+Rien du mandat. Les trois fermetures sont portées, et le découpage du pilote
+tient : les trois sont réellement indépendantes, aucune n'a eu besoin d'une
+mesure de l'autre. **Le seul reproche à ce découpage est qu'il ne prévoyait pas
+que la troisième soit la plus dangereuse** — c'est celle qui a produit les deux
+faux verts, et elle est la seule dont l'échec silencieux se paye sur un dépôt
+public.
+
+Restent ouverts, et hors mandat : le reranker non conforme sous `rerank_model`,
+qu'aucun garde d'affectation ne voit (§4.32), et la forme d'affectation
+**construite par morceaux**, qui reste tolérée et bornée dans le garde.
