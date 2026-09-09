@@ -6174,3 +6174,140 @@ les deux documents.
 jour, pas ajoutée. Le pilote a produit deux collisions de numérotation en deux
 jours ; relire la queue du fichier avant d'y écrire un numéro est ce qui les
 évite.*
+
+---
+
+### 4.40 → FERMÉ — le lot 7 fusionné : ce dépôt a enfin un garde-fou sur `push`, et le sinistre ne repasse plus
+
+`Conv' 45` (REPAR-8) a livré le 9 septembre 2026. **Fusionné dans `main` par le
+pilote : `71dfea8`.** Livré (`Conv' 43`), audité (`Conv' 44`, une bloquante),
+réparé (`Conv' 45`).
+
+#### La mesure qui décidait, refaite par le pilote — et pour un hook, la preuve est l'ÉTAT DU DISTANT
+
+`mesuré` le 9 septembre 2026 entre 13:34 et 14:10 UTC, par de **vrais `git push`**
+vers des distants jetables. La scène du sinistre, à l'identique des deux côtés :
+
+| | hook livré | hook réparé |
+|---|---|---|
+| commits que le hook vérifie | **0** | **10** |
+| `rc` du `git push` | **0** | **1** |
+| refs chez le distant recréé | 1 | **0** |
+| adresses arrivées | **7 non autorisées** + 3 conformes | **aucune** |
+
+Et le refus nomme le commit fautif. **La borne légitime survit** — vérifiée
+séparément : une branche neuve dont l'histoire ancienne, non conforme, est
+**réellement** chez le distant passe en `rc=0` et arrive entière. *Le compromis
+que le lot défendait est préservé, et le trou est fermé.*
+
+**Un faux résultat du pilote, et il l'écrit.** Sa troisième direction — le repli
+fail-closed sur distant injoignable — a rendu **`rc=128`**, qu'il a d'abord lu
+comme le repli. C'est **git qui échoue avant le hook**, l'URL ne se résolvant
+pas : la sonde n'atteignait pas son cas. *Cinquième fois dans ce chantier qu'un
+`rc` juste vient de la mauvaise raison.* Le repli est couvert par la batterie,
+qui asserte la présence de son message dans `stderr` — la seule preuve
+d'atteinte possible pour un chemin que `git push` ne peut pas déclencher
+localement.
+
+**La borne neuve** est `git ls-remote` — l'état réel, demandé, jamais relu d'un
+cache — avec un `timeout` extérieur et un repli qui **n'exclut rien**, donc
+vérifie plus. Trois autres formes sont pesées et écartées au site, dont le
+**commit d'époque** : local et déterministe, mais *il ne fermait pas le
+sinistre*, les commits fautifs y étant antérieurs. **Et la justification de
+l'ancienne borne était fausse** : « un refus certain sur 184 commits » — mesuré,
+la plage non bornée traverse **282 commits et 84 396 lignes en 10,1 s pour 0
+refus**, l'histoire ayant été réécrite. *Le coût d'une plage ouverte est de la
+latence, pas un refus.*
+
+**Le test qui épinglait la cécité est REMPLACÉ, pas relâché** — et l'un de ses
+remplaçants **replante la fiction `update-ref` exprès**, pour asserter qu'elle ne
+borne plus rien. C'est la bonne façon de retirer un test qui affirmait le
+contraire de la mesure.
+
+#### Le garde-fou est armé, et la poussée suivante l'a traversé
+
+`make install` depuis le clone principal, `rc=0` : `pre-push` et
+`pre-push.legacy` apparaissent pour la **première fois** de l'histoire de ce
+dépôt, à côté des quatre hooks préexistants. **La poussée de `71dfea8` — 19
+commits — a été vérifiée par git et non par la main du pilote.** Les onze
+poussées précédentes l'avaient été à la main ; celle-ci est la première dont la
+protection ne repose plus sur la mémoire de qui la fait.
+
+Porte sur le résultat de fusion, dans le clone principal avec son propre
+`.venv` : `make lint` `rc=0`, `make test` `rc=0`, **697 passés** sur **43**
+fichiers.
+
+#### HUITIÈME OCCURRENCE DU MOTIF DU PILOTE, ET C'EST LA PLUS COURTE À RACONTER
+
+Le §4.38 diagnostiquait, à propos de « 47 `setattr` dans 7 fichiers » : *« ce qui
+manquait est sa COMMANDE »*. Il a alors écrit la commande. **Elle ne reproduit
+pas le chiffre.**
+
+| lecture | résultat |
+|---|---|
+| la commande **telle qu'écrite au §4.38**, sans limitation de portée | **52 dans 9 fichiers** |
+| la commande **réellement tapée** lors de la mesure, avec `-- '*.py'` | **47 dans 7 fichiers** |
+
+La différence est la portée : sans elle, `git grep` compte aussi les mentions en
+**prose** dans les documents de pilotage. Le chiffre est juste, la commande
+publiée est fausse, et **la faute a été commise dans la section même qui la
+diagnostiquait**. *Un chiffre sans commande est invérifiable ; un chiffre avec une
+commande qui ne le rend pas est pire — il donne l'apparence de la vérifiabilité.*
+La réparation l'a mesuré et corrigé au site.
+
+#### Quatre affirmations du chantier démenties par la mesure, et le pilote en portait trois
+
+- **« `read` rend non-zéro en `dash` »** — ce n'est pas propre à `dash`. `mesuré` :
+  une entrée sans retour à la ligne final rend **0 tour de boucle** en `sh`, en
+  `dash` **et en `bash`**. C'est le comportement **POSIX** de `read` ;
+- **« sept natures contre six, deux écritures justes sous des définitions
+  différentes »** — le cadrage du pilote a nommé cette famille trop tôt, et **elle
+  masquait une phrase fausse à côté** : le commentaire affirmait que deux natures
+  étaient absorbées, or `NotImplementedError` dérive de `RuntimeError`, donc
+  **cinq des six propageaient et une seule était absorbée**. `vérifié` par le
+  pilote : `NotImplementedError.__mro__` passe par `RuntimeError`, et
+  `issubclass(NotImplementedError, (TypeError, ValueError))` rend `False`. Ni le
+  lot, ni son audit, ni le pilote ne l'avaient vue ;
+- **« `node_rerank` dans un graphe async »** — le nœud est **synchrone**
+  (`def node_rerank(state)`), c'est le graphe qui est piloté par `ainvoke`.
+  L'annulation arrive d'abord sur la coroutine qui attend ;
+- et **une affirmation du pilote sur l'état de son propre poste** : le prompt
+  disait l'arbre de l'auditeur retiré, la réparation l'a dit encore monté. `mesuré`
+  après coup : **c'est la réparation qui se trompe** — l'arbre encore présent était
+  celui du **pilote**, à `9fdd913`, et celui de l'auditeur avait bien été retiré.
+  *Une correction peut être fausse ; elle reste bonne à faire.*
+
+**Et la leçon de méthode que la réparation rend au pilote, qui est la plus utile
+de la journée** : *« une famille de défaut nommée trop tôt fait chercher la
+famille au lieu du défaut. »* Le cadrage annonçait « deux écritures justes sous
+des définitions différentes », et la réparation a failli trancher une définition
+et refermer sans mesurer. C'est la sonde rejouée qui a trouvé la phrase fausse.
+**Consigné : un cadrage nomme le SITE et le MÉCANISME, il ne pré-classe pas la
+famille.**
+
+#### Ce que la réparation a trouvé contre elle-même
+
+Trois faux verts — le scope de la ligne d'autorité inerte (17 tests verts sous sa
+mutation), l'ancrage de fin de ligne du résolveur d'alias (27 verts), et une
+**liste fermée qui rétrécit sans faire rougir personne** (16 verts) —, trois faux
+rouges dans le test qui garde le coût, et un **incident de harnais** : son
+`restaurer()` faisait `git checkout -- .`, qui a effacé une réparation **non
+commitée**. *C'est l'`assert` d'empreinte qui l'a dit*, et le harnais restaure
+désormais depuis une copie. **Quatrième lot de suite à trouver ses propres faux
+résultats et à les écrire.**
+
+#### Le bilan du lot 7
+
+**Trois fermetures.** Le garde de sûreté voit désormais les formes réflexives et
+la forme **aliasée** ; les deux documents de pilotage ont un garde de
+numérotation qui a **déjà du mordant sur une situation vivante** — il a confirmé
+la fermeture du trou `4.36` que les deux branches se comblaient l'une l'autre ;
+et ce dépôt a un `pre-push` qui refuse sur l'**ADRESSE**, éprouvé par de vrais
+`git push` avec l'état du distant asserté, dans une classe de tests qui garde son
+propre coût.
+
+**Ce qui reste ouvert et nommé au site** : la valeur du `timeout 30`, bornée par
+écrit et non gardée — l'éprouver demanderait un distant qui pend ; et la couche
+`.legacy` sous **git 2.54+**, dont le chemin de code n'existe pas en 2.53.0, à
+remesurer à la montée de version. *Les deux sont des pannes muettes, et c'est
+pourquoi elles sont écrites plutôt que supposées absentes.*
