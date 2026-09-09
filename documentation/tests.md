@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 643 tests, aucune dépendance
+## Unitaire — 644 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,12 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 8 septembre 2026 par LOT-6 : **643** tests sur **42** fichiers,
+> `mesuré` le 9 septembre 2026 par REPAR-7 : **644** tests sur **42** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total que
-> `pytest` annonce — concordent. Relevés antérieurs : **629** sur **41** le même
-> jour (lot dette), **603** sur **40** le même jour (lot 5), **562** sur **38**
-> le 7 septembre 2026.
+> `pytest` annonce — concordent.
+> Relevés antérieurs : **643** sur **42** le 8 septembre 2026 (lot 6), **629**
+> sur **41** le même jour (lot dette), **603** sur **40** le même jour (lot 5),
+> **562** sur **38** le 7 septembre 2026.
 >
 > **Attention au piège de la commande.** `addopts = -q` est déjà dans
 > `pyproject.toml` : un `-q` de plus vaut `-qq`, qui SUPPRIME la ligne de total.

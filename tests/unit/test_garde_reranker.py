@@ -43,7 +43,11 @@ taille de vocabulaire réellement mesurée : c'est le mécanisme qui est testé,
 un nom fictif l'éprouve aussi bien qu'un vrai sans rien apprendre à personne.
 """
 
+import json
 import logging
+import pathlib
+import subprocess
+import sys
 
 from src.agent import retriever
 
@@ -274,7 +278,168 @@ def test_le_chargement_du_reranker_journalise_le_verdict(monkeypatch, caplog) ->
         "le chargement d'un reranker monolingue n'a produit AUCUN avertissement : "
         f"le garde n'est pas branché. Journal vu : {[e.message for e in caplog.records]}"
     )
-    assert "2,5 points" in avertissements[0].getMessage(), avertissements[0].getMessage()
+    message = avertissements[0].getMessage()
+    # LES TROIS ASSERTIONS SUIVANTES SONT LA RÉPARATION DE B-1, ET LEUR ORDRE
+    # EST CELUI DES TROIS QUESTIONS AUXQUELLES « il y a un avertissement » NE
+    # RÉPOND PAS. La version d'origine se contentait de `"2,5 points"`, que les
+    # DEUX messages `warning` portent : elle éprouvait que quelque chose
+    # avertit, jamais QUOI.
+    assert _RERANKER_FICTIF_MONOLINGUE in message, (
+        "l'avertissement ne NOMME pas le réglage du reranker. Le garde a donc lu "
+        "un AUTRE réglage que `rerank_model` — et il avertit alors sur un modèle "
+        "qui n'est pas celui qu'il croit surveiller, ce qui est pire que se "
+        f"taire. Message vu : {message}"
+    )
+    assert str(_VOCABULAIRE_ANGLAIS_MESURE) in message, (
+        "l'avertissement ne rapporte pas le vocabulaire LU sur le modèle chargé "
+        f"({_VOCABULAIRE_ANGLAIS_MESURE}). C'est donc la branche « vocabulaire "
+        "illisible » qui a parlé : le câblage n'a jamais lu la propriété du "
+        f"modèle, et son verdict ne décrit rien de lui. Message vu : {message}"
+    )
+    assert "2,5 points" in message, message
+
+
+# ─── Le modèle EN SERVICE, par le vrai chemin, dans un processus à part ───────
+
+# Le vocabulaire du reranker en service. **CITÉ, non mesuré ici** : il vient de
+# l'audit du 9 septembre 2026 (`documentation/axes_amelioration.md` §4.33), par
+# lecture du seul `config.json`. Le test ne DÉPEND pas de sa justesse — le
+# silence attendu vient du registre, qui court-circuite avant tout seuil —, mais
+# il monte la scène réelle plutôt qu'une scène plausible, et un chiffre inventé
+# ferait croire à une mesure qui n'a pas eu lieu.
+_VOCABULAIRE_DU_MODELE_EN_SERVICE = 250_002
+
+_RACINE = pathlib.Path(__file__).resolve().parents[2]
+
+# La scène tourne dans un processus NEUF, et c'est structurel, pas décoratif :
+# `_get_rerank_model` porte un `lru_cache`, et une seconde scène dans ce
+# processus-ci serait servie par la première sans rien exécuter — elle rendrait
+# vert quoi qu'on lui fasse. Le sous-processus rend aussi l'état des modules
+# vierge : aucun `monkeypatch` d'un autre test ne peut l'avoir touché.
+_SCENE_DU_MODELE_EN_SERVICE = """
+import json
+import logging
+
+from src.agent import retriever
+from src.agent.settings import settings
+
+charges = []
+lectures = []
+
+
+class _ConfigInstrumentee:
+    # Une `property`, comme dans sentence-transformers : chaque lecture se
+    # compte, et c'est ce compteur qui prouve que le cablage lit REELLEMENT le
+    # vocabulaire du modele charge, au lieu de le supposer.
+    @property
+    def vocab_size(self):
+        lectures.append("vocab_size")
+        return {vocabulaire}
+
+
+class _ModeleBouche:
+    def __init__(self):
+        self.config = _ConfigInstrumentee()
+
+
+def _faux_constructeur(nom):
+    charges.append(nom)
+    return _ModeleBouche()
+
+
+class _Collecteur(logging.Handler):
+    def __init__(self):
+        super().__init__()
+        self.vus = []
+
+    def emit(self, record):
+        self.vus.append([record.levelname, record.getMessage()])
+
+
+retriever.CrossEncoder = _faux_constructeur
+collecteur = _Collecteur()
+retriever.logger.addHandler(collecteur)
+retriever.logger.setLevel(logging.DEBUG)
+retriever.logger.propagate = False
+
+retriever._get_rerank_model.cache_clear()
+retriever._get_rerank_model()
+
+print(json.dumps({{
+    "reglage": settings.rerank_model,
+    "charges": charges,
+    "lectures": len(lectures),
+    "journal": collecteur.vus,
+}}))
+"""
+
+
+def test_le_modele_en_service_ne_dit_rien_par_le_chemin_reel() -> None:
+    """LA SECONDE MOITIÉ DU CÂBLAGE, ET C'EST ELLE QUE LE LOT AVAIT MANQUÉE.
+
+    `test_le_modele_en_service_ne_declenche_rien` éprouve le silence sur le
+    réglage en service — mais il appelle la fonction PURE, et ne voit rien du
+    câblage. `mesuré` le 9 septembre 2026 : faire lire au site d'appel
+    `embedding_model_name` au lieu de `rerank_model`, et ne jamais lire le
+    vocabulaire, laissait **643 tests verts** ; sous cette mutation le réglage
+    NORMAL se mettait à avertir en nommant le mauvais modèle. *Le bon test, du
+    mauvais côté de la frontière.*
+
+    Ce test remonte la même exigence du côté qui produit l'effet, et il asserte
+    TROIS faits que « rien n'a été journalisé » ne donne pas à lui seul :
+
+    - le modèle a bien été chargé, et sous le réglage réel — sans quoi un
+      sous-processus qui échouerait tôt rendrait un silence trivial. C'est la
+      preuve d'atteinte, et elle est assertée, pas supposée ;
+    - le vocabulaire du modèle chargé a bien été LU. La `property` compte ses
+      lectures : un câblage qui passerait `None` en dur laisserait ce compteur à
+      zéro, alors même que le verdict resterait silencieux — le registre
+      court-circuite avant tout seuil, donc le silence seul ne prouve rien ;
+    - le journal ne porte QUE la ligne de chargement. Pas de verdict, d'aucun
+      niveau : le réglage en service est muet par le vrai chemin, et un garde
+      qui parle sur le réglage en service apprend à ignorer son journal.
+    """
+    acheve = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            _SCENE_DU_MODELE_EN_SERVICE.format(
+                vocabulaire=_VOCABULAIRE_DU_MODELE_EN_SERVICE
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(_RACINE),
+        check=False,
+        timeout=300,
+    )
+    assert acheve.returncode == 0, (
+        f"la scène n'a pas abouti (rc={acheve.returncode}) — le silence qu'elle "
+        f"mesurerait serait celui d'un processus mort.\n{acheve.stderr[-3000:]}"
+    )
+    releve = json.loads(acheve.stdout.strip().splitlines()[-1])
+
+    assert releve["charges"] == [releve["reglage"]], (
+        "le modèle n'a pas été chargé sous le réglage du reranker "
+        f"({releve['charges']} contre {releve['reglage']!r}) : cette scène "
+        "n'atteint pas le chemin qu'elle prétend éprouver"
+    )
+    assert releve["lectures"] >= 1, (
+        "le vocabulaire du modèle chargé n'a JAMAIS été lu. Le câblage ne "
+        "transmet donc pas la propriété du modèle au verdict, et son silence "
+        "ici ne décrit rien du modèle en service"
+    )
+    verdicts = [
+        (niveau, texte)
+        for niveau, texte in releve["journal"]
+        if "Chargement du modèle de reranking" not in texte
+    ]
+    assert verdicts == [], (
+        "le réglage EN SERVICE a produit un verdict par le chemin réel. Un garde "
+        "qui parle sur le réglage en vigueur s'auto-discrédite, et c'est "
+        "exactement ce que produit un câblage qui lit le mauvais réglage. "
+        f"Verdicts vus : {verdicts}"
+    )
 
 
 # ─── La saturation de sigmoïde, et l'inférence fausse qu'elle a produite ──────
