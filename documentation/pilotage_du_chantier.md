@@ -297,7 +297,9 @@ dépôt, pas dans la conversation.*
 
 | **44** | AUDIT-7 — audit du lot 7 | **distribué le 9 septembre 2026**, en vol. **Dixième audit du chantier.** Priorité écrite sur la fermeture (c), le hook `pre-push` : 199 lignes neuves qui s'exécutent à chaque poussée, dont le lot a lui-même tiré **trois faux verts sur quatre**, et dont la panne est **silencieuse** — sur un dépôt propre un hook creux rend le même `rc=0` qu'un hook juste. Le pilote a vérifié le hook par de vrais `push` dans les deux sens et n'a pas couvert la poussée forcée, la suppression de ref, ni plusieurs refs en une poussée — §4.37 |
 
-**Prochain numéro libre : 45.**
+| **45** | REPAR-8 — la bloquante du lot 7, et six resserrements | **à distribuer.** La plage d'une ref neuve est bornée sur un **cache local** (`--not --remotes=<distant>`) et non sur l'état du distant : `mesuré` par le pilote, distant détruit et recréé, le hook vérifie **0** commit sur **10**, `rc=0`, et **7** commits sous adresse non autorisée **arrivent**. C'est le sinistre de ce dépôt à l'identique, et un test vert l'appelle correct — §4.38 |
+
+**Prochain numéro libre : 46.**
 
 **Cinq lots fusionnés, NEUF audits.** Le neuvième rend **deux bloquantes** : le compte des bloquantes du chantier passe de six à **huit** (`calculé`). **Aucun lot n'a encore été fusionné sans qu'un audit indépendant y trouve quelque chose**, et le lot 6 attend sa réparation. Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
