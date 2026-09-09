@@ -1941,6 +1941,88 @@ donc **absorbé par construction**. Ce qui reste vrai, c'est que ce coût n'a
 jamais été **payé en campagne** : les sources coûtent désormais réellement plus
 de fenêtre, et aucune mesure ne dit ce que ça déplace.
 
+**LA DÉFINITION EST TRANCHÉE — décision de l'utilisateur, le 9 septembre 2026,
+sur mesure du pilote.** Elle ne l'était pas : cette entrée écrivait « c'est une
+définition à rediscuter, pas un défaut », et l'élargissement évident — le voisin
+en **ordre de lecture** — a été **désavoué par la mesure**.
+
+#### Ce que la définition actuelle coûte, en éléments RÉELLEMENT SERVIS
+
+`mesuré` le 9 septembre 2026, en **lecture seule**, sur le graphe en service
+(23 documents, 746 `SectionHeader`, **14 424** éléments non-titres sous un
+en-tête, 15 173 arêtes `PARENT_OF`). La sonde reproduit **à l'unité** les quatre
+chiffres que cette section portait déjà — 214 / 214, intersection 47, union 381
+soit 51,1 %, et 25 en-têtes premiers sous leur parent — et c'est ce contrôle qui
+autorise à croire ses chiffres neufs.
+
+| définition | en-têtes servis | éléments privés d'encadrement |
+|---|---|---|
+| **(A)** frère en-tête sous le parent commun — *l'actuelle* | 532 / 746 | **4 157 avant (28,8 %)**, **4 678 après (32,4 %)** |
+| **(C)** (A), puis **remontée aux oncles**, bornée au document | 721 / 746 avant, 722 / 746 après | **286 avant (2,0 %)**, **646 après (4,5 %)** |
+| **(B)** voisin en **ordre de lecture** | 723 / 746 | — mais **191 cas DÉGÉNÉRÉS** |
+
+**Quand `_find_sibling` rend `None`, ce n'est pas une dégradation de qualité,
+c'est une ABSENCE** : `_neighbour_elements` rend `[], ""`, donc tout le bloc
+d'encadrement disparaît de ce côté, **titre compris**, dans le markdown servi au
+LLM. Un tiers des éléments servis est dans ce cas d'un côté au moins, et rien ne
+le dit à l'exploitant.
+
+#### Pourquoi (B) est DOMINÉE, et c'est la trouvaille de cette mesure
+
+(B) gagne **2 en-têtes** sur (C) et les paie de **191 dégénérescences** : le
+titre suivant en ordre de lecture, après un titre qui a des enfants, **est son
+propre premier enfant**. On servirait comme « section suivante » un morceau de la
+section courante. **(C) ne peut pas produire ce cas par construction**, la
+remontée ne pouvant rendre ni un ancêtre ni un descendant de la section de
+départ. *L'élargissement que cette section suggérait était le mauvais.*
+
+#### Le coût de (C), et il est borné
+
+`mesuré` : **zéro** aller-retour nGQL supplémentaire pour **532** des 746
+en-têtes ; **1** cran pour 164 (avant) / 157 (après) ; **2** pour 24 / 29 ; **3**
+pour 1 / 4 ; jamais trouvé pour 25 / 24. Soit **215** et **227** aller-retours
+supplémentaires cumulés sur l'ensemble des 746 en-têtes. La remontée **s'arrête
+au document**, comme cette section l'exigeait.
+
+**Et le VOLUME servi ne change pas** : `adjacent_section_elements = 3` plafonne à
+trois éléments par côté quelle que soit la définition. Le choix ne coûte pas de
+fenêtre de contexte — il change **quels** trois éléments. C'est ce qui rend cette
+décision moins chère qu'elle n'en avait l'air.
+
+#### Le sous-choix, tranché lui aussi : le VOISIN RÉEL EN LECTURE, côté par côté
+
+Quand on remonte, deux réponses sont possibles et elles **diffèrent dans 106 cas
+mesurés** (le dernier descendant est à 1 cran sous l'oncle dans 80 cas, 2 dans
+22, 3 dans 4) :
+
+- **« avant » → le dernier descendant en-tête de l'oncle.** Dans « 3.2.1 », on
+  sert la queue de « 3.1.4 » — le texte qui précède **réellement** ;
+- **« après » → l'oncle lui-même.** Dans « 3.2.1 » dernière fille de « 3.2 », on
+  sert la tête de « 3.3 », qui est bien la première chose lue ensuite.
+
+**C'est asymétrique parce que la lecture l'est.** *Et cette symétrie-là est
+`calculé`, pas `mesuré` : le pilote l'a déduite de la forme du parcours, il ne
+l'a pas éprouvée. Le lot qui portera cette décision doit la vérifier avant de
+s'en servir — c'est exactement la faute que ce chantier a payée six fois.*
+
+#### DEUX RÉSERVES, et la première est un manquement du pilote
+
+1. **Ces chiffres n'ont PAS de site rejouable.** L'en-tête de
+   `scripts/mesurer_le_graphe.py` interdit précisément cela : *« une page qui les
+   affirme sans laisser de quoi les rejouer devient fausse en silence »*, et
+   c'est un **état de store**, qui périme à la prochaine réingestion. La sonde du
+   pilote a vécu dans un répertoire de travail temporaire. **Le lot 4 doit porter
+   cette mesure dans `scripts/mesurer_le_graphe.py`** — les trois définitions
+   confrontées, avec la pondération par éléments — avant que ces chiffres ne
+   puissent être cités par quiconque. En attendant, ils sont `mesuré` **et sans
+   instrument**, ce qui est une moitié de ce que ce dépôt exige ;
+2. **la qualité n'est pas mesurée.** Cette section écrivait déjà que le coût de
+   fenêtre n'avait jamais été payé en campagne. Ce qui précède dit ce que
+   l'encadrement **couvre**, pas ce qu'il **rapporte** : aucune de ces trois
+   définitions n'a été confrontée à la campagne de référence du 8 septembre 2026.
+   Le lot 4 doit le faire, et il peut y trouver que le gain de rappel ne suit pas
+   le gain de couverture.
+
 ### 4.7 Le contrat d'interface ignore cinq métadonnées que le pipeline émet déjà
 
 `documentation/pour_le_pipeline_ingestion.md` énumère 13 métadonnées attendues
