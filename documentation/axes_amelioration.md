@@ -5051,3 +5051,131 @@ avertit ». B-2 et H8 se ferment ensemble par le plancher monotone, et le pilote
 retient cette forme plutôt que la correction à deux jetons : *corriger 124 en
 125 laisserait la phrase « plus fort qu'un compte » debout alors qu'elle est
 mesurablement fausse.*
+
+### 4.34 → La réparation du lot 6 : les deux bloquantes fermées, et quatre phrases retirées
+
+`Conv' 42` (REPAR-7) a livré le **9 septembre 2026** sur la branche du lot,
+`claude/reranker-guard-affectations-782d7e`, rattrapée sur `main` par une
+**fusion** — jamais un rebase.
+
+**Le cadrage du prompt était juste sur ses six lignes, et c'est la deuxième fois
+d'affilée.** `main` = `origin/main` = `31f8b43`, avance `0 0` ; branche du lot au
+sommet `e6fc175`, deux commits, non poussée, `2` en avance sur `3638240` et `3`
+en retard sur `main` ; porte `rc=0` / `rc=0` à **643 passés**. Tout remesuré,
+tout concordant.
+
+**Une seule reprise, et elle porte sur la RECETTE, pas sur un chiffre.** Le
+lot a d'abord mesuré ses mutations avec `pytest tests/` — **653** collectés, dix
+de plus que la porte. La recette du site est `pytest tests/unit/ -v`
+(`Makefile:69`), et c'est elle qui rend 643. *Un chiffre juste sous une recette
+inventée reste un chiffre faux.*
+
+#### B-1 — fermée. Le câblage était éprouvé sur son seul BRUIT
+
+Reproduction exacte de la mesure du §4.33, empreintes comprises :
+`33aa5783…` à l'origine, `d3b68f62…` sous la mutation double. Les trois
+mutations du site d'appel — mauvais réglage seul, vocabulaire non lu seul, les
+deux — laissaient **643 passés, `rc=0`**.
+
+Deux gestes, et le second est structurel :
+
+- **le contenu du message est discriminé.** L'assertion `"2,5 points"` que les
+  DEUX messages `warning` portent est doublée de deux assertions qui, elles,
+  séparent les branches : le message doit **nommer** le réglage du reranker, et
+  **rapporter le vocabulaire lu** sur le modèle chargé ;
+- **une seconde scène, dans un PROCESSUS À PART**, où le modèle en service
+  traverse le vrai chemin et ne doit rien dire. Le processus neuf n'est pas
+  décoratif : `lru_cache` sur `_get_rerank_model` rendrait une seconde scène
+  creuse dans le même processus. Elle asserte **sa propre atteinte** — le modèle
+  chargé sous le réglage réel — et fait compter ses lectures à une `property`,
+  ce qui ferme le cas que le silence seul ne voit pas : le registre
+  court-circuite avant tout seuil, donc un câblage qui ne lirait jamais le
+  vocabulaire resterait muet.
+
+Chaque mutation rougit **sur l'assertion qui la vise**, vérifié ligne à ligne, et
+le témoin inerte reste vert.
+
+#### B-2 et H8 — fermées ensemble par le PLANCHER MONOTONE
+
+Le chiffre n'a **pas** été corrigé de 124 en 125 : cela aurait laissé debout la
+phrase *« ce qui est asserté à la place, et c'est plus fort qu'un compte »*, que
+le §4.33 mesure fausse. Le motif est réécrit : un compte exact rougit sur **tout**
+rétrécissement, par construction ; il n'est pas plus faible, il est plus
+**bruyant à la croissance**.
+
+La forme retenue est le plancher monotone de l'audit, **global ET zone par
+zone**, dérivé du relevé du 9 septembre 2026 mesuré sur l'arbre final : **125**
+au total, 54 `tests/`, 18 `src/`, 14 `documentation/`, 13 `runs/`, 12 à la
+racine, 9 `scripts/`, 4 `prompts/`, 1 `.github/`.
+
+**La ventilation par zone n'est pas décorative, et c'est mesuré.** Les trois
+rétrécissements que l'audit demandait — le seul `src/agent/settings.py`,
+`.github/` entier, `runs/` + `.github/` — rougissent tous sur le plancher
+**global**. Une quatrième mutation le montre autrement : retirer
+`src/agent/settings.py` **et ajouter un fichier ailleurs** laisse le total à 125,
+donc le plancher global VERT, et fait rougir la seule zone `src` — `(17, 18)`.
+*C'est le cas qu'un plancher global seul ne voit jamais, et l'ajout est
+l'événement le plus banal de ce dépôt.*
+
+L'assertion « chaque zone est représentée » est **retirée**, et ce n'est pas un
+relâchement : les planchers par zone la contiennent strictement, un plancher de 1
+exigeant la présence. Sont conservées la récursion de `documentation/` et
+`.env.example` nommément, qui ne se déduisent d'aucun compte.
+
+#### Les quatre phrases, et ce que la mesure en a fait
+
+- **la propriété des accents graves était fausse dans les deux sens**, reproduit :
+  les six récits neufs restent verts **avec comme sans** leurs accents graves, et
+  cinq récits citant la ligne fautive rougissent entre accents graves comme entre
+  guillemets. Ce qui protège un récit est de ne pas poser le nom du réglage à côté
+  de sa valeur. **Et une mesure que l'audit n'avait pas faite** : la propriété est
+  bien exercée par le test voisin, mais par **UN récit sur ses quatorze** — celui
+  qui juxtapose le nom et la valeur avec un `:`. La phrase est corrigée et gardée
+  dans les trois directions mesurées ;
+- **l'ancrage `^` du motif `ENV` est gardé.** Le retirer faisait rougir zéro
+  test ; il en fait rougir un, sur les trois récits que l'ancrage sépare d'une
+  directive Dockerfile réelle ;
+- **« personne ne recopie une instruction sous cette forme » est bornée.** La
+  contre-preuve est vérifiée : lignes **47** et **183** de
+  `tests/unit/test_garde_modele_embedding.py`, **136 lignes d'écart** — le nom
+  posé en constante de module, puis passé au réglage réel pour éprouver le garde
+  du lot 3. Légitime ; c'est l'affirmation qui ne l'était pas ;
+- **« 19,5 % de marge sous mBERT » porte sa définition.** 19,547 % rapporté au
+  plancher, 16,351 % rapporté à mBERT, les deux recalculés. Troisième occurrence
+  de « deux écritures justes sous des définitions différentes » dans ce chantier.
+
+#### Les deux valeurs mortes, et le choix écrit
+
+- **le registre lit désormais ses valeurs.** Le choix entre « en faire un
+  ensemble » et « lire la valeur » est tranché par ce que le message `info` dit :
+  *« ce modèle n'a PAS été mesuré »*, sans jamais dire ce qui **a** été mesuré sur
+  celui du registre, alors que la réponse est écrite deux lignes plus haut. Les
+  deux messages informatifs portent nom **et** mesure ; l'usage « Réparation »
+  garde les noms seuls, parce que c'est une instruction à recopier et non un
+  relevé — et c'est écrit au site. Vider une valeur fait rougir ;
+- **le niveau du verdict est un `Literal` à deux valeurs.** La mesure est faite
+  **dans les deux sens sur la même mutation** : un quatrième niveau ajouté au
+  garde passe `make lint` en **`rc=0`** avec l'ancienne signature `tuple[str, str]`,
+  et le fait rougir en **`rc=2`** (mypy rend 1, `make` rend 2) avec la nouvelle —
+  `Incompatible return value type (got "tuple[Literal['critical'], str]")`.
+
+#### Ce que ce lot n'a PAS fermé, et c'est la décision du pilote
+
+`setattr` (102 sites) et l'élargissement du `except` de la lecture défensive
+montent au lot 7. Aucun autre changement de `src/` n'a été emporté : les trois
+qui y sont — la définition de la marge, le registre, le type du niveau — sont
+ceux que l'audit avait spécifiés **et** pré-mesurés.
+
+#### Une trouvaille contre le prompt, et elle porte sur le registre
+
+Le prompt demandait de **compter** le relevé du démon d'orchestration contre le
+registre plutôt que de le déduire. **Le registre ne porte pas ce compte de façon
+univoque** : le tableau du §4 annonce le « **sixième** relevé EN MARCHE » quand le
+§12 et le §4.32 parlent du « **neuvième** relevé » tous états confondus, et le
+relevé que le pilote dit avoir pris le 9 septembre 2026 n'est écrit nulle part.
+Le fait brut, `mesuré` le 9 septembre 2026 à 08:15 UTC en lecture seule :
+`rag-ingestion-pipeline-dagster-daemon-1` est **`Up 2 hours`** — donc rallumé
+depuis le `Up 5 hours` du 8 septembre, sans qu'aucune conversation le décide.
+**Aucun numéro ne lui est attribué ici**, faute de pouvoir le compter : c'est
+exactement le geste que le §12 interdit, et le corriger demande de fusionner les
+deux comptes du registre — ce qui est une décision du pilote, pas une réparation.
