@@ -374,18 +374,34 @@ def _last_header_descendant(section_id: str) -> str:
     La descente est bornée par `_MAX_DEPTH`, et la borne est large : la
     profondeur maximale de descente vaut **3** sur les 746 en-têtes du graphe
     en service (`mesuré`, même commande).
+
+    LE BALAYAGE VA À REBOURS, ET C'EST UNE CORRECTION DE COÛT MESURÉE. La
+    première écriture de cette fonction établissait la liste complète des
+    enfants en-tête avant de prendre le dernier, donc elle demandait le tag de
+    **chaque** enfant — un aller-retour nGQL par enfant, `_get_node_properties`
+    n'étant pas mémoïsée. `mesuré` le 9 septembre 2026 sur les 189 remontées
+    « avant » du graphe en service, sur 136 niveaux de descente : **2 018** tags
+    évalués, **pire cas 180 pour une seule reconstruction** — un en-tête du
+    corpus porte 183 enfants. À rebours, on s'arrête au premier en-tête
+    rencontré depuis la fin : **136** tags évalués, **pire cas 1**. Le dernier
+    enfant en-tête est en effet le dernier enfant, ou tout près.
+
+    C'est le chemin de lecture de CHAQUE recherche : 180 aller-retours nGQL
+    ajoutés à une reconstruction qui en compte quelques dizaines n'est pas une
+    optimisation manquée, c'est une régression de latence. Gardé par
+    `tests/unit/test_section_voisine.py::TestLeCoutDeLaDescenteEstBorne`.
     """
     current = section_id
     for _ in range(_MAX_DEPTH):
-        headers = [
-            str(row["child_id"])
-            for row in _get_children(current)
-            if row.get("child_id")
-            and _get_node_properties(str(row["child_id"])).get("tag") in _SECTION_TAGS
-        ]
-        if not headers:
+        dernier_entete: str | None = None
+        for row in reversed(_get_children(current)):
+            child_id = row.get("child_id")
+            if child_id and _get_node_properties(str(child_id)).get("tag") in _SECTION_TAGS:
+                dernier_entete = str(child_id)
+                break
+        if dernier_entete is None:
             return current
-        current = headers[-1]
+        current = dernier_entete
     return current
 
 

@@ -43,6 +43,7 @@ positionnel qu'il ne l'était.
 
 import pytest
 
+from src.agent import graph_context
 from src.agent.graph_context import (
     _find_sibling,
     _last_header_descendant,
@@ -676,7 +677,128 @@ def test_le_decoupage_de_la_voisine_reste_positionnel(
     )
 
 
-# ─── (9) LE TÉMOIN INERTE ─────────────────────────────────────────────────────
+# ─── (9) LE COÛT DE LA DESCENTE ──────────────────────────────────────────────
+
+
+class TestLeCoutDeLaDescenteEstBorne:
+    """La descente demande UN tag par niveau, pas un tag par enfant.
+
+    CE GARDE EXISTE PARCE QUE LA PREMIÈRE ÉCRITURE DE `_last_header_descendant`
+    NE L'AVAIT PAS. Elle établissait la liste des enfants en-tête avant de
+    prendre le dernier, donc elle demandait le tag de **chaque** enfant, et
+    `_get_node_properties` n'est pas mémoïsée : un aller-retour nGQL par enfant.
+    `mesuré` le 9 septembre 2026 sur le graphe en service, sur les 189 remontées
+    « avant » et leurs 136 niveaux de descente : **2 018** tags évalués contre
+    **136** à rebours, et **pire cas 180 pour une seule reconstruction** contre
+    **1**. Un en-tête du corpus porte 183 enfants.
+
+    C'est le chemin de lecture de CHAQUE recherche. La suite était verte des
+    deux côtés : aucun garde du dépôt ne compte les aller-retours, et une
+    régression de latence ne rougit nulle part. Celui-ci les compte.
+    """
+
+    @staticmethod
+    def _oncle_a_larges_epaules(
+        nb_enfants: int,
+    ) -> tuple[GrapheFactice, dict[str, str]]:
+        """Un oncle dont le DERNIER enfant est l'en-tête, et les autres non.
+
+        C'est la forme du graphe en service : le sous-titre suivant vient après
+        le corps de la section, donc en dernier. Un balayage avant paie tous les
+        éléments du corps ; un balayage arrière n'en paie aucun.
+        """
+        g = GrapheFactice()
+        v: dict[str, str] = {}
+        v["doc"] = g.document("doc_essai/Large/Chapitre", "Large.pdf")
+        v["oncle"] = _entete(g, "aa00000001", v["doc"], 0, "Chapitre 1")
+        for i in range(nb_enfants):
+            _element(g, f"ac{i:08d}", v["oncle"], 1 + i, f"corps {i}")
+        v["queue"] = _entete(g, "ab00000001", v["oncle"], 1 + nb_enfants, "Section 1.9")
+        _element(g, "ab00000002", v["queue"], 2 + nb_enfants, "queue")
+
+        v["parent"] = _entete(g, "bb00000001", v["doc"], 100_000, "Chapitre 2")
+        _element(g, "bb00000002", v["parent"], 100_001, "p1")
+        v["cible"] = _entete(g, "bb00000010", v["parent"], 100_010, "Section 2.1")
+        v["ancre"] = _element(g, "bb00000011", v["cible"], 100_011, "c1")
+        _element(g, "bb00000020", v["parent"], 100_100, "p2")
+        return g, v
+
+    def test_un_seul_tag_est_demande_par_niveau_de_descente(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        nb_enfants = 40
+        g, v = self._oncle_a_larges_epaules(nb_enfants)
+        _branche(monkeypatch, g)
+
+        demandes: list[str] = []
+        vraies_proprietes = g.proprietes
+
+        def compte(node_id: str) -> dict[str, object]:
+            demandes.append(node_id)
+            return vraies_proprietes(node_id)
+
+        monkeypatch.setattr(graph_context, "_get_node_properties", compte)
+
+        # — le cas est-il atteint ? IL FAUT TROIS CHOSES.
+        # 1. la voisine « avant » doit être trouvée PAR REMONTÉE, sinon aucune
+        #    descente n'a lieu et le compte serait vide de sens ;
+        assert _find_sibling(v["parent"], 100_010, "before") is None
+        assert _neighbour_section(v["parent"], 100_010, "before") == v["queue"]
+        # 2. l'oncle doit porter beaucoup d'enfants, et
+        # 3. son en-tête doit être le DERNIER — c'est la forme qui sépare les
+        #    deux sens de balayage. Sans elle, les deux coûteraient pareil.
+        fils = g.enfants[v["oncle"]]
+        assert len(fils) == nb_enfants + 1
+        assert fils[-1][1] == v["queue"]
+
+        demandes.clear()
+        graph_context._last_header_descendant(v["oncle"])
+
+        # Un niveau de descente (l'oncle), puis un second qui ne trouve rien
+        # sous `queue` : deux niveaux, et au plus un tag demandé par niveau
+        # au-delà du premier candidat examiné.
+        assert len(demandes) <= 2 * 2, (
+            f"{len(demandes)} tags demandés pour deux niveaux de descente : le "
+            f"balayage repart vers l'avant et paie les {nb_enfants} éléments du "
+            "corps de l'oncle — c'est le chemin de lecture de chaque recherche"
+        )
+        assert v["queue"] in demandes, "la descente n'a pas examiné le bon nœud"
+
+    def test_une_reconstruction_complete_ne_paie_pas_le_corps_de_l_oncle(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le même compte, mais par `reconstruct_section` — le vrai chemin.
+
+        Le garde ci-dessus appelle `_last_header_descendant` directement. Une
+        réécriture qui pousserait le balayage ailleurs dans le module le
+        laisserait vert ; celui-ci compte sur le point d'entrée réel.
+        """
+        nb_enfants = 40
+        g, v = self._oncle_a_larges_epaules(nb_enfants)
+        _branche(monkeypatch, g)
+
+        demandes: list[str] = []
+        vraies_proprietes = g.proprietes
+
+        def compte(node_id: str) -> dict[str, object]:
+            demandes.append(node_id)
+            return vraies_proprietes(node_id)
+
+        monkeypatch.setattr(graph_context, "_get_node_properties", compte)
+
+        contexte = reconstruct_section(v["ancre"])
+
+        # — le cas est-il atteint ? la descente doit avoir servi la queue.
+        assert contexte.before_title == "Section 1.9"
+        corps = {c for _, c in g.enfants[v["oncle"]] if c != v["queue"]}
+        payes = corps & set(demandes)
+        assert not payes, (
+            f"{len(payes)} éléments du corps de l'oncle ont coûté un aller-retour "
+            "nGQL : le balayage de la descente est reparti vers l'avant"
+        )
+
+
+# ─── (10) LE TÉMOIN INERTE ────────────────────────────────────────────────────
 
 
 def test_temoin_inerte_le_graphe_plat_est_servi_comme_avant(
