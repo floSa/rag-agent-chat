@@ -1,0 +1,194 @@
+#!/bin/sh
+# Refuse une POUSSEE dont un commit de la plage n'est pas conforme.
+#
+# LE TROU QUE CE HOOK FERME. Le controle d'identite de ce depot couvrait
+# `pre-commit` et `pre-merge-commit`, jamais `push` : les neuf poussees de ce
+# chantier ont chacune ete protegees par une verification que le pilote ecrivait
+# A LA MAIN. Un garde-fou qui repose sur la memoire du suivant n'est pas un
+# garde-fou — c'est ecrit dans le Makefile de ce depot, et c'est le motif meme
+# de `scripts/installer-les-garde-fous.sh`.
+#
+# L'ENJEU EST MESURE, PAS SUPPOSE. Sept commits sont partis une fois sous une
+# adresse professionnelle : il a fallu reecrire 165 commits, PUIS detruire et
+# recreer le depot sur GitHub, la liste des contributeurs une fois constituee ne
+# se defaisant pas. Le commit local se defait ; la poussee, non.
+#
+# ── CE QUI REND `pre-push` DIFFERENT DE `pre-commit`, ET C'EST TOUT LE SUJET ──
+#
+# `pre-commit` valide LE commit qu'on fabrique. `pre-push` doit valider TOUS les
+# commits de la plage qui part, et cette plage lui arrive sur l'ENTREE STANDARD,
+# une ligne par ref poussee :
+#
+#     <ref locale> <sha local> <ref distante> <sha distant>
+#
+# Un hook qui ne verifierait que `HEAD` laisserait passer neuf commits sur dix,
+# et il serait VERT sous toute scene ou le defaut est ailleurs qu'en tete — la
+# forme de garde decoratif que ce chantier a trouvee sept fois sur huit
+# bloquantes. La plage est donc lue ref par ref, et le commit du MILIEU est
+# eprouve explicitement par
+# `tests/unit/test_installation_des_garde_fous.py`,
+# `TestLaPousseeEstGardeeSurTouteLaPlage`.
+#
+# ── CE QUI EST VERIFIE, ET SUR QUEL AXE ──
+#
+#   1. l'ADRESSE d'auteur ET de committer de chaque commit de la plage. **Sur
+#      l'adresse, JAMAIS sur le nom** : deux identites portent « Florian
+#      Horellou », donc un controle sur le nom ne voit rien. C'est le §2.1 du
+#      pilotage, et c'est la faute qui a coute ce depot ;
+#   2. l'absence d'ATTRIBUTION a un assistant de generation de code, sur les
+#      deux FORMES que produisent reellement ces outils — un trailer
+#      `Co-Authored-By:` et une ligne de signature « generated with/by » — plus
+#      l'emoji de robot. Le vocabulaire est celui que le registre de ce depot
+#      emploie deja pour la meme detection (§4.32) ;
+#   3. l'absence de SECRET dans les lignes AJOUTEES de la plage.
+#
+# ── LES TROIS BORNES, ECRITES PLUTOT QUE TUES ──
+#
+# - **une MENTION en prose n'est pas refusee.** Ce depot documente sa propre
+#   regle sur plusieurs pages, et un message de commit qui la raconte est
+#   legitime. Un hook qui refuserait le mot enseignerait le seul geste que ce
+#   chantier interdit absolument — `--no-verify` — et un garde qu'on desarme
+#   pour travailler ne garde plus rien. Seules les FORMES d'attribution sont
+#   refusees ;
+# - **le NOM d'auteur n'est filtre que sur deux marqueurs de robot** : un suffixe
+#   `[bot]` et l'emoji. Un nom d'assistant pose avec une adresse autorisee
+#   passerait donc — c'est assume, parce que la regle d'identite de ce depot
+#   refuse explicitement de decider sur le nom, et qu'une liste de noms de
+#   produits vieillirait a chaque sortie. L'axe qui mord est l'adresse ;
+# - **la detection de secret est un jeu de formes A HAUTE CONFIANCE**, pas un
+#   detecteur generique. `detect-secrets` n'est pas arme sur ce depot et
+#   `.pre-commit-config.yaml` dit pourquoi ; ce hook n'essaie pas de le
+#   remplacer. Il refuse ce qui est indubitable — en-tete de cle privee, jetons
+#   a prefixe reconnaissable — et ce qui n'est PAS refuse reste nomme ici. Un
+#   `pre-push` qui refuse tout est aussi inutile qu'un `pre-push` qui accepte
+#   tout, et le second sens est eprouve : la plage propre de ce depot passe.
+#
+# Aucune sortie n'est produite quand tout est conforme : un hook bavard au
+# succes apprend a ne plus le lire.
+set -eu
+
+# Les DEUX seules adresses autorisees. Ce site est le troisieme au runtime
+# (`scripts/git-hooks/pre-commit`, sa copie figee par l'installation, et
+# celui-ci) : les modifier ensemble est ce que `make install` reinstalle.
+ADRESSES_AUTORISEES="florian.horellou@gmail.com florian_horellou@laposte.net"
+
+# Les FORMES d'attribution, et non le vocabulaire en prose. `-i` est applique a
+# l'appel. `^[[:space:]]*` : un trailer vit en tete de ligne, un recit ne s'y
+# trouve pas par accident.
+FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
+
+# Les formes de secret a haute confiance. Chacune porte un prefixe ou un en-tete
+# qui ne se rencontre pas par hasard dans une ligne de prose.
+#
+# **CE MOTIF COMMENCE PAR UN TIRET, ET C'EST UN PIEGE MESURE.** Passe en
+# argument nu — `grep -qE "$FORMES_DE_SECRET"` —, `grep` le lit comme une
+# OPTION : il rend `rc=2` sur « unrecognized option », le `if` le lit comme
+# faux, et le hook sort en **0 sans avoir rien verifie**. `mesure` le
+# 9 septembre 2026 en retournant ce hook contre les 276 commits de ce depot :
+# `rc=0`, et la verification n'avait pas tourne une seule fois. Un `rc` juste
+# pour la mauvaise raison, exactement la famille de defaut que ce chantier
+# traque. Tous les motifs sont donc passes par `-e`, et cette propriete est
+# gardee par `test_le_motif_de_secret_est_bien_passe_a_grep_et_non_lu_comme_une_option`.
+#
+# **ET LE MOTIF DE LA CLE PRIVEE EST ASSEMBLE, PAS ECRIT — C'EST LA CORRECTION
+# DU 9 SEPTEMBRE 2026, ET ELLE VIENT D'UN VRAI `git push`.** Ecrit d'une piece,
+# ce motif SE RECONNAISSAIT LUI-MEME : la ligne qui le pose est une ligne
+# ajoutee, elle porte l'en-tete en entier, et le hook refusait donc le commit
+# meme qui l'introduit. `mesure` ce jour-la, `git push` reel vers un distant
+# jetable : `rc=1` sur le commit du hook, sur le message « une ligne ajoutee
+# porte un secret », et aucune ref chez le distant. Un garde qui provoque la
+# panne qu'il surveille — a un troisieme site dans ce chantier — et dont les
+# deux seules sorties auraient ete `--no-verify` ou le retrait du garde.
+#
+# La correction est celle que le garde de surete de ce depot prescrit pour la
+# meme famille de defaut : la PERIPHRASE. Le nom et la valeur sont separes, donc
+# aucune ligne de ce fichier ne porte le motif entier. Les trois autres formes
+# n'ont pas ce probleme et c'est mesure : apres leur prefixe litteral vient une
+# CLASSE de caracteres, `[`, qui n'appartient a aucune des classes attendues —
+# `AKIA[0-9A-Z]{16}` ne se reconnait pas soi-meme. La propriete est gardee pour
+# les quatre par
+# `test_le_hook_ne_reconnait_aucune_de_ses_propres_lignes_comme_un_secret`.
+_DEBUT_DE_CLE='-----BEGIN'
+_FIN_DE_CLE='PRIVATE KEY-----'
+FORMES_DE_SECRET="$_DEBUT_DE_CLE [A-Z ]*$_FIN_DE_CLE|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[abprs]-[A-Za-z0-9-]{10,}"
+
+refuse() {
+    echo "POUSSEE REFUSEE : $1" >&2
+    echo "  commit $2" >&2
+    echo "" >&2
+    echo "La poussee ne se defait pas comme un commit : sur ce depot, sept" >&2
+    echo "commits partis sous une mauvaise adresse ont coute la reecriture de" >&2
+    echo "165 commits PUIS la destruction et la recreation du depot sur GitHub." >&2
+    echo "Corrige l'historique — jamais « git push --no-verify »." >&2
+    exit 1
+}
+
+# Un sha entierement nul designe une absence : ref creee (cote distant) ou ref
+# supprimee (cote local). Le test porte sur la FORME, pour valoir aussi bien
+# pour un depot en sha1 (40 zeros) qu'en sha256 (64).
+est_nul() {
+    case "$1" in
+        *[!0]*) return 1 ;;
+        "") return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+# `pre-push` recoit le nom du distant en premier argument. Il sert a borner
+# `--not --remotes=<distant>` quand la ref distante n'existe pas encore : sans
+# lui, une branche neuve ferait verifier TOUT l'historique atteignable, donc les
+# 184 commits anterieurs a ce garde — un refus certain sur du passe qu'on ne
+# reecrira pas, c'est-a-dire un hook qu'on desarmerait le premier jour.
+distant="${1:-origin}"
+
+while read -r ref_locale sha_local ref_distante sha_distant; do
+    # Une ref locale nulle est une SUPPRESSION de ref : aucun commit ne part.
+    if est_nul "$sha_local"; then
+        continue
+    fi
+
+    if est_nul "$sha_distant"; then
+        # Ref neuve : ce qui part est ce qui n'est pas deja chez le distant.
+        plage=$(git rev-list "$sha_local" --not --remotes="$distant")
+    else
+        plage=$(git rev-list "$sha_distant..$sha_local")
+    fi
+
+    for commit in $plage; do
+        auteur=$(git show -s --format='%ae' "$commit")
+        committer=$(git show -s --format='%ce' "$commit")
+
+        for adresse in "$auteur" "$committer"; do
+            autorisee=0
+            for permise in $ADRESSES_AUTORISEES; do
+                [ "$adresse" = "$permise" ] && autorisee=1
+            done
+            if [ "$autorisee" -eq 0 ]; then
+                echo "  ref $ref_locale -> $ref_distante" >&2
+                refuse "l'adresse « $adresse » n'est pas autorisee." "$commit"
+            fi
+        done
+
+        # L'attribution, sur le message COMPLET — sujet et corps, trailers
+        # compris.
+        if git show -s --format='%B' "$commit" | grep -qiE -e "$FORMES_D_ATTRIBUTION"; then
+            refuse "le message porte une attribution a un assistant de generation de code." "$commit"
+        fi
+
+        # Le nom, sur les deux seuls marqueurs de robot. Voir la borne ecrite
+        # en tete : l'axe qui decide reste l'adresse.
+        if git show -s --format='%an%n%cn' "$commit" | grep -qE -e '\[bot\]|🤖'; then
+            refuse "le nom d'auteur ou de committer est celui d'un robot." "$commit"
+        fi
+
+        # Les LIGNES AJOUTEES seulement. `--unified=0` retire le contexte, sans
+        # quoi une ligne inchangee voisine d'une modification serait relue a
+        # chaque commit — et un secret deja dans l'historique bloquerait toute
+        # poussee future, ce qui ferait desarmer le hook.
+        if git show --format= --unified=0 "$commit" \
+            | grep '^+' | grep -vE '^\+\+\+' \
+            | grep -qE -e "$FORMES_DE_SECRET"; then
+            refuse "une ligne ajoutee porte un secret." "$commit"
+        fi
+    done
+done

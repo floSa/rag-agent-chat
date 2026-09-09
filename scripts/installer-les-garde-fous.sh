@@ -17,7 +17,7 @@
 #
 # CE QUE CE SCRIPT MONTE, ET POURQUOI DANS CET ORDRE
 #
-#   1. le controle d'identite est copie a la main dans le repertoire des hooks ;
+#   1. les controles ecrits a la main sont copies dans le repertoire des hooks ;
 #   2. `pre-commit install`, SANS -f, deplace cette copie en `<type>.legacy`,
 #      continue de l'executer AVANT ses propres hooks, et s'installe par-dessus.
 #
@@ -55,6 +55,27 @@ cd "$racine"
 # clone.
 commun=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 identite="$racine/scripts/git-hooks/pre-commit"
+poussee="$racine/scripts/git-hooks/pre-push"
+
+# LE CONTROLE DE POUSSEE EST UN AUTRE SCRIPT, ET IL LE FAUT.
+#
+# `pre-commit` valide LE commit qu'on fabrique : il lit `git var
+# GIT_AUTHOR_IDENT`, c'est-a-dire l'identite du commit en cours. `pre-push` doit
+# valider TOUS les commits de la plage qui part, et cette plage lui arrive sur
+# l'ENTREE STANDARD. Copier le controle d'identite sous le nom `pre-push` aurait
+# donne un hook qui verifie l'identite CONFIGUREE au moment du push et aucun des
+# commits qui partent — vert sous toute scene ou le defaut n'est pas dans la
+# configuration courante, c'est-a-dire vert sur le defaut reel.
+#
+# Chaque type a donc sa source, et `source_du_type()` est le seul endroit ou
+# cette correspondance est ecrite : la boucle d'armement ET la boucle de
+# verification l'appellent tous deux, donc elles ne peuvent pas diverger.
+source_du_type() {
+    case "$1" in
+        pre-push) echo "$poussee" ;;
+        *) echo "$identite" ;;
+    esac
+}
 
 # Les types de hook qu'il faut armer. `pre-commit` NE SUFFIT PAS : c'est le seul
 # type que `pre-commit install` installe par defaut, et il ne couvre pas les
@@ -65,11 +86,23 @@ identite="$racine/scripts/git-hooks/pre-commit"
 # sans rien rencontrer — et le mandat de ce chantier prescrit `--no-ff` pour
 # chaque fusion de lot, dont le commit part sur GitHub.
 #
-# La copie manuelle est posee sur les DEUX types, pour que `<type>.legacy` couvre
-# aussi les arbres dont la configuration ne porte pas le hook. Sans cette
+# La copie manuelle est posee sur TOUS les types, pour que `<type>.legacy`
+# couvre aussi les arbres dont la configuration ne porte pas le hook. Sans cette
 # moitie, la fusion serait gardee sur la branche qui declare le hook, et nulle
 # part ailleurs.
-TYPES="pre-commit pre-merge-commit"
+#
+# `pre-push` ENTRE DANS CETTE LISTE LE 9 SEPTEMBRE 2026, et le motif est mesure.
+# Le garde-fou d'identite couvrait `commit` et `merge`, jamais `push` : les NEUF
+# poussees de ce chantier ont chacune ete protegees par une verification que le
+# pilote ecrivait a la main. Un garde-fou qui repose sur la memoire du suivant
+# n'est pas un garde-fou — c'est le premier paragraphe de ce fichier. Et
+# l'asymetrie de gravite est entiere : un commit local se defait, une poussee
+# non. Sept commits partis sous une mauvaise adresse ont coute la reecriture de
+# 165 commits, PUIS la destruction et la recreation du depot sur GitHub.
+#
+# `pre-push` a sa propre source — voir `source_du_type()` ci-dessus — parce
+# qu'il valide une PLAGE lue sur l'entree standard, et non le commit courant.
+TYPES="pre-commit pre-merge-commit pre-push"
 
 # UNE BOUCLE SUR UNE LISTE VIDE VERIFIE ZERO CHOSE, ET ELLE EST VRAIE.
 #
@@ -93,7 +126,12 @@ fi
 
 mkdir -p "$commun/hooks"
 for type in $TYPES; do
-    cp "$identite" "$commun/hooks/$type"
+    source=$(source_du_type "$type")
+    if [ ! -f "$source" ]; then
+        echo "ECHEC : $source est introuvable (type $type)." >&2
+        exit 1
+    fi
+    cp "$source" "$commun/hooks/$type"
     chmod +x "$commun/hooks/$type"
 done
 
@@ -168,8 +206,8 @@ for type in $TYPES; do
         erreurs=1
     fi
 
-    if ! cmp -s "$identite" "$legacy"; then
-        echo "ECHEC : $legacy ne porte pas le controle d'identite." >&2
+    if ! cmp -s "$(source_du_type "$type")" "$legacy"; then
+        echo "ECHEC : $legacy ne porte pas le controle ecrit a la main." >&2
         echo "  Cause probable : « pre-commit install -f », qui supprime la" >&2
         echo "  seule couche independante de l'arbre de travail." >&2
         erreurs=1
@@ -187,5 +225,12 @@ fi
 echo "Garde-fous armes dans $commun/hooks :"
 for type in $TYPES; do
     echo "  $type          hooks du framework (.pre-commit-config.yaml)"
-    echo "  $type.legacy   controle d'identite, valable pour toute branche"
+    case "$type" in
+        pre-push)
+            echo "  $type.legacy   controle de la PLAGE poussee, valable pour toute branche"
+            ;;
+        *)
+            echo "  $type.legacy   controle d'identite, valable pour toute branche"
+            ;;
+    esac
 done

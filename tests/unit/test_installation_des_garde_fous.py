@@ -43,6 +43,7 @@ controle d'identite en place et perd le framework.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -54,6 +55,11 @@ import pytest
 RACINE = Path(__file__).resolve().parents[2]
 INSTALLEUR = RACINE / "scripts" / "installer-les-garde-fous.sh"
 HOOK_IDENTITE = RACINE / "scripts" / "git-hooks" / "pre-commit"
+# LE CONTROLE DE POUSSEE, ajoute au montage le 9 septembre 2026. C'est un AUTRE
+# script que le controle d'identite, et il le faut : `pre-commit` valide le
+# commit qu'on fabrique, `pre-push` valide TOUS les commits de la plage qui
+# part, lue sur son entree standard.
+HOOK_POUSSEE = RACINE / "scripts" / "git-hooks" / "pre-push"
 MAKEFILE = RACINE / "Makefile"
 
 # Le chemin tel que la recette du Makefile le nomme, et tel qu'un renommage le
@@ -107,6 +113,7 @@ def _monte_un_depot_jetable(
     scripts = depot / "scripts"
     (scripts / "git-hooks").mkdir(parents=True)
     shutil.copy2(HOOK_IDENTITE, scripts / "git-hooks" / "pre-commit")
+    shutil.copy2(HOOK_POUSSEE, scripts / "git-hooks" / "pre-push")
     installeur = scripts / INSTALLEUR.name
     installeur.write_text(contenu_installeur)
 
@@ -729,10 +736,24 @@ class TestLeScriptConstateSonPropreResultat:
         dans le script LIVRE, et on exige que le script s'en apercoive.
         """
         source = INSTALLEUR.read_text()
-        mutee = source.replace('TYPES="pre-commit pre-merge-commit"', 'TYPES=""')
+        # LA LISTE EST VIDEE PAR MOTIF, ET NON PAR SA VALEUR LITTERALE. `mesure`
+        # le 9 septembre 2026 : ce test recopiait `TYPES="pre-commit
+        # pre-merge-commit"`, et l'ajout de `pre-push` au montage l'a fait
+        # rougir sur SA PROPRE preuve d'atteinte — la mutation ne mutait plus
+        # rien. C'est le bon sens de l'erreur, et le motif retire la cause : un
+        # type ajoute ne casse plus la mutation, et un renommage de la variable
+        # la fait toujours rougir.
+        mutee, remplacements = re.subn(
+            r'^TYPES=".*"$', 'TYPES=""', source, count=1, flags=re.M
+        )
         # Un test qui choisit lui-meme son cas doit prouver qu'il l'a atteint :
         # si la ligne `TYPES` change de forme, cette mutation ne mute plus rien
         # et le test resterait vert sans rien garder.
+        assert remplacements == 1, (
+            "la ligne `TYPES=\"...\"` n'a pas ete trouvee une fois exactement dans "
+            f"l'installeur ({remplacements} substitution(s)) : la mutation ne mute "
+            "plus rien"
+        )
         assert mutee != source, "la ligne TYPES a change de forme : la mutation ne mute plus rien"
 
         depot = tmp_path / "depot-types-vides"
@@ -989,4 +1010,598 @@ class TestLaCibleInstallNeDesarmeRien:
         assert _etapes_qui_retirent(commandes) == [], (
             "`uv sync --inexact` est refuse alors qu'il ne retire rien : le garde "
             "est devenu une liste noire.\n" + "\n".join(_etapes_qui_retirent(commandes))
+        )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LA POUSSEE, ET C'EST LE TROU QUE LE 9 SEPTEMBRE 2026 FERME
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _pousse(depot: Path, lignes: str, distant: str = "origin"):
+    """Execute le hook `pre-push` ARME du depot, avec `lignes` sur son entree.
+
+    C'est la copie posee par l'installeur qui est executee — `<type>.legacy` —
+    et non le script du dossier `scripts/`. Un test qui lancerait la source ne
+    dirait rien du montage ; celui-ci prouve les deux ensemble.
+    """
+    hook = depot / ".git" / "hooks" / "pre-push.legacy"
+    assert hook.is_file(), (
+        f"{hook} n'existe pas : l'installeur n'a pas arme la couche `.legacy` de "
+        "`pre-push`, et tout ce qui suit mesurerait le vide"
+    )
+    environnement = dict(os.environ)
+    environnement.pop("GIT_DIR", None)
+    environnement.pop("GIT_WORK_TREE", None)
+    return subprocess.run(
+        ["sh", str(hook), distant, "https://example.invalid/depot.git"],
+        cwd=depot,
+        input=lignes,
+        env=environnement,
+        capture_output=True,
+        text=True,
+    )
+
+
+_ZEROS = "0" * 40
+
+
+def _ligne_de_poussee(depot: Path, avant: str, apres: str = "HEAD") -> str:
+    """La ligne exacte que git ecrit sur l'entree standard d'un `pre-push`."""
+    sha_apres = _git(depot, "rev-parse", apres).stdout.strip()
+    return f"refs/heads/principale {sha_apres} refs/heads/principale {avant}\n"
+
+
+class TestLaPousseeEstGardeeSurTouteLaPlage:
+    """LE TROU FERME LE 9 SEPTEMBRE 2026, ET SA DIFFICULTE PROPRE.
+
+    Le garde-fou d'identite couvrait `pre-commit` et `pre-merge-commit`, jamais
+    `push`. Les NEUF poussees de ce chantier ont chacune ete protegees par une
+    verification que le pilote ecrivait A LA MAIN — et l'asymetrie de gravite
+    est entiere : un commit local se defait, une poussee non. Sept commits
+    partis sous une adresse professionnelle ont coute la reecriture de 165
+    commits PUIS la destruction et la recreation du depot sur GitHub.
+
+    **CE QUI REND CE HOOK DIFFERENT DE `pre-commit`, ET C'EST LE PIEGE.**
+    `pre-commit` valide LE commit qu'on fabrique. `pre-push` doit valider TOUS
+    les commits de la plage qui part, et cette plage lui arrive sur son ENTREE
+    STANDARD. Un hook qui ne verifierait que `HEAD` laisserait passer neuf
+    commits sur dix, et il serait VERT sous toute scene ou le defaut n'est pas
+    en tete — la huitieme occurrence dans ce chantier de « un garde vert sous
+    une scene que le defaut ne rencontre jamais ».
+
+    **C'EST POURQUOI LE CAS CENTRAL DE CETTE CLASSE EST UN COMMIT DU MILIEU.**
+    `test_un_commit_du_milieu_de_la_plage_est_refuse` construit une plage de
+    cinq commits dont le TROISIEME porte une adresse non autorisee, HEAD etant
+    conforme. Un hook qui regarde `HEAD` passe ; celui-ci refuse, et il nomme le
+    commit.
+
+    **ET LES DEUX SENS**, parce qu'un `pre-push` qui refuse tout est aussi
+    inutile qu'un `pre-push` qui accepte tout : une plage propre passe, et la
+    plage REELLE de ce depot — 276 commits, 83 129 lignes ajoutees traversees
+    par le controle de secret — passe aussi, ce qui est mesure par
+    `test_la_plage_reelle_de_ce_depot_passe`.
+    """
+
+    @pytest.fixture
+    def depot_pousse(self, tmp_path: Path) -> Path:
+        """Un depot arme, avec une plage de cinq commits par-dessus l'initial.
+
+        Portee fonction et non module : chaque test de cette classe reecrit ou
+        etend l'historique, et un etat partage rendrait leurs plages
+        dependantes de l'ordre de collecte.
+        """
+        depot = tmp_path / "depot-poussee"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        return depot
+
+    def _commit(
+        self,
+        depot: Path,
+        n: int,
+        adresse: str,
+        message: str = "",
+        committer: str | None = None,
+    ) -> None:
+        """Fabrique un commit dans la plage, LE `pre-commit` MIS DE COTE.
+
+        **JAMAIS PAR `--no-verify`**, que ce chantier interdit absolument : par
+        un `core.hooksPath` pointant sur un repertoire vide, le temps de la
+        fabrication. La distinction n'est pas cosmetique — `--no-verify` est un
+        geste d'auteur qu'on prend l'habitude de taper, `core.hooksPath` est un
+        reglage de harnais qui ne quitte pas ce test.
+
+        **ET LA SCENE AINSI CONSTRUITE EST LA SCENE REELLE.** Un commit non
+        conforme dans une plage a poussee ne vient jamais d'un `pre-commit`
+        contourne : il vient d'un clone qui n'a jamais tape `make install`, d'un
+        `git checkout` ancien qui desarmait le controle en silence avant la
+        couche `.legacy`, ou d'un commit anterieur a l'armement du garde-fou.
+        C'est exactement l'origine des SEPT commits qui ont coute ce depot : ils
+        sont partis avant qu'aucun hook n'existe. Le `pre-push` est la derniere
+        barriere, et la seule qui voit la plage.
+        """
+        vide = depot / ".git" / "hooks-desarmes"
+        vide.mkdir(exist_ok=True)
+        (depot / f"fichier-{n}.txt").write_text(f"contenu {n}\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        acheve = _git(
+            depot,
+            "-c",
+            f"core.hooksPath={vide}",
+            "commit",
+            "-m",
+            message or f"commit {n}",
+            env=_identite(adresse, committer if committer is not None else adresse),
+        )
+        assert acheve.returncode == 0, f"{acheve.stdout}\n{acheve.stderr}"
+
+    def test_une_plage_propre_passe(self, depot_pousse: Path) -> None:
+        """LE SENS QUI REND L'AUTRE CROYABLE."""
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        for n in range(1, 6):
+            self._commit(depot_pousse, n, ADRESSE_AUTORISEE)
+
+        acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+        assert acheve.returncode == 0, (
+            "une plage de cinq commits tous conformes est refusee : un `pre-push` "
+            f"qui refuse tout est aussi inutile qu'un qui accepte tout.\n"
+            f"{acheve.stdout}\n{acheve.stderr}"
+        )
+        assert acheve.stdout == "", (
+            f"le hook parle alors que tout est conforme : {acheve.stdout!r}. Un hook "
+            "bavard au succes apprend a ne plus le lire"
+        )
+
+    def test_un_commit_du_milieu_de_la_plage_est_refuse(self, depot_pousse: Path) -> None:
+        """LE CAS QUI DECIDE DE TOUT — ET LA PREUVE D'ATTEINTE EST EXPLICITE.
+
+        Cinq commits, le TROISIEME sous une adresse non autorisee, HEAD
+        conforme. Le test prouve d'abord que la scene est bien celle qu'il
+        decrit — HEAD est conforme, le troisieme ne l'est pas — avant de lire le
+        `rc` du hook. Un `rc` juste n'est pas une preuve d'atteinte.
+        """
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        for n in (1, 2):
+            self._commit(depot_pousse, n, ADRESSE_AUTORISEE)
+        self._commit(depot_pousse, 3, ADRESSE_INTERDITE)
+        fautif = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        for n in (4, 5):
+            self._commit(depot_pousse, n, ADRESSE_AUTORISEE)
+
+        # PREUVE D'ATTEINTE — la scene est celle que le docstring annonce.
+        plage = _git(depot_pousse, "rev-list", f"{base}..HEAD").stdout.split()
+        assert len(plage) == 5, f"la plage n'a pas cinq commits : {plage}"
+        assert plage[0] != fautif and plage[-1] != fautif, (
+            "le commit fautif est en tete ou en queue de plage : ce test ne "
+            "mesure plus ce qu'il decrit"
+        )
+        assert _git(depot_pousse, "show", "-s", "--format=%ae", "HEAD").stdout.strip() == (
+            ADRESSE_AUTORISEE
+        ), "HEAD n'est pas conforme : un hook qui ne lit que HEAD rougirait aussi"
+        assert _git(depot_pousse, "show", "-s", "--format=%ae", fautif).stdout.strip() == (
+            ADRESSE_INTERDITE
+        ), "le commit du milieu n'est pas celui qu'on croit"
+
+        acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+        assert acheve.returncode != 0, (
+            "une plage dont le TROISIEME commit porte une adresse non autorisee "
+            "est acceptee : le hook ne regarde que HEAD, et il laisserait passer "
+            f"neuf commits sur dix.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+        assert ADRESSE_INTERDITE in acheve.stderr, (
+            f"le refus ne nomme pas l'adresse fautive : {acheve.stderr!r}"
+        )
+        assert fautif[:12] in acheve.stderr, (
+            f"le refus ne nomme pas le commit fautif : {acheve.stderr!r}. Sur une "
+            "plage de cinq, un refus qui ne dit pas lequel ne se corrige pas"
+        )
+
+    def test_le_committer_seul_suffit_a_refuser(self, depot_pousse: Path) -> None:
+        """L'auteur ET le committer, comme au `pre-commit`.
+
+        Une fusion, un `rebase`, un `cherry-pick` reecrivent le committer en
+        gardant l'auteur : c'est le chemin par lequel une adresse interdite
+        entre sans qu'on l'ait tapee.
+        """
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        self._commit(
+            depot_pousse,
+            500,
+            ADRESSE_AUTORISEE,
+            "auteur conforme, committer non",
+            committer=ADRESSE_INTERDITE,
+        )
+        assert _git(depot_pousse, "show", "-s", "--format=%ae", "HEAD").stdout.strip() == (
+            ADRESSE_AUTORISEE
+        )
+        assert _git(depot_pousse, "show", "-s", "--format=%ce", "HEAD").stdout.strip() == (
+            ADRESSE_INTERDITE
+        )
+
+        refus = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+        assert refus.returncode != 0, (
+            "un committer non autorise passe : le hook ne lit que l'auteur, et "
+            "toute fusion echappe"
+        )
+
+    def test_l_attribution_a_un_assistant_est_refusee(self, depot_pousse: Path) -> None:
+        """LES DEUX FORMES QUE CES OUTILS PRODUISENT REELLEMENT.
+
+        Un trailer d'attribution et une ligne de signature. Les deux sont
+        construites ici a l'execution, morceau par morceau, pour qu'aucune ne
+        soit ecrite en clair dans un fichier de ce depot public.
+        """
+        formes = (
+            "Co-Authored" + "-By: un outil <un@exemple.invalid>",
+            "\U0001f916 " + "Generated with [un outil](https://exemple.invalid)",
+        )
+        for i, forme in enumerate(formes, start=1):
+            base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+            self._commit(depot_pousse, 100 + i, ADRESSE_AUTORISEE, f"un travail\n\n{forme}\n")
+            assert forme.split("\n")[0] in _git(
+                depot_pousse, "show", "-s", "--format=%B", "HEAD"
+            ).stdout, "la forme n'est pas dans le message : scene non atteinte"
+
+            refus = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+            assert refus.returncode != 0, (
+                f"la forme d'attribution {forme!r} passe la poussee : le hook ne la "
+                "voit pas, et le depot est public"
+            )
+
+    def test_une_mention_en_prose_n_est_pas_refusee(self, depot_pousse: Path) -> None:
+        """LA BORNE ECRITE DU CONTROLE D'ATTRIBUTION, ET ELLE EST DELIBEREE.
+
+        Ce depot documente sa propre regle sur plusieurs pages, et un message de
+        commit qui la raconte est legitime — celui de cette fermeture-ci en est
+        un. Un hook qui refuserait le mot enseignerait le seul geste que ce
+        chantier interdit absolument : `--no-verify`. Un garde qu'on desarme
+        pour travailler ne garde plus rien.
+        """
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        self._commit(
+            depot_pousse,
+            200,
+            ADRESSE_AUTORISEE,
+            "docs: la regle interdit toute attribution a un assistant de "
+            "generation de code, ni auteur ni committer ni trailer",
+        )
+        acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+        assert acheve.returncode == 0, (
+            "un message qui RACONTE la regle est refuse : le controle est devenu "
+            "un filtre de vocabulaire, et il enseignerait `--no-verify`.\n"
+            f"{acheve.stderr}"
+        )
+
+    def test_un_secret_ajoute_est_refuse(self, depot_pousse: Path) -> None:
+        """La troisieme verification, sur les lignes AJOUTEES de la plage.
+
+        La forme plantee est un en-tete de cle privee — assemble a l'execution,
+        donc absent de tout fichier de ce depot — et elle est plantee dans un
+        commit du MILIEU, comme l'adresse.
+        """
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        self._commit(depot_pousse, 300, ADRESSE_AUTORISEE)
+
+        entete = "-----BEGIN" + " RSA PRIVATE KEY-----"
+        (depot_pousse / "cle.pem").write_text(f"{entete}\nAAAA\n")
+        vide = depot_pousse / ".git" / "hooks-desarmes"
+        vide.mkdir(exist_ok=True)
+        assert _git(depot_pousse, "add", "-A").returncode == 0
+        assert _git(
+            depot_pousse,
+            "-c",
+            f"core.hooksPath={vide}",
+            "commit",
+            "-m",
+            "un fichier",
+            env=_identite(ADRESSE_AUTORISEE, ADRESSE_AUTORISEE),
+        ).returncode == 0
+        fautif = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        self._commit(depot_pousse, 301, ADRESSE_AUTORISEE)
+
+        # PREUVE D'ATTEINTE : la ligne est bien AJOUTEE par ce commit.
+        ajoutees = _git(depot_pousse, "show", "--format=", "--unified=0", fautif).stdout
+        assert f"+{entete}" in ajoutees, (
+            "l'en-tete n'apparait pas dans les lignes ajoutees du commit : la "
+            "scene n'est pas celle que ce test decrit"
+        )
+
+        refus = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, base))
+        assert refus.returncode != 0, (
+            "une cle privee ajoutee au milieu de la plage part sans rien "
+            f"rencontrer.\n{refus.stdout}\n{refus.stderr}"
+        )
+        assert fautif[:12] in refus.stderr, f"le refus ne nomme pas le commit : {refus.stderr!r}"
+
+    def test_le_motif_de_secret_est_bien_passe_a_grep_et_non_lu_comme_une_option(self) -> None:
+        """LE FAUX VERT QUE CE LOT A TROUVE CONTRE LUI-MEME, ET IL EST GARDE.
+
+        Le motif de secret COMMENCE PAR UN TIRET (`-----BEGIN ...`). Passe en
+        argument nu, `grep` le lit comme une OPTION : il rend `rc=2` sur
+        « unrecognized option », le `if` du hook le lit comme faux, et le hook
+        sort en **0 sans avoir rien verifie**. `mesure` le 9 septembre 2026 en
+        retournant la premiere ecriture de ce hook contre les 276 commits de ce
+        depot : `rc=0`, et le controle n'avait pas tourne une seule fois. Un
+        `rc` juste pour la mauvaise raison.
+
+        Le hook passe donc tous ses motifs par `-e`. Ce test tient la propriete
+        au niveau du TEXTE du hook, parce que c'est la seule facon de la voir :
+        au niveau du comportement, la version fautive et la version juste
+        rendent le meme `rc=0` sur un depot sain.
+        """
+        # LES LIGNES DE COMMENTAIRE SONT ECARTEES, et c'est ce test qui l'a
+        # trouve contre lui-meme : le bandeau du hook CITE la forme fautive
+        # pour expliquer le piege, et un scan du fichier entier la comptait
+        # comme un appel. C'est la meme distinction que le garde de surete du
+        # depot — un recit se raconte, une instruction s'execute — a un autre
+        # endroit du chantier.
+        lignes = [
+            ligne
+            for ligne in HOOK_POUSSEE.read_text().splitlines()
+            if not ligne.lstrip().startswith("#")
+        ]
+        appels = re.findall(r"grep -q[a-zA-Z]*(?: -e)? [\"']?\$FORMES", "\n".join(lignes))
+        assert appels, "aucun appel a grep sur une variable `$FORMES...` : le hook a change"
+        sans_e = [appel for appel in appels if " -e " not in appel]
+        assert not sans_e, (
+            f"un motif est passe a grep SANS `-e` : {sans_e}. Si ce motif commence "
+            "par un tiret, grep le lit comme une option, rend rc=2, et le hook sort "
+            "en 0 sans avoir rien verifie — le faux vert du 9 septembre 2026"
+        )
+
+    def test_le_hook_ne_reconnait_aucune_de_ses_propres_lignes_comme_un_secret(self) -> None:
+        """LE DEFAUT QUE CE LOT A TROUVE PAR UN VRAI `git push`, ET IL EST GARDE.
+
+        **La premiere ecriture de ce hook posait son motif de cle privee d'une
+        piece.** Ce motif SE RECONNAISSAIT ALORS LUI-MEME : la ligne qui le pose
+        est une ligne AJOUTEE, elle porte l'en-tete en entier, et le hook
+        refusait donc le commit meme qui l'introduit. `mesure` le 9 septembre
+        2026, `git push` reel vers un distant jetable : `rc=1` sur le commit du
+        hook, message « une ligne ajoutee porte un secret », **et aucune ref
+        chez le distant**.
+
+        **ET LA BATTERIE ETAIT VERTE QUAND LE DEFAUT EST NE.**
+        `test_la_plage_reelle_de_ce_depot_passe` ne l'a vu qu'AU COMMIT SUIVANT,
+        le commit fautif n'existant pas encore quand elle a tourne. Un garde qui
+        ne peut voir un defaut qu'un commit plus tard est un garde a moitie
+        ecrit : ce test-ci le voit AU MOMENT OU LE MOTIF EST ECRIT, sans lire
+        aucun historique.
+
+        La correction est la PERIPHRASE — la meme que prescrit le garde de
+        surete de ce depot pour la meme famille de defaut. Les deux seules
+        autres sorties auraient ete `--no-verify`, que ce chantier interdit
+        absolument, ou le retrait du garde.
+        """
+        source = HOOK_POUSSEE.read_text()
+        motifs = re.search(r'^FORMES_DE_SECRET="(.+)"$', source, re.M)
+        assert motifs, (
+            "la variable `FORMES_DE_SECRET` n'est plus posee sous la forme attendue :"
+            " ce test ne mesure plus rien"
+        )
+
+        # Les formes, telles que le shell les composera. La substitution est
+        # refaite ici plutot que devinee : un motif qui cesserait d'etre
+        # assemble serait relu tel quel, et le test le verrait.
+        compose = motifs.group(1)
+        for nom, valeur in re.findall(r"^(_[A-Z_]+)='([^']*)'$", source, re.M):
+            compose = compose.replace(f"${nom}", valeur)
+        assert "$" not in compose, f"une variable du motif n'a pas ete resolue : {compose}"
+        # PREUVE D'ATTEINTE : le motif compose est bien celui qui mord.
+        entete = "-----BEGIN" + " RSA PRIVATE KEY-----"
+        assert re.search(compose, entete), (
+            f"le motif compose ne reconnait plus un en-tete de cle privee : {compose!r}. "
+            "Ce test comparerait alors le hook a un motif inerte"
+        )
+
+        fautives = [
+            ligne
+            for ligne in source.splitlines()
+            if not ligne.lstrip().startswith("#") and re.search(compose, ligne)
+        ]
+        assert not fautives, (
+            "une ligne de code de ce hook est reconnue par son propre motif de "
+            f"secret : {fautives}. Le hook refuserait donc le commit qui le "
+            "modifie, et les deux seules sorties seraient `--no-verify` — que ce "
+            "chantier interdit — ou le retrait du garde. Corrige par PERIPHRASE : "
+            "separe le motif en morceaux que le shell recompose, comme "
+            "`_DEBUT_DE_CLE` et `_FIN_DE_CLE`"
+        )
+
+    def test_une_suppression_de_ref_ne_verifie_rien(self, depot_pousse: Path) -> None:
+        """Une ref supprimee ne pousse aucun commit, et le hook ne doit pas caler.
+
+        Sans ce cas, `git push --delete` ferait passer 40 zeros a `git rev-list`,
+        qui sortirait en erreur — un hook qui casse sur un geste legitime est un
+        hook qu'on desarme.
+        """
+        acheve = _pousse(
+            depot_pousse, f"(delete) {_ZEROS} refs/heads/principale {_ZEROS}\n"
+        )
+        assert acheve.returncode == 0, (
+            f"la suppression d'une ref fait echouer le hook :\n{acheve.stderr}"
+        )
+
+    def test_une_ref_neuve_ne_fait_pas_verifier_tout_l_historique(
+        self, depot_pousse: Path
+    ) -> None:
+        """LA BORNE QUI EMPECHE LE HOOK D'ETRE DESARME LE PREMIER JOUR.
+
+        Quand la ref distante n'existe pas encore, git passe 40 zeros : la plage
+        est alors bornee par `--not --remotes=<distant>`, et non ouverte sur
+        tout l'historique atteignable. Sans cette borne, pousser une branche
+        neuve ferait verifier les 184 commits anterieurs a ce garde — un refus
+        certain sur du passe qu'on ne reecrira pas.
+
+        La scene est construite : un commit non conforme est pose PUIS declare
+        deja present chez le distant, et la poussee d'une ref neuve doit passer.
+        """
+        self._commit(depot_pousse, 400, ADRESSE_INTERDITE)
+        deja_pousse = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        # Le distant connait ce commit : on le lui declare comme git le ferait.
+        assert _git(
+            depot_pousse, "update-ref", "refs/remotes/origin/principale", deja_pousse
+        ).returncode == 0
+        self._commit(depot_pousse, 401, ADRESSE_AUTORISEE)
+
+        # PREUVE D'ATTEINTE : le commit non conforme est bien dans l'historique,
+        # et bien exclu de la plage bornee.
+        assert _git(depot_pousse, "show", "-s", "--format=%ae", deja_pousse).stdout.strip() == (
+            ADRESSE_INTERDITE
+        )
+        bornee = _git(
+            depot_pousse, "rev-list", "HEAD", "--not", "--remotes=origin"
+        ).stdout.split()
+        assert deja_pousse not in bornee, "la borne n'exclut pas le commit deja pousse"
+
+        acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, _ZEROS))
+        assert acheve.returncode == 0, (
+            "la poussee d'une ref neuve fait verifier des commits deja chez le "
+            f"distant : le hook serait desarme le premier jour.\n{acheve.stderr}"
+        )
+
+    def test_la_plage_reelle_de_ce_depot_passe(self) -> None:
+        """LE SECOND SENS, SUR LA SEULE PLAGE QUI COMPTE VRAIMENT.
+
+        Le hook est retourne contre l'historique REEL de ce depot. C'est la
+        mesure qui distingue « un `pre-push` juste » d'« un `pre-push` qui
+        refuse tout » : si celui-ci refusait la plage de ce depot, il serait
+        desarme a la premiere poussee.
+
+        **ET LA PREUVE D'ATTEINTE EST COMPTEE, PARCE QU'UN `rc=0` NE PROUVE
+        RIEN ICI.** Le test compte les lignes AJOUTEES que le controle de secret
+        traverse reellement. `mesure` le 9 septembre 2026 : **83 129** lignes
+        sur 276 commits. Un `rc=0` obtenu sur zero ligne traversee serait
+        exactement le faux vert que ce lot a trouve contre lui-meme.
+        """
+        commits = _git(RACINE, "rev-list", "HEAD").stdout.split()
+        assert len(commits) >= 250, f"seulement {len(commits)} commits : plage inattendue"
+
+        lignes_traversees = 0
+        for commit in commits:
+            diff = _git(RACINE, "show", "--format=", "--unified=0", commit).stdout
+            lignes_traversees += sum(
+                1
+                for ligne in diff.splitlines()
+                if ligne.startswith("+") and not ligne.startswith("+++")
+            )
+        # UN PLANCHER, PAS UN COMPTE : l'historique grandit, et un compte exact
+        # rougirait a chaque commit — le geste « monter le chiffre » que le
+        # §4.35 de ce depot refuse.
+        assert lignes_traversees >= 80_000, (
+            f"seulement {lignes_traversees} lignes ajoutees traversent le controle "
+            "de secret, sous le plancher de 80 000 releve le 9 septembre 2026 : le "
+            "`rc=0` ci-dessous ne prouverait plus que le controle a tourne"
+        )
+
+        hook = RACINE / "scripts" / "git-hooks" / "pre-push"
+        sha = _git(RACINE, "rev-parse", "HEAD").stdout.strip()
+        environnement = dict(os.environ)
+        environnement.pop("GIT_DIR", None)
+        environnement.pop("GIT_WORK_TREE", None)
+        acheve = subprocess.run(
+            ["sh", str(hook), "origin", "https://example.invalid/depot.git"],
+            cwd=RACINE,
+            input=f"refs/heads/main {sha} refs/heads/main {commits[-1]}\n",
+            env=environnement,
+            capture_output=True,
+            text=True,
+        )
+        assert acheve.returncode == 0, (
+            "le hook refuse l'historique REEL de ce depot : il serait desarme a la "
+            f"premiere poussee.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+        assert acheve.stderr == "", f"le hook ecrit sur stderr sans refuser : {acheve.stderr!r}"
+
+
+class TestLeMontageDeLaPousseeEstConstate:
+    """`make install` doit armer `pre-push` ET s'en apercevoir s'il ne l'a pas fait.
+
+    C'est la meme exigence que pour les deux autres types, et elle est portee
+    par les memes deux classes du script : la boucle d'armement et la boucle de
+    verification, qui iterent la MEME variable `TYPES` — donc elles ne peuvent
+    pas diverger sur un type.
+    """
+
+    def test_les_trois_types_sont_armes_et_leur_couche_legacy_est_conforme(
+        self, depot_arme: Path
+    ) -> None:
+        hooks = depot_arme / ".git" / "hooks"
+        attendu = {
+            "pre-commit": HOOK_IDENTITE,
+            "pre-merge-commit": HOOK_IDENTITE,
+            "pre-push": HOOK_POUSSEE,
+        }
+        for type_, source in attendu.items():
+            genere = hooks / type_
+            legacy = hooks / f"{type_}.legacy"
+            assert genere.is_file(), f"{type_} n'est pas arme"
+            assert "generated by pre-commit" in genere.read_text(), (
+                f"{type_} n'est pas le hook du framework : la copie manuelle est "
+                "passee APRES `pre-commit install` et l'a ecrase"
+            )
+            assert legacy.is_file(), f"{type_}.legacy est absent"
+            assert legacy.read_text() == source.read_text(), (
+                f"{type_}.legacy ne porte pas {source.name} : la correspondance "
+                "type -> source du script a change"
+            )
+
+    def test_le_controle_de_poussee_n_est_pas_le_controle_d_identite(self) -> None:
+        """LA MUTATION QUI AURAIT DONNE UN HOOK CREUX, ET ELLE EST INTERDITE ICI.
+
+        Copier le controle d'identite sous le nom `pre-push` aurait donne un
+        hook qui lit `git var GIT_AUTHOR_IDENT` — l'identite CONFIGUREE au
+        moment du push — et aucun des commits qui partent. Vert sous toute scene
+        ou le defaut n'est pas dans la configuration courante, c'est-a-dire vert
+        sur le defaut reel.
+        """
+        assert HOOK_POUSSEE.read_text() != HOOK_IDENTITE.read_text(), (
+            "le controle de poussee est une copie du controle d'identite : il "
+            "verifie l'identite configuree, pas la plage qui part"
+        )
+        source = HOOK_POUSSEE.read_text()
+        assert "read -r" in source, (
+            "le controle de poussee ne lit pas son entree standard : il ne peut "
+            "donc pas connaitre la plage qui part, et un hook qui ne verifie que "
+            "HEAD laisse passer neuf commits sur dix"
+        )
+        assert "rev-list" in source, (
+            "le controle de poussee n'enumere aucune plage : il ne verifie au "
+            "mieux qu'un commit"
+        )
+        assert "GIT_AUTHOR_IDENT" not in source, (
+            "le controle de poussee lit l'identite CONFIGUREE : c'est la mesure "
+            "du `pre-commit`, et elle ne dit rien des commits qui partent"
+        )
+
+    def test_une_liste_de_types_privee_de_la_poussee_est_vue(self, tmp_path: Path) -> None:
+        """LA MUTATION QUI RETIRE `pre-push` DU MONTAGE.
+
+        Sans ce test, le type pourrait sortir de `TYPES` sans qu'un seul rouge
+        n'apparaisse : le script s'installerait proprement sur les deux autres,
+        sortirait en 0, et la poussee redeviendrait la seule chose que personne
+        ne garde. C'est mot pour mot le defaut que cette fermeture ferme.
+        """
+        source = INSTALLEUR.read_text()
+        mutee, remplacements = re.subn(
+            r'^(TYPES=".*?)\s*pre-push"$', r'\1"', source, count=1, flags=re.M
+        )
+        assert remplacements == 1, (
+            "`pre-push` n'est plus le dernier type de la liste `TYPES` : cette "
+            "mutation ne mute plus rien"
+        )
+        assert "pre-push" not in mutee.split("TYPES=")[1].split("\n")[0], (
+            "la mutation n'a pas retire le type de la liste"
+        )
+
+        depot = tmp_path / "depot-sans-poussee"
+        execution = _monte_un_depot_jetable(depot, mutee)
+        # C'est tout le probleme : le script mute reste VERT.
+        assert execution.returncode == 0, (
+            "le script mute echoue deja : ce test ne mesure plus le defaut "
+            f"silencieux qu'il decrit.\n{execution.stderr}"
+        )
+        assert not (depot / ".git" / "hooks" / "pre-push.legacy").exists(), (
+            "la couche `.legacy` de `pre-push` est posee alors que le type est "
+            "sorti de la liste : la mutation ne mute pas ce qu'elle croit"
         )
