@@ -894,6 +894,18 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
             # verte.
             f'la forme `setattr(` a été ajoutée au garde le 9 septembre.\n\n'
             f"Le modèle qu'elle vise est `{_MODELE_ANGLAIS}`, et il n'est",
+            # L'APPEL PARAPHRASÉ, SANS GUILLEMETS — ET C'EST LE RÉCIT QUE CE
+            # LOT A TROUVÉ CONTRE LUI-MÊME. Les cinq récits ci-dessus ne
+            # mettaient JAMAIS le nom du réglage à côté de sa valeur ; aucun ne
+            # mesurait donc l'exigence des guillemets, et une mutation qui les
+            # rendait facultatifs laissait cette batterie ENTIÈREMENT VERTE
+            # (`mesuré` le 9 septembre 2026, mutation M-a4). C'était une seconde
+            # direction décorative sur ce motif-là. Ces trois phrases sont
+            # exactement celles qu'un rapport écrit pour nommer la forme sans en
+            # écrire une copie, et ce sont elles qui tiennent l'exigence.
+            f"le `setattr(settings, {champ}, {_MODELE_ANGLAIS})` du lot 6 échappait",
+            f"| `setattr(<objet>, {alias}, {_MODELE_ANGLAIS})` | ajoutée | 9 sept. |",
+            f"on plantait par setattr(settings, {alias}, {_MODELE_ANGLAIS}) sans",
         )
         for recit in recits:
             assert not self._affectations(recit), (
