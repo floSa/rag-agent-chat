@@ -5498,18 +5498,32 @@ lignes de commentaire — la même distinction récit / instruction qu'en (a), �
 autre endroit du chantier.
 
 **SECOND FAUX VERT, ET IL A ÉTÉ TROUVÉ PAR UN VRAI `git push` — invisible à une
-batterie de 37 tests verts.** Le motif de clé privée, écrit d'une pièce, **se
-reconnaissait lui-même** : la ligne qui le pose est une ligne ajoutée, elle porte
-l'en-tête en entier, et le hook **refusait donc le commit même qui l'introduit**
-— `rc=1`, et **aucune ref chez le distant**. Un garde qui provoque la panne qu'il
-surveille, à un troisième site dans ce lot, et dont les deux seules sorties
-auraient été `--no-verify` ou le retrait du garde. Corrigé par **périphrase** —
-la correction que le garde de sûreté prescrit pour la même famille — et gardé par
-un test qui voit le défaut **au moment où le motif est écrit** : la batterie ne
-l'avait vu qu'**au commit suivant**, le commit fautif n'existant pas encore quand
-elle a tourné. Le commit de la fermeture a été **réécrit** pour que la ligne
-n'ait jamais existé dans la branche, ce que le message de refus du hook prescrit
-lui-même.
+batterie de 37 tests verts.** Le motif de secret portait une cinquième
+alternative, l'en-tête d'un format de clé précis, **écrite en littéral pur**.
+Elle **se reconnaissait elle-même** — et était de surcroît reconnue par la
+première, générique, qui la couvre. La ligne qui pose le motif est une ligne
+ajoutée : elle portait donc un « secret », et le hook **refusait le commit même
+qui l'introduit** — `rc=1`, et **aucune ref chez le distant**. Un garde qui
+provoque la panne qu'il surveille, à un troisième site dans ce lot, et dont les
+deux seules sorties auraient été `--no-verify` ou le retrait du garde.
+
+Gardé par un test qui voit le défaut **au moment où le motif est écrit** : la
+batterie ne l'avait vu qu'**au commit suivant**, le commit fautif n'existant pas
+encore quand elle a tourné. Le commit de la fermeture a été **réécrit** pour que
+la ligne n'ait jamais existé dans la branche, ce que le message de refus du hook
+prescrit lui-même.
+
+**ET LA PREMIÈRE CORRECTION VISAIT LA MAUVAISE CAUSE — c'est la mutation qui
+devait la reproduire qui l'a dit.** Elle assemblait le motif en deux variables
+que le shell recompose, sur le motif « écrit d'une pièce, il se reconnaît ».
+Remettre le motif générique d'une pièce a laissé la batterie **entièrement
+verte** (`rc=0`, 38 tests) : l'assemblage n'y était pour rien. La vraie cause
+est l'alternative **littérale**, et sa suppression est la correction complète —
+elle ne retire aucune couverture. L'assemblage a été **retiré** plutôt que gardé
+sur un motif faux, et ce qui protège les quatre alternatives restantes est
+mesuré : chacune porte, après son préfixe littéral, une **classe** de caractères
+dont le texte source n'est pas membre. *Quatrième faux résultat de ce lot contre
+lui-même, et le seul qui portait sur une correction déjà écrite.*
 
 **LES DEUX SENS, PAR DE VRAIS `git push` VERS UN DISTANT JETABLE**, jamais vers
 `origin` : la branche entière du lot part (`rc=0`, ref arrivée), une plage propre

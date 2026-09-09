@@ -90,27 +90,32 @@ FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|generated (with|by) \[|^[[:sp
 # traque. Tous les motifs sont donc passes par `-e`, et cette propriete est
 # gardee par `test_le_motif_de_secret_est_bien_passe_a_grep_et_non_lu_comme_une_option`.
 #
-# **ET LE MOTIF DE LA CLE PRIVEE EST ASSEMBLE, PAS ECRIT — C'EST LA CORRECTION
-# DU 9 SEPTEMBRE 2026, ET ELLE VIENT D'UN VRAI `git push`.** Ecrit d'une piece,
-# ce motif SE RECONNAISSAIT LUI-MEME : la ligne qui le pose est une ligne
-# ajoutee, elle porte l'en-tete en entier, et le hook refusait donc le commit
-# meme qui l'introduit. `mesure` ce jour-la, `git push` reel vers un distant
-# jetable : `rc=1` sur le commit du hook, sur le message « une ligne ajoutee
+# **ET AUCUNE ALTERNATIVE N'EST ECRITE EN LITTERAL PUR — C'EST LA CORRECTION DU
+# 9 SEPTEMBRE 2026, ET ELLE VIENT D'UN VRAI `git push`.** La premiere ecriture
+# de ce motif portait une cinquieme alternative, l'en-tete d'un format de cle
+# precis, ECRIT EN ENTIER. Cette alternative SE RECONNAISSAIT ELLE-MEME, et elle
+# etait de surcroit reconnue par la premiere : la ligne qui pose le motif est
+# une ligne AJOUTEE, elle portait donc un « secret », et le hook refusait le
+# commit meme qui l'introduit. `mesure` ce jour-la, `git push` reel vers un
+# distant jetable : `rc=1` sur le commit du hook, message « une ligne ajoutee
 # porte un secret », et aucune ref chez le distant. Un garde qui provoque la
-# panne qu'il surveille — a un troisieme site dans ce chantier — et dont les
-# deux seules sorties auraient ete `--no-verify` ou le retrait du garde.
+# panne qu'il surveille, dont les deux seules sorties auraient ete
+# `--no-verify` — que ce chantier interdit — ou le retrait du garde.
 #
-# La correction est celle que le garde de surete de ce depot prescrit pour la
-# meme famille de defaut : la PERIPHRASE. Le nom et la valeur sont separes, donc
-# aucune ligne de ce fichier ne porte le motif entier. Les trois autres formes
-# n'ont pas ce probleme et c'est mesure : apres leur prefixe litteral vient une
-# CLASSE de caracteres, `[`, qui n'appartient a aucune des classes attendues —
-# `AKIA[0-9A-Z]{16}` ne se reconnait pas soi-meme. La propriete est gardee pour
-# les quatre par
-# `test_le_hook_ne_reconnait_aucune_de_ses_propres_lignes_comme_un_secret`.
-_DEBUT_DE_CLE='-----BEGIN'
-_FIN_DE_CLE='PRIVATE KEY-----'
-FORMES_DE_SECRET="$_DEBUT_DE_CLE [A-Z ]*$_FIN_DE_CLE|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[abprs]-[A-Za-z0-9-]{10,}"
+# L'alternative etait par ailleurs REDONDANTE : la premiere, generique, la
+# couvre entierement. Sa suppression est donc la correction complete, et elle ne
+# retire aucune couverture.
+#
+# **CE QUI PROTEGE LES QUATRE QUI RESTENT N'EST PAS D'ETRE ECRITES EN
+# MORCEAUX**, et c'est mesure dans les deux sens : chacune porte, apres son
+# prefixe litteral, une CLASSE de caracteres — `[A-Z ]*`, `[0-9A-Z]{16}` — dont
+# le texte source (`[`, `{`) n'appartient a aucune des classes attendues. Une
+# premiere correction avait assemble le motif de cle en deux variables ; la
+# mesure a montre que l'assemblage n'y etait pour rien, et il a ete retire
+# plutot que garde sur un motif faux. La propriete est gardee pour les quatre
+# par `test_le_hook_ne_reconnait_aucune_de_ses_propres_lignes_comme_un_secret`,
+# qui rougit bien sur la remise de l'alternative litterale.
+FORMES_DE_SECRET='-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36}|xox[abprs]-[A-Za-z0-9-]{10,}'
 
 refuse() {
     echo "POUSSEE REFUSEE : $1" >&2

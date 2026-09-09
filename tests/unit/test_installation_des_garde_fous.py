@@ -1353,13 +1353,14 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
     def test_le_hook_ne_reconnait_aucune_de_ses_propres_lignes_comme_un_secret(self) -> None:
         """LE DEFAUT QUE CE LOT A TROUVE PAR UN VRAI `git push`, ET IL EST GARDE.
 
-        **La premiere ecriture de ce hook posait son motif de cle privee d'une
-        piece.** Ce motif SE RECONNAISSAIT ALORS LUI-MEME : la ligne qui le pose
-        est une ligne AJOUTEE, elle porte l'en-tete en entier, et le hook
-        refusait donc le commit meme qui l'introduit. `mesure` le 9 septembre
-        2026, `git push` reel vers un distant jetable : `rc=1` sur le commit du
-        hook, message « une ligne ajoutee porte un secret », **et aucune ref
-        chez le distant**.
+        **La premiere ecriture de ce hook portait une cinquieme alternative de
+        secret, l'en-tete d'un format de cle precis, ECRITE EN ENTIER.** Cette
+        alternative se reconnaissait elle-meme — et etait de surcroit reconnue
+        par la premiere, generique, qui la couvre. La ligne qui pose le motif est
+        une ligne AJOUTEE : elle portait donc un « secret », et le hook refusait
+        le commit meme qui l'introduit. `mesure` le 9 septembre 2026, `git push`
+        reel vers un distant jetable : `rc=1` sur le commit du hook, message
+        « une ligne ajoutee porte un secret », **et aucune ref chez le distant**.
 
         **ET LA BATTERIE ETAIT VERTE QUAND LE DEFAUT EST NE.**
         `test_la_plage_reelle_de_ce_depot_passe` ne l'a vu qu'AU COMMIT SUIVANT,
@@ -1368,25 +1369,34 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
         ecrit : ce test-ci le voit AU MOMENT OU LE MOTIF EST ECRIT, sans lire
         aucun historique.
 
-        La correction est la PERIPHRASE — la meme que prescrit le garde de
-        surete de ce depot pour la meme famille de defaut. Les deux seules
-        autres sorties auraient ete `--no-verify`, que ce chantier interdit
-        absolument, ou le retrait du garde.
+        **ET LA PREMIERE CORRECTION VISAIT LA MAUVAISE CAUSE — mesure par la
+        mutation qui devait la reproduire.** Elle assemblait le motif de cle en
+        deux variables que le shell recompose, sur le motif « ecrit d'une piece,
+        il se reconnait ». Remettre le motif generique d'une piece a laisse cette
+        batterie **entierement verte** (`rc=0`, 38 tests) : l'assemblage n'y
+        etait pour rien. La vraie cause est l'alternative LITTERALE, et sa
+        suppression est la correction complete — elle ne retire aucune
+        couverture, la generique la couvrant. L'assemblage a ete retire plutot
+        que garde sur un motif faux.
+
+        Ce qui protege les quatre alternatives qui restent est mesure : chacune
+        porte, apres son prefixe litteral, une CLASSE de caracteres dont le
+        texte source n'est pas membre.
         """
         source = HOOK_POUSSEE.read_text()
-        motifs = re.search(r'^FORMES_DE_SECRET="(.+)"$', source, re.M)
+        motifs = re.search(r"^FORMES_DE_SECRET='(.+)'$", source, re.M)
         assert motifs, (
             "la variable `FORMES_DE_SECRET` n'est plus posee sous la forme attendue :"
             " ce test ne mesure plus rien"
         )
-
-        # Les formes, telles que le shell les composera. La substitution est
-        # refaite ici plutot que devinee : un motif qui cesserait d'etre
-        # assemble serait relu tel quel, et le test le verrait.
         compose = motifs.group(1)
+        # Une variable du shell dans le motif serait resolue ici. Il n'y en a
+        # plus — voir le docstring — mais un futur assemblage ne doit pas rendre
+        # ce test aveugle en le laissant comparer un `$NOM` litteral.
         for nom, valeur in re.findall(r"^(_[A-Z_]+)='([^']*)'$", source, re.M):
             compose = compose.replace(f"${nom}", valeur)
         assert "$" not in compose, f"une variable du motif n'a pas ete resolue : {compose}"
+
         # PREUVE D'ATTEINTE : le motif compose est bien celui qui mord.
         entete = "-----BEGIN" + " RSA PRIVATE KEY-----"
         assert re.search(compose, entete), (
@@ -1403,9 +1413,9 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
             "une ligne de code de ce hook est reconnue par son propre motif de "
             f"secret : {fautives}. Le hook refuserait donc le commit qui le "
             "modifie, et les deux seules sorties seraient `--no-verify` — que ce "
-            "chantier interdit — ou le retrait du garde. Corrige par PERIPHRASE : "
-            "separe le motif en morceaux que le shell recompose, comme "
-            "`_DEBUT_DE_CLE` et `_FIN_DE_CLE`"
+            "chantier interdit — ou le retrait du garde. La cause est presque "
+            "toujours une alternative ecrite en LITTERAL PUR : retire-la si une "
+            "alternative generique la couvre, sinon separe-la du motif"
         )
 
     def test_une_suppression_de_ref_ne_verifie_rien(self, depot_pousse: Path) -> None:
