@@ -139,22 +139,178 @@ est_nul() {
     esac
 }
 
-# `pre-push` recoit le nom du distant en premier argument. Il sert a borner
-# `--not --remotes=<distant>` quand la ref distante n'existe pas encore : sans
-# lui, une branche neuve ferait verifier TOUT l'historique atteignable, donc les
-# 184 commits anterieurs a ce garde — un refus certain sur du passe qu'on ne
-# reecrira pas, c'est-a-dire un hook qu'on desarmerait le premier jour.
+# `pre-push` recoit le nom du distant en premier argument, et son URL en second.
 distant="${1:-origin}"
 
-while read -r ref_locale sha_local ref_distante sha_distant; do
+# ── LA BORNE D'UNE REF NEUVE, ET C'EST LA CORRECTION DU 9 SEPTEMBRE 2026 ──
+#
+# **CE QUI ETAIT ECRIT ICI ETAIT AVEUGLE A LA SEQUENCE EXACTE DU SINISTRE DE CE
+# DEPOT.** La premiere ecriture bornait la plage d'une ref neuve par
+# `git rev-list "$sha_local" --not --remotes="$distant"`. Or `--remotes=<distant>`
+# **n'interroge pas le distant** : il lit `refs/remotes/<distant>/*`, un CACHE
+# LOCAL. Des que ce cache est perime, tout commit atteignable depuis lui sort de
+# la plage ALORS QU'IL N'EST PAS CHEZ LE DISTANT.
+#
+# `mesure` le 9 septembre 2026, depots jetables, `git push` REEL, hook alors
+# INTACT — la scene suffisait, aucune mutation n'etait necessaire :
+#
+#   10 commits fabriques, dont 7 sous une adresse non autorisee, POUSSES, refs
+#   de suivi a jour ; puis le distant est DETRUIT ET RECREE VIDE
+#   (`git ls-remote` rend 0 ref, la ref de suivi locale survit).
+#
+#     ce que le hook verifiait  : 0 commit   (`rev-list HEAD --not --remotes=origin`)
+#     ce qui partait            : 10 commits
+#     `rc` du `git push`        : 0
+#     arrive chez le distant    : 7 commits sous l'adresse non autorisee
+#
+# **CE N'EST PAS UNE SCENE D'ECOLE.** Ce depot a ete detruit et recree sur
+# GitHub — `created_at = 2026-08-28` pour un premier commit du 2026-04-30 — et
+# c'est precisement cet incident que ce hook existe pour empecher. Sous cette
+# sequence, le garde ne contribuait rien, et il est MUET AU SUCCES par
+# conception : rien ne l'aurait dit.
+#
+# ── LE FAIT EXTERIEUR PLUTOT QUE LE CACHE, ET LES FORMES PESEES ──
+#
+# La borne est desormais l'ETAT REEL DU DISTANT, demande par `git ls-remote`.
+# Trois autres formes ont ete pesees et ecartees :
+#
+# - *un COMMIT D'EPOQUE en dur* — exclure ce qui est atteignable depuis le
+#   commit qui a arme ce garde. Local, deterministe, sans reseau, et il exprime
+#   litteralement le compromis defendu. **Mais il ne ferme PAS le sinistre** :
+#   les commits fautifs de la scene sont anterieurs a l'epoque, donc exclus, et
+#   la poussee repasserait. Une borne qui laisse passer l'incident qu'elle
+#   documente n'est pas une borne ;
+# - *`refs/remotes/` rafraichi par un `git fetch` prealable* — c'est encore le
+#   cache, avec une fenetre de course en plus, et un `fetch` dans un `pre-push`
+#   est un effet de bord que personne n'attend d'un hook ;
+# - *ne rien exclure du tout* — le plus sur, et son cout a ete MESURE plutot que
+#   suppose (voir ci-dessous). Ecarte pour la seule latence : sur une ref neuve
+#   dont le distant porte deja `main`, `ls-remote` ramene la plage aux commits
+#   propres a la branche, ce que ne rien exclure ne fait pas.
+#
+# ── ET LA JUSTIFICATION DE LA BORNE, QUI ETAIT FAUSSE, EST CORRIGEE ──
+#
+# Le commentaire precedent affirmait que sans borne une branche neuve ferait
+# verifier « les 184 commits anterieurs a ce garde — UN REFUS CERTAIN sur du
+# passe qu'on ne reecrira pas ». **Cette phrase est fausse sur ce depot, et
+# c'est mesure.** L'histoire de ce depot a ete REECRITE — 165 commits — donc
+# elle est conforme, et `test_la_plage_reelle_de_ce_depot_passe` l'asserte deja.
+# Retourner ce hook contre la totalite de l'histoire, plage NON bornee :
+#
+#     `mesure` le 9 septembre 2026, 282 commits, 84 396 lignes ajoutees
+#     traversees, **0 refus**, en **10,1 s**
+#     (commande : boucle du corps de ce hook sur `git rev-list HEAD`)
+#
+# Le cout d'une plage ouverte est donc de la LATENCE, pas un refus. C'est ce qui
+# rend le repli sur « tout verifier » tenable, et c'est pourquoi il est choisi
+# chaque fois que l'etat du distant n'est pas connaissable.
+#
+# ── LE REPLI EST FAIL-CLOSED, ET IL EST BAVARD ──
+#
+# Si `ls-remote` echoue ou expire — hors reseau, identifiants absents, distant
+# injoignable — on n'exclut RIEN : la plage s'ouvre sur tout ce qui part, ce qui
+# verifie PLUS et jamais moins. Un sha que le distant annonce mais que ce clone
+# n'a pas est ecarte de la meme facon, et pour la meme raison : `rev-list`
+# sortirait en erreur, et un hook qui cale est un hook qu'on desarme.
+#
+# Ce repli est le SEUL endroit ou ce hook parle sans refuser, et c'est
+# delibere : une borne dont on ne sait plus si elle a servi doit se dire, sinon
+# elle redevient la cecite qu'on vient de fermer.
+#
+# ── UN RISQUE LATENT A NOMMER, PARCE QU'IL EST MUET ──
+#
+# `pre_commit/commands/hook_impl.py:36` porte `if hook_dir is None:  # git 2.54+
+# hooks`, chemin sur lequel la couche `.legacy` — c'est-a-dire CE fichier —
+# **n'est jamais executee**. Git est ici en **2.53.0** (`mesure` le 9 septembre
+# 2026, `git --version`) et le `hook-tmpl` passe toujours `--hook-dir`, donc le
+# montage est sain aujourd'hui. Mais le seul rempart « valable pour toute
+# branche » de ce depot depend d'une branche de code que la version SUIVANTE de
+# git active, et la panne serait muette : `rc=0`, rien de verifie. A la montee
+# de git, remesurer que `pre-push.legacy` est bien atteint.
+#
+# ── LA BORNE QUI RESTE, ET ELLE EST EPROUVEE DANS LES DEUX SENS ──
+#
+# Une branche neuve dont l'histoire ancienne est REELLEMENT chez le distant
+# continue de passer : `ls-remote` la ramene, elle est exclue, et seuls les
+# commits propres a la branche sont verifies. Un garde qui refuserait ce geste
+# legitime serait arrache le premier jour. Les deux sens vivent dans
+# `TestLaPousseeEstGardeeParUnVraiGitPush`, qui execute `git push` et asserte
+# **l'etat du distant** — pas seulement le `rc`.
+shas_annonces_par_le_distant() {
+    # `ls-remote` et non `--remotes=` : on DEMANDE, on ne relit pas un cache.
+    # Le `timeout` est exterieur au processus git : un hook qui pend est un hook
+    # qu'on desarme, et l'attente ne doit pas dependre des reglages du transport.
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 30 git ls-remote "$distant" 2>/dev/null || return 1
+    else
+        git ls-remote "$distant" 2>/dev/null || return 1
+    fi
+}
+
+# Les shas que le distant annonce ET que ce clone possede. Ecrit en fonction
+# pour que le `for` ne vive pas dans un sous-shell de pipeline, ou l'accumulation
+# serait perdue.
+exclusions_pour_une_ref_neuve() {
+    annonces=$(shas_annonces_par_le_distant) || return 1
+    exclusions=""
+    for annonce in $(printf '%s\n' "$annonces" | awk '{ print $1 }'); do
+        if git rev-parse --quiet --verify "$annonce^{commit}" >/dev/null 2>&1; then
+            exclusions="$exclusions $annonce"
+        fi
+    done
+    printf '%s' "$exclusions"
+}
+
+# ── LA PANNE TOTALE ET SILENCIEUSE A UN CARACTERE PRES ──
+#
+# `|| [ -n "..." ]` n'est pas une precaution de style : sans lui, une entree
+# standard SANS RETOUR A LA LIGNE FINAL fait rendre non-zero a `read`, la boucle
+# ne tourne pas une seule fois, et **ce hook rend `rc=0` sans avoir rien
+# verifie**. `read` a pourtant bien affecte les variables : c'est le `rc` seul
+# qui mentait.
+#
+# `mesure` le 9 septembre 2026 :
+#
+#     printf 'a b c d'   | sh   -c 'n=0; while read -r w x y z; do n=$((n+1)); done; echo $n'  -> 0
+#     printf 'a b c d\n' | sh   -c '...'                                                       -> 1
+#     printf 'a b c d'   | bash -c '...'                                                       -> 0
+#
+# **ET CE N'EST PAS UNE PARTICULARITE DE `dash`**, contrairement a ce que le
+# rapport d'audit supposait : `bash` rend le meme 0. C'est le comportement POSIX
+# de `read`, et `/bin/sh` est ici `dash` (`mesure` le meme jour, `ls -l /bin/sh`).
+#
+# Non exploitable AUJOURD'HUI — les cinq formes de poussee relevees au mouchard
+# `od -c` posent toutes le `\n` — mais un hook dont la panne totale tient a un
+# caractere que personne ne controle n'est pas garde, il est chanceux. Le sens de
+# l'erreur est ici le pire possible : muet, et `rc=0`.
+#
+# Garde par `test_une_entree_sans_retour_a_la_ligne_final_est_lue_quand_meme`.
+while read -r ref_locale sha_local ref_distante sha_distant \
+        || [ -n "$ref_locale$sha_local$ref_distante$sha_distant" ]; do
     # Une ref locale nulle est une SUPPRESSION de ref : aucun commit ne part.
     if est_nul "$sha_local"; then
         continue
     fi
 
     if est_nul "$sha_distant"; then
-        # Ref neuve : ce qui part est ce qui n'est pas deja chez le distant.
-        plage=$(git rev-list "$sha_local" --not --remotes="$distant")
+        # Ref neuve : ce qui part est ce que le distant N'A PAS REELLEMENT. Voir
+        # la borne ecrite en tete — `ls-remote`, jamais `refs/remotes/`.
+        if exclusions=$(exclusions_pour_une_ref_neuve); then
+            if [ -n "$exclusions" ]; then
+                # `$exclusions` n'est deliberement PAS protege : ce sont des shas
+                # separes par des espaces, et c'est le decoupage qu'on veut.
+                # shellcheck disable=SC2086
+                plage=$(git rev-list "$sha_local" --not $exclusions)
+            else
+                # Le distant ne porte AUCUNE ref qu'on possede : tout part, donc
+                # tout est verifie. C'est exactement la scene du sinistre.
+                plage=$(git rev-list "$sha_local")
+            fi
+        else
+            echo "pre-push : etat du distant « $distant » indisponible —" >&2
+            echo "  toute la plage qui part est verifiee (repli fail-closed)." >&2
+            plage=$(git rev-list "$sha_local")
+        fi
     else
         plage=$(git rev-list "$sha_distant..$sha_local")
     fi

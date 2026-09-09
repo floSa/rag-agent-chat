@@ -1052,6 +1052,372 @@ def _ligne_de_poussee(depot: Path, avant: str, apres: str = "HEAD") -> str:
     return f"refs/heads/principale {sha_apres} refs/heads/principale {avant}\n"
 
 
+class TestLaPousseeEstGardeeParUnVraiGitPush:
+    """LA FAIBLESSE STRUCTURELLE DU BANC D'ESSAI, ET ELLE EST FERMEE ICI.
+
+    **CE QUI MANQUAIT.** `_pousse` lance `sh .git/hooks/pre-push.legacy`
+    directement, avec une entree standard FABRIQUEE A LA MAIN. Cette classe-la
+    est indispensable et le reste — elle sonde des plages qu'un vrai push ne
+    permet pas de construire — mais elle ne prouve NI que `git push` atteint le
+    montage, NI **l'etat du distant**, qui est la seule preuve qui compte pour un
+    hook de poussee. Ces deux preuves n'existaient que dans des mesures
+    ponctuelles, hors du depot : *rien ne les retenait*, et une affirmation sans
+    site rejouable devient fausse en silence — c'est le reproche du §4.6, ici
+    transpose au banc d'essai.
+
+    **CE QUE CETTE CLASSE ETABLIT, ET COMMENT.** Un depot jetable est monte par
+    l'INSTALLEUR LIVRE — donc la couche `.legacy` sous le framework, pas une
+    copie a la main —, un distant `--bare` est cree sur le disque, et on appelle
+    `git push`. Le verdict se lit sur DEUX axes : le `rc` du processus `git
+    push`, et **ce que le distant porte reellement** apres coup. Un `rc` seul ne
+    prouve rien ici : le sinistre de ce depot est precisement un `rc=0` sous
+    lequel sept commits fautifs sont arrives.
+
+    **AUCUN RESEAU.** Le distant est un `git init --bare` local, `ls-remote` s'y
+    resout par le systeme de fichiers. Le cout mesure de cette classe est donne
+    par `test_le_cout_de_cette_classe_reste_tenable`.
+
+    **ET LES SCENES SONT CONSTRUITES EN DESARMANT LES HOOKS**, jamais par
+    `--no-verify` : c'est aussi la scene reelle, les sept commits qui ont coute
+    ce depot etant partis avant qu'aucun hook n'existe.
+    """
+
+    @pytest.fixture
+    def couple(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Un depot arme et un distant `--bare`, relies par `origin`."""
+        distant = tmp_path / "distant.git"
+        assert _git(tmp_path, "init", "--bare", "-q", str(distant)).returncode == 0
+        local = tmp_path / "local"
+        execution = _monte_un_depot_jetable(local, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        assert _git(local, "remote", "add", "origin", str(distant)).returncode == 0
+        return local, distant
+
+    @staticmethod
+    def _commit_hors_hooks(depot: Path, n: int, adresse: str) -> str:
+        """Un commit fabrique LES HOOKS DESARMES — jamais `--no-verify`."""
+        vide = depot / ".git" / "hooks-desarmes"
+        vide.mkdir(exist_ok=True)
+        (depot / f"f-{n}.txt").write_text(f"contenu {n}\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        acheve = _git(
+            depot,
+            "-c",
+            f"core.hooksPath={vide}",
+            "commit",
+            "-m",
+            f"commit {n}",
+            env=_identite(adresse, adresse),
+        )
+        assert acheve.returncode == 0, f"{acheve.stdout}\n{acheve.stderr}"
+        return _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+    @staticmethod
+    def _adresses_chez_le_distant(distant: Path, ref: str) -> list[str]:
+        """Les adresses d'auteur REELLEMENT arrivees. La preuve du hook.
+
+        Rend une liste vide quand la ref n'existe pas chez le distant : c'est le
+        resultat attendu d'un refus, et il se distingue d'un `rc` par la seule
+        chose qu'un `rc` ne dit pas.
+        """
+        if _git(distant, "rev-parse", "--quiet", "--verify", ref).returncode != 0:
+            return []
+        return _git(distant, "log", "--format=%ae", ref).stdout.split()
+
+    def test_un_vrai_git_push_atteint_le_montage_et_refuse(
+        self, couple: tuple[Path, Path]
+    ) -> None:
+        """LA PREUVE D'ATTEINTE QUE TOUT LE RESTE DE CE FICHIER SUPPOSAIT.
+
+        `git push` — le programme, pas une entree fabriquee — traverse le hook
+        genere par `pre-commit`, atteint la couche `.legacy`, et le refus
+        empeche la ref d'arriver. Sans ce test, la batterie entiere pourrait
+        etre verte avec un montage qui n'est jamais execute.
+        """
+        local, distant = couple
+        propre = self._commit_hors_hooks(local, 1, ADRESSE_AUTORISEE)
+        fautif = self._commit_hors_hooks(local, 2, ADRESSE_INTERDITE)
+        assert propre != fautif
+
+        acheve = _git(local, "push", "origin", "principale:refs/heads/principale")
+
+        # AXE 1 — le `rc` du processus `git push`, et non celui d'un filtre.
+        assert acheve.returncode != 0, (
+            "`git push` a reussi : le montage n'est pas atteint par git, ou le "
+            f"hook ne refuse pas.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+        assert "POUSSEE REFUSEE" in acheve.stderr, (
+            "le refus ne vient pas de ce hook : un autre garde a peut-etre "
+            f"refuse, et ce test mesurerait autre chose.\n{acheve.stderr}"
+        )
+
+        # AXE 2 — L'ETAT DU DISTANT, la seule preuve qui compte.
+        assert self._adresses_chez_le_distant(distant, "refs/heads/principale") == [], (
+            "la ref est arrivee chez le distant MALGRE le refus : sur ce depot, "
+            "une poussee ne se defait pas"
+        )
+
+    def test_le_sinistre_de_ce_depot_est_desormais_refuse(
+        self, couple: tuple[Path, Path]
+    ) -> None:
+        """LA SEQUENCE EXACTE QUI A COUTE CE DEPOT, ET ELLE PASSAIT EN SILENCE.
+
+        Le distant est **detruit et recree vide** apres une poussee reussie ; la
+        ref de suivi locale, elle, SURVIT. C'est ce qui est arrive a ce depot —
+        `created_at = 2026-08-28` pour un premier commit du 2026-04-30.
+
+        `mesure` le 9 septembre 2026, hook alors INTACT, avant toute mutation :
+
+            ce que le hook verifiait : **0** commit
+            ce qui partait           : **10** commits
+            `rc` du `git push`       : **0**
+            arrive chez le distant   : **7** sous l'adresse non autorisee
+
+        La cause : `--not --remotes=<distant>` lit `refs/remotes/`, un CACHE
+        LOCAL que la recreation du distant rend menteur. La borne est desormais
+        `git ls-remote` — l'etat REEL. Voir le motif ecrit au site.
+        """
+        local, distant = couple
+        for n in range(1, 4):
+            self._commit_hors_hooks(local, n, ADRESSE_INTERDITE)
+        for n in range(4, 6):
+            self._commit_hors_hooks(local, n, ADRESSE_AUTORISEE)
+
+        # Premiere poussee : LES HOOKS DESARMES, parce que la scene commence
+        # apres une poussee qui a eu lieu quand le garde n'existait pas.
+        vide = local / ".git" / "hooks-desarmes"
+        assert _git(
+            local,
+            "-c",
+            f"core.hooksPath={vide}",
+            "push",
+            "origin",
+            "principale:refs/heads/principale",
+        ).returncode == 0
+        suivi = _git(local, "rev-parse", "refs/remotes/origin/principale").stdout.strip()
+        assert suivi, "la ref de suivi n'a pas ete ecrite : la scene ne demarre pas"
+
+        # LE SINISTRE — le distant est detruit et recree VIDE.
+        shutil.rmtree(distant)
+        assert _git(local, "init", "--bare", "-q", str(distant)).returncode == 0
+
+        # PREUVE D'ATTEINTE 1 — le distant est bien vide, et le cache survit.
+        assert _git(local, "ls-remote", "origin").stdout.strip() == "", (
+            "le distant recree n'est pas vide : la scene du sinistre n'est pas atteinte"
+        )
+        assert _git(
+            local, "rev-parse", "refs/remotes/origin/principale"
+        ).stdout.strip() == suivi, (
+            "la ref de suivi locale n'a pas survecu a la recreation : c'est "
+            "pourtant elle qui rendait l'ancienne borne menteuse"
+        )
+
+        # PREUVE D'ATTEINTE 2 — L'ANCIENNE borne verifiait bien ZERO commit.
+        ancienne = _git(
+            local, "rev-list", "HEAD", "--not", "--remotes=origin"
+        ).stdout.split()
+        assert ancienne == [], (
+            "`--not --remotes=origin` ne replie plus la plage sur le vide : la "
+            f"scene ne reproduit plus le trou mesure ({len(ancienne)} commits)"
+        )
+
+        acheve = _git(local, "push", "origin", "principale:refs/heads/principale")
+
+        assert acheve.returncode != 0, (
+            "LA SEQUENCE EXACTE DU SINISTRE DE CE DEPOT REPASSE EN SILENCE. "
+            "Cinq commits partent, trois sous une adresse non autorisee, et le "
+            f"hook n'a rien verifie.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+        arrivees = self._adresses_chez_le_distant(distant, "refs/heads/principale")
+        assert arrivees == [], (
+            f"des commits sont ARRIVES chez le distant recree : {sorted(set(arrivees))}. "
+            "C'est l'incident irreversible que ce hook existe pour empecher — la "
+            "liste des contributeurs, une fois constituee, ne se defait pas"
+        )
+
+    def test_une_branche_neuve_sur_une_histoire_REELLEMENT_poussee_passe(
+        self, couple: tuple[Path, Path]
+    ) -> None:
+        """LA BORNE LEGITIME, ET SANS ELLE LE GARDE SERAIT ARRACHE.
+
+        Une branche NEUVE dont l'histoire ancienne — non conforme, anterieure au
+        garde — est **reellement** chez le distant doit PASSER. C'est le
+        compromis que ce hook defend, et il est legitime : refuser la premiere
+        poussee d'une branche neuve sur du passe qu'on ne reecrira pas
+        enseignerait le seul geste que ce chantier interdit.
+
+        *Si la reparation de la bloquante avait fait refuser ce geste, elle
+        aurait remplace un trou par un garde qu'on desarme.* C'est ce test qui
+        l'interdit, et il pousse POUR DE VRAI.
+        """
+        local, distant = couple
+        for n in range(1, 4):
+            self._commit_hors_hooks(local, n, ADRESSE_INTERDITE)
+        ancien = _git(local, "rev-parse", "HEAD").stdout.strip()
+        vide = local / ".git" / "hooks-desarmes"
+        assert _git(
+            local,
+            "-c",
+            f"core.hooksPath={vide}",
+            "push",
+            "origin",
+            "principale:refs/heads/principale",
+        ).returncode == 0
+
+        # PREUVE D'ATTEINTE 1 — le distant porte REELLEMENT cette histoire, et
+        # c'est ce qui distingue cette scene de la fiction d'un `update-ref`.
+        assert ancien in _git(local, "ls-remote", "origin").stdout, (
+            "le distant ne porte pas l'histoire ancienne : la scene retomberait "
+            "sur le cas « distant vide », qui est celui du sinistre"
+        )
+
+        assert _git(local, "checkout", "-q", "-b", "sujet").returncode == 0
+        neufs = [self._commit_hors_hooks(local, n, ADRESSE_AUTORISEE) for n in (10, 11)]
+
+        acheve = _git(local, "push", "origin", "sujet:refs/heads/sujet")
+
+        assert acheve.returncode == 0, (
+            "la premiere poussee d'une branche neuve est refusee alors que son "
+            "histoire ancienne est REELLEMENT chez le distant. Le garde serait "
+            f"desarme le premier jour.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+        # PREUVE D'ATTEINTE 2 — la branche est bien arrivee, et entiere.
+        arrivees = self._adresses_chez_le_distant(distant, "refs/heads/sujet")
+        # SIX et non cinq : `_monte_un_depot_jetable` pose un commit « initial »
+        # conforme avant tout le reste. Le compte a ete corrige par la mesure —
+        # un compte suppose aurait rendu ce test vert pour la mauvaise raison.
+        assert len(arrivees) == 6, (
+            f"la branche neuve n'est pas arrivee entiere : {len(arrivees)} commits"
+        )
+        assert arrivees.count(ADRESSE_INTERDITE) == 3, (
+            "l'histoire ancienne non conforme n'est plus chez le distant : la "
+            "scene ne mesure plus la borne"
+        )
+        for neuf in neufs:
+            assert _git(
+                distant, "rev-parse", "--quiet", "--verify", neuf
+            ).returncode == 0, f"le commit conforme {neuf[:12]} n'est pas arrive"
+
+    def test_une_ref_EXISTANTE_atteint_bien_sa_branche_de_code(
+        self, couple: tuple[Path, Path]
+    ) -> None:
+        """LE PIEGE QUE L'AUDIT A PAYE : cette scene exige une ref PREEXISTANTE.
+
+        La branche « ref existante » du hook — `$sha_distant..$sha_local` — est
+        la seule saine des deux, `sha_distant` venant de la negociation REELLE
+        avec le distant. Mais on ne l'atteint qu'avec une ref distante deja en
+        place : sans elle, git passe 40 zeros et c'est l'AUTRE branche qui
+        tourne. L'auditeur a rendu un bon `rc` pour cette mauvaise raison, et
+        *l'ordre des gestes n'etait ecrit nulle part* — il l'est ici.
+
+        La preuve d'atteinte est donc que la ligne d'entree porte un
+        `sha_distant` NON NUL, verifie avant de conclure quoi que ce soit.
+        """
+        local, distant = couple
+        propre = self._commit_hors_hooks(local, 1, ADRESSE_AUTORISEE)
+        vide = local / ".git" / "hooks-desarmes"
+        assert _git(
+            local,
+            "-c",
+            f"core.hooksPath={vide}",
+            "push",
+            "origin",
+            "principale:refs/heads/principale",
+        ).returncode == 0
+
+        # PREUVE D'ATTEINTE — la ref distante PREEXISTE, donc git passera son
+        # sha et non 40 zeros. C'est ce fait, et lui seul, qui fait tourner la
+        # branche « ref existante ».
+        annonce = _git(local, "ls-remote", "origin", "refs/heads/principale").stdout
+        assert propre in annonce, f"la ref distante n'est pas en place : {annonce!r}"
+
+        fautif = self._commit_hors_hooks(local, 2, ADRESSE_INTERDITE)
+        acheve = _git(local, "push", "origin", "principale:refs/heads/principale")
+
+        assert acheve.returncode != 0, (
+            f"un commit non conforme passe sur une ref EXISTANTE.\n{acheve.stderr}"
+        )
+        assert fautif[:12] in acheve.stderr, (
+            f"le refus ne nomme pas le commit fautif.\n{acheve.stderr}"
+        )
+        # L'ETAT DU DISTANT : la ref est restee sur le commit propre.
+        # DEUX et non un : le commit « initial » du depot jetable est conforme
+        # lui aussi. La ref est donc restee exactement ou elle etait.
+        assert self._adresses_chez_le_distant(distant, "refs/heads/principale") == [
+            ADRESSE_AUTORISEE,
+            ADRESSE_AUTORISEE,
+        ], "le commit fautif est arrive, ou la ref propre a disparu"
+
+    def test_le_cout_de_cette_classe_reste_tenable(self) -> None:
+        """LA MESURE QUE L'AUDIT DEMANDE, ET ELLE DECIDE DE L'HEBERGEMENT.
+
+        Un vrai `git push` sort du processus, monte un depot par l'installeur et
+        cree un distant : c'est plus cher qu'un appel de fonction. La question
+        « est-ce que ces tests tiennent dans la batterie UNITAIRE » se tranche
+        par une mesure, pas par une impression.
+
+        `mesure` le 9 septembre 2026, recette du site `pytest tests/unit/` :
+        cette classe coute **quelques secondes**, aucun acces reseau — le
+        distant est un `git init --bare` local et `ls-remote` s'y resout par le
+        systeme de fichiers. Elle reste donc ICI, et non dans
+        `tests/integration/`, qui exige la pile demarree et ne tourne pas dans
+        la porte.
+
+        Ce test tient la propriete qui rendrait la reponse fausse : **aucune URL
+        distante de cette classe ne sort de la machine.** Si un distant `http`
+        ou `ssh` y entrait un jour, `ls-remote` pourrait pendre 30 s par test —
+        le `timeout` du hook — et la porte deviendrait inutilisable.
+        """
+        source = Path(__file__).read_text(encoding="utf-8")
+        debut = source.index("class TestLaPousseeEstGardeeParUnVraiGitPush")
+        # BORNE SUR LA CLASSE, ET NON JUSQU'A LA FIN DU FICHIER. La premiere
+        # ecriture prenait `source[debut:]`, donc TOUTE la suite du fichier :
+        # elle rougissait sur une URL ecrite dans une AUTRE classe. `mesure` le
+        # 9 septembre 2026 — un faux rouge, et le second de ce test.
+        suite = source.find("\nclass ", debut + 1)
+        corps = source[debut : suite if suite > 0 else len(source)]
+
+        # PREUVE D'ATTEINTE : le corps borne ne contient plus AUCUNE definition
+        # de classe apres la sienne. Formule sur la STRUCTURE et non sur le nom
+        # de la classe suivante : ce nom est cite dans le docstring ci-dessus,
+        # et l'assertion se serait reconnue elle-meme — troisieme faux rouge de
+        # cette meme famille dans ce seul test, `mesure` le 9 septembre 2026.
+        assert corps.count("\nclass ") == 0, (
+            "la borne de lecture deborde sur la classe suivante : ce test "
+            "balaierait un corps qui n'est pas le sien"
+        )
+
+        # PREUVE D'ATTEINTE : on lit bien le corps de CETTE classe, et il porte
+        # la creation du distant local.
+        assert 'init", "--bare"' in corps, (
+            "le corps lu ne porte plus la creation du distant `--bare` : ce test "
+            "balaie autre chose que ce qu'il croit"
+        )
+        # **LES SCHEMAS SONT ASSEMBLES A L'EXECUTION, ET C'EST UNE CORRECTION
+        # MESUREE.** Ecrits en litteral, ils se reconnaissaient EUX-MEMES : ce
+        # test rougissait sur sa propre ligne de motif, et ses deux seules
+        # sorties auraient ete `--no-verify` ou le retrait du garde. C'est mot
+        # pour mot le defaut que le lot 7 a corrige dans `e42d3e6` pour le motif
+        # de secret du hook, retrouve ici contre ce test-ci. `mesure` le
+        # 9 septembre 2026, premiere execution de cette classe.
+        separateur = ":" + "//"
+        schemas = [protocole + separateur for protocole in ("http", "https", "ssh", "git")]
+        schemas.append("git" + "@")
+
+        # PREUVE D'ATTEINTE : le motif reconnait bien ce qu'il cherche.
+        assert any(schema in "un distant https" + separateur + "exemple" for schema in schemas), (
+            f"les schemas assembles ne reconnaissent plus une URL : {schemas}. "
+            "Ce test comparerait alors le corps a un motif inerte"
+        )
+        for schema in schemas:
+            assert schema not in corps, (
+                f"un distant {schema!r} est apparu dans cette classe : `ls-remote` "
+                "peut alors pendre jusqu'au `timeout` du hook a chaque test, et la "
+                "porte de ce depot deviendrait inutilisable. Le distant doit "
+                "rester un `git init --bare` local"
+            )
+
+
 class TestLaPousseeEstGardeeSurTouteLaPlage:
     """LE TROU FERME LE 9 SEPTEMBRE 2026, ET SA DIFFICULTE PROPRE.
 
@@ -1432,42 +1798,122 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
             f"la suppression d'une ref fait echouer le hook :\n{acheve.stderr}"
         )
 
-    def test_une_ref_neuve_ne_fait_pas_verifier_tout_l_historique(
+    def test_une_ref_neuve_est_bornee_sur_l_ETAT_REEL_DU_DISTANT(
         self, depot_pousse: Path
     ) -> None:
-        """LA BORNE QUI EMPECHE LE HOOK D'ETRE DESARME LE PREMIER JOUR.
+        """CE TEST REMPLACE CELUI QUI CONSACRAIT LA CECITE, ET VOICI POURQUOI.
 
-        Quand la ref distante n'existe pas encore, git passe 40 zeros : la plage
-        est alors bornee par `--not --remotes=<distant>`, et non ouverte sur
-        tout l'historique atteignable. Sans cette borne, pousser une branche
-        neuve ferait verifier les 184 commits anterieurs a ce garde — un refus
-        certain sur du passe qu'on ne reecrira pas.
+        **L'ANCIEN TEST AFFIRMAIT UNE FICTION.** Il s'appelait
+        `test_une_ref_neuve_ne_fait_pas_verifier_tout_l_historique`, posait un
+        commit non conforme, puis faisait
+        `update-ref refs/remotes/origin/principale` dessus sous le commentaire
+        « le distant connait ce commit : on le lui declare comme git le
+        ferait », et exigeait `rc=0`. Or `update-ref` **n'est pas git qui
+        declare** : c'est le test qui ECRIT DANS LE CACHE LOCAL un fait qui
+        n'existe pas. Le commit n'avait jamais ete pousse.
 
-        La scene est construite : un commit non conforme est pose PUIS declare
-        deja present chez le distant, et la poussee d'une ref neuve doit passer.
+        La cecite du garde n'etait donc pas un oubli, elle etait GARDEE par un
+        test vert — et ce test-la mesurait exactement la scene du sinistre de ce
+        depot en la declarant correcte. *Une regle relachee pour satisfaire une
+        autre n'est pas une correction* : il est remplace, pas assoupli.
+
+        **CE QUE CELUI-CI EPROUVE A LA PLACE.** La borne n'est plus un cache :
+        c'est `git ls-remote`, l'etat REEL. Donc la scene doit poser un vrai
+        distant, et la preuve d'atteinte est double — la plage calculee ET le
+        `rc`. La scene « le distant porte reellement l'histoire ancienne » vit
+        dans `TestLaPousseeEstGardeeParUnVraiGitPush`, qui pousse pour de vrai
+        et asserte l'etat du distant ; celle-ci tient le fait plus etroit que
+        `--remotes=` ne pouvait pas tenir : **un cache local menteur ne borne
+        plus rien.**
         """
         self._commit(depot_pousse, 400, ADRESSE_INTERDITE)
-        deja_pousse = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
-        # Le distant connait ce commit : on le lui declare comme git le ferait.
+        jamais_pousse = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        # LA FICTION DE L'ANCIEN TEST, POSEE TELLE QUELLE : on ecrit dans le
+        # cache local que le distant connait ce commit. Il ne le connait pas —
+        # ce depot n'a aucun distant.
         assert _git(
-            depot_pousse, "update-ref", "refs/remotes/origin/principale", deja_pousse
+            depot_pousse, "update-ref", "refs/remotes/origin/principale", jamais_pousse
         ).returncode == 0
         self._commit(depot_pousse, 401, ADRESSE_AUTORISEE)
 
-        # PREUVE D'ATTEINTE : le commit non conforme est bien dans l'historique,
-        # et bien exclu de la plage bornee.
-        assert _git(depot_pousse, "show", "-s", "--format=%ae", deja_pousse).stdout.strip() == (
-            ADRESSE_INTERDITE
-        )
-        bornee = _git(
+        # PREUVE D'ATTEINTE 1 — le commit non conforme est bien dans l'histoire.
+        assert _git(
+            depot_pousse, "show", "-s", "--format=%ae", jamais_pousse
+        ).stdout.strip() == ADRESSE_INTERDITE
+
+        # PREUVE D'ATTEINTE 2 — l'ANCIENNE borne l'excluait, et c'est la mesure
+        # qui nomme le defaut ferme. Si cette assertion tombe, `--remotes=` ne
+        # se comporte plus comme mesure et tout ce test perd son sujet.
+        ancienne_borne = _git(
             depot_pousse, "rev-list", "HEAD", "--not", "--remotes=origin"
         ).stdout.split()
-        assert deja_pousse not in bornee, "la borne n'exclut pas le commit deja pousse"
+        assert jamais_pousse not in ancienne_borne, (
+            "`--not --remotes=origin` n'exclut plus le commit ecrit a la main "
+            "dans le cache : la scene ne reproduit plus le trou de 2026-09-09, "
+            "et ce test ne mesurerait plus rien"
+        )
 
-        acheve = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, _ZEROS))
-        assert acheve.returncode == 0, (
-            "la poussee d'une ref neuve fait verifier des commits deja chez le "
-            f"distant : le hook serait desarme le premier jour.\n{acheve.stderr}"
+        # PREUVE D'ATTEINTE 3 — la NOUVELLE borne ne l'exclut pas. Ce depot n'a
+        # aucun distant joignable, donc `ls-remote` echoue et le repli ouvre la
+        # plage : le commit fautif y est.
+        refus = _pousse(depot_pousse, _ligne_de_poussee(depot_pousse, _ZEROS))
+        assert refus.returncode == 1, (
+            "un commit non conforme qu'un CACHE LOCAL declare deja pousse "
+            "traverse encore le garde. C'est la sequence exacte qui a coute ce "
+            f"depot, et elle est de nouveau muette.\n{refus.stdout}\n{refus.stderr}"
+        )
+        assert jamais_pousse[:12] in refus.stderr, (
+            "le refus ne nomme pas le commit fautif : un refus qu'on ne peut pas "
+            f"situer se contourne par `--no-verify`.\n{refus.stderr}"
+        )
+        assert "indisponible" in refus.stderr, (
+            "le repli fail-closed ne se dit plus : une borne dont on ne sait pas "
+            "si elle a servi redevient la cecite qu'on vient de fermer"
+        )
+
+    def test_une_entree_sans_retour_a_la_ligne_final_est_lue_quand_meme(
+        self, depot_pousse: Path
+    ) -> None:
+        """LA PANNE TOTALE ET SILENCIEUSE A UN CARACTERE PRES.
+
+        Sans `|| [ -n "..." ]`, une entree standard depourvue de retour a la
+        ligne final fait rendre non-zero a `read`, la boucle ne tourne **pas une
+        seule fois**, et le hook rend **`rc=0` sans avoir rien verifie**.
+        `mesure` le 9 septembre 2026 : `printf 'a b c d' | sh -c 'while read ...'`
+        rend **0** tour de boucle, et `bash` rend le meme 0 — ce n'est donc pas
+        une particularite de `dash`, contrairement a ce que l'audit supposait.
+
+        **CE TEST EXISTE PARCE QUE LE HARNAIS NE POUVAIT PAS LE SONDER.**
+        `_ligne_de_poussee` ajoute TOUJOURS le `\\n`, donc aucun test de ce
+        fichier ne rencontrait la scene — la forme dominante de ce chantier, un
+        garde vert sous une scene que le defaut ne visite jamais. La ligne est
+        donc construite ici sans son `\\n`, explicitement.
+
+        Non exploitable aujourd'hui : les cinq formes de poussee relevees au
+        mouchard `od -c` posent toutes le caractere. Un hook dont la panne
+        totale tient a un caractere que personne ne controle n'est pas garde,
+        il est chanceux.
+        """
+        base = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+        self._commit(depot_pousse, 500, ADRESSE_INTERDITE)
+        fautif = _git(depot_pousse, "rev-parse", "HEAD").stdout.strip()
+
+        ligne = _ligne_de_poussee(depot_pousse, base)
+        # PREUVE D'ATTEINTE : la ligne du harnais porte bien le caractere, et
+        # celle-ci en est privee. Sans cette paire, le test pourrait sonder deux
+        # fois la meme entree sans que rien ne le dise.
+        assert ligne.endswith("\n"), "`_ligne_de_poussee` ne pose plus le `\\n`"
+        sans_retour = ligne.rstrip("\n")
+        assert not sans_retour.endswith("\n")
+
+        refus = _pousse(depot_pousse, sans_retour)
+        assert refus.returncode == 1, (
+            "une entree standard sans retour a la ligne final n'est pas lue : le "
+            "hook rend rc=0 SANS RIEN VERIFIER, ce qui est la panne la plus "
+            f"grave possible pour ce garde — muette et totale.\n{refus.stderr}"
+        )
+        assert fautif[:12] in refus.stderr, (
+            f"le refus ne nomme pas le commit fautif.\n{refus.stderr}"
         )
 
     def test_la_plage_reelle_de_ce_depot_passe(self) -> None:
