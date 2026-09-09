@@ -2,7 +2,7 @@ import logging
 import math
 import threading
 from functools import lru_cache
-from typing import Any
+from typing import Any, Literal
 
 import chromadb
 from sentence_transformers import CrossEncoder, SentenceTransformer
@@ -110,21 +110,60 @@ def _get_embedding_model() -> SentenceTransformer:
 # Les rerankers MESURÉS sur ce corpus et trouvés adéquats. Le registre ne porte
 # QUE des modèles retenus : y inscrire un modèle écarté serait écrire son nom en
 # clair dans un dépôt PUBLIC, et le plancher de vocabulaire suffit à le voir.
+#
+# **SES VALEURS SONT LUES, et c'est une correction du 9 septembre 2026.** Elles
+# ne l'étaient pas : les trois usages ne parcouraient que les clés, et `mesuré`,
+# les vider toutes laissait 643 tests verts — de la documentation déguisée en
+# donnée. Le choix entre « en faire un ensemble » et « lire la valeur » est
+# tranché par ce que le message `info` dit à l'exploitant : *« ce modèle n'a PAS
+# été mesuré »*, sans jamais lui dire ce qui A été mesuré sur celui du registre,
+# alors que la réponse est écrite deux lignes plus haut. Un garde qui retient
+# l'information dont il constate l'absence est un garde à moitié écrit.
 _RERANKERS_MESURES: dict[str, str] = {
     "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1": (
         "97,6 % de rappel@10 sur la campagne de référence du 8 septembre 2026"
     ),
 }
 
-# Le plancher, et il est MESURÉ, non choisi : il laisse 19,5 % de marge sous
-# mBERT (119 547), le plus petit vocabulaire multilingue relevé, et il est plus
-# de trois fois au-dessus des cross-encoders anglais usuels (30 522).
+
+def _registre_avec_ses_mesures() -> str:
+    """Le registre tel qu'un exploitant a besoin de le lire : nom ET mesure.
+
+    Vider les valeurs du registre fait rougir les tests qui lisent ce rendu —
+    c'est ce qui les maintient vivantes.
+    """
+    return ", ".join(f"{nom} ({_RERANKERS_MESURES[nom]})" for nom in sorted(_RERANKERS_MESURES))
+
+# Le plancher, et il est MESURÉ, non choisi. **LA DÉFINITION DE LA MARGE EST
+# ÉCRITE, parce que les deux lectures donnent deux chiffres justes.** mBERT
+# (119 547) est le plus petit vocabulaire multilingue relevé, et il est **19,5 %
+# au-dessus de ce plancher — marge rapportée AU PLANCHER**. Rapportée à mBERT,
+# la même marge vaut 16,4 %, et la formulation « 19,5 % sous mBERT » qui
+# figurait ici se lisait spontanément comme la seconde. Troisième occurrence
+# dans ce chantier de « deux écritures justes sous des définitions
+# différentes » : la définition coûte deux mots, l'ambiguïté coûte un audit.
+#
+# Le plancher est par ailleurs 3,28 fois au-dessus des cross-encoders anglais
+# usuels (30 522).
 _VOCABULAIRE_MULTILINGUE_PLANCHER = 100_000
+
+
+# Les deux SEULS niveaux que ce garde sait rendre, et le type le borne.
+#
+# **POURQUOI UN TYPE ET PAS UNE CONVENTION.** `mesuré` le 9 septembre 2026 :
+# avec un `str` nu, ajouter un troisième niveau — « critical », disons — passait
+# mypy et ruff en `rc=0` avec 643 tests verts, et le ternaire de
+# `_get_rerank_model` le journalisait en **`INFO`**. La dégradation allait donc
+# vers le BAS : un garde qui RÉTROGRADE une alarme est pire qu'un garde qui la
+# promeut, puisqu'il fait disparaître du journal ce que l'auteur du niveau
+# voulait rendre le plus visible. Le `Literal` transforme cette panne silencieuse
+# en rouge de `make lint`, au site même où le niveau est écrit.
+NiveauDuVerdict = Literal["info", "warning"]
 
 
 def verdict_langue_du_reranker(
     nom: str, vocabulaire: int | None
-) -> tuple[str, str] | None:
+) -> tuple[NiveauDuVerdict, str] | None:
     """Ce qu'il y a à dire du reranker configuré. `None` s'il n'y a rien à dire.
 
     Rend `(niveau, message)`, le niveau étant celui du journal — et les DEUX
@@ -155,7 +194,7 @@ def verdict_langue_du_reranker(
             f"donc impossible d'écarter qu'il soit monolingue. Un reranker anglais "
             f"coûte 2,5 points de rappel@10 sur les 30 % de questions translingues "
             f"du jeu de référence, en silence. Registre des modèles mesurés : "
-            f"{sorted(_RERANKERS_MESURES)}.",
+            f"{_registre_avec_ses_mesures()}.",
         )
     if vocabulaire < _VOCABULAIRE_MULTILINGUE_PLANCHER:
         return (
@@ -166,6 +205,10 @@ def verdict_langue_du_reranker(
             f"multilingue, et un reranker anglais défait son travail : "
             f"2,5 points de rappel@10 de moins sur les 30 % de questions "
             f"translingues du jeu de référence, sans aucune erreur visible. "
+            # Les noms SEULS ici, et c'est délibéré : cette ligne est une
+            # instruction que l'exploitant recopie dans son `.env`, pas un
+            # relevé. La mesure de chaque modèle est donnée par les deux autres
+            # messages, qui informent au lieu d'instruire.
             f"Réparation : RERANK_MODEL sur un modèle du registre "
             f"{sorted(_RERANKERS_MESURES)}, ou mesurer celui-ci par "
             f"`make eval` avant de le garder.",
@@ -175,7 +218,7 @@ def verdict_langue_du_reranker(
         f"Reranker '{nom}' : vocabulaire de {vocabulaire} entrées, compatible avec "
         f"un modèle multilingue, mais ce modèle n'a PAS été mesuré sur ce corpus. "
         f"Ce n'est pas un défaut, c'est une absence de mesure — le rappel@10 de ce "
-        f"réglage est inconnu. Modèles mesurés : {sorted(_RERANKERS_MESURES)}.",
+        f"réglage est inconnu. Ce qui A été mesuré : {_registre_avec_ses_mesures()}.",
     )
 
 
@@ -212,6 +255,9 @@ def _get_rerank_model() -> CrossEncoder:
     )
     if verdict is not None:
         niveau, message = verdict
+        # Le ternaire replie TOUT ce qui n'est pas `"warning"` sur `INFO`, y
+        # compris un niveau plus grave — c'est ce que `NiveauDuVerdict` borne à
+        # deux valeurs pour que le repli ne puisse plus rétrograder personne.
         logger.log(logging.WARNING if niveau == "warning" else logging.INFO, message)
     return model
 

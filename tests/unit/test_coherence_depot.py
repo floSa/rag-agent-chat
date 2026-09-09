@@ -324,7 +324,21 @@ def test_le_nom_du_modele_anglais_ne_vit_que_la_ou_il_est_justifie() -> None:
 # NON ATTRAPÉES, ET LA LISTE EST AUSSI UTILE QUE L'AUTRE :
 #
 # - une affectation construite par MORCEAUX, ou passée par une variable
-#   intermédiaire. Personne ne recopie une instruction sous cette forme ;
+#   intermédiaire. **CETTE FORME EST VIVANTE DANS CE DÉPÔT, et la phrase qui
+#   figurait ici — « personne ne recopie une instruction sous cette forme » —
+#   était fausse.** `mesuré` le 9 septembre 2026 : la seule affectation vivante
+#   du modèle anglais au réglage réel est exactement de cette forme, deux lignes
+#   de `tests/unit/test_garde_modele_embedding.py` à **136 lignes d'écart** — le
+#   nom posé dans une constante de module (ligne 47), puis passé à un
+#   `monkeypatch.setattr` sur le réglage réel (ligne 183), pour éprouver le
+#   garde du lot 3 en lui plantant un modèle non conforme. Elle est LÉGITIME et
+#   tolérée ; c'est l'affirmation qui ne l'était pas.
+#
+#   Ce qui est vrai, et c'est plus faible : une affectation en morceaux ne se
+#   copie pas en UNE ligne, donc elle ne peut pas être prise pour une
+#   instruction par un lecteur pressé. La borne est là, pas dans un « personne ».
+#   Fermer cette forme n'est pas non plus gratuit — le site ci-dessus rougirait,
+#   et décider quoi en faire est un lot, pas une réparation ;
 # - un drapeau de ligne de commande — `--un-modele valeur`. **Écarté par
 #   choix, et le motif est mesuré** : ce dépôt n'a AUCUN drapeau de ce genre
 #   pour ses deux modèles (`vérifié` le 8 septembre 2026 : les deux
@@ -574,6 +588,22 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         for forme in formes:
             assert self._affectations(forme), f"forme non attrapée : {forme!r}"
 
+    def _recits_des_formes_neuves(self) -> tuple[str, ...]:
+        """Les six récits que l'élargissement du 8 septembre 2026 doit épargner.
+
+        Partagés par les deux tests qui suivent plutôt que recopiés : le second
+        MESURE une propriété de ces récits-là, et il ne la mesurerait pas s'il
+        regardait une copie qu'on peut faire diverger.
+        """
+        return (
+            f"le `default` du champ vaut `{_MODELE_ANGLAIS}`, et c'est l'idiome",
+            f"un `Field(default=…)` posé sur `{_MODELE_ANGLAIS}` échappait au garde",
+            f"un `os.environ` forcé sur `{_MODELE_ANGLAIS}` contourne les deux",
+            f"`monkeypatch.setenv` sur `{_MODELE_ANGLAIS}` ne laissait aucune trace",
+            f"un `ENV` de Dockerfile portant `{_MODELE_ANGLAIS}` en valeur espacée",
+            f"| `Field(default=…)` | `{_MODELE_ANGLAIS}` | **NON vue** |",
+        )
+
     def test_le_recit_de_ces_formes_reste_vert(self) -> None:
         """LA SECONDE DIRECTION, ET C'EST ELLE QUI BORNE L'ÉLARGISSEMENT.
 
@@ -583,23 +613,120 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
         qu'un rapport de lot écrit forcément pour raconter cette correction —
         y compris celui-ci.
 
-        La propriété qui les protège est celle que le commentaire de tête
-        énonce : les délimiteurs admis sont `"` et `'`, jamais l'accent grave.
-        Une paire d'accents graves est de la mise en page Markdown.
+        **CE QUI LES PROTÈGE N'EST PAS L'ACCENT GRAVE**, contrairement à ce que
+        ce docstring a d'abord affirmé, et c'est mesuré dans les deux sens par
+        `test_ce_qui_protege_un_recit_n_est_pas_l_accent_grave` juste dessous.
+        Ce qui les protège est qu'aucun d'eux ne pose le NOM du réglage à côté
+        de sa VALEUR : c'est la juxtaposition qui fait l'instruction, pas le
+        délimiteur.
         """
-        recits = (
-            f"le `default` du champ vaut `{_MODELE_ANGLAIS}`, et c'est l'idiome",
-            f"un `Field(default=…)` posé sur `{_MODELE_ANGLAIS}` échappait au garde",
-            f"un `os.environ` forcé sur `{_MODELE_ANGLAIS}` contourne les deux",
-            f"`monkeypatch.setenv` sur `{_MODELE_ANGLAIS}` ne laissait aucune trace",
-            f"un `ENV` de Dockerfile portant `{_MODELE_ANGLAIS}` en valeur espacée",
-            f"| `Field(default=…)` | `{_MODELE_ANGLAIS}` | **NON vue** |",
-        )
-        for recit in recits:
+        for recit in self._recits_des_formes_neuves():
             assert not self._affectations(recit), (
                 f"récit attrapé à tort : {recit!r} — l'élargissement vient de "
                 "reconstruire l'inventaire d'occurrences sous un autre nom"
             )
+
+    def test_l_ancrage_de_la_directive_env_est_garde(self) -> None:
+        """L'ANCRAGE `^` DU MOTIF `ENV`, QUE RIEN NE GARDAIT.
+
+        Le commentaire de `_motifs_d_affectation` écrit pourquoi cet ancrage est
+        décisif : sans lui, le motif accepte une valeur NUE et devient le
+        premier de ce fichier à pouvoir rougir au MILIEU d'une phrase. Le lot du
+        8 septembre 2026 a sondé la propriété à la main et ne l'a pas gardée —
+        `mesuré` le 9 septembre 2026, retirer le `^` laissait **643 tests
+        verts**. *Une décision motivée, sondée, et non gardée* : c'est la
+        famille de défaut dominante de ce chantier, à un neuvième site.
+
+        Les deux directions, et l'ancrage est le SEUL qui les sépare.
+        """
+        alias = self._NOMS[1]
+
+        # LE VRAI CAS — une directive Dockerfile vit en tête de ligne, éventuel
+        # retrait compris. Il doit être attrapé, sinon le motif ne sert à rien.
+        for directive in (
+            f"ENV {alias} {_MODELE_ANGLAIS}",
+            f"   ENV {alias} {_MODELE_ANGLAIS}",
+            f"FROM python:3.12\nENV {alias} {_MODELE_ANGLAIS}\nRUN pip install .",
+        ):
+            assert self._affectations(directive), (
+                f"la forme héritée de Dockerfile échappe : {directive!r} — c'est "
+                "la forme même que l'élargissement du 8 septembre 2026 a ajoutée"
+            )
+
+        # LE SENS DANGEREUX — les mêmes mots au milieu d'une phrase ne sont pas
+        # une directive : ce sont les phrases qu'un rapport de lot écrit pour
+        # raconter la correction. Sans l'ancrage, les trois rougissent.
+        for recit in (
+            f"le Dockerfile posait ENV {alias} {_MODELE_ANGLAIS} sans signe égal",
+            f"| forme héritée | ENV {alias} {_MODELE_ANGLAIS} | attrapée |",
+            f"la forme espacée, ENV {alias} {_MODELE_ANGLAIS}, échappait au garde",
+        ):
+            assert not self._affectations(recit), (
+                f"récit attrapé à tort : {recit!r}. L'ancrage `^` du motif `ENV` "
+                "a disparu, et ce motif est le seul de ce fichier qui accepte une "
+                "valeur NUE : sans ancrage il rougit au milieu d'une phrase, et "
+                "le garde redevient un fil d'occurrences"
+            )
+
+    def test_ce_qui_protege_un_recit_n_est_pas_l_accent_grave(self) -> None:
+        """LA PHRASE QUE CE FICHIER A ÉCRITE, ET QUI ÉTAIT FAUSSE DANS LES DEUX
+        SENS.
+
+        Le docstring de `test_le_recit_de_ces_formes_reste_vert` affirmait que
+        ce qui épargne ces récits est la propriété « les délimiteurs admis sont
+        `"` et `'`, jamais l'accent grave ». Une phrase de cette famille —
+        « jamais », « quelle que soit » — doit être bornée ou gardée ; celle-ci
+        n'était ni l'un ni l'autre, et `mesuré` le 9 septembre 2026 elle est
+        fausse dans les deux directions. Ce test est la garde qui manquait, et
+        il tient les trois faits mesurés.
+
+        Le nom du réglage et sa valeur ne sont JAMAIS écrits en littéral ici :
+        ils sont dérivés de `settings.py`, comme partout dans ce fichier. Le
+        dépôt est public, et raconter une affectation non conforme ne justifie
+        pas d'en écrire une copiable — la correction est la périphrase.
+        """
+        alias = self._NOMS[1]
+
+        # PREMIER FAIT — les accents graves ne jouent AUCUN rôle dans les six
+        # récits que la phrase prétendait expliquer. Les leur retirer tous les
+        # laisse verts : c'est la juxtaposition du nom et de la valeur qui
+        # manque, pas le délimiteur qui protège.
+        for recit in self._recits_des_formes_neuves():
+            assert not self._affectations(recit.replace("`", "")), (
+                f"récit attrapé une fois ses accents graves retirés : {recit!r}. "
+                "Ce qui l'épargnait était donc bien l'accent grave — refais la "
+                "mesure et réécris le docstring voisin, qui affirme l'inverse"
+            )
+
+        # DEUXIÈME FAIT — l'accent grave ne protège PAS d'une citation de la
+        # ligne fautive. Le nom collé à sa valeur par `=` est attrapé quel que
+        # soit ce qui l'entoure, et c'est le bon sens de l'erreur : une ligne
+        # citée reste une ligne copiable.
+        for entourage in ("`{}`", '"{}"', "**{}**", "{}"):
+            cite = f"la ligne fautive portait {entourage.format(f'{alias}={_MODELE_ANGLAIS}')}"
+            assert self._affectations(cite), (
+                f"une citation de la ligne fautive échappe au garde : {cite!r}. "
+                "Le dépôt est public : cette ligne est copiable, et un garde qui "
+                "la laisse passer parce qu'elle est entre accents graves ne garde "
+                "plus rien"
+            )
+
+        # TROISIÈME FAIT — et c'est la SEULE scène où l'accent grave décide. Un
+        # récit qui met le nom du réglage à côté de sa valeur avec un `:` pour
+        # tout séparateur est attrapé ; les accents graves l'épargnent. `mesuré`
+        # le 9 septembre 2026 : sur les quatorze récits du test voisin, UN SEUL
+        # est dans ce cas — la propriété est donc réelle, mais elle explique un
+        # récit sur quatorze, et aucun des six ci-dessus.
+        juxtapose = f"{alias} : {_MODELE_ANGLAIS} — et c'était faux"
+        assert self._affectations(juxtapose), (
+            "le nom du réglage suivi de sa valeur, sans accents graves, n'est "
+            f"plus attrapé : {juxtapose!r} — le motif `NOM: valeur` a été perdu"
+        )
+        assert not self._affectations(f"`{alias}` : `{_MODELE_ANGLAIS}` — et c'était faux"), (
+            "la même phrase entre accents graves est désormais attrapée : le "
+            "garde s'est mis à rougir sur de la mise en page Markdown, et c'est "
+            "le sens dangereux de l'élargissement"
+        )
 
     def test_un_recit_qui_nomme_le_modele_le_laisse_vert(self) -> None:
         """LES QUATORZE RÉCITS DU DÉPÔT, ET C'EST LA DIRECTION DÉCISIVE.

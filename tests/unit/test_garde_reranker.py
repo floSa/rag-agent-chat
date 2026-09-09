@@ -91,6 +91,40 @@ def test_le_modele_en_service_ne_declenche_rien() -> None:
     ), "le registre ne prime pas sur l'indice : un modèle mesuré est signalé quand même"
 
 
+def test_les_mesures_du_registre_sont_dites_a_l_exploitant() -> None:
+    """LES VALEURS DU REGISTRE SONT LUES, ET CE TEST EST CE QUI LES MAINTIENT.
+
+    `mesuré` le 9 septembre 2026 : le registre était un `dict[str, str]` dont
+    **les valeurs étaient mortes** — les trois usages ne parcouraient que les
+    clés, et les vider toutes laissait 643 tests verts. De la documentation
+    déguisée en donnée.
+
+    Le message `info` est celui qui rend la chose visible : il dit à l'exploitant
+    « ce modèle n'a PAS été mesuré » sans jamais lui dire ce qui A été mesuré sur
+    celui du registre, alors que la réponse est écrite deux lignes plus haut dans
+    le même fichier. Ce test asserte que chaque mesure du registre atteint le
+    journal ; vider une valeur le fait rougir.
+    """
+    verdict = retriever.verdict_langue_du_reranker(
+        _RERANKER_FICTIF_MONOLINGUE, _VOCABULAIRE_MULTILINGUE_LE_PLUS_PETIT
+    )
+    assert verdict is not None
+    niveau, message = verdict
+    assert niveau == "info", niveau
+
+    assert retriever._RERANKERS_MESURES, "le registre est vide : ce test ne mesure rien"
+    for nom, mesure in retriever._RERANKERS_MESURES.items():
+        assert mesure.strip(), (
+            f"le registre porte {nom!r} sans aucune mesure : une entrée sans sa "
+            "mesure est un nom qu'on croit validé sans savoir par quoi"
+        )
+        assert nom in message and mesure in message, (
+            "le message d'absence de mesure ne dit pas ce qui A été mesuré sur "
+            f"{nom!r} — la valeur du registre est redevenue morte, et le garde "
+            f"retient l'information dont il constate l'absence. Message : {message}"
+        )
+
+
 # ─── Le défaut lui-même : un reranker monolingue ──────────────────────────────
 
 
