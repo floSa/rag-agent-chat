@@ -1235,7 +1235,7 @@ class TestLaPousseeEstGardeeParUnVraiGitPush:
             "liste des contributeurs, une fois constituee, ne se defait pas"
         )
 
-    def test_une_branche_neuve_sur_une_histoire_REELLEMENT_poussee_passe(
+    def test_une_branche_neuve_sur_une_histoire_reellement_poussee_passe(
         self, couple: tuple[Path, Path]
     ) -> None:
         """LA BORNE LEGITIME, ET SANS ELLE LE GARDE SERAIT ARRACHE.
@@ -1298,7 +1298,7 @@ class TestLaPousseeEstGardeeParUnVraiGitPush:
                 distant, "rev-parse", "--quiet", "--verify", neuf
             ).returncode == 0, f"le commit conforme {neuf[:12]} n'est pas arrive"
 
-    def test_une_ref_EXISTANTE_atteint_bien_sa_branche_de_code(
+    def test_une_ref_existante_atteint_bien_sa_branche_de_code(
         self, couple: tuple[Path, Path]
     ) -> None:
         """LE PIEGE QUE L'AUDIT A PAYE : cette scene exige une ref PREEXISTANTE.
@@ -1615,7 +1615,7 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
                 "voit pas, et le depot est public"
             )
 
-    def test_un_message_qui_RACONTE_la_signature_n_est_pas_refuse(
+    def test_un_message_qui_raconte_la_signature_n_est_pas_refuse(
         self, depot_pousse: Path
     ) -> None:
         """LE DEFAUT DU 9 SEPTEMBRE 2026, ET IL ETAIT LATENT.
@@ -1870,7 +1870,7 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
             f"la suppression d'une ref fait echouer le hook :\n{acheve.stderr}"
         )
 
-    def test_une_ref_neuve_est_bornee_sur_l_ETAT_REEL_DU_DISTANT(
+    def test_une_ref_neuve_est_bornee_sur_l_etat_reel_du_distant(
         self, depot_pousse: Path
     ) -> None:
         """CE TEST REMPLACE CELUI QUI CONSACRAIT LA CECITE, ET VOICI POURQUOI.

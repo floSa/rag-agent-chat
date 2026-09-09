@@ -103,7 +103,7 @@ ADRESSES_AUTORISEES="florian.horellou@gmail.com florian_horellou@laposte.net"
 # C'est la meme borne que les trois autres alternatives, et celle que ce hook
 # s'est deja donnee en tete — seules les FORMES sont refusees, jamais les
 # MENTIONS. Garde dans les deux sens par
-# `test_un_message_qui_RACONTE_la_signature_n_est_pas_refuse`.
+# `test_un_message_qui_raconte_la_signature_n_est_pas_refuse`.
 FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|^[[:space:]]*generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
 
 # Les formes de secret a haute confiance. Chacune porte un prefixe ou un en-tete
