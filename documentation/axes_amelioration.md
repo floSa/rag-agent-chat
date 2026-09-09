@@ -5282,10 +5282,34 @@ périmètre de l'inventaire a un plancher qui **ne descend jamais**, global et
 zone par zone, et le rétrécissement qu'un plancher global ne peut pas voir
 rougit.
 
-**Ce qui reste ouvert, et monte au lot 7** : `monkeypatch.setattr(settings, …)`
-et la lecture d'environnement à valeur par défaut échappent au garde de sûreté
-(102 et 6 sites), et la lecture défensive de la propriété du reranker ne tient
-que dans trois natures d'exception sur six. Les deux demandent une décision, pas
-une réparation — et REPAR-7 a confirmé le découpage avec un argument : fermer
-`setattr` ferait rougir le site légitime qu'elle venait de citer comme
-contre-preuve.
+**Ce qui reste ouvert, et monte au lot 7** : `setattr(settings, …)` et la
+lecture d'environnement à valeur par défaut échappent au garde de sûreté, et la
+lecture défensive de la propriété du reranker ne tient que dans trois natures
+d'exception sur six.
+
+#### CORRECTION DU PILOTE À SA PROPRE SECTION, mesurée le 9 septembre 2026 à 09:30 UTC
+
+La première rédaction de ce paragraphe reprenait deux chiffres de l'audit — « 102
+et 6 sites » — **et l'obstacle que l'audit puis REPAR-7 avaient invoqué pour
+différer le lot 7** : *fermer `setattr` ferait rougir le site légitime du garde
+du lot 3.* Le pilote allait les republier dans un prompt. Il les a mesurés
+d'abord, et les trois sont à reprendre.
+
+| | `mesuré`, sur les **fichiers suivis** (`git grep`) |
+|---|---|
+| `setattr(settings, …)` | **47** occurrences dans **7** fichiers, dont **30** dans `test_garde_modele_embedding.py`. Je ne reproduis **102 sous aucune** des quatre définitions essayées : 47 (suivis), 368 (tout `setattr`), 94 (en comptant les copies d'arbres de travail). **Ce chiffre a besoin de sa définition avant d'être réemployé** — quatrième occurrence de « deux écritures justes sous des définitions différentes » |
+| `environ.get` / `getenv` | **5** sites suivis : `scripts/mesurer_le_graphe.py:45-46`, `src/frontend/app.py:10`, `tests/integration/test_stack.py:28-29`. Pas 6 — le sixième était la copie d'un arbre |
+| **l'obstacle invoqué** | **il n'existe pas.** `git grep -E 'setattr\(\s*settings\s*,\s*"[a-z_]*model[a-z_]*"\s*,\s*"'` rend **AUCUN** résultat : les **27** `setattr` sur `embedding_model_name` passent tous une **CONSTANTE NOMMÉE** — `_AUTRE_CANDIDAT` ou `_MODELE_QUI_A_INDEXE` —, **jamais un littéral entre guillemets**. Or ce garde ne vise que les **instructions copiables**, donc un motif exigeant une valeur littérale ne ferait rougir **aucun** de ces sites |
+
+**Conséquence sur le plan** : le lot 7 est probablement **beaucoup moins cher**
+que l'audit, la réparation et le pilote ne le croyaient tous les trois. La
+décision qu'il demandait — que faire du site légitime — n'a peut-être pas à être
+prise, parce que le site légitime **suit déjà la discipline** que le dépôt
+prescrit ailleurs : *le nom du modèle est toujours dérivé d'une constante, jamais
+écrit en littéral.*
+
+**Et c'est la SIXIÈME fois que ce chantier paye la même faute** : reprendre un
+antécédent du dépôt — ou d'un rapport — sans le mesurer est la même faute que de
+l'inventer. Cette fois c'est le pilote, dans la section qu'il venait d'écrire, et
+il s'est arrêté au moment de la republier. *La règle qui a fonctionné est
+exactement celle du §12 : remesurer juste avant de sceller le prompt.*
