@@ -5976,3 +5976,201 @@ elles restent sur la branche parce qu'un lot se fusionne d'un bloc. La bloquante
 est petite à réparer et immense à laisser : *le seul garde-fou de ce dépôt contre
 la faute qui l'a détruit une fois est aveugle à la séquence exacte de cette
 destruction, et un test vert dit que c'est normal.*
+
+---
+
+### 4.39 → La réparation du lot 7 : la bloquante fermée par un VRAI `git push`, et trois chiffres du chantier remesurés
+
+`Conv' 45` (REPAR-8) a livré le 9 septembre 2026 sur la branche du lot,
+`claude/lot-7-rag-agent-chat-425c4e`. **697** passés sur **43** fichiers,
+`rc=0` / `rc=0`, **non poussés**. La bloquante du §4.38 est fermée, les six
+resserrements aussi, les trois chiffres corrigés — et **trois faux verts trouvés
+contre lui-même**, plus **deux affirmations du chantier démenties par la mesure**.
+
+#### La bloquante : la borne d'une ref neuve, et la preuve est l'ÉTAT DU DISTANT
+
+Le sinistre a d'abord été **reproduit hook intact**, avant toute réparation. Puis
+la même scène a été rejouée sur le hook réparé. Les deux mesures, `git push`
+réel, dépôts jetables, `mesuré` le 9 septembre 2026 :
+
+| | hook livré | hook réparé |
+|---|---|---|
+| commits que le hook vérifie | **0** | **10** |
+| `rc` du `git push` (processus) | **0** | **1** |
+| refs chez le distant après coup | **1** | **0** |
+| commits arrivés | **10** | **0** |
+| adresses arrivées | **7** non autorisées + 3 conformes | **aucune** |
+
+La cause : `--not --remotes=<distant>` lit `refs/remotes/<distant>/*`, un cache
+local que la destruction-recréation du distant rend menteur. La borne est
+désormais `git ls-remote` — l'état RÉEL.
+
+**Trois autres formes ont été pesées et écartées au site**, et la première
+mérite d'être retenue par le chantier : *un **commit d'époque** en dur — local,
+déterministe, sans réseau, et il exprime littéralement le compromis défendu —
+**ne ferme pas le sinistre**, les commits fautifs de la scène étant antérieurs à
+l'époque, donc exclus.* Une borne qui laisse passer l'incident qu'elle documente
+n'est pas une borne. Les deux autres : rafraîchir `refs/remotes/` par un `fetch`
+préalable (c'est encore le cache, avec une course en plus), et ne rien exclure
+du tout (écarté pour la seule latence).
+
+Le repli quand `ls-remote` échoue n'exclut **rien** — donc vérifie plus, jamais
+moins — et il se **dit** sur `stderr`, seul endroit où ce hook parle sans
+refuser : une borne dont on ne sait plus si elle a servi redevient la cécité
+qu'on vient de fermer. Un `timeout 30` extérieur borne l'appel, un hook qui pend
+étant un hook qu'on désarme.
+
+**Le test qui épinglait la cécité comme correcte est REMPLACÉ, pas relâché.** Il
+déclarait par `update-ref` que le distant connaissait un commit jamais poussé —
+une fiction. Deux tests le remplacent, et l'un d'eux **replante la fiction
+exprès** pour asserter qu'elle ne borne plus rien.
+
+**Et la borne légitime reste éprouvée par un vrai `git push`** : une branche
+neuve dont l'histoire ancienne — non conforme — est *réellement* chez le distant
+passe, `rc=0`, et arrive entière. Sans ce sens, la réparation aurait remplacé un
+trou par un garde qu'on arrache.
+
+#### La faiblesse STRUCTURELLE est fermée, et c'est ce que le §4.38 annonçait comme le plus regrettable
+
+`TestLaPousseeEstGardeeParUnVraiGitPush` — cinq tests — monte un dépôt par
+**l'installeur livré** (donc la couche `.legacy` sous le framework), crée un
+distant `--bare` local, appelle `git push`, et lit le verdict sur **deux axes** :
+le `rc` du processus **et ce que le distant porte réellement**. Deux mutations
+prouvent qu'elle atteint : un hook rendu creux (`exit 0`) et un installeur qui
+n'arme plus `pre-push` la font rougir tous les deux sur trois tests.
+
+Un de ses tests garde son propre coût : **aucune URL distante ne sort de la
+machine**, sans quoi `ls-remote` pourrait pendre 30 s par test et la porte
+deviendrait inutilisable. Sa première écriture s'est reconnue elle-même — les
+schémas écrits en littéral — puis a débordé sur la classe suivante : *deux faux
+rouges dans le seul test qui garde le coût,* et les schémas sont désormais
+assemblés à l'exécution.
+
+**Le risque latent est nommé au site** : `pre_commit/commands/hook_impl.py:36`
+porte `if hook_dir is None:  # git 2.54+ hooks`, chemin sur lequel `.legacy`
+n'est jamais exécutée. Git est ici en **2.53.0** (`mesuré`, `git --version`) et le
+`hook-tmpl` passe toujours `--hook-dir` : le montage est sain, mais le seul
+rempart « valable pour toute branche » de ce dépôt dépend d'une branche de code
+que la version suivante de git active, et la panne serait muette.
+
+#### Les six resserrements, et deux affirmations du chantier démenties
+
+- **la panne à un caractère près** est fermée : sans retour à la ligne final,
+  `read` rendait non-zéro et le hook sortait en `rc=0` **sans rien vérifier**.
+  `mesuré` : **0** tour de boucle. *Et ce n'est pas une particularité de `dash`,
+  contrairement à ce que le §4.38 supposait — `bash` rend le même 0.* C'est le
+  comportement POSIX de `read`. Le harnais ne pouvait pas le sonder,
+  `_ligne_de_poussee` ajoutant toujours le `\n` ; la ligne est donc construite
+  sans lui, explicitement ;
+- **la ligne de signature n'était pas ancrée** : les trois phrases de récit ET la
+  forme nue étaient toutes les quatre refusées. Après ancrage, les récits passent
+  et la forme reste refusée, indentée comprise. C'était mot pour mot le défaut de
+  `e42d3e6`, une ligne plus bas — *le trouver deux fois dans le même motif dit
+  que « chaque alternative porte sa borne » doit être gardée, pas relue* ;
+- **cinq bornes des motifs réflexifs étaient inertes**, et non trois : les
+  guillemets et la virgule sur `environ.get`, la classe `[^)]`, la fenêtre de 80
+  et la virgule sur `setattr`. Cinq récits les tiennent, verts sous le motif
+  livré et rouges sous leur mutation, et la **distance** de la fenêtre est
+  mesurée dans le test plutôt que supposée ;
+- **la forme aliasée est fermée par une LECTURE et non par un élargissement.**
+  L'élargissement à `\w+\s*\(` a été écarté comme spéculatif ; à la place, les
+  liaisons réelles d'un nom à `environ.get`/`getenv`/`setattr` sont relevées, et
+  un motif n'est engendré que pour elles. **La borne est écrite** : un alias reçu
+  en argument ou reconstruit par `getattr` n'est pas vu, cela demanderait de
+  suivre les données ;
+- **le scope du garde de numérotation** est désormais porteur, et la phrase qui
+  le justifiait était fausse : ce qui protégeait était **l'ordre du fichier**. La
+  discrimination porte sur la FORME de la ligne d'autorité, et l'ambiguïté rend
+  `None` au lieu de trancher — *choisir la première est le geste même qui a
+  produit la faute du 8 septembre.*
+
+#### Les trois chiffres, et deux d'entre eux portent sur le pilote
+
+- **« onze doublons et un trou de 7 à 20 »** : confirmé faux. `mesuré` sur la
+  suite que le commentaire écrit lui-même — **5** doublons, trou de **8 à 19**,
+  `7` et `20` tous deux présents. Le §4.38 avait raison ;
+- **« sept natures sondées » contre « six »** : **les deux comptes sont exacts**,
+  sous deux définitions, et le fichier de test en nomme **neuf** en tout. Ce
+  n'étaient pas les comptes qui étaient faux, c'était leur silence sur leur
+  définition — les trois sont désormais écrites aux deux sites. **Mais une phrase
+  du commentaire des six natures était, elle, FAUSSE**, et ni le lot ni son audit
+  ne l'avaient vue : `NotImplementedError` dérive de `RuntimeError`, donc
+  l'`except (TypeError, ValueError)` ne l'attrapait pas. Sonde rejouée : **CINQ**
+  des six propageaient, **une** seule était absorbée — par le `default` de
+  `getattr`, jamais par l'`except`. *Une sous-classe lue comme une classe sœur* ;
+- **`asyncio.CancelledError`** est nommée au site. Elle traversait déjà, et c'est
+  juste, mais elle ne le devait à rien d'écrit ni d'éprouvé — seulement à sa
+  dérivation de `BaseException` (`vérifié`, `__mro__` sous Python 3.12.13).
+  *Un choix juste que rien ne garde est un choix qu'un lot suivant défait.*
+  **Précision contre le cadrage** : `node_rerank` est un nœud **synchrone**, même
+  si le graphe est piloté par `ainvoke`/`astream` — l'annulation arrive d'abord
+  sur la coroutine qui attend. Raison de garder la propriété maintenant, pas de
+  l'omettre.
+
+#### Et le chiffre du pilote : il est juste, et sa PORTÉE était fausse
+
+**« 47 `setattr` dans 7 fichiers »**, annoncé « sur les fichiers suivis ». Or
+« les fichiers suivis » est `_fichiers_suivis()`, c'est-à-dire `git ls-files` —
+tout le dépôt, documentation comprise — et cette lecture n'a **jamais** rendu
+47/7. **L'auditeur avait raison de ne pas le retrouver.** Huit révisions
+balayées ; une seule lecture le rend :
+
+```bash
+git grep -c 'setattr(settings' main -- src tests scripts   # -> 47 lignes / 7 fichiers
+```
+
+Les **deux** commandes que le §4.38 donnait comme concordantes rendent, elles,
+**59 / 10** l'une et l'autre sur cette branche. Le chiffre était donc exact sous
+une portée — `main`, restreint au code — et l'étiquette le donnait sous une
+autre. *Un chiffre juste dont la portée est fausse est aussi invérifiable qu'un
+chiffre faux.* Le §4.38 concluait que « ce qui manquait est sa commande » ; il
+manquait aussi **sa portée**, et la « reproduction sous deux lectures
+concordantes » ne tenait pas. Le nombre n'est **pas** remonté : le compte n'est
+pas le sujet, la vivacité de la forme l'est, et un plancher la tient.
+
+Même défaut dans le même commentaire pour **« 6 sites suivis »** d'`environ.get` :
+le chiffre est exact sous `-- src scripts tests/integration`, pas sous les
+fichiers suivis (qui rendent 18/4). **Et le sixième de ces six n'est pas un appel
+du tout** : c'est la liaison `env = os.environ.get` de
+`scripts/verifier_les_ancrages.py`. *Le relevé qui justifiait le motif contenait
+déjà la forme qui lui échappait, et personne ne l'avait lu comme telle.*
+
+#### Les trois faux verts que ce lot a trouvés contre lui-même
+
+- **M-8** : retirer le scope de `prochain_numero_annonce` laissait les **17**
+  tests du fichier verts — l'ancrage sur la forme suffisait au document
+  *courant*, donc le scope était devenu inerte. La scène manquante est une
+  seconde ligne d'autorité **hors** du §6.1 : *la forme protège du dedans, le
+  scope du dehors*, et chacun a maintenant sa mutation ;
+- **M-g** : retirer l'ancrage de fin de ligne de la liaison d'alias laissait les
+  **27** tests verts. Sans lui, toute ligne d'appel direct enregistre sa cible
+  comme un alias. « Un appel n'est pas une liaison » est devenu un sens du test ;
+- **M-j** : retirer `NotImplementedError` des six natures laissait les **16**
+  tests verts. Une liste FERMÉE qui rétrécit ne fait rougir personne. Un plancher
+  la garde — et la distinction est écrite : *un inventaire d'occurrences grandit,
+  et un garde qui rougit sur l'événement normal enseigne « monter le chiffre »
+  (§4.35) ; une liste raisonnée de sondes, non.*
+
+#### Ce qui n'est pas fermé, et le dit
+
+- **la valeur du `timeout 30`** du `ls-remote` n'est gardée par aucune mutation :
+  la faire passer à 25 laisse tout vert. C'est un réglage de latence, pas un axe
+  de sûreté, et l'éprouver demanderait un distant qui pend — donc une attente
+  réelle dans la porte. Borné par écrit plutôt que gardé ;
+- **la couche `.legacy` sur git 2.54+** n'est pas éprouvée, et ne peut pas
+  l'être : le chemin de code n'existe pas sous la version installée. Nommée au
+  site, à remesurer à la montée de git.
+
+#### Le trou de numérotation est fermé par la fusion, et non par un numéro de plus
+
+Les §4.37 et §4.38 vivaient sur `claude/audit-rag-agent-chat-eefc61`, le §4.36
+sur la branche du lot : **chacune des deux portait un trou que l'autre
+comblait**, et c'est pour cela que le pilote retenait sa fusion. Les porter
+ensemble était la seule façon de ne pas laisser sur `main` la dérive même que ce
+lot rend rougissante. Le garde le confirme : **aucun trou, aucun doublon** sur
+les deux documents.
+
+*Et la ligne 45 du journal existait avant que ce lot ne livre : elle est mise à
+jour, pas ajoutée. Le pilote a produit deux collisions de numérotation en deux
+jours ; relire la queue du fichier avant d'y écrire un numéro est ce qui les
+évite.*
