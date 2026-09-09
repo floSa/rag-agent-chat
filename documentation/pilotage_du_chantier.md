@@ -287,9 +287,11 @@ dépôt, pas dans la conversation.*
 
 | **40** | LOT-6 — le garde du reranker, les formes d'affectation qui échappaient, le bouchon de l'index périmé | livré le **8 septembre 2026** : `a2d2081` + `e6fc175`, **643 passés** (+14), `rc=0` / `rc=0`, **non poussés**. A **mesuré son cadrage faux** — le prompt annonçait `main` = `2bb511c`, mesuré `3638240`, **trois commits d'écart**. Le garde du reranker **SIGNALE** au lieu de refuser, et c'est une mesure qui l'a décidé : les vocabulaires multilingue et anglais **se chevauchent** (mBERT 119 547 < DeBERTa-v3 128 100), donc aucun seuil n'est un classifieur. A trouvé une **sixième** forme d'affectation non vue (`monkeypatch.setenv`), **corrigé le motif faux du §4.31** (saturation de sigmoïde, l'ordre survit) et **attrapé son propre faux résultat** deux fois — une mutation posée sur le mauvais réglage, et une assertion de périmètre décorative que sa propre mutation a montrée verte. Vérifié par le pilote — §4.32 |
 
-**Prochain numéro libre : 41.**
+| **41** | AUDIT-6 — audit du lot 6 | rendu le **9 septembre 2026**. **DEUX bloquantes**, une dizaine de non bloquantes. B-1 : le câblage du garde n'est éprouvé que sur son **bruit** — le garde peut lire le mauvais réglage ET ne jamais lire le vocabulaire, **643 tests restent verts**, et le réglage normal se met alors à avertir en nommant le mauvais modèle. B-2 : le chiffre `mesuré` du périmètre est **périmé dans le commit qui l'écrit** (124/53 annoncés, 125/54 réels). A trouvé le périmètre **décoratif sur le seul `src/agent/settings.py`**, proposé une **troisième forme** que le lot n'avait pas envisagée — un plancher monotone —, reproduit les **cinq** `vocab_size` du commentaire, et **validé le cadrage du pilote sur ses six lignes, une première dans la série**. A corrigé le pilote sur la **condition** de son raisonnement de fusion : *ce n'est pas la fusion qui est dangereuse, c'est la divergence* — §4.33 |
 
-**Cinq lots fusionnés, huit audits, huit trouvailles — dont six bloquantes** ; le lot 6 est livré et attend le **neuvième**. Les
+**Prochain numéro libre : 42.**
+
+**Cinq lots fusionnés, NEUF audits.** Le neuvième rend **deux bloquantes** : le compte des bloquantes du chantier passe de six à **huit** (`calculé`). **Aucun lot n'a encore été fusionné sans qu'un audit indépendant y trouve quelque chose**, et le lot 6 attend sa réparation. Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
 audits ont porté leurs trouvailles **sur le pilote** plutôt que sur les lots : un
 état de `main` qu'il avait publié sans le mesurer, et deux maillons d'un
@@ -726,6 +728,28 @@ Celles du 8 septembre 2026 :
   sorti qu'en **vérifiant l'état** (`git rev-parse`, `rev-list --left-right`)
   plutôt que le code de retour. *Quand tu as filtré une sortie, ce n'est plus le
   `rc` qui te renseigne : c'est l'état.*
+
+Celles du 9 septembre 2026 :
+
+- **Écris la CONDITION, pas la conclusion.** Le pilote a écrit « la porte passée
+  sur la branche EST la porte sur le résultat de fusion », et le raisonnement
+  était juste — mais **seulement parce que `main` était un ancêtre de la branche
+  et parce que rien, dans le banc, ne lit l'histoire du dépôt**. Les deux défauts
+  que ce chantier garde en mémoire comme *nés de la fusion* venaient d'une
+  fusion de branches **divergentes**. *Ce n'est pas la fusion qui est
+  dangereuse, c'est la divergence* — et une conclusion écrite sans sa condition
+  sera réemployée là où la condition ne tient pas. Mesuré et borné par un
+  auditeur, pas par le pilote — §4.33.
+- **Le jour a tourné dans la conversation.** `date -u` rendait le
+  **8 septembre** hier soir et rend le **9** ce matin. C'est la troisième fois de
+  ce chantier, et la faute que le dépôt jumeau a payée neuf fois dans un seul
+  lot : **relève `date -u` avant CHAQUE date que tu écris**, pas une fois par
+  conversation.
+- **Une demi-règle ajoutée la veille a tenu à sa première application.** Le
+  cadrage du lot 6 avait vieilli de trois commits ; celui de l'audit 6 a été
+  scellé après un relevé, et **l'auditeur a reproduit ses six lignes sans une
+  correction — une première dans la série**. La règle qui manquait n'était pas
+  « mesure », c'était *« remesure juste avant de sceller »*.
 
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te

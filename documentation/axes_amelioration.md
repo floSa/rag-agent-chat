@@ -4833,3 +4833,221 @@ plutôt que refuser. Le critère amendé du §4.18 ne s'applique donc pas : il
 n'exempte que le changement **spécifié ET pré-mesuré par l'audit qui l'a exigé**.
 **Audit indépendant requis**, par une conversation qui n'a écrit aucune de ces
 lignes — `Conv' 41`, **neuvième audit du chantier**.
+
+---
+
+### 4.33 → L'audit du lot 6 : deux bloquantes, et le pilote corrigé sur la CONDITION de son raisonnement de fusion
+
+`Conv' 41` (AUDIT-6) a rendu son rapport le 9 septembre 2026 — **neuvième audit
+du chantier**. Deux bloquantes, une dizaine de non bloquantes, et une
+recommandation « fusionner après correction ».
+
+**Et une première dans la série : le cadrage du pilote est juste sur ses six
+lignes.** L'auditeur a reproduit `main`, le sommet de la branche, l'absence de
+poussée, l'avance `0 2`, la porte `rc=0` / `rc=0` à 643 passés et les 896
+insertions sur 6 fichiers — tout concorde. La demi-règle ajoutée au §12 la veille
+— *remesurer `main` juste avant de **sceller** le prompt* — a tenu à sa première
+application. C'est la seule fois de ce chantier où un audit n'a rien eu à
+reprendre au cadrage.
+
+#### B-1 — le câblage n'est éprouvé que sur son BRUIT. `mesuré` par le pilote
+
+C'est la trouvaille qui décide, et le pilote l'a refaite de ses mains le
+9 septembre 2026 dans l'arbre de l'auditeur, détaché sur `e6fc175`, restauration
+par empreinte SHA-256 vérifiée (`33aa5783…` avant, `d3b68f62…` muté,
+`33aa5783…` après).
+
+**Mutation A6** — le garde reçoit `settings.embedding_model_name` au lieu de
+`settings.rerank_model`, ET le vocabulaire n'est plus lu (`None` en dur) :
+
+    make test → rc=0, 643 passés
+
+**Aucun des 643 tests ne distingue « le garde a lu le réglage du reranker et son
+vocabulaire » de « le garde a lu le réglage d'embedding et rien ».**
+
+Et la conséquence, `mesuré` par une sonde en lecture seule sur la fonction pure,
+avec les arguments que le site muté lui passerait :
+
+| ce que le site passe | verdict rendu |
+|---|---|
+| le site JUSTE, réglage normal (`rerank_model`, 250 002) | **`None`** — silence, correct |
+| A4 seul (mauvais réglage, vocabulaire lu) | **`info`** |
+| **A6** (mauvais réglage, vocabulaire non lu) | **`warning`**, et le message nomme `paraphrase-multilingual-MiniLM-L12-v2` |
+
+Sous A6, **le réglage NORMAL déclenche un avertissement qui nomme le mauvais
+modèle** — exactement l'auto-discrédit que `test_le_modele_en_service_ne_declenche_rien`
+existe pour empêcher. Sauf que ce test appelle la fonction **pure** et ne voit
+rien du câblage. *Le lot a écrit le bon test, du mauvais côté de la frontière.*
+
+Les trois mutations que le pilote avait commandées — `logger.log` retiré,
+`verdict = None`, `==` en `!=` — rougissent bien, une chacune. Elles éprouvent
+que *quelque chose* avertit. Elles n'éprouvent pas *quoi*.
+
+**Septième occurrence de la famille dominante de ce chantier** : un garde vert
+sous une scène que le défaut ne rencontre jamais. Et la première où toute la
+valeur du lot en production est dans la partie non gardée.
+
+#### B-2 — le chiffre `mesuré` du périmètre est périmé dans le commit qui l'écrit. `mesuré` par le pilote
+
+`git ls-tree -r --name-only`, le 9 septembre 2026 :
+
+| ref | fichiers suivis | dont `tests/` |
+|---|---|---|
+| `3638240` (`main`) | **124** | **53** |
+| `a2d2081` (le commit qui écrit le docstring) | **125** | **54** |
+| `e6fc175` | **125** | **54** |
+
+Le docstring publie 124 et 53. Le même commit ajoute
+`tests/unit/test_garde_reranker.py`. **Le chiffre était faux d'un avant d'être
+écrit**, et le paragraphe situé quatre lignes plus bas raconte que le chiffre
+*précédent* était périmé d'un pour la même raison. *Le lot commet à un troisième
+site la faute qu'il vient de corriger aux deux autres, dans le paragraphe même
+qui la nomme.*
+
+#### H8 — et le périmètre est décoratif sur le seul fichier qui compte. `mesuré` par le pilote
+
+L'auditeur a montré que la borne de périmètre corrigée attrape bien la mutation
+qui avait démasqué la version décorative, mais reste aveugle à trois autres
+rétrécissements. Le pilote a refait le plus grave, restauration par empreinte
+vérifiée (`aee879ef…` → `6512a11f…` → `aee879ef…`) :
+
+**Retirer du balayage le SEUL `src/agent/settings.py`** — le fichier dont
+l'idiome `Field(default=…)` est le motif entier du plus gros motif neuf de ce
+lot, celui que le commentaire appelle *« le site réel, c'est-à-dire tout ce qui
+compte »* :
+
+    pytest tests/unit/test_coherence_depot.py → rc=0, 20 passés
+
+Et une phrase du docstring tombe avec : *« ce qui est asserté à la place, et
+c'est plus fort qu'un compte »*. C'est mesurablement l'inverse — un compte exact
+rougit sur **tout** rétrécissement, par construction. Le compte n'est pas plus
+faible ; il est plus **bruyant à la croissance**. *Ce n'est pas la même
+critique, et le motif écrit confond les deux.*
+
+#### La troisième forme, que le lot n'avait pas envisagée, et qui ferme les deux
+
+Le motif du lot oppose « compte exact » à « assertion de forme » comme si
+c'était le seul choix. L'auditeur en propose une troisième, et elle est juste :
+**un plancher MONOTONE dérivé du dernier relevé** — `>= 125` au lieu de
+`>= 100`. Il rougit sur tout rétrécissement, comme un compte exact ; il ne
+rougit **jamais** sur une croissance ; et le seul geste qu'il enseigne est de
+monter le chiffre **dans la direction sûre**, quand on resserre volontairement.
+Il aurait attrapé H5, H7 et H8, et il rend B-2 sans objet.
+
+*Le plancher `>= 100`, laissé à 100 quand le dépôt en porte 125, n'est plus un
+plancher : c'est un souvenir.*
+
+#### Ce que l'audit corrige au pilote, et c'est la CONDITION de son raisonnement
+
+Le pilote avait écrit au §4.32 : `merge-base --is-ancestor` rend `rc=0`, donc
+l'arbre d'une fusion `--no-ff` est l'arbre de la branche, donc la porte de la
+branche EST la porte du résultat de fusion. **L'auditeur l'a vérifié** —
+`git merge-tree --write-tree main e6fc175` et `git rev-parse e6fc175^{tree}`
+rendent tous deux `eb321637…` — et l'a borné deux fois. La seconde borne est
+celle qui compte, et elle **amende le §4.32** :
+
+- **la prémisse est périssable.** Elle vaut tant que `main` reste à `3638240`.
+  Remesurer `--is-ancestor` **juste avant** de fusionner, pas la veille ;
+- **l'égalité des arbres ne donne l'égalité des portes que parce que rien, dans
+  le banc, ne lit l'HISTOIRE de ce dépôt — et ce n'est pas automatique, c'est
+  mesuré.** Deux appels `git` seulement dans les tests : `_fichiers_suivis()`
+  lit l'index, et `test_installation_des_garde_fous.py` monte un dépôt jetable.
+  Aucun `git log`, aucun `rev-list`.
+
+**Et la distinction qui manquait au registre** : les deux défauts que ce chantier
+garde en mémoire comme *nés de la fusion* venaient d'une fusion de branches
+**divergentes**, où `main` n'était PAS un ancêtre. Le raisonnement du pilote
+aurait été faux là-bas ; il est juste ici. *Ce n'est pas la fusion qui est
+dangereuse, c'est la divergence.* **Écris la condition, pas la conclusion.**
+
+#### Les non bloquantes qui montent au lot de réparation
+
+- **(E-a) deux formes RÉELLES échappent encore au garde de sûreté, et ce sont
+  les plus fréquentes du dépôt** : `monkeypatch.setattr(settings, "<champ>", v)`
+  — **102 sites**, dont un **directement sur `embedding_model_name`** — et la
+  lecture d'environnement avec valeur par défaut (`environ.get(NOM, défaut)`,
+  `getenv`) — **6 sites**. Le lot a couvert `setdefault`, dont le dépôt fait
+  **zéro** usage sur l'environnement, et manqué `setattr`, dont il fait 102.
+  **La priorité est inversée**, et le motif que le lot écrit pour `setenv`
+  s'applique mot pour mot, et plus fort, à `setattr`. Les deux formes sont
+  ancrables sans le risque invoqué pour écarter les drapeaux : elles exigent le
+  nom du réglage ET la valeur entre guillemets, donc ne peuvent pas rougir au
+  milieu d'une phrase ;
+- **(E-d) la propriété invoquée pour expliquer que les récits restent verts est
+  FAUSSE, dans les deux sens.** Le docstring dit que les délimiteurs admis sont
+  `"` et `'`, jamais l'accent grave. `mesuré` : aucun des six récits neufs ne
+  contient le nom du réglage, et leur retirer tous leurs accents graves les
+  laisse verts — les accents graves n'y jouent **aucun** rôle. Et trois récits
+  qui **citent la ligne fautive**, entre accents graves comme entre guillemets,
+  **rougissent**. Ce qui protège un récit n'est pas l'accent grave : c'est de ne
+  pas mettre le nom du réglage à côté de sa valeur. *Une seconde direction
+  décorative, sous une propriété fausse* ;
+- **(E-e) l'ancrage `^` du motif `ENV` n'est gardé par rien.** Le retirer laisse
+  643 passés, `rc=0` — alors que le lot écrit explicitement pourquoi cet ancrage
+  est décisif, et le sonde. *Une décision motivée, sondée, et non gardée* ;
+- **(E-c) une clause de la borne est démentie par le dépôt lui-même** : « une
+  affectation construite par morceaux, ou passée par une variable intermédiaire.
+  **Personne ne recopie une instruction sous cette forme** ». La seule
+  affectation vivante du modèle anglais au réglage réel est exactement de cette
+  forme, deux lignes du même fichier, 136 lignes plus loin. Phrase du genre
+  « personne » : à borner ou à garder ;
+- **(C) la lecture défensive tient dans trois natures d'exception sur les six
+  plausibles.** `getattr(obj, "config", None)` n'absorbe qu'`AttributeError` ;
+  une `property` qui lève `RuntimeError`, `OSError`, `KeyError` ou `ImportError`
+  **propage et casse le chargement du reranker**, donc la recherche — *un garde
+  qui provoque la panne qu'il surveille*, ce que le docstring du test nomme
+  lui-même. Et ce n'est pas théorique : en sentence-transformers 5.6.1,
+  `CrossEncoder.config` **est une `property`** chaînée sur une seconde
+  `property`. Aujourd'hui elle rend `None` proprement — le garde est juste, mais
+  pour une raison que le site croit garantie et qui ne l'est pas. La phrase
+  « bavard, pas muet » est du genre « quelle que soit » : à borner ou à garder ;
+- **(B) le niveau du verdict n'est borné par aucun type.** Ajouter un quatrième
+  niveau passe mypy et ruff en `rc=0` avec 643 verts, et le ternaire le
+  journalise en **`INFO`**. *La dégradation va vers le BAS* : un garde qui
+  rétrograde une alarme est pire qu'un garde qui la promeut ;
+- **(D-1) le registre est un `dict[str, str]` dont les valeurs sont MORTES.**
+  Les vider laisse 643 passés : les trois usages ne lisent que les clés. De la
+  documentation déguisée en donnée — soit un `frozenset`, soit lire réellement
+  la valeur, le message `info` disant à l'exploitant « ce modèle n'a pas été
+  mesuré » sans jamais lui dire ce qui *a* été mesuré sur celui du registre ;
+- **(D-2) « 19,5 % de marge sous mBERT » est juste sous une définition et faux
+  sous l'autre** — 19,547 % rapporté au plancher, 16,351 % rapporté à mBERT, et
+  la formulation « sous mBERT » se lit spontanément comme la seconde.
+  **Troisième occurrence** de « deux écritures justes sous des définitions
+  différentes ».
+
+#### Ce que l'audit a confirmé, et il faut l'écrire aussi
+
+- **les cinq `vocab_size` du commentaire, reproduits tous les cinq** avec leurs
+  cinq `model_type`, par lecture des seuls `config.json`. Le chevauchement
+  mBERT / DeBERTa-v3 est **réel**, donc la décision centrale du lot — signaler
+  et non refuser — repose sur un fait vérifié ;
+- **le bouchon de l'index périmé : rien à reprendre.** Les deux tests passent sur
+  `main` inchangé, les deux mutations mordent (2 rouges, 1 rouge), l'affirmation
+  « un sondage unique laisse 629 verts sur `main` » est reproduite **au test
+  près**, et la **preuve d'atteinte est réellement assertée** — le bouchon qui
+  bascule trop tôt rougit sur `assert len(dormi) >= 4`. *C'est la partie
+  exemplaire du lot* ;
+- **le garde du compte de tests discrimine dans les six directions** essayées, et
+  titre et note sont confrontés séparément à la mesure ;
+- **les quatre motifs neufs portent tous leur charge**, et le sens dangereux —
+  rougir sur un récit — n'a pas été franchi ;
+- **le motif d'exclusion du drapeau `--un-modele valeur` tient**, prémisse
+  vérifiée : les deux `add_argument("--model")` de `scripts/` visent le LLM.
+
+Et une note de méthode que l'auditeur a écrite contre lui-même : sa première
+écriture de « sondage unique » rompait le contrat de retour de la fonction et
+rougissait un test sur `main` — *sa mutation, pas le défaut du lot*. Il l'a
+mesuré, corrigé et écrit. **Un rapport qui déclare sa propre faute est plus
+croyable, pas moins.**
+
+#### Décision du pilote
+
+**Ne pas fusionner en l'état. Un lot de réparation d'abord** — `Conv' 42`.
+
+B-1 est bloquante sans discussion : la seule chose que ce lot livre en
+production est le câblage, et le câblage est éprouvé sur « quelque chose
+avertit ». B-2 et H8 se ferment ensemble par le plancher monotone, et le pilote
+retient cette forme plutôt que la correction à deux jetons : *corriger 124 en
+125 laisserait la phrase « plus fort qu'un compte » debout alors qu'elle est
+mesurablement fausse.*
