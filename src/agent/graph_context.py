@@ -42,11 +42,21 @@ _MAX_DEPTH = 10
 # directions et sans exception sur les 746 en-têtes. Un seul candidat suffirait
 # donc ; 5 est de la marge, et elle ne fait rien manquer.
 #
-# Ce que la limite ne peut PAS rattraper, et qui n'est pas un défaut : 214
-# en-têtes n'ont aucun frère en-tête dans une direction donnée, et
-# `_find_sibling` y rend `None`. Élargir la recherche au-delà du parent commun
-# franchirait la frontière du document — voir la réserve 1 de `sequence`,
-# gardée par `tests/unit/test_lecture_sequence.py`.
+# CETTE MESURE VALAIT POUR (A) — le frère sous le parent commun — ET ELLE A
+# ÉTÉ REFAITE POUR (C), la remontée aux oncles que `_neighbour_section` porte
+# désormais : la fratrie d'un oncle n'est pas celle d'une section, donc rien
+# n'autorisait à transporter le chiffre. `mesuré` le 9 septembre 2026 sur le
+# même graphe, aux crans de la remontée : le rang du premier frère en-tête vaut
+# **1 au pire cas là aussi**, dans les deux directions, sur les 189 remontées
+# « avant » et les 190 « après ». La constante reste donc saine sous la
+# définition élargie, et pour une raison mesurée sous cette définition.
+# Commande au §4.6 de `documentation/axes_amelioration.md`.
+#
+# Ce que la limite ne rattrape toujours pas, et ce n'est pas un défaut : 25
+# en-têtes « avant » et 24 « après » n'ont AUCUNE section voisine, même après
+# remontée, parce qu'ils ouvrent ou ferment leur document. `_neighbour_section`
+# y rend `None`, `_neighbour_elements` un bloc vide, et c'est une décision
+# écrite — pas un reste.
 _SIBLING_CANDIDATES = 5
 # Marge sous la limite de troncature en deçà de laquelle on ne soupçonne pas de
 # coupure : un texte nettement plus court que la limite est forcément entier.
@@ -300,11 +310,14 @@ def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
 
     - la recherche reste JUSTE, parce qu'elle part du parent réel de la section
       (`_climb_to_section` le remonte) et non d'un Document supposé ;
-    - mais elle est désormais bornée au SOUS-ARBRE du parent. Pour les 214
-      en-têtes sans frère en-tête d'un côté donné, elle rend `None` là où une
-      section voisine existe en ordre de lecture — dans le sous-arbre de
-      l'oncle, ou au chapitre suivant. C'est une définition à rediscuter, pas
-      un défaut, et l'élargir demanderait de rester borné au document.
+    - mais elle est bornée au SOUS-ARBRE du parent, et pour les 214 en-têtes
+      sans frère en-tête d'un côté donné elle rend `None`. **CE N'EST PLUS LE
+      DERNIER MOT** : cette fonction ne décide plus à elle seule ce qu'est une
+      « section voisine ». `_neighbour_section` l'appelle, puis REMONTE AUX
+      ONCLES quand elle rend `None` — définition (C), tranchée par
+      l'utilisateur le 9 septembre 2026 sur mesure. Cette fonction reste donc
+      le premier cran, et son `None` n'est plus une absence de voisine : c'est
+      une absence de voisine SOUS CE PARENT.
 
     L'encadrement porte sur la propriété `sequence` de l'arête, et il est
     ANCRÉ sur `parent_id` : `sequence` repart à 0 dans chaque document, donc une
@@ -333,6 +346,132 @@ def _find_sibling(parent_id: str, sequence: int, direction: str) -> str | None:
         sibling_id = row.get("sibling_id")
         if sibling_id and _get_node_properties(str(sibling_id)).get("tag") in _SECTION_TAGS:
             return str(sibling_id)
+    return None
+
+
+def _last_header_descendant(section_id: str) -> str:
+    """Le dernier descendant en-tête d'une section — la queue de sa lecture.
+
+    Sert le SOUS-CHOIX de la direction « avant » : quand la remontée trouve
+    l'oncle « 3.1 », le texte qui précède dans le sous-arbre de cet oncle n'est
+    pas l'introduction de « 3.1 » mais la fin de « 3.1.4 », sa dernière
+    sous-section. On descend donc par le DERNIER enfant en-tête, jusqu'à un
+    en-tête qui n'en a plus.
+
+    CE QUE CETTE RÈGLE EST, ET CE QU'ELLE N'EST PAS — la nuance est `mesuré`e
+    et elle corrige la justification écrite au §4.6, pas la règle :
+
+    - **DANS le sous-arbre de l'oncle**, elle est juste : l'en-tête qu'elle rend
+      porte bien le dernier élément lu de ce sous-arbre dans **186 des 189**
+      remontées « avant » du graphe en service (`mesuré` le 9 septembre 2026) ;
+    - **globalement, elle ne rend PAS « le texte qui précède réellement »**, et
+      le §4.6 l'affirmait. Dans **186 des 189** cas, ce qui précède vraiment la
+      section en ordre de lecture est l'INTRODUCTION DE SON PROPRE PARENT — les
+      frères non-titres qui la précèdent sous le parent commun —, portée par le
+      parent et non par un oncle. Servir cette introduction est une décision de
+      plan, pas une ligne à écrire ici.
+
+    La descente est bornée par `_MAX_DEPTH`, et la borne est large : la
+    profondeur maximale de descente vaut **3** sur les 746 en-têtes du graphe
+    en service (`mesuré`, même commande).
+    """
+    current = section_id
+    for _ in range(_MAX_DEPTH):
+        headers = [
+            str(row["child_id"])
+            for row in _get_children(current)
+            if row.get("child_id")
+            and _get_node_properties(str(row["child_id"])).get("tag") in _SECTION_TAGS
+        ]
+        if not headers:
+            return current
+        current = headers[-1]
+    return current
+
+
+def _neighbour_section(parent_id: str, sequence: int, direction: str) -> str | None:
+    """La section voisine — définition (C), REMONTÉE AUX ONCLES, bornée au document.
+
+    « Section voisine » était DÉFINIE comme « le frère en-tête sous le parent
+    commun » — définition (A), portée par `_find_sibling`. Elle coïncidait avec
+    « la section suivante du document » tant que l'ingestion ne produisait pas
+    de titres imbriqués ; elle a cessé de coïncider le 2 septembre 2026, et
+    personne ne l'avait rediscutée depuis.
+
+    CE QUE (A) COÛTAIT, ET CE N'EST PAS UNE DÉGRADATION DE QUALITÉ. Quand
+    `_find_sibling` rend `None`, `_neighbour_elements` rend `[], ""` : tout le
+    bloc d'encadrement disparaît de ce côté, **titre compris**, du markdown
+    servi au LLM. `mesuré` le 9 septembre 2026 en éléments RÉELLEMENT SERVIS,
+    sur 14 424 éléments non-titres sous un en-tête :
+
+    | définition | en-têtes servis | éléments privés d'encadrement |
+    |---|---|---|
+    | (A) frère sous le parent commun | 532 / 746 | 4 157 avant (28,8 %), 4 678 après (32,4 %) |
+    | (C) (A) puis remontée aux oncles | 721 / 722 sur 746 | 286 avant (2,0 %), 646 après (4,5 %) |
+
+    POURQUOI PAS LE VOISIN EN ORDRE DE LECTURE — définition (B), l'élargissement
+    évident. Elle gagne **2** en-têtes sur (C) et les paie de **191 adjacences
+    dégénérées** (382 couples en-tête × direction) : le titre suivant en ordre
+    de lecture, après un titre qui a des enfants, EST son propre premier enfant.
+    On servirait comme « section suivante » un morceau de la section courante.
+    (C) ne peut pas produire ce cas par construction — la remontée rend un frère
+    d'ancêtre, donc jamais un ancêtre ni un descendant de la section de départ.
+
+    LA BORNE, et c'est la réserve 1 de `sequence`. On ne remonte JAMAIS au-delà
+    de la racine du document : `sequence` repart à 0 dans chaque document, donc
+    un voisin cherché hors du document rapprocherait deux ouvrages. La borne est
+    posée sur `_ROOT_TAGS`, et l'ancrage suit la remontée — chaque cran repasse
+    par `_find_parent`, qui rend le parent RÉEL et le rang du nœud SOUS CE
+    PARENT, si bien que le couple (`parent_id`, `sequence`) reste cohérent à
+    chaque cran. Gardé par `tests/unit/test_section_voisine.py`.
+
+    LE COÛT, et il est borné. `mesuré` : **zéro** aller-retour nGQL
+    supplémentaire pour 532 des 746 en-têtes — la remontée n'a lieu que si (A)
+    rend `None` ; **1** cran pour 164 (avant) / 157 (après) ; **2** pour 24 /
+    29 ; **3** pour 1 / 4 ; jamais trouvé pour 25 / 24. Et le VOLUME servi ne
+    change pas : `adjacent_section_elements` plafonne le nombre d'éléments par
+    côté quelle que soit la définition — le choix ne coûte pas de fenêtre de
+    contexte, il change **quels** éléments.
+
+    LE SOUS-CHOIX ne s'applique QU'APRÈS UNE REMONTÉE, et c'est ce qui préserve
+    le « zéro aller-retour supplémentaire » des 532. Au cran 0, le frère est
+    rendu tel quel — comportement inchangé. Après une remontée, on sert le
+    voisin réel en lecture, côté par côté :
+
+    - « après » → l'ONCLE lui-même. `mesuré` et CONFIRMÉ : l'oncle porte le
+      premier élément réellement lu ensuite dans **188 des 190** remontées ; les
+      2 exceptions sont les oncles dont le premier enfant est un sous-titre ;
+    - « avant » → le DERNIER DESCENDANT EN-TÊTE de l'oncle. Voir
+      `_last_header_descendant` : la règle est le bon choix parmi les
+      descendants de l'oncle, mais le motif que le §4.6 lui donnait — « le texte
+      qui précède réellement » — est FAUX dans 186 des 189 cas.
+
+    Args:
+        parent_id: VID du parent de la section de départ.
+        sequence: rang de la section de départ sous ce parent.
+        direction: "before" ou "after".
+
+    Returns:
+        Le VID de la section à servir, ou `None` — et ce `None` est une
+        DÉCISION : les 25 / 24 en-têtes qui ouvrent ou ferment leur document
+        gardent un bloc d'encadrement vide de ce côté, plutôt qu'un voisin
+        emprunté à l'ouvrage suivant.
+    """
+    remonte = False
+    for _ in range(_MAX_DEPTH):
+        sibling_id = _find_sibling(parent_id, sequence, direction)
+        if sibling_id is not None:
+            if remonte and direction == "before":
+                return _last_header_descendant(sibling_id)
+            return sibling_id
+        # LA BORNE : la racine du document ne se franchit pas.
+        if _get_node_properties(parent_id).get("tag") in _ROOT_TAGS:
+            return None
+        grandparent_id, parent_sequence = _find_parent(parent_id)
+        if grandparent_id is None:
+            return None
+        parent_id, sequence = grandparent_id, parent_sequence
+        remonte = True
     return None
 
 
@@ -711,9 +850,14 @@ def _neighbour_elements(
     """Retourne la queue de la section précédente, ou la tête de la suivante.
 
     Répond au besoin « récupérer les informations avant et après ». La section
-    voisine est le frère en-tête sous le parent commun — voir `_find_sibling`
-    pour ce que cette définition couvre depuis que l'ingestion imbrique les
-    titres, et ce qu'elle laisse de côté.
+    voisine est celle que `_neighbour_section` désigne — définition (C), le
+    frère en-tête sous le parent commun PUIS la remontée aux oncles, bornée au
+    document. Voir ce docstring pour ce que la définition couvre, ce qu'elle
+    coûte, et pourquoi le voisin en ordre de lecture a été écarté.
+
+    QUAND ELLE REND `None`, CE BLOC EST VIDE, TITRE COMPRIS — et c'est la
+    décision, pas un reste : les 25 en-têtes « avant » et 24 « après » qui
+    ouvrent ou ferment leur document n'empruntent rien à l'ouvrage suivant.
 
     Le découpage est POSITIONNEL — `rows[-budget:]` et `rows[:budget]` — et il
     doit le rester : `sequence` n'est pas contiguë sous un parent, donc un
@@ -723,7 +867,7 @@ def _neighbour_elements(
     if budget <= 0 or not ancestry.section_parent_id:
         return [], ""
 
-    sibling_id = _find_sibling(
+    sibling_id = _neighbour_section(
         ancestry.section_parent_id, ancestry.section_sequence, direction
     )
     if sibling_id is None:
