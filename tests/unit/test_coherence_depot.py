@@ -485,10 +485,43 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
                 ),
                 # `setattr(<objet>, "NOM", "valeur")` — L'AFFECTATION PAR
                 # RÉFLEXION, ET C'EST L'IDIOME LE PLUS RÉPANDU DE CE DÉPÔT.
-                # `mesuré` le 9 septembre 2026 sur les fichiers suivis : **47**
-                # occurrences dans **7** fichiers, dont **27** sur le réglage
-                # d'embedding lui-même. La forme est donc RELEVÉE et non
-                # inventée — c'est la façon dont ce dépôt plante réellement un
+                #
+                # **CE CHIFFRE ÉTAIT JUSTE ET SA PORTÉE ÉTAIT FAUSSE, ET C'EST
+                # LA CORRECTION DU 9 SEPTEMBRE 2026.** Il annonçait « **47**
+                # occurrences dans **7** fichiers, *sur les fichiers suivis* ».
+                # Or « les fichiers suivis » est `_fichiers_suivis()`, c'est-à-
+                # dire `git ls-files` — TOUS les fichiers du dépôt, la
+                # documentation comprise — et cette lecture n'a JAMAIS rendu
+                # 47/7. L'auditeur ne l'a pas retrouvé, et il avait raison de ne
+                # pas le retrouver.
+                #
+                # `mesuré` le 9 septembre 2026, huit révisions balayées, et
+                # **une seule lecture rend 47/7** :
+                #
+                #     git grep -c 'setattr(settings' main -- src tests scripts
+                #     -> **47** lignes dans **7** fichiers
+                #
+                # Les deux commandes que le registre citait pour ce chiffre
+                # rendent, elles, tout autre chose :
+                #
+                #     git grep -c 'setattr(settings'       -> 59 / 10
+                #     git grep -cE 'setattr\(\s*settings'  -> 59 / 10
+                #
+                # Le chiffre était donc exact sous une portée — `main`, restreint
+                # au code — et l'étiquette le donnait sous une autre. *Un chiffre
+                # juste dont la portée est fausse est aussi invérifiable qu'un
+                # chiffre faux*, et c'est la règle de ce chantier depuis le
+                # début : chaque chiffre porte SA COMMANDE, sa date et son
+                # étiquette. La commande est écrite ; le nombre n'est PAS remonté,
+                # parce que le compte n'est pas le sujet — la VIVACITÉ de la forme
+                # l'est, et un plancher la tient dans le test nomme
+                # `…_ne_rougissent_sur_aucun_site_du_depot`, plus bas.
+                #
+                #     git grep -c 'setattr(settings, "embedding_model_name"'
+                #     -> **27** lignes dans **1** fichier (`vérifié`, même jour)
+                #
+                # La forme est donc RELEVÉE et non inventée — c'est la façon
+                # dont ce dépôt plante réellement un
                 # réglage, et un modèle non conforme posé par là ne laisse aucune
                 # trace ni dans `.env` ni dans `settings.py`.
                 #
@@ -518,12 +551,33 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
                 # — ET C'EST LE DÉFAUT QUI EST L'AFFECTATION, pas la lecture. Sur
                 # un poste où la variable est absente — le cas ordinaire d'une
                 # installation neuve — c'est cette valeur-là qui décide du
-                # réglage, et elle se recopie telle quelle. La forme est relevée :
-                # `mesuré` le 9 septembre 2026, ce dépôt lit par là en **6** sites
-                # suivis — `scripts/mesurer_le_graphe.py` (2),
-                # `scripts/verifier_les_ancrages.py` (1), `src/frontend/app.py`
-                # (1) et `tests/integration/test_stack.py` (2) — tous sur
-                # d'autres réglages, aucun sur un modèle.
+                # réglage, et elle se recopie telle quelle.
+                #
+                # La forme est relevée, ET AVEC SA COMMANDE :
+                #
+                #     git grep -cE '(environ\.get|getenv)' \
+                #         -- src scripts tests/integration
+                #     -> **6** lignes dans **4** fichiers :
+                #        `scripts/mesurer_le_graphe.py` (2),
+                #        `scripts/verifier_les_ancrages.py` (1),
+                #        `src/frontend/app.py` (1),
+                #        `tests/integration/test_stack.py` (2)
+                #
+                # (`mesuré` le 9 septembre 2026. La portée exclut ce fichier-ci,
+                # qui nomme la forme des dizaines de fois pour la garder ; sans
+                # cette borne la même commande rend 18/4, et c'est le compte de
+                # ce fichier qui domine. L'ancienne écriture disait « 6 sites
+                # SUIVIS » alors que la portée n'était pas celle des fichiers
+                # suivis — le même défaut d'étiquette que le chiffre du `setattr`
+                # ci-dessus, et dans le même commentaire.)
+                #
+                # Tous sur d'autres réglages, aucun sur un modèle — **et le
+                # sixième n'est pas un appel du tout** : c'est la LIAISON
+                # `env = os.environ.get` de `scripts/verifier_les_ancrages.py`,
+                # dont les huit appels réels échappaient à ce motif. Voir
+                # `_LIAISON_D_ALIAS` et la fermeture du 9 septembre 2026 : *le
+                # relevé qui justifiait ce motif contenait déjà la forme qui lui
+                # échappait, et personne ne l'avait lu comme telle.*
                 #
                 # Le motif exige la virgule ET les deux guillemets : un
                 # `os.environ.get("NOM")` sans défaut ne décide de rien et reste

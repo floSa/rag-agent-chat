@@ -43,6 +43,7 @@ taille de vocabulaire réellement mesurée : c'est le mécanisme qui est testé,
 un nom fictif l'éprouve aussi bien qu'un vrai sans rien apprendre à personne.
 """
 
+import asyncio
 import json
 import logging
 import pathlib
@@ -332,9 +333,47 @@ class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
     # optionnel (`optimum-onnx`, `optimum-intel`) que la chaîne de property
     # touche. `NotImplementedError` : une property qui refuse le cas.
     #
-    # Les quatre du milieu PROPAGEAIENT avant le 9 septembre 2026 ; les deux
-    # autres étaient déjà absorbées, l'une par le `default` de `getattr`,
-    # l'autre par l'`except` étroit.
+    # **CETTE PHRASE ÉTAIT FAUSSE, ET C'EST LA CORRECTION DU 9 SEPTEMBRE 2026.**
+    # Elle affirmait : « les quatre du milieu PROPAGEAIENT ; les deux autres
+    # étaient déjà absorbées, l'une par le `default` de `getattr`, l'autre par
+    # l'`except` étroit ». La seconde moitié est démentie par la mesure.
+    #
+    # `NotImplementedError` **est une sous-classe de `RuntimeError`** —
+    # `mesuré` le 9 septembre 2026, `NotImplementedError.__mro__` rend
+    # `(NotImplementedError, RuntimeError, Exception, BaseException, object)` —
+    # donc `except (TypeError, ValueError)` ne l'attrapait PAS. Elle propageait
+    # comme les quatre autres.
+    #
+    # Sonde rejouée le même jour, `except` étroit reconstruit à l'identique,
+    # sur ces six natures :
+    #
+    #     ABSORBÉES   : AttributeError                                    -> **1**
+    #     PROPAGEANTES: RuntimeError, OSError, KeyError, ImportError,
+    #                   NotImplementedError                               -> **5**
+    #
+    # Cinq des six propageaient, et une seule était absorbée — par le `default`
+    # de `getattr`, jamais par l'`except`. *Une sous-classe lue comme une classe
+    # sœur : le compte était juste sur quatre noms et faux sur le sixième.*
+    #
+    # ── « SIX » EST DÉFINI ICI, ET CE N'EST PAS LE « SEPT » DU SITE ──
+    #
+    # `retriever.py` écrit « quatre natures sur les sept sondées ». Ce fichier
+    # énumère six natures ici, et **neuf** en tout avec celles qui doivent
+    # traverser. Les trois comptes sont exacts sous trois définitions, et leur
+    # silence sur celles-ci était le défaut. Les définitions sont désormais
+    # écrites aux deux sites. Celle-ci :
+    #
+    #     **SIX = les natures dont l'ABSORPTION est sondée par ce fichier**,
+    #     choisies pour être plausibles sous une montée de version de
+    #     `sentence-transformers`, et non pour reproduire la sonde d'origine.
+    #     Les natures qui doivent TRAVERSER sont comptées à part —
+    #     `test_l_interruption_l_annulation_et_la_sortie_traversent_toujours`
+    #     en tient **trois**.
+    #
+    # Celle de `retriever.py` : les sept natures que la sonde du 9 septembre
+    # 2026 a soumises à l'`except` étroit, `TypeError` et `ValueError`
+    # comprises — deux natures que ce fichier ne sonde pas, parce qu'un
+    # `except Exception` les couvre sans qu'on ait à les nommer.
     _NATURES = (
         AttributeError,
         RuntimeError,
@@ -343,6 +382,59 @@ class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
         ImportError,
         NotImplementedError,
     )
+
+    def test_la_liste_des_six_natures_ne_retrecit_pas_en_silence(self) -> None:
+        """LE TROU QUE MA PROPRE MUTATION M-j A TROUVÉ, ET IL EST DANS CE TEST.
+
+        `mesuré` le 9 septembre 2026 : retirer `NotImplementedError` de
+        `_NATURES` laissait les **16** tests de ce fichier VERTS. Une liste de
+        sondes qui rétrécit ne fait rougir personne — le test voisin sonde
+        simplement une nature de moins, et sa couverture se perd en silence.
+
+        **UN COMPTE EST LÉGITIME ICI, ET LA DISTINCTION IMPORTE.** Ce fichier et
+        `test_coherence_depot.py` refusent d'asserter des comptes, et ils ont
+        raison : un inventaire d'occurrences GRANDIT à chaque test ajouté, et un
+        garde qui rougit sur l'événement normal enseigne le geste « monter le
+        chiffre » — la leçon du §4.35. `_NATURES` n'est pas un inventaire : c'est
+        une liste FERMÉE et raisonnée, dont la seule évolution normale est de
+        s'allonger. Un plancher la garde donc sans jamais rougir à tort.
+
+        **ET IL TIENT LE FAIT QUI AVAIT ÉTÉ ÉCRIT FAUX.**
+        `NotImplementedError` est une sous-classe de `RuntimeError`, donc
+        l'`except (TypeError, ValueError)` d'avant le 9 septembre 2026 ne
+        l'attrapait pas : elle propageait, contrairement à ce que le commentaire
+        de `_NATURES` affirmait. Si la hiérarchie de la bibliothèque standard
+        changeait, ce commentaire redeviendrait faux, et c'est cette assertion
+        qui le dirait.
+        """
+        assert len(self._NATURES) >= 6, (
+            f"la liste des natures sondées est tombée à {len(self._NATURES)} : "
+            f"{[n.__name__ for n in self._NATURES]}. Une sonde retirée ne fait "
+            "rougir personne, et sa couverture se perd en silence. Allonger cette "
+            "liste est normal ; la raccourcir demande une mesure écrite"
+        )
+        assert len(set(self._NATURES)) == len(self._NATURES), (
+            f"une nature est répétée : {[n.__name__ for n in self._NATURES]}. Le "
+            "plancher ci-dessus serait alors tenu par un doublon"
+        )
+        assert NotImplementedError in self._NATURES, (
+            "`NotImplementedError` a quitté la liste. C'est la nature dont le "
+            "commentaire de `_NATURES` a écrit le comportement FAUX — elle "
+            "propageait, n'étant pas couverte par l'`except` étroit — et c'est "
+            "elle qui rend la correction du 9 septembre 2026 relisible"
+        )
+        assert issubclass(NotImplementedError, RuntimeError), (
+            "`NotImplementedError` ne dérive plus de `RuntimeError` : le "
+            "commentaire de `_NATURES` explique la correction du 9 septembre 2026 "
+            "par cette hiérarchie, et il vient de redevenir faux. Remesure "
+            "`NotImplementedError.__mro__` et réécris-le"
+        )
+        for nature in self._NATURES:
+            assert not issubclass(nature, (KeyboardInterrupt, SystemExit)), (
+                f"{nature.__name__} est une nature qui doit TRAVERSER, et elle est "
+                "dans la liste de celles qui doivent être absorbées : les deux "
+                "sens de ce garde viennent de se contredire"
+            )
 
     def test_aucune_des_six_natures_ne_traverse_la_lecture(self) -> None:
         """LA PREUVE D'ATTEINTE EST DANS LE MESSAGE : chaque nature est nommée.
@@ -394,7 +486,9 @@ class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
 
         assert retriever._vocabulaire_du_reranker(modele) is None
 
-    def test_l_interruption_et_la_sortie_traversent_toujours(self) -> None:
+    def test_l_interruption_l_annulation_et_la_sortie_traversent_toujours(
+        self,
+    ) -> None:
         """LE SENS DANGEREUX DE L'ÉLARGISSEMENT, ET C'EST SA BORNE.
 
         `except Exception` et non `except BaseException` : un
@@ -402,8 +496,34 @@ class TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche:
         comme il traverse le reste du programme. Un `except` qui avale tout
         rendrait ce garde impossible à interrompre — et il serait alors aussi
         inutile que l'`except` étroit qu'il remplace, dans l'autre sens.
+
+        **`asyncio.CancelledError` REJOINT CETTE LISTE LE 9 SEPTEMBRE 2026, ET
+        ELLE Y MANQUAIT.** Elle traversait déjà — `vérifié` ce jour-là,
+        `asyncio.CancelledError.__mro__` rend `(CancelledError, BaseException,
+        object)` sous Python 3.12.13, et `issubclass(…, Exception)` rend
+        `False` — et c'est le bon comportement : *une annulation doit propager.*
+        Mais elle ne le devait à rien qui fût écrit ou éprouvé : elle le devait
+        à une propriété de la bibliothèque standard que personne n'avait
+        relevée. *On cherchait un trou et on a trouvé un choix juste ; un choix
+        juste que rien ne garde est un choix qu'un lot suivant défait.*
+
+        Le cas est réel sur ce dépôt : `pyproject.toml` porte
+        `asyncio_mode = "strict"` et le graphe est piloté par `ainvoke` et
+        `astream`. `node_rerank` est aujourd'hui un nœud **synchrone**, donc
+        l'annulation arrive d'abord sur la coroutine qui attend — raison de plus
+        pour garder la propriété maintenant : le jour où ce nœud devient
+        `async`, un `except BaseException` rendrait la requête inannulable, et
+        rien ne le dirait.
         """
-        for nature in (KeyboardInterrupt, SystemExit):
+        for nature in (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+            # PREUVE D'ATTEINTE : la nature sondée est bien HORS de `Exception`.
+            # Sans elle, ajouter par erreur une nature ordinaire à cette liste
+            # ferait rougir le test pour la bonne raison mais sur le mauvais
+            # fait — et une nature ordinaire DOIT être absorbée.
+            assert not issubclass(nature, Exception), (
+                f"{nature.__name__} dérive de `Exception` : elle doit être "
+                "ABSORBÉE, pas traverser. C'est le test voisin qui la sonde"
+            )
             modele = self._ConfigQuiLeve(nature)
             try:
                 retriever._vocabulaire_du_reranker(modele)

@@ -243,6 +243,26 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
       `KeyError`, `ImportError` — **PROPAGEAIT**. Quatre natures sur les sept
       sondées, et non une.
 
+    **« SEPT » EST DÉFINI ICI, PARCE QUE DEUX COMPTES JUSTES COEXISTAIENT SOUS
+    DEUX DÉFINITIONS DIFFÉRENTES.** Ce docstring écrit « sept » ; le test qui le
+    garde énumère une liste de **six**, et nomme en tout **neuf** types. Les
+    trois comptes sont exacts, et ils ne comptent pas la même chose — c'est la
+    cinquième occurrence de cette forme dans ce chantier, et la première où deux
+    des écritures vivent dans le même fichier. La définition retenue est donc
+    écrite aux deux sites, et c'est celle-ci :
+
+        **SEPT = les natures que la SONDE DU 9 SEPTEMBRE 2026 a soumises à
+        l'`except` étroit d'alors**, à savoir `AttributeError`, `TypeError`,
+        `ValueError`, `RuntimeError`, `OSError`, `KeyError` et `ImportError`.
+        Trois étaient absorbées — `AttributeError` par le `default` de `getattr`,
+        `TypeError` et `ValueError` par l'`except` lui-même — et **quatre**
+        propageaient.
+
+    Le compte du test relève d'une autre définition, écrite chez lui : les
+    natures qu'il SONDE aujourd'hui, absorption et traversée séparées. Aucun des
+    deux n'est à corriger ; c'est leur silence sur leur propre définition qui
+    l'était.
+
     Et `_get_rerank_model()` est appelé par `rerank()`, que `node_rerank`
     appelle sans aucun `try` : la propagation ne rendait donc pas ce garde
     bavard, elle CASSAIT la recherche. *Un garde qui provoque la panne qu'il
@@ -270,10 +290,31 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
 
     La latitude est donc tenue au plus petit endroit possible : **deux `getattr`
     et un `int()`**, sur un fait de configuration purement informatif, dont
-    l'échec a une valeur de repli déjà définie et déjà bruyante. `BaseException`
-    n'est PAS attrapé : un `KeyboardInterrupt` ou un `SystemExit` doit traverser
-    cette lecture comme il traverse le reste. Les deux directions sont gardées
-    par `TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche`.
+    l'échec a une valeur de repli déjà définie et déjà bruyante.
+
+    **`BaseException` N'EST PAS ATTRAPÉ, ET LA LISTE COMPTE TROIS NOMS ET NON
+    DEUX.** `KeyboardInterrupt` et `SystemExit` doivent traverser cette lecture
+    comme ils traversent le reste — et **`asyncio.CancelledError` aussi**, qui
+    manquait à cette phrase. Elle traverse déjà, et c'est le bon choix : *une
+    annulation doit propager.* Mais elle ne le devait à rien de ce qui est écrit
+    ici, seulement au fait que `CancelledError` dérive de `BaseException` depuis
+    Python 3.8 — `vérifié` le 9 septembre 2026, `asyncio.CancelledError.__mro__`
+    rend `(CancelledError, BaseException, object)` sous Python 3.12.13, et
+    `issubclass(asyncio.CancelledError, Exception)` rend `False`.
+
+    Le nommer n'est pas décoratif sur ce dépôt-ci : `pyproject.toml` porte
+    `asyncio_mode = "strict"`, et le graphe est piloté par `ainvoke` et `astream`
+    (`src/api/main.py:1012`, `:1168`, `:1334`). *Précision qui compte* :
+    `node_rerank` est un nœud **synchrone**, donc une annulation arrive d'abord
+    sur la coroutine qui attend, et non dans le fil qui exécute cette lecture. Ce
+    n'est pas une raison de l'omettre — le jour où ce nœud devient `async`, un
+    `except` élargi qui aurait avalé l'annulation rendrait la requête
+    inannulable, et rien ne le dirait. Une liste d'exceptions à laisser passer
+    qui ne nomme pas celle du modèle de concurrence du programme est une liste
+    qui vieillit en silence.
+
+    Les trois directions sont gardées par
+    `TestLaLectureDefensiveDuVocabulaireNeCassePasLaRecherche`.
     """
     try:
         taille = getattr(getattr(model, "config", None), "vocab_size", None)
