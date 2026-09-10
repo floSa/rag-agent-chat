@@ -752,6 +752,31 @@ Celles du 8 septembre 2026 :
   plutôt que le code de retour. *Quand tu as filtré une sortie, ce n'est plus le
   `rc` qui te renseigne : c'est l'état.*
 
+Celles du 10 septembre 2026 :
+
+- **J'AI POUSSÉ UN `main` ROUGE, ET CETTE FOIS J'AVAIS VU LE ROUGE.** Le
+  8 septembre, la faute était de pousser sans remesurer. Le 10, `make test` a
+  rendu **`rc=2`** sous mes yeux, la ligne a été imprimée, et **la poussée est
+  partie quand même** — parce que mon script enchaînait le `push` après le test
+  sans le conditionner à son résultat. *Mesurer ne sert à rien si la mesure ne
+  commande pas le geste suivant.* `origin/main` a été rouge de `6a4ac7d` à
+  `5edccb4`. **Écris tes séquences de sorte que le `push` soit IMPOSSIBLE si la
+  porte n'est pas verte** : relève les deux `rc` dans des variables, et n'appelle
+  `push` que sous `if [ "$LINT" -eq 0 ] && [ "$TEST" -eq 0 ]`. Une porte qu'on
+  lit sans s'y soumettre n'est pas une porte — c'est un affichage.
+- **Et le rouge venait d'un numéro, pour la troisième fois en trois jours.**
+  J'ai ajouté une ligne « 9 » au plan de lots alors qu'aucune ligne « 8 »
+  n'existait — le lot de déploiement était né d'une trouvaille et non du plan.
+  **C'est le garde de numérotation du lot 7 qui l'a dit**, et c'est la première
+  fois qu'un garde de ce chantier attrape le pilote avant l'utilisateur. *Le
+  garde qu'on commande finit par vous juger.*
+- **Ne donne jamais à un lot le résultat attendu de la mesure que tu lui
+  commandes.** Le prompt du lot 8 écrivait la concordance **avec sa conclusion** —
+  « donc l'armement ne produira pas de 503 ». C'est le §9 du mandat à l'envers, et
+  le lot l'a relevé : *le motif, pas le chiffre.* Un lot à qui l'on donne la
+  réponse ne mesure plus, il vérifie — et huit trouvailles de ce chantier viennent
+  d'un lot ayant mesuré ce que le pilote croyait savoir — §4.43.
+
 Celles du 9 septembre 2026 :
 
 - **Écris la CONDITION, pas la conclusion.** Le pilote a écrit « la porte passée

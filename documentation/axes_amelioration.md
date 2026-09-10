@@ -6849,3 +6849,31 @@ pilotage. **Elle reste ouverte et monte au plan.**
   `WARNING`), non instruit.
 
 **Sixième lot de suite à trouver ses propres faux résultats et à les écrire.**
+
+**POST-SCRIPTUM DU PILOTE, le 10 septembre 2026 — `main` a été rouge de sa
+faute.** En fusionnant ce registre, le pilote a ajouté au plan de lots une ligne
+« 9 » sans qu'aucune ligne « 8 » n'existe, et **le garde de numérotation du lot 7
+a rougi** : `make test` `rc=2`. Il l'a vu, et **a poussé quand même** — son script
+enchaînait le `push` après le test sans le conditionner. `origin/main` a été rouge
+de `6a4ac7d` à `5edccb4`, réparé dans l'heure.
+
+Deux choses en sortent, et la seconde vaut plus que la première :
+
+1. *Mesurer ne sert à rien si la mesure ne commande pas le geste suivant.* Écrit
+   au §12 avec sa forme : relever les deux `rc` dans des variables et n'appeler
+   `push` que sous une condition ;
+2. **le garde a rougi une seconde fois, et il avait encore raison** : il épingle
+   le **trou EXACT** de la lecture non bornée — `8→19` au relevé du lot 7,
+   **`10→19`** depuis que le plan porte ses rangs 8 et 9. Remesuré, comme son
+   propre message le prescrit, **et la réserve est écrite au site** : épingler un
+   instantané fait rougir ce test à chaque rang ajouté au plan, qui est un acte
+   éditorial normal. *Ce qui rend le scope porteur n'est pas la VALEUR du trou,
+   c'est qu'une lecture non bornée en ait un, plus des doublons — la forme, pas
+   l'instantané.* Même leçon que le plancher du lot 6, à un autre endroit, et elle
+   monte au plan.
+
+**C'est la première fois qu'un garde de ce chantier attrape le pilote avant
+l'utilisateur.** Le 8 septembre, les trois défauts du journal avaient été trouvés
+par l'utilisateur sur une question de quatre mots ; le 10, un garde commandé deux
+lots plus tôt les trouve seul. *C'est la seule mesure qui dise que la méthode
+progresse.*
