@@ -18,7 +18,7 @@ son rouge ne veut rien dire.**
     CH=$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' \
          rag-ingestion-pipeline-chromadb-1)
     NB=$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' graphd)
-    uv run python scripts/verifier_les_ancrages.py \
+    uv run --no-sync python scripts/verifier_les_ancrages.py \
         --chroma-host "$CH" --nebula-host "$NB" \
         tests/fixtures/golden_qa_generated.yaml \
         tests/fixtures/jeu_de_questions_pipeline.yaml

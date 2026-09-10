@@ -17,8 +17,8 @@ Le résultat est du **silver**, pas du gold : chaque question sort avec
 `reviewed: false`. Une relecture humaine la promeut. Le script fait le travail
 mécanique, il ne remplace pas le jugement.
 
-    uv run python scripts/generate_golden.py --count 120
-    uv run python scripts/generate_golden.py --count 20 --out tests/fixtures/essai.yaml
+    uv run --no-sync python scripts/generate_golden.py --count 120
+    uv run --no-sync python scripts/generate_golden.py --count 20 --out tests/fixtures/essai.yaml
 
 LE JEU S'ECRIT EN YAML, ET C'EST UNE RAISON MESUREE, PAS UN GOUT. Un jeu de
 questions porte des `element_id` — dix hexadecimaux derives du contenu d'un

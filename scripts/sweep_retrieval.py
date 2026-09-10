@@ -10,8 +10,8 @@ Les traductions de questions sont calculées une fois puis mises en cache sur
 disque : elles sont indépendantes des paramètres balayés, et les recalculer à
 chaque configuration coûterait plus cher que tout le reste réuni.
 
-    uv run python scripts/sweep_retrieval.py
-    uv run python scripts/sweep_retrieval.py --param translation_weight --valeurs 0,0.3,0.5,1
+    uv run --no-sync python scripts/sweep_retrieval.py
+    uv run --no-sync python scripts/sweep_retrieval.py --param translation_weight --valeurs 0,0.3,0.5,1
 """
 
 from __future__ import annotations
