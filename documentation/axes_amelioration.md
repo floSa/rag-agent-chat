@@ -6877,3 +6877,57 @@ l'utilisateur.** Le 8 septembre, les trois défauts du journal avaient été tro
 par l'utilisateur sur une question de quatre mots ; le 10, un garde commandé deux
 lots plus tôt les trouve seul. *C'est la seule mesure qui dise que la méthode
 progresse.*
+
+
+### 4.44 → Le lot 9 : la recette de campagne cessait de muter l'environnement, et le garde de numérotation épinglait un instantané
+
+**LE DÉFAUT, ET LE DÉPÔT LE CONNAISSAIT DÉJÀ À UN SEUL ENDROIT.** L'exécuteur
+d'uv resynchronise le `.venv` sur `uv.lock` avant d'exécuter. `scripts/installer-les-garde-fous.sh:151`
+porte le drapeau qui l'en empêche, sous un commentaire disant qu'il n'est pas
+cosmétique — armer un hook git téléchargerait sinon 43 paquets `nvidia-*`.
+**Trois recettes du `Makefile` l'avaient oublié** (`eval`, `eval-controle`,
+`verifier-les-ancrages`), plus **six** docstrings de `scripts/` et une de
+`tests/integration/`, qui sont des lignes qu'un lecteur recopie. `mesuré` le
+10 septembre 2026 par `grep -rn "uv run"` sur les fichiers suivis.
+
+**LA DÉRIVE EST STRUCTURELLE, NON ACCIDENTELLE.** `torch`, `transformers`,
+`tokenizers` et `triton` ne sont épinglés dans **AUCUN** des deux `requirements`
+(`mesuré` le 10 septembre 2026) — seul `sentence-transformers==5.6.1` l'est, et
+les quatre arrivent transitivement. `uv pip install -r` les résout donc à neuf à
+chaque montage quand `uv.lock` les fige : **l'écart ne peut que croître**.
+
+**LA DÉCISION DE L'UTILISATEUR : LE PROTOCOLE DU §2.2 FAIT FOI.** Le drapeau a
+été retenu contre la variable d'environnement, parce qu'il voyage avec la ligne
+qu'un lecteur recopie quand une variable posée ailleurs ne le suit pas — et
+parce que c'est déjà la forme du dépôt. `uv.lock` n'a pas été touché : il décrit
+la pile de production.
+
+**LE GARDE, ET SES DEUX DIRECTIONS.**
+`tests/unit/test_coherence_depot.py::TestAucuneRecetteNeResynchroniseLEnvironnement`,
+sur `_fichiers_suivis()`. Il refuse toute invocation nue dans les **zones de
+code** et **épargne `documentation/`** — un second test garde cette exclusion,
+parce qu'un garde textuel qui rougit sur un rapport de lot est un garde qu'on
+arrache au premier faux positif, direction que ce chantier a payée deux fois.
+
+| mutation | attendu | `rc` de `pytest` |
+|---|---|---|
+| `eval` reperd le drapeau | ROUGE | 1 |
+| un **récit** raconte l'invocation nue | VERT | 0 |
+| `documentation/` entre dans les zones de code | ROUGE | 1 |
+| **témoin inerte** | VERT | 0 |
+
+**ET LE GARDE DE NUMÉROTATION PORTE DÉSORMAIS LA PROPRIÉTÉ.** Le trou de la
+lecture non bornée était épinglé à `list(range(10, 20))` — `8→19` au lot 7,
+`10→19` le 10 septembre : deux valeurs en trois jours, pour deux rangs ajoutés
+au plan de lots, qui est un acte éditorial normal. La borne est maintenant
+**calculée sur le document** : la lecture non bornée agrège deux numérotations
+disjointes, donc le trou est exactement l'intervalle qui les sépare. Elle reste
+rouge quand le scope disparaît, et verte sur un rang ajouté au plan comme sur
+une ligne ajoutée au journal.
+
+**TROIS FAUX RÉSULTATS ONT ÉTÉ PRODUITS ET ÉCRITS PENDANT CE LOT.** Une mutation
+par numéro de ligne qui visait un commentaire et n'a jamais muté (`rc=0` lu
+comme « la mutation ne mord pas » — septième occurrence de ce piège) ; un garde
+qui rougissait sur les deux fichiers de code NARRANT la forme fautive, corrigés
+par périphrase ; et un `LINT_RC=2` sur une ligne rallongée par le drapeau, qui
+**n'a pas été commité** parce que le geste était conditionné aux deux `rc`.
