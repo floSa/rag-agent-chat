@@ -11,7 +11,8 @@ disque : elles sont indépendantes des paramètres balayés, et les recalculer �
 chaque configuration coûterait plus cher que tout le reste réuni.
 
     uv run --no-sync python scripts/sweep_retrieval.py
-    uv run --no-sync python scripts/sweep_retrieval.py --param translation_weight --valeurs 0,0.3,0.5,1
+    uv run --no-sync python scripts/sweep_retrieval.py \
+        --param translation_weight --valeurs 0,0.3,0.5,1
 """
 
 from __future__ import annotations

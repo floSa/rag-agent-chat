@@ -190,6 +190,123 @@ def _fichiers_suivis() -> list[str]:
     return [nom for nom in acheve.stdout.split("\0") if nom]
 
 
+_INVOCATION_NUE = re.compile(r"\buv\s+run\b(?!\s+--no-sync\b)")
+
+# LES ZONES DE CODE, ET C'EST LA MOITIÉ QUI REND CE GARDE TENABLE. Un fichier de
+# ces zones est une INSTRUCTION : la recette qu'un `make` exécute, la ligne
+# qu'un lecteur recopie d'un docstring. Un fichier de `documentation/` est un
+# RÉCIT — il RACONTE des invocations, dont les fautives, et un garde textuel qui
+# rougirait dessus est un garde qu'on arrache au premier rapport de lot. Ce
+# chantier a payé cette direction deux fois.
+_ZONES_DE_CODE = ("Makefile", "src/", "scripts/", "tests/", ".github/")
+
+
+def _est_du_code(relatif: str) -> bool:
+    return any(relatif == zone or relatif.startswith(zone) for zone in _ZONES_DE_CODE)
+
+
+class TestAucuneRecetteNeResynchroniseLEnvironnement:
+    """L'EXÉCUTEUR D'UV RESYNCHRONISE LE `.venv` SUR `uv.lock` AVANT
+    D'EXÉCUTER, et ce dépôt le savait déjà à UN SEUL endroit.
+
+    *(La périphrase de ce docstring est délibérée : ce garde s'applique aux
+    fichiers de code, et ce fichier en est un — il doit passer sous lui.)*
+
+    `scripts/installer-les-garde-fous.sh` écrit `uv run --no-sync` sous un
+    commentaire qui dit que le drapeau n'est pas cosmétique : sans lui, armer un
+    hook git téléchargerait la pile CUDA, `uv.lock` épinglant `torch` depuis
+    PyPI avec 43 paquets `nvidia-*`.
+
+    **TROIS RECETTES DU `Makefile` L'AVAIENT OUBLIÉ** — `eval`, `eval-controle`
+    et `verifier-les-ancrages` (`mesuré` le 10 septembre 2026) — plus six
+    docstrings de `scripts/` et une de `tests/integration/`, qui sont des lignes
+    qu'un lecteur recopie. La recette de campagne de ce dépôt pouvait donc
+    muter, en silence, l'environnement que le protocole du §2.2 venait de
+    monter : `mesuré` en lecture seule le 10 septembre 2026, `torch` CPU cédait
+    au build CUDA, `transformers` 5.17 → 5.14 et `tokenizers` 0.23 → 0.22 —
+    c'est-à-dire exactement ce qui calcule les embeddings et fait tourner le
+    cross-encoder.
+
+    **L'UTILISATEUR A TRANCHÉ : LE PROTOCOLE DU §2.2 FAIT FOI.** Et la dérive
+    est STRUCTURELLE, non accidentelle : `torch`, `transformers`, `tokenizers`
+    et `triton` ne sont épinglés dans AUCUN des deux `requirements` (`mesuré` le
+    10 septembre 2026), donc `uv pip install -r` les résout à neuf à chaque
+    montage quand `uv.lock` les fige. **L'écart ne peut que croître**, et ce
+    garde est le prix accepté de cette décision.
+
+    **POURQUOI LE DRAPEAU ET NON LA VARIABLE D'ENVIRONNEMENT.** `UV_NO_SYNC=1`
+    aurait le même effet, mais il ne voyage pas avec la ligne : un lecteur qui
+    recopie une recette dans son terminal emporte `--no-sync`, jamais une
+    variable posée ailleurs. Et c'est déjà la forme du dépôt, à
+    `installer-les-garde-fous.sh` — une seconde forme en ferait deux.
+    """
+
+    def test_aucun_fichier_de_code_ne_resynchronise(self) -> None:
+        """LA PREMIÈRE DIRECTION — il rougit sur une recette qui resynchronise."""
+        fautifs = []
+        balayes = 0
+        for relatif in _fichiers_suivis():
+            if not _est_du_code(relatif):
+                continue
+            chemin = _RACINE / relatif
+            try:
+                texte = chemin.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            balayes += 1
+            for numero, ligne in enumerate(texte.splitlines(), start=1):
+                if _INVOCATION_NUE.search(ligne):
+                    fautifs.append(f"{relatif}:{numero}: {ligne.strip()}")
+
+        # PREUVE D'ATTEINTE — le balayage voit vraiment des fichiers. Sans elle,
+        # un filtre de zone trop serré rendrait ce test vert sur zéro fichier.
+        assert balayes >= 40, (
+            f"le balayage ne voit que {balayes} fichiers de code, et ce garde ne "
+            "mesure alors presque rien. Les zones de `_ZONES_DE_CODE` ont-elles "
+            "été renommées ?"
+        )
+        assert fautifs == [], (
+            "des fichiers de CODE invoquent l'executeur d'uv sans `--no-sync`, "
+            "donc resynchronisent le `.venv` sur `uv.lock` avant d'executer et "
+            "mutent l'environnement monte par le protocole du §2.2 :\n  "
+            + "\n  ".join(fautifs)
+            + "\n\nAjoute `--no-sync`. Ne relache pas ce garde : la decision de "
+            "l'utilisateur est que le §2.2 fait foi, et `torch`/`transformers`/"
+            "`tokenizers` n'etant epingles dans aucun `requirements`, l'ecart "
+            "avec `uv.lock` ne peut que croitre"
+        )
+
+    def test_le_garde_epargne_les_recits(self) -> None:
+        """LA SECONDE DIRECTION, ET C'EST CELLE QUI LE REND TENABLE.
+
+        `documentation/` RACONTE des invocations fautives — les rapports de lot,
+        le registre, le journal de campagne — et doit pouvoir continuer. Ce test
+        échoue si la portée du garde s'élargit un jour aux récits, ce qui le
+        ferait rougir sur le prochain rapport et le ferait arracher.
+        """
+        recits_fautifs = [
+            relatif
+            for relatif in _fichiers_suivis()
+            if relatif.startswith("documentation/")
+            and not _est_du_code(relatif)
+            and _INVOCATION_NUE.search((_RACINE / relatif).read_text(encoding="utf-8"))
+        ]
+
+        # PREUVE D'ATTEINTE — il EXISTE bien des récits qui racontent la forme
+        # fautive. Sans eux, ce test serait vert sans rien épargner.
+        assert recits_fautifs, (
+            "aucun document ne raconte plus l'invocation nue. Ce test ne prouve "
+            "alors plus que le garde epargne les recits : construis la scene ou "
+            "retire-le"
+        )
+        for relatif in recits_fautifs:
+            assert not _est_du_code(relatif), (
+                f"`{relatif}` est un recit et il est pourtant dans la portee du "
+                "garde de forme. Le prochain rapport de lot rougira, et le garde "
+                "sera arrache au premier faux positif"
+            )
+
+
 # LE RELEVÉ DU PÉRIMÈTRE, ET C'EST UN PLANCHER — pas un compte exact, pas une
 # forme. `mesuré` le 9 septembre 2026 par REPAR-7, par la recette publiée dans
 # le docstring de `test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire`.
@@ -435,9 +552,7 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
         # CETTE FORME COUVRE DÉJÀ `ENV NOM=valeur`, l'idiome réel des deux
         # Dockerfiles de ce dépôt — `vérifié` le 8 septembre 2026. C'est la
         # forme ESPACÉE, sans `=`, qui échappait, et elle est reprise plus bas.
-        re.compile(
-            rf'{re.escape(nom)}["\']?\s*(?::[^=\n]{{0,40}})?\s*[:=]\s*["\']?\s*{valeur}'
-        )
+        re.compile(rf'{re.escape(nom)}["\']?\s*(?::[^=\n]{{0,40}})?\s*[:=]\s*["\']?\s*{valeur}')
         for nom in noms
     ]
     motifs.extend(
@@ -461,7 +576,7 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
                 # compte. La borne de 200 caractères tient le motif près de son
                 # `Field(` sans jamais franchir une parenthèse fermante.
                 re.compile(
-                    rf'{n}\s*(?::[^=\n]{{0,40}})?\s*=\s*Field\s*\('
+                    rf"{n}\s*(?::[^=\n]{{0,40}})?\s*=\s*Field\s*\("
                     rf'[^)]{{0,200}}?default\s*=\s*["\']{valeur}',
                     re.S,
                 ),
@@ -582,9 +697,7 @@ def _motifs_d_affectation(modele: str, noms: tuple[str, ...]) -> list[re.Pattern
                 # Le motif exige la virgule ET les deux guillemets : un
                 # `os.environ.get("NOM")` sans défaut ne décide de rien et reste
                 # vert, et la forme ne peut pas rougir au milieu d'une phrase.
-                re.compile(
-                    rf'(?:environ\.get|getenv)\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}'
-                ),
+                re.compile(rf'(?:environ\.get|getenv)\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}'),
                 # `ENV NOM valeur`, la forme HÉRITÉE de Dockerfile, sans `=`.
                 # Ancrée en début de ligne, parce que c'est là que vit une
                 # directive Dockerfile : sans cet ancrage, le motif accepte une
@@ -661,9 +774,7 @@ def _motifs_des_alias(texte: str, modele: str, noms: tuple[str, ...]) -> list[re
                     re.compile(rf'{a}\s*\([^)]{{0,80}}?["\']{n}["\']\s*,\s*["\']{valeur}')
                 )
             else:
-                motifs.append(
-                    re.compile(rf'{a}\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}')
-                )
+                motifs.append(re.compile(rf'{a}\s*\(\s*["\']{n}["\']\s*,\s*["\']{valeur}'))
     return motifs
 
 
@@ -775,7 +886,7 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
             # retour à la ligne manquerait le site réel.
             f'embedding_model_name: str = Field(default="{_MODELE_ANGLAIS}", '
             'alias="EMBEDDING_MODEL_NAME")',
-            f'    embedding_model_name: str = Field(\n        '
+            f"    embedding_model_name: str = Field(\n        "
             f'default="{_MODELE_ANGLAIS}", alias="EMBEDDING_MODEL_NAME"\n    )',
             # `default` APRÈS un autre argument : l'ordre des mots-clés est libre.
             f'embedding_model_name: str = Field(alias="EMBEDDING_MODEL_NAME", '
@@ -1015,14 +1126,14 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
             f"les 47 sites de setattr, dont 27 sur {alias}, aucun sur {_MODELE_ANGLAIS}",
             f"un `environ.get` dont le défaut vaut `{_MODELE_ANGLAIS}` décide du réglage",
             f"`os.getenv` sur {champ}, défaut {_MODELE_ANGLAIS}, sans guillemets",
-            f"`os.environ.get(\"{alias}\")` sans défaut ne décide de rien, et "
+            f'`os.environ.get("{alias}")` sans défaut ne décide de rien, et '
             f"{_MODELE_ANGLAIS} reste hors de l'appel",
             # LE CAS SERRÉ : la forme nommée, puis la valeur DES LIGNES PLUS
             # LOIN. Le motif `setattr` traverse les retours à la ligne — c'est
             # nécessaire pour l'idiome multi-lignes du dépôt — donc cette scène
             # est exactement celle que la permission ouvre, et elle doit rester
             # verte.
-            f'la forme `setattr(` a été ajoutée au garde le 9 septembre.\n\n'
+            f"la forme `setattr(` a été ajoutée au garde le 9 septembre.\n\n"
             f"Le modèle qu'elle vise est `{_MODELE_ANGLAIS}`, et il n'est",
             # L'APPEL PARAPHRASÉ, SANS GUILLEMETS — ET C'EST LE RÉCIT QUE CE
             # LOT A TROUVÉ CONTRE LUI-MÊME. Les cinq récits ci-dessus ne
@@ -1228,8 +1339,7 @@ class TestLeGardeDesAffectationsEstEprouveDansLesDeuxDirections:
             # M-a — l'appel PARAPHRASÉ sans guillemets. C'est la phrase qu'un
             # rapport écrit pour nommer la forme sans en écrire une copie.
             "M-a": (
-                f"un `os.environ.get({alias}, {_MODELE_ANGLAIS})` sans guillemets"
-                " decide du reglage"
+                f"un `os.environ.get({alias}, {_MODELE_ANGLAIS})` sans guillemets decide du reglage"
             ),
             # M-b — le nom et la valeur cités SANS virgule. En Python les deux
             # littéraux se concatènent : ce n'est pas un appel, et c'est
@@ -1706,8 +1816,14 @@ def _comptes_collectes() -> tuple[int, int]:
     """Ce que `pytest` collecte réellement, par la recette que le document publie."""
     acheve = subprocess.run(
         [
-            sys.executable, "-m", "pytest", "tests/unit/",
-            "--collect-only", "-q", "-p", "no:cacheprovider",
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/unit/",
+            "--collect-only",
+            "-q",
+            "-p",
+            "no:cacheprovider",
         ],
         cwd=_RACINE,
         capture_output=True,
@@ -1746,6 +1862,7 @@ def test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte() -> None:
         "le commit même qui le corrigeait (§4.13, §4.21) : écris le chiffre "
         "mesuré, la recette est publiée dans le document."
     )
+
 
 # ─── Les recettes de `make eval`, et les fichiers qu'elles nomment ───────────
 
@@ -1852,6 +1969,7 @@ def test_la_verification_des_ancrages_est_l_antecedent_des_deux_campagnes() -> N
             f"`{cible}` ne dépend pas de `verifier-les-ancrages`"
         )
 
+
 # ─── La promesse retirée au pipeline ─────────────────────────────────────────
 
 # LA PHRASE, MOT POUR MOT, ET C'EST VOULU. Le §4.3 du registre l'a mesurée
@@ -1930,6 +2048,4 @@ def test_le_garde_de_la_promesse_distingue_une_citation_d_une_affirmation() -> N
     affirme = f"Le d\u00e9terminisme {_PROMESSE_RETIREE}, donc le jeu tient."
 
     assert _est_citee(cite, cite.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE))
-    assert not _est_citee(
-        affirme, affirme.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE)
-    )
+    assert not _est_citee(affirme, affirme.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE))

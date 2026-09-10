@@ -139,7 +139,8 @@ done
 # (`tests/unit/test_installation_des_garde_fous.py`), qui monte un depot
 # temporaire hors du projet `uv` et doit donc nommer l'interpreteur lui-meme.
 #
-# `--no-sync` n'est pas cosmetique. `uv run pre-commit` seul synchronise le
+# `--no-sync` n'est pas cosmetique. L'invocation nue, sans ce drapeau,
+# synchronise le
 # projet AVANT d'executer, donc installe les dependances de production : dont
 # `sentence-transformers`, donc `torch`, que `uv.lock` epingle depuis PyPI avec
 # 43 paquets `nvidia-*`. Armer un hook git telechargerait la pile CUDA. Il n'y a

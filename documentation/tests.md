@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 726 tests, aucune dépendance
+## Unitaire — 728 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,7 +20,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 10 septembre 2026 à 13:55 UTC par LOT-8 : **726** tests sur **44** fichiers,
+> `mesuré` le 10 septembre 2026 à 15:42 UTC par LOT-9 : **728** tests sur **44** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total que
 > `pytest` annonce — concordent. Les six de plus gardent le réglage
 > `NEIGHBOUR_SECTION_UNCLES` dans ses DEUX positions — la définition (C) de
