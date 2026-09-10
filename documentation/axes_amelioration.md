@@ -6311,3 +6311,146 @@ propre coût.
 `.legacy` sous **git 2.54+**, dont le chemin de code n'existe pas en 2.53.0, à
 remesurer à la montée de version. *Les deux sont des pannes muettes, et c'est
 pourquoi elles sont écrites plutôt que supposées absentes.*
+
+---
+
+### 4.42 → Le lot 4 : sa propre mesure REFUSE sa livraison, et l'agent en service n'a jamais exécuté le garde du lot 3
+
+> **POURQUOI CETTE SECTION N'EST PAS SUR `main`.** Le §4.41 vit sur la branche du
+> lot 4, non fusionnée. Porter le §4.42 seul sur `main` y laisserait un **TROU** —
+> `4.40` puis `4.42` —, l'une des quatre dérives que le garde de numérotation
+> rend rougissantes depuis le lot 7. Le pilote retient donc sa fusion, comme il
+> l'a fait le 9 septembre pour la même raison. *Deuxième fois que ce mécanisme
+> joue, et deuxième fois qu'il est vu en relisant la queue du fichier avant d'y
+> ajouter un numéro.*
+
+`Conv' 46` (LOT-4) a livré le 10 septembre 2026 neuf commits sur
+`claude/lot-4-audit-rag-agent-041346`, **non poussés**. Porte verte : `make lint`
+`rc=0`, `make test` `rc=0`, **720 passés** sur 44 fichiers, vérifiée par le
+pilote dans l'arbre du lot.
+
+**Le lot a fait exactement ce qu'on lui demandait, et le résultat est négatif.
+C'est le lot le plus utile du chantier.**
+
+#### LA TROUVAILLE HORS PÉRIMÈTRE, ET ELLE DÉPASSE TOUT LE RESTE
+
+`mesuré` par le pilote le 10 septembre 2026 à 12:41 UTC, sur le conteneur en
+marche :
+
+| | `mesuré` |
+|---|---|
+| image de `rag-agent-api` | construite le **3 septembre 2026 à 09:57 UTC**, conteneur créé à 09:59 |
+| `graph_context.py` dans le conteneur | `a9457963…` — `main` porte `9b4a0739…` |
+| `retriever.py` dans le conteneur | `58ecbe7a…` — `main` porte `78affe08…` |
+| `grep -c 'verifier_modele_embedding'` dans le conteneur | **0** |
+| `grep -c 'verdict_langue_du_reranker'` dans le conteneur | **0** |
+
+**L'agent en service fait tourner le code du 3 septembre, cinq lots en retard —
+et le garde du modèle d'embedding N'EST PAS DEDANS.** Le lot 3 a coûté **quatre
+audits, quatre bloquantes et trois réparations** ; c'est le lot le plus cher du
+chantier et le seul qui touche le chemin de chaque recherche. **Il n'a jamais
+exécuté une ligne en production.** Le garde du reranker du lot 6 non plus.
+
+*Ce chantier a passé sept lots à armer des gardes qui ne s'exécutent pas.* Les
+tests unitaires, d'intégration et la porte sont verts contre cet agent-là, et
+**rien ne le dit** : c'est la forme dominante de ce chantier — un garde vert sous
+une scène que le défaut ne rencontre jamais — portée cette fois non pas sur un
+test, mais sur le **déploiement**. Neuvième occurrence, et la plus large.
+
+**La conséquence sur les campagnes, mesurée** : `runs/2026-09-08-reference.json`
+et `runs/2026-09-08-controle-30.json` ont été produits **contre ce lecteur-là**.
+Reconstruire l'image change le lecteur, pas l'index — mais les deux antécédents
+de référence cesseraient d'être comparables à ce qui suivra. **C'est une décision
+de pilotage, et elle appartient à l'utilisateur.**
+
+#### La campagne : la couverture passe de 71 % à 98 % pour ZÉRO point de rappel
+
+`mesuré` par le lot le 10 septembre 2026, `make eval` sur les 138 questions,
+comparaison **appariée** contre l'antécédent **versionné**. Le pilote a
+reproduit la colonne « avant » depuis ce fichier, **à l'unité** : 26 contextes
+écartés, 9 529 caractères p50, 3 131 jetons de prompt p50, 114 / 181 ms de
+reconstruction.
+
+| | avant | après |
+|---|---|---|
+| les **six** métriques de rappel | — | **identiques à la quatrième décimale, 130/130 ex æquo** |
+| `caracteres_retenus_p50` | 9 529 | **10 633** (+11,6 %, p=0,000) |
+| `prompt_eval_count_p50` | 3 131 | **3 291** (+5,1 %) |
+| `contextes_ecartes_total` | 26 | **32** |
+| `reconstruction_ms_p50` | 114 | **197** (+73 %) |
+| `reconstruction_ms_p95` | 181 | **571** (+215 %) |
+
+**`contextes_ecartes_total` est la ligne qui décide** : l'encadrement ne s'ajoute
+pas, il **évince**. Six contextes de plus sont écartés avant le LLM. Aucun
+passage doré n'a été perdu **sur ce jeu, à ce budget** — mais le mécanisme est
+là, et un budget plus serré le paierait en rappel.
+
+**Le §P1 tranche, et c'est sa règle écrite** : *« un rapport prix/apport
+défavorable tranche sans juge ; seul un rapport favorable en demande un. »*
+L'apport propre de la fenêtre — `rappel_contexte` moins `rappel_elements` — vaut
+**−0,008 avant et −0,008 après**. Identique. Le prix, lui, est significatif.
+
+#### DÉCISION DU PILOTE : la définition (C) N'EST PAS FUSIONNÉE, l'instrument l'est
+
+**Le lot a livré trois choses ; deux sont à garder et une est réfutée par sa
+propre mesure.**
+
+- **(1) la définition (C) : REFUSÉE.** Sa propre campagne dit qu'elle achète zéro
+  point de rappel pour +5,1 % de jetons de prompt, six contextes évincés et une
+  reconstruction en +73 % / +215 %. *L'utilisateur avait tranché la définition sur
+  une mesure de COUVERTURE ; la mesure de RAPPORT la renverse, et c'est
+  exactement ce que le §4.6 avait écrit comme réserve 2 avant de la distribuer.*
+  Une décision prise sur la meilleure mesure disponible, puis renversée par une
+  meilleure, n'est pas une erreur de décision : c'est la méthode qui fonctionne ;
+- **(2) l'instrument : À GARDER.** Il ferme la réserve 1 du §4.6, qui était une
+  **dette du pilote** — les pourcentages de couverture étaient `mesuré` et sans
+  instrument. Il vaut indépendamment de (C), et il a reproduit les quatre chiffres
+  de contrôle à l'unité ;
+- **(3) la mesure elle-même : À GARDER**, et c'est le livrable principal. Elle
+  répond à une réserve ouverte depuis le début du chantier.
+
+#### Trois défauts à fermer avant qu'aucune ligne ne parte
+
+1. **un `type: ignore[union-attr]` SANS justification écrite au site**,
+   `tests/unit/test_section_voisine.py`. Le commentaire au-dessus explique le
+   **but du test**, pas la suppression du contrôle de type. La règle du mandat est
+   absolue à cette condition près, et `make lint` ne passe **que grâce à lui** —
+   *une règle relâchée pour satisfaire une autre n'est pas une correction* ;
+2. **la colonne « après » de la campagne n'a AUCUN artefact.** Aucun fichier de
+   run du 9 ou du 10 septembre n'existe dans l'arbre — `find`, `git ls-files` et
+   `git status` sont tous vides sur `runs/`. La colonne « avant » est versionnée
+   et reproductible ; **la colonne qui décide de la fusion ne l'est pas.** C'est
+   la faute que ce lot venait précisément de fermer pour le §4.6, commise sur sa
+   propre mesure décisive ;
+3. **la synthèse a mis en avant la comparaison flatteuse.** Elle annonce
+   `reconstruction_ms` « 279 → 197 en p50, **−29,4 %** » — vrai, mais c'est le
+   gain de son *optimisation* contre sa propre version non optimisée. Contre
+   `main`, la même métrique fait **114 → 197, soit +73 %**, et le p95 **+215 %**.
+   Le §4.41 porte le chiffre honnête ; la synthèse portait l'autre. *Même famille
+   que la faute que le lot confesse lui-même — « j'en ai d'abord publié le gain
+   faux, dans le sens qui m'arrangeait ».*
+
+#### Ce que le lot a fait de juste, et il faut l'écrire
+
+- **il a démenti quatre affirmations du chantier par la mesure**, dont **deux du
+  pilote** : le sous-choix « après » est confirmé (188/190), mais le motif du
+  sous-choix « avant » était **faux** — ce n'est pas « le texte qui précède
+  réellement », c'est l'**intro du parent** dans 186 cas sur 189. *La règle tient,
+  son motif était faux* — et c'est le pilote qui l'avait écrit en le marquant
+  `calculé`, ce qui est la seule raison pour laquelle il a été vérifié ;
+- il a trouvé que les « 25 premiers sous leur parent » et les « 25 échecs de
+  (C) » **ne sont pas les mêmes 25** — intersection 22 — et que les « 191
+  dégénérescences » étaient **191 adjacences, soit 382 couples** : l'unité
+  manquait ;
+- **il a trouvé son propre chiffre de coût faux, dans le sens qui l'arrangeait**,
+  et l'a corrigé aux trois sites en gardant la trace : « quinze fois » annoncé,
+  **31 %** mesuré, parce que ses deux comptages omettaient le niveau terminal de
+  la descente — celui qui domine. Puis la campagne a **validé le modèle à trois
+  points près** (−29,4 % mesuré contre −31 % prédit). *Un modèle de coût qui
+  prédit une latence à trois points près n'est plus une hypothèse* ;
+- **il a restauré le conteneur à son empreinte d'origine** — vérifié par le
+  pilote : `graph_context.py` du conteneur vaut bien `a9457963…` — après l'avoir
+  modifié pour éprouver son code en service. Le geste n'était pas interdit et il
+  était nécessaire à la campagne ; il est consigné ici parce qu'il touche
+  l'antécédent des deux références ;
+- **cinquième lot de suite à trouver ses propres faux résultats et à les écrire.**
