@@ -211,6 +211,42 @@ class Settings(BaseSettings):
     # Éléments repris de la section précédente (queue) et de la suivante
     # (tête). 0 désactive la traversée vers les sections voisines.
     adjacent_section_elements: int = Field(default=3, alias="ADJACENT_SECTION_ELEMENTS")
+    # LA REMONTÉE AUX ONCLES — définition (C) de « section voisine » —, ÉTEINTE
+    # PAR DÉFAUT, ET VOICI CE QU'ELLE COÛTE. Quand une section n'a pas de frère
+    # en-tête sous son parent (définition (A), `graph_context._find_sibling`),
+    # allumer ce réglage fait remonter `_neighbour_section` aux oncles, borné au
+    # document, au lieu de servir un bloc d'encadrement vide de ce côté. Couverture
+    # `mesuré` le 9 septembre 2026 sur le graphe en service : 532 / 746 en-têtes
+    # servis sous (A), 721 / 722 sous (C) — `scripts/mesurer_le_graphe.py`.
+    #
+    # ET LA COUVERTURE NE RAPPORTE RIEN QUI SE MESURE. `make eval` sur les 138
+    # questions, comparaison appariée à `runs/2026-09-08-reference.json`, `mesuré`
+    # le 10 septembre 2026 par le lot 4 (§4.41 de
+    # `documentation/axes_amelioration.md`, le site canonique de ces chiffres) :
+    #
+    #   les six métriques de rappel      identiques à la 4e décimale, 130/130 ex æquo
+    #   caracteres_retenus_p50            9 529  →  10 633   (+11,6 %)
+    #   prompt_eval_count_p50             3 131  →   3 291   (+5,1 %)
+    #   contextes_ecartes_total              26  →      32   (six contextes ÉVINCÉS)
+    #   reconstruction_ms_p50               114  →     197   (+73 %)
+    #   reconstruction_ms_p95               181  →     571   (+215 %)
+    #
+    # Ces chiffres ont été REJOUÉS par le lot 8 le 10 septembre 2026 (14:39 →
+    # 14:58 UTC) sur un lecteur hors service, (C) allumée, et versionnés :
+    # `runs/2026-09-10-definition-c-allumee-reglage.json` — 10 633, 3 291 et 32
+    # à l'unité, reconstruction 191 / 550 ms. La colonne « après » a un site.
+    #
+    # Le §P1 du registre tranche : un rapport prix/apport défavorable tranche sans
+    # juge. Décision de l'utilisateur, 10 septembre 2026 : le comportement de
+    # production reste (A), le code de (C) survit derrière ce réglage. Ce que la
+    # mesure NE dit pas : aucun des deux jeux ne note la réponse GÉNÉRÉE, donc
+    # l'absence de gain mesuré n'est pas une preuve d'absence de gain — c'est la
+    # seule raison pour laquelle ce réglage existe au lieu d'un revert.
+    #
+    # Éteint, le chemin est celui de `main` à la requête nGQL près, et c'est
+    # gardé dans les DEUX positions : `tests/unit/test_section_voisine.py`,
+    # `TestLeReglageEteintRendLeComportementDeMain`.
+    neighbour_section_uncles: bool = Field(default=False, alias="NEIGHBOUR_SECTION_UNCLES")
     # Illustrations affichées au maximum dans une réponse. Elles proviennent
     # des sections d'où viennent les citations : au-delà de cette borne, on
     # remplirait l'écran de figures décoratives.

@@ -1955,6 +1955,24 @@ chiffres que cette section portait déjà — 214 / 214, intersection 47, union 
 soit 51,1 %, et 25 en-têtes premiers sous leur parent — et c'est ce contrôle qui
 autorise à croire ses chiffres neufs.
 
+**Tout ce qui suit a été REMESURÉ par le lot 4 le 9 septembre 2026, par
+l'instrument versionné**, et chaque chiffre est tombé à l'unité :
+
+```bash
+docker exec -i rag-agent-api python - < scripts/mesurer_le_graphe.py
+```
+
+> **ET UNE COÏNCIDENCE QUE CETTE SECTION JUXTAPOSAIT SANS LA NOMMER.** Elle
+> écrit « 25 en-têtes premiers sous leur parent » et, plus bas, « jamais trouvé
+> pour 25 / 24 ». Les deux comptes valent 25 **et ce ne sont pas les mêmes 25** :
+> `mesuré` par le lot 4, l'intersection vaut **22**, et elle vaut **0** pour la
+> direction « après » — un en-tête que (C) ne sert pas en « après » est le
+> DERNIER sous son parent, pas le premier. C'est exactement la faute que le lot 2
+> a corrigée sur les « mêmes 214 dans les deux directions » : *deux ensembles de
+> même cardinal ne sont pas le même ensemble.* L'instrument imprime désormais
+> l'intersection à côté des comptes, pour que la coïncidence ne puisse plus se
+> lire comme une identité.
+
 | définition | en-têtes servis | éléments privés d'encadrement |
 |---|---|---|
 | **(A)** frère en-tête sous le parent commun — *l'actuelle* | 532 / 746 | **4 157 avant (28,8 %)**, **4 678 après (32,4 %)** |
@@ -1971,7 +1989,10 @@ le dit à l'exploitant.
 
 (B) gagne **2 en-têtes** sur (C) et les paie de **191 dégénérescences** : le
 titre suivant en ordre de lecture, après un titre qui a des enfants, **est son
-propre premier enfant**. On servirait comme « section suivante » un morceau de la
+propre premier enfant**. *Le lot 4 a remesuré ce chiffre et lui a donné l'unité
+qui manquait : ce sont **191 ADJACENCES**, soit **382 couples (en-tête,
+direction)** — chaque adjacence dégénérée compte deux fois, une par bout. Les
+deux écritures sont justes sous leur unité, et aucune ne la portait.* On servirait comme « section suivante » un morceau de la
 section courante. **(C) ne peut pas produire ce cas par construction**, la
 remontée ne pouvant rendre ni un ancêtre ni un descendant de la section de
 départ. *L'élargissement que cette section suggérait était le mauvais.*
@@ -2000,28 +2021,65 @@ mesurés** (le dernier descendant est à 1 cran sous l'oncle dans 80 cas, 2 dans
 - **« après » → l'oncle lui-même.** Dans « 3.2.1 » dernière fille de « 3.2 », on
   sert la tête de « 3.3 », qui est bien la première chose lue ensuite.
 
-**C'est asymétrique parce que la lecture l'est.** *Et cette symétrie-là est
+**C'est asymétrique parce que la lecture l'est.** *Et cette symétrie-là était
 `calculé`, pas `mesuré` : le pilote l'a déduite de la forme du parcours, il ne
-l'a pas éprouvée. Le lot qui portera cette décision doit la vérifier avant de
-s'en servir — c'est exactement la faute que ce chantier a payée six fois.*
+l'a pas éprouvée.*
+
+> **ÉPROUVÉE PAR LE LOT 4 LE 9 SEPTEMBRE 2026, ET LE VERDICT EST PARTAGÉ.** La
+> vérification confronte chaque remontée au **parcours en profondeur par
+> `sequence`**, c'est-à-dire à l'ordre où un humain lit, et demande quel en-tête
+> porte l'élément réellement lu juste avant / juste après le sous-arbre de la
+> section. Commande ci-dessus, section « le SOUS-CHOIX, confronté à l'ordre de
+> lecture réel ».
+>
+> - **« après » → l'oncle lui-même : CONFIRMÉ.** L'oncle porte le premier
+>   élément réellement lu ensuite dans **188 des 190** remontées. Les **2**
+>   exceptions sont les oncles dont le premier enfant est un sous-titre, et non
+>   un élément ;
+> - **« avant » → le dernier descendant en-tête de l'oncle : LA RÈGLE TIENT, SON
+>   MOTIF EST FAUX.** Cette section écrivait « le texte qui précède
+>   **réellement** » ; il ne le précède pas. Sur les **189** remontées
+>   « avant », ce qui précède vraiment la section en ordre de lecture est
+>   l'**INTRODUCTION DE SON PROPRE PARENT** — les frères non-titres qui la
+>   précèdent sous le parent commun — dans **186** cas ; l'oncle lui-même dans
+>   **2** ; le dernier descendant de l'oncle dans **1**. Ce qui reste vrai, et
+>   qui a été mesuré séparément : **DANS le sous-arbre de l'oncle**, le dernier
+>   descendant en-tête porte bien le dernier élément lu, **186 fois sur 189**.
+>   La règle est donc le bon choix *parmi les descendants de l'oncle*, et c'est
+>   à ce titre qu'elle est implémentée — pas au titre que cette section lui
+>   donnait.
+>
+> *La faute n'était pas la décision, c'était sa justification — la même forme
+> que `_SIBLING_CANDIDATES`, dont « le commentaire est faux, la constante est
+> saine ». Un motif faux sous une règle juste survit à toutes les relectures,
+> parce que le comportement, lui, ne rougit jamais.*
+>
+> **CE QUE ÇA OUVRE, ET C'EST UNE DÉCISION DE PLAN.** Servir l'introduction du
+> parent est ce que l'ordre de lecture désigne dans 186 des 189 cas, et rien ne
+> la sert aujourd'hui : le fil d'Ariane ne porte que des titres. Le lot 4 ne l'a
+> pas écrit — ce n'était pas la décision tranchée.
 
 #### DEUX RÉSERVES, et la première est un manquement du pilote
 
-1. **Ces chiffres n'ont PAS de site rejouable.** L'en-tête de
-   `scripts/mesurer_le_graphe.py` interdit précisément cela : *« une page qui les
-   affirme sans laisser de quoi les rejouer devient fausse en silence »*, et
-   c'est un **état de store**, qui périme à la prochaine réingestion. La sonde du
-   pilote a vécu dans un répertoire de travail temporaire. **Le lot 4 doit porter
-   cette mesure dans `scripts/mesurer_le_graphe.py`** — les trois définitions
-   confrontées, avec la pondération par éléments — avant que ces chiffres ne
-   puissent être cités par quiconque. En attendant, ils sont `mesuré` **et sans
-   instrument**, ce qui est une moitié de ce que ce dépôt exige ;
+1. ~~**Ces chiffres n'ont PAS de site rejouable.**~~ ✅ **FERMÉE par le lot 4
+   le 9 septembre 2026.** La mesure vit dans `scripts/mesurer_le_graphe.py`,
+   section « Section voisine : (A), (B), (C) confrontées », et elle rejoue tout
+   ce que cette entrée affirme : les trois définitions en en-têtes servis **et**
+   en éléments réellement servis, le coût de (C) en crans, le sous-choix
+   confronté à l'ordre de lecture, et (B) avec ses dégénérescences. La commande
+   est celle donnée plus haut. *Ce que la fermeture a coûté de plus que du
+   portage : trois des chiffres de cette entrée ont changé de sens en passant
+   sous instrument — la coïncidence des 25, l'unité des 191, et le motif du
+   sous-choix « avant ». Un chiffre sans instrument n'est pas seulement
+   invérifiable : il est **relu par son auteur**, et c'est ce que l'instrument
+   remplace* ;
 2. **la qualité n'est pas mesurée.** Cette section écrivait déjà que le coût de
    fenêtre n'avait jamais été payé en campagne. Ce qui précède dit ce que
    l'encadrement **couvre**, pas ce qu'il **rapporte** : aucune de ces trois
-   définitions n'a été confrontée à la campagne de référence du 8 septembre 2026.
-   Le lot 4 doit le faire, et il peut y trouver que le gain de rappel ne suit pas
-   le gain de couverture.
+   définitions n'avait été confrontée à la campagne de référence du 8 septembre
+   2026. **Le lot 4 l'a fait, et le résultat est au §4.41** — c'est lui qui dit
+   si le gain de couverture rapporte, et il faut le lire avant de citer les
+   pourcentages ci-dessus comme un gain.
 
 ### 4.7 Le contrat d'interface ignore cinq métadonnées que le pipeline émet déjà
 
@@ -6311,3 +6369,207 @@ propre coût.
 `.legacy` sous **git 2.54+**, dont le chemin de code n'existe pas en 2.53.0, à
 remesurer à la montée de version. *Les deux sont des pannes muettes, et c'est
 pourquoi elles sont écrites plutôt que supposées absentes.*
+
+### 4.41 → Le lot 4 livré : la couverture passe de 71 % à 98 % pour ZÉRO point de rappel, et l'agent en service est cinq lots en retard
+
+**LE RÉSULTAT PRINCIPAL EST NÉGATIF, ET C'EST LE PLUS UTILE DES DEUX.** La
+réserve 2 du §4.6 demandait ce que l'encadrement **rapporte**, et non ce qu'il
+couvre. La réponse est mesurée, sur les deux instruments, et elle est nette : la
+définition (C) porte la couverture de **71,2 % à 98,0 %** des éléments servis
+(direction « avant ») et de **67,6 % à 95,5 %** (« après »), et **elle ne gagne
+aucun point de rappel**.
+
+`mesuré` le 10 septembre 2026, `make eval` sur les 138 questions du jeu de
+réglage, `rc=0`, contre l'antécédent **versionné** `runs/2026-09-08-reference.json`
+— comparaison **appariée** :
+
+| métrique | avant | après | Δ apparié, IC 95 % |
+|---|---|---|---|
+| `rappel_recherche` | 0,962 | 0,962 | **+0,0000** [+0,000, +0,000], 130 ex æquo sur 130 |
+| `rappel_elements` | 0,954 | 0,954 | **+0,0000**, 130 / 130 |
+| `rang_reciproque` (mrr) | 0,942 | 0,942 | **+0,0000**, 130 / 130 |
+| `rappel_documents` | 1,0 | 1,0 | **+0,0000**, 130 / 130 |
+| `rappel_contexte` | 0,946 | 0,946 | **+0,0000**, 130 / 130 |
+| `taux_citation_complete` | 1,0 | 1,0 | **+0,0000**, 129 / 129 |
+| `taux_contexte_utile` | 0,273 | 0,279 | +0,0062 [+0,001, +0,013], **p=0,109** |
+| `part_utile_caracteres` | 0,281 | 0,290 | +0,0097 [+0,001, +0,019], **p=0,850** |
+| `caracteres_retenus` ↓ | 9 529 (p50) | 10 633 (p50) | **+914,6** [+777, +1 060], **p=0,000** |
+
+**Les six métriques de rappel sont IDENTIQUES À LA QUATRIÈME DÉCIMALE, sur 130
+questions appariées, sans une seule bascule.** Les deux métriques d'utilité
+bougent de moins d'un point et le test apparié ne les distingue pas du bruit. La
+seule métrique dont l'écart soit significatif est le **coût**.
+
+#### Le prix, mesuré
+
+| | avant | après |
+|---|---|---|
+| `caracteres_retenus_p50` | 9 529 | **10 633** (+11,6 %) |
+| `prompt_eval_count_p50` | 3 131 | **3 291** (+5,1 %) |
+| `prompt_eval_count_p95` | 3 582 | **3 800** (+6,1 %) |
+| `contextes_ecartes_total` | 26 | **32** |
+| `reconstruction_ms_p50` | 114 | **197** (+73 %) |
+| `reconstruction_ms_p95` | 181 | **571** (+215 %) |
+| `total_ms_p50` | 7 298 | 7 112 |
+
+**`contextes_ecartes_total` est la ligne à lire.** Six contextes de plus sont
+écartés avant le LLM parce que chaque source coûte désormais plus de fenêtre :
+l'encadrement ne s'ajoute pas, il **évince**. `rappel_contexte` ne bouge pas —
+aucun passage doré n'a été perdu sur CE jeu, à CE budget —, mais le mécanisme est
+là, et un budget plus serré le paierait. `total_ms_p50` est en baisse : les
++83 ms de reconstruction disparaissent dans la génération, qui domine le total.
+
+#### LE CRITÈRE DU §P1 EST APPLICABLE, ET IL TRANCHE
+
+Le §P1 « Le pari central n'est pas vérifié » écrit la règle de décision et nomme
+les métriques : *« Ce que le lot 4 rend décidable sans juge : le prix
+(`reconstruction_ms`), le coût en contexte (`caracteres_retenus`), la composition
+du contexte payé (`taux_contexte_utile`, `part_utile_caracteres`) et l'apport
+propre de la fenêtre (`rappel_contexte` moins `rappel_elements`). Un rapport
+prix/apport défavorable tranche sans juge ; seul un rapport favorable en demande
+un. »*
+
+**L'apport propre de la fenêtre ne bouge pas.** `rappel_contexte` moins
+`rappel_elements` vaut **−0,008 avant et −0,008 après** sur le jeu de réglage —
+identique. Sur le jeu de contrôle il passe de **+0,026 à +0,045**, ce qui est
+dans sa propre réserve à trente questions.
+
+**Le rapport prix/apport est donc DÉFAVORABLE sur l'instrument de référence, et
+la règle du §P1 dit qu'il tranche sans juge.** Ce qui va dans l'autre sens, et
+qu'il faut porter honnêtement : la **composition** du contexte payé s'améliore
+un peu partout — `taux_contexte_utile` +0,006 au réglage, **+0,035** au contrôle ;
+`part_utile_caracteres` +0,009 et **+0,043**. Le contexte servi est marginalement
+mieux composé ; il n'est pas plus efficace.
+
+*Cette entrée n'ôte pas le §P1 : la conclusion « défavorable » porte sur les
+métriques sans juge, et le §P1 demandait aussi ce que le LLM en fait. La
+fermeture est la décision du pilote.*
+
+#### Le jeu de CONTRÔLE dit la même chose, et sa réserve reste entière
+
+Trente questions ne tranchent pas un réglage, un écart de deux points y est du
+bruit (§5 du registre de pilotage). `rappel_recherche` 0,801 → 0,801,
+`rappel_elements` 0,686 → 0,686, `mrr` 0,770 → 0,770, `rappel_documents`
+0,962 → 0,962 : **Δ apparié +0,0000 sur les 26 questions appariables, aucune
+bascule.** Ce qui bouge va dans le bon sens sans être décidable :
+`rappel_contexte` 0,712 → 0,731. **Ce n'est pas une confirmation du gain, c'est
+l'absence de contradiction.**
+
+#### CE QUE CE RÉSULTAT NE DIT PAS, et il faut le borner
+
+Les deux jeux mesurent le **rappel de passages** et la composition du contexte
+retenu ; **aucun des deux ne note la qualité de la réponse générée**, et
+l'encadrement sert précisément à donner au LLM de quoi situer un passage. Un jeu
+doré à `reviewed: false` et sans juge calibré ne peut pas voir un gain de
+compréhension. *L'encadrement peut donc rapporter quelque chose que ces deux
+instruments sont structurellement incapables de mesurer — et c'est une raison de
+ne pas conclure, pas une raison de croire au gain.*
+
+**LA DÉCISION APPARTIENT AU PILOTE**, et elle se pose ainsi : (C) achète une
+couverture presque complète et supprime une **absence** — le bloc d'encadrement
+qui disparaissait, titre compris, pour un tiers des éléments servis — au prix de
++5 % de fenêtre de prompt, +73 % de latence de reconstruction et six sources
+évincées sur 138 questions, sans aucun gain de rappel mesurable. **Le lot livre
+la décision tranchée ; il ne prétend pas qu'elle rapporte.**
+
+#### Le défaut que le lot a trouvé DANS SON PROPRE CODE — et le chiffre qu'il avait publié FAUX
+
+`_last_header_descendant` établissait la liste complète des enfants en-tête avant
+d'en prendre le dernier : elle demandait donc le tag de **chaque** enfant, et
+`_get_node_properties` n'est pas mémoïsée. Le balayage va désormais à rebours et
+s'arrête au premier en-tête rencontré depuis la fin.
+
+> **CE LOT A PUBLIÉ CE GAIN FAUX, ET DANS LE SENS QUI L'ARRANGEAIT.** La première
+> écriture de cette entrée annonçait « 2 018 aller-retours contre 136, pire cas
+> 180 contre 1 », soit un gain de **quinze fois**. Les deux comptages n'étaient
+> pas le même : le premier omettait le niveau **terminal** de la descente, le
+> second l'incluait. Or c'est le niveau terminal qui domine — celui où aucun
+> en-tête n'est trouvé, donc le seul où aucun arrêt anticipé n'est possible, des
+> deux côtés. *Un chiffre de coût qui ne compte pas le cas où la boucle ne trouve
+> rien mesure la boucle qui réussit, pas la boucle.*
+
+`mesuré` le 10 septembre 2026, **tous niveaux comptés**, sur les 189 remontées
+« avant » et leurs 136 niveaux intermédiaires, par
+`scripts/mesurer_le_graphe.py` :
+
+| balayage | tags demandés | pire cas, UNE reconstruction |
+|---|---|---|
+| avant | 6 084 | **234** |
+| arrière (livré) | **4 202** | **159** |
+
+Le gain est de **31 %**, pas de quinze fois. Un en-tête du corpus porte 183
+enfants.
+
+**ET LA PRÉDICTION DE L'INSTRUMENT EST VALIDÉE PAR LA CAMPAGNE**, ce qui est le
+contrôle le plus fort de cette entrée. Les deux campagnes « après » ont été
+jouées **deux fois** : une première sur le balayage avant, une seconde sur le
+code livré. `reconstruction_ms` passe de **279 à 197** en p50 (**−29,4 %**) et de
+**798 à 571** en p95 (**−28,4 %**), là où l'instrument annonçait **−31 %**
+d'aller-retours nGQL. *Un modèle de coût qui prédit une latence mesurée à trois
+points près n'est plus une hypothèse.*
+
+**Et l'ÉQUIVALENCE des deux sens est mesurée, pas déduite** : ils rendent le même
+nœud pour les 189 remontées, **0 désaccord**. C'est ce qui autorise à comparer
+les deux campagnes « après » entre elles — seule la latence diffère. Les
+métriques appariées le confirment de leur côté : elles sont identiques à la
+quatrième décimale entre les deux jeux, IC compris.
+
+*Ce défaut n'était visible ni au lint, ni aux 720 tests, ni à la relecture :
+aucun garde de ce dépôt ne comptait les aller-retours. Deux le comptent
+désormais, dont un sur `reconstruct_section` — le point d'entrée réel —, parce
+qu'un garde posé sur la seule fonction interne se laisse contourner par une
+réécriture qui déplace le balayage.*
+
+#### ⚠️ LA TROUVAILLE BLOQUANTE, ET ELLE N'EST PAS DANS LE PÉRIMÈTRE DU LOT
+
+**L'agent en service ne fait pas tourner le code de `main`. Il fait tourner celui
+du 3 septembre 2026, et il est CINQ LOTS EN RETARD.**
+
+`mesuré` le 9 septembre 2026, confirmé le 10 :
+
+```bash
+docker image inspect $(docker inspect -f '{{.Image}}' rag-agent-api) --format '{{.Created}}'
+# → 2026-09-03T09:57:02Z
+docker exec rag-agent-api sh -c "grep -rho 'verifier_modele_embedding' /app/src | wc -l"   # → 0
+grep -rho 'verifier_modele_embedding' src/ | wc -l                                          # → 8
+```
+
+Quatre fichiers divergent, dont **trois par leur AST hors docstrings**, donc par
+leur comportement : `src/agent/retriever.py`, `src/api/main.py`,
+`src/api/schemas.py`. Ce qui est ABSENT du service en marche, à **0** occurrence
+contre 8, 5, 8, 13, 4 et 5 sur `main` : `verifier_modele_embedding`,
+`etat_modele_embedding`, `EmbeddingModelMismatchError`, `EmbeddingModelHealth`,
+`verdict_langue_du_reranker`, `_RERANKERS_MESURES`.
+
+**Autrement dit : le garde du modèle d'embedding du lot 3 — quatre audits, quatre
+trouvailles bloquantes, §4.27 — et le garde du reranker du lot 6 — §4.31 à §4.35
+— n'ont JAMAIS tourné dans le service déployé.** Le §3 de
+`documentation/pilotage_du_chantier.md` écrit l'exigence 1 « ✅ tenue et gardée
+des DEUX côtés » : c'est vrai sur `main`, **faux en production**.
+
+**Confirmation indépendante, sans lire le conteneur** : sur `main`,
+`HealthResponse.embedding_model` est un champ **requis**, donc un agent construit
+depuis `main` l'émet toujours. `GET :8011/health` ne le porte pas.
+
+**RIEN DANS CE DÉPÔT NE POUVAIT LE VOIR.** `make lint` → `rc=0`, `make test` →
+`rc=0` sur 720 tests, et **`make test-integration` → `rc=0`, 10 passés**, contre
+cet agent-là. C'est la forme exacte que ce chantier a payée huit fois — *un garde
+VERT sous une scène que le défaut ne rencontre jamais* — portée cette fois au
+niveau du **déploiement** : le garde est vert en intégration continue et **absent
+de l'artefact livré**.
+
+**Ce que ça fait aux campagnes de ce dépôt** : les deux références du 8 septembre
+2026 et les six campagnes de ce lot mesurent toutes le **même** agent du
+3 septembre. La comparaison avant / après reste donc valide — les deux côtés ne
+diffèrent que par le seul fichier substitué, empreinte SHA-256 relevée aux deux
+bouts et restauration vérifiée —, mais **toute campagne postérieure à une
+reconstruction de l'image se déplacera pour des raisons étrangères au changement
+mesuré.**
+
+**Le geste minimal qui l'arme, et le lot ne l'a PAS écrit** : une assertion
+`"embedding_model" in /health` dans `tests/integration/test_stack.py` rougirait
+aujourd'hui. Le lot ne l'ajoute pas, parce qu'ajouter un test qui échoue sur
+l'état présent du poste n'est pas une correction : la reconstruction de l'image
+est une décision de pilotage, et elle se prend depuis le clone principal — aucun
+`docker compose` ne se lance depuis un arbre de travail, `docker-compose.yml`
+montant `./prompts`.

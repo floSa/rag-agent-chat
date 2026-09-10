@@ -17,6 +17,12 @@ Ce qu'il rend, et où ça vit :
 - les trois réserves de `sequence` → `documentation/stores.md` ;
 - la forme du graphe (profondeur, imbrication des titres) → §4.6 de
   `documentation/axes_amelioration.md` ;
+- **les trois définitions de « section voisine » — (A), (B), (C) — confrontées
+  en en-têtes servis ET en éléments réellement servis**, plus le sous-choix de
+  (C) éprouvé contre l'ordre de lecture → même §4.6. C'EST LA RÉSERVE 1 DE CE
+  §4.6 QUI SE FERME ICI : ses chiffres y étaient `mesuré` **et sans site
+  rejouable**, les sondes du pilote ayant vécu dans un répertoire temporaire, ce
+  que le paragraphe ci-dessus interdit précisément ;
 - ce qu'un encadrement `sequence ∈ [s−k, s+k]` amputerait → `stores.md` ;
 - les écritures d'un même encadrement, et l'ordre rendu avec et sans
   `ORDER BY` → `stores.md`, section « Ce que le bouchon modélise ».
@@ -38,6 +44,7 @@ from __future__ import annotations
 import collections
 import os
 import sys
+from collections.abc import Callable
 from typing import Any
 
 # Fenêtre par défaut de `settings.py`. Le script la lit dans l'environnement
@@ -309,6 +316,500 @@ def rapporter(aretes: list[tuple[str, str, int | None]], tags: dict[str, str]) -
     print(f"  intersection / union      : {len(avant & apres)} / {len(avant | apres)}")
 
 
+# ── (A), (B), (C) : les trois définitions de « section voisine », confrontées ──
+#
+# CETTE SECTION EXISTE PARCE QUE LA MESURE QUI A TRANCHÉ LA DÉFINITION N'AVAIT
+# PAS D'INSTRUMENT. Le §4.6 de `documentation/axes_amelioration.md` portait ses
+# chiffres comme `mesuré` **et sans site rejouable** — les sondes du pilote ont
+# vécu dans un répertoire temporaire —, et le docstring en tête de ce fichier
+# interdit précisément cela : « une page qui les affirme sans laisser de quoi les
+# rejouer devient fausse en silence ». C'est un état de store : il périme à la
+# prochaine réingestion.
+#
+# CE QUI AUTORISE À CROIRE LES CHIFFRES NEUFS : cette section reproduit d'abord
+# les quatre chiffres que le §4.6 portait DÉJÀ — 214 sans frère avant, 214 après,
+# intersection 47, union 381 — plus les 25 en-têtes premiers sous leur parent.
+# Ils sont imprimés par la section `_SIBLING_CANDIDATES` ci-dessus et par
+# `_controle_des_chiffres_deja_publies`. Si l'un ne tombe pas, c'est
+# l'instrument qu'il faut corriger avant d'y croire.
+
+# Le rang du premier frère en-tête vaut 1 au pire cas, donc la LIMITE de
+# `_find_sibling` ne coupe jamais rien — mais la reproduire est le seul moyen de
+# le PROUVER plutôt que de le supposer. C'est la valeur de production.
+_CANDIDATS_FRERES = 5
+
+
+def _entetes_et_poids(
+    tags: dict[str, str], parent: dict[str, str]
+) -> tuple[list[str], dict[str, int], int]:
+    """Les en-têtes, et le nombre d'éléments NON-TITRES que chacun sert.
+
+    LA PONDÉRATION EST CE QUI DONNE SON SENS AU CHIFFRE. « 214 en-têtes sans
+    frère » et « 4 157 éléments servis sans encadrement » mesurent le même
+    défaut ; seul le second dit ce que l'exploitant subit, parce qu'un en-tête
+    qui porte 60 paragraphes ne pèse pas comme un en-tête qui en porte 2.
+    """
+    entetes = [v for v, t in tags.items() if t == "SectionHeader"]
+    poids: dict[str, int] = collections.Counter(
+        parent[c]
+        for c in parent
+        if tags.get(parent[c]) == "SectionHeader" and tags.get(c) != "SectionHeader"
+    )
+    return entetes, poids, sum(poids.values())
+
+
+def _frere_a(
+    entete: str,
+    direction: str,
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> str | None:
+    """Reproduit `_find_sibling`, **LIMITE COMPRISE** — définition (A).
+
+    La limite est reproduite parce qu'un instrument qui l'ignore mesure une
+    fonction que la production n'a pas. Elle ne change rien sur ce graphe, et
+    c'est un résultat, pas une hypothèse.
+    """
+    p = parent.get(entete)
+    if p is None:
+        return None
+    propre = rang[entete]
+    fils = enfants[p]
+    if direction == "before":
+        candidats = [c for s, c in sorted(fils, reverse=True) if s < propre]
+    else:
+        candidats = [c for s, c in fils if s > propre]
+    for candidat in candidats[:_CANDIDATS_FRERES]:
+        if tags.get(candidat) == "SectionHeader":
+            return candidat
+    return None
+
+
+def _frere_c(
+    entete: str,
+    direction: str,
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> tuple[str | None, int]:
+    """(A) puis la REMONTÉE AUX ONCLES, bornée au document — définition (C).
+
+    Rend (l'oncle trouvé, le nombre de crans supplémentaires). La borne est le
+    fait que le parent cesse d'être un `SectionHeader` : au-dessus il y a le
+    `Document`, et `sequence` repart à 0 dans le suivant.
+    """
+    courant, crans = entete, 0
+    while True:
+        trouve = _frere_a(courant, direction, enfants, parent, rang, tags)
+        if trouve is not None:
+            return trouve, crans
+        p = parent.get(courant)
+        if p is None or tags.get(p) != "SectionHeader":
+            return None, crans
+        courant, crans = p, crans + 1
+
+
+def _descendant_entete(
+    entete: str, enfants: dict[str, list[tuple[int, str]]], tags: dict[str, str], dernier: bool
+) -> str:
+    """Le dernier (ou le premier) descendant en-tête — le SOUS-CHOIX de (C)."""
+    courant = entete
+    while True:
+        fils = [c for _, c in enfants.get(courant, []) if tags.get(c) == "SectionHeader"]
+        if not fils:
+            return courant
+        courant = fils[-1] if dernier else fils[0]
+
+
+def _ordre_de_lecture(
+    tags: dict[str, str], enfants: dict[str, list[tuple[int, str]]], parent: dict[str, str]
+) -> tuple[list[str], dict[str, int], dict[str, int], dict[str, str]]:
+    """Le parcours en profondeur par `sequence` — l'ordre où un humain LIT.
+
+    C'est la seule référence contre laquelle « le voisin réel en lecture » peut
+    être éprouvé, et c'est ce qui manquait au §4.6 : son sous-choix y était
+    `calculé`, déduit de la forme du parcours, jamais confronté au parcours.
+
+    Rend (l'ordre à plat, le rang de chaque nœud, la taille de son sous-arbre,
+    le document de chaque nœud).
+    """
+    racines = sorted(v for v in tags if v not in parent)
+    ordre: list[str] = []
+    for racine in racines:
+        pile = [racine]
+        while pile:
+            noeud = pile.pop()
+            ordre.append(noeud)
+            pile.extend(c for _, c in reversed(enfants.get(noeud, [])))
+    rang_dfs = {v: i for i, v in enumerate(ordre)}
+    taille: dict[str, int] = {}
+    for noeud in reversed(ordre):
+        taille[noeud] = 1 + sum(taille[c] for _, c in enfants.get(noeud, []))
+    document: dict[str, str] = {}
+    for noeud in ordre:
+        courant = noeud
+        while courant in parent:
+            courant = parent[courant]
+        document[noeud] = courant
+    return ordre, rang_dfs, taille, document
+
+
+def _controle_des_chiffres_deja_publies(
+    entetes: list[str],
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> None:
+    """Les chiffres que le §4.6 portait DÉJÀ — c'est le contrôle de l'instrument.
+
+    Un instrument qui rend des chiffres neufs sans reproduire les anciens ne
+    mesure pas le même graphe que la page qu'il prétend fonder.
+
+    ET UNE COÏNCIDENCE QUI EST NOMMÉE ICI, parce que le §4.6 la juxtapose sans
+    la nommer : « 25 en-têtes premiers sous leur parent » et « (C) ne trouve
+    jamais rien pour 25 en-têtes en avant » valent tous deux 25, **et ce ne sont
+    pas les mêmes 25**. C'est la faute exacte que le lot 2 a corrigée sur les
+    « mêmes 214 dans les deux directions » : deux ensembles de même cardinal ne
+    sont pas le même ensemble. L'instrument imprime donc l'intersection.
+    """
+    premiers = {v for v in entetes if enfants[parent[v]][0][1] == v}
+    print(f"en-têtes premiers sous leur parent    : {len(premiers)}")
+    for direction in ("before", "after"):
+        echecs = {
+            v
+            for v in entetes
+            if _frere_c(v, direction, enfants, parent, rang, tags)[0] is None
+        }
+        print(
+            f"  (C) ne trouve rien, {direction:6s}         : {len(echecs)} "
+            f"— mêmes en-têtes que « premiers » ? {premiers == echecs} "
+            f"(intersection {len(premiers & echecs)})"
+        )
+
+
+def _rapporter_les_definitions(
+    entetes: list[str],
+    poids: dict[str, int],
+    total_elements: int,
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> None:
+    """(A) et (C), en en-têtes servis ET en éléments réellement servis."""
+    print(f"\néléments non-titres sous un en-tête   : {total_elements}")
+    def definition_a(entete: str, direction: str) -> tuple[str | None, int]:
+        return _frere_a(entete, direction, enfants, parent, rang, tags), 0
+
+    def definition_c(entete: str, direction: str) -> tuple[str | None, int]:
+        return _frere_c(entete, direction, enfants, parent, rang, tags)
+
+    definitions: tuple[tuple[str, Callable[[str, str], tuple[str | None, int]]], ...] = (
+        ("(A) frère sous le parent commun", definition_a),
+        ("(C) (A) puis remontée aux oncles", definition_c),
+    )
+    for nom, calcule in definitions:
+        for direction in ("before", "after"):
+            sans = [v for v in entetes if calcule(v, direction)[0] is None]
+            prives = sum(poids.get(v, 0) for v in sans)
+            part = 100 * prives / total_elements if total_elements else 0.0
+            print(
+                f"  {nom:34s} {direction:6s} : servis {len(entetes) - len(sans)}"
+                f"/{len(entetes)}, éléments privés d'encadrement {prives} ({part:.1f} %)"
+            )
+
+    print("\n  ── le coût de (C), en crans de remontée ──")
+    for direction in ("before", "after"):
+        distribution: collections.Counter[str] = collections.Counter()
+        for entete in entetes:
+            trouve, crans = _frere_c(entete, direction, enfants, parent, rang, tags)
+            distribution["jamais trouvé" if trouve is None else f"{crans} cran(s)"] += 1
+        detail = ", ".join(f"{k} : {n}" for k, n in sorted(distribution.items()))
+        print(f"  {direction:6s} : {detail}")
+
+    # Le rang du premier frère en-tête, SÉPARÉMENT au cran 0 et aux crans de la
+    # remontée. Le §4.6 publiait « 1 au pire cas » — mesuré pour (A) seulement.
+    # La fratrie d'un ONCLE n'est pas celle d'une section : rien n'autorisait à
+    # transporter le chiffre, et c'est pourquoi il est refait ici.
+    print("\n  ── _SIBLING_CANDIDATES : rang 1-basé, au cran 0 ET aux crans de (C) ──")
+    for direction in ("before", "after"):
+        rang_max = {0: 0, 1: 0}
+        for entete in entetes:
+            courant, crans = entete, 0
+            while True:
+                p = parent.get(courant)
+                if p is None:
+                    break
+                propre_du_cran = rang[courant]
+                fils = enfants[p]
+                if direction == "before":
+                    candidats = [c for s, c in sorted(fils, reverse=True) if s < propre_du_cran]
+                else:
+                    candidats = [c for s, c in fils if s > propre_du_cran]
+                rang_du_frere = next(
+                    (i for i, c in enumerate(candidats, start=1) if tags.get(c) == "SectionHeader"),
+                    None,
+                )
+                if rang_du_frere is not None:
+                    cle = 0 if crans == 0 else 1
+                    rang_max[cle] = max(rang_max[cle], rang_du_frere)
+                    break
+                if tags.get(p) != "SectionHeader":
+                    break
+                courant, crans = p, crans + 1
+        print(
+            f"  {direction:6s} : rang max au cran 0 = {rang_max[0]} ; "
+            f"aux crans >= 1 (fratrie d'un oncle) = {rang_max[1]} "
+            f"— limite de production : {_CANDIDATS_FRERES}"
+        )
+
+
+def _rapporter_la_lecture(
+    entetes: list[str],
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> None:
+    """LE SOUS-CHOIX, ÉPROUVÉ CONTRE L'ORDRE DE LECTURE — et il est partagé.
+
+    Le §4.6 écrivait le sous-choix comme « le voisin RÉEL EN LECTURE, côté par
+    côté », en signalant lui-même que l'asymétrie était `calculé` et non
+    `mesuré` : déduite de la forme du parcours, jamais confrontée à lui. Cette
+    section la confronte, et le verdict est partagé :
+
+    - « après » → l'ONCLE lui-même : **CONFIRMÉ**, 188 des 190 remontées ;
+    - « avant » → le dernier descendant en-tête de l'oncle : la règle est le
+      bon choix PARMI les descendants de l'oncle (186 / 189), mais elle ne rend
+      PAS « le texte qui précède réellement » (2 / 189). Ce qui précède
+      vraiment, dans 186 des 189 cas, est l'INTRODUCTION DU PARENT de la
+      section — les frères non-titres qui la précèdent sous le parent commun.
+      Le motif écrit au §4.6 est donc faux ; la règle reste la meilleure
+      disponible sous (C), et c'est ce que cette section imprime.
+
+    (B), le voisin en ordre de lecture, est mesurée ici aussi, avec ses
+    dégénérescences **EN UNITÉS EXPLICITES** : le §4.6 publiait « 191 cas »
+    sans dire de quoi. Ce sont 191 ADJACENCES, soit 382 couples (en-tête,
+    direction) — les deux chiffres sont justes sous leur unité, et l'unité
+    manquait.
+    """
+    ordre, rang_dfs, taille, document = _ordre_de_lecture(tags, enfants, parent)
+    est_titre = {v: tags.get(v) == "SectionHeader" for v in tags}
+
+    def element_voisin(entete: str, direction: str) -> str | None:
+        """Le nœud non-titre réellement lu juste avant / juste après le sous-arbre."""
+        if direction == "before":
+            indices = range(rang_dfs[entete] - 1, -1, -1)
+        else:
+            indices = range(rang_dfs[entete] + taille[entete], len(ordre))
+        for i in indices:
+            noeud = ordre[i]
+            if document[noeud] != document[entete]:
+                return None
+            if not est_titre[noeud] and tags.get(noeud) != "Document":
+                return noeud
+        return None
+
+    print("\n  ── le SOUS-CHOIX, confronté à l'ordre de lecture réel ──")
+    for direction in ("before", "after"):
+        population = [
+            (v, oncle)
+            for v in entetes
+            for oncle, crans in [_frere_c(v, direction, enfants, parent, rang, tags)]
+            if oncle is not None and crans >= 1
+        ]
+        familles: collections.Counter[str] = collections.Counter()
+        for entete, oncle in population:
+            voisin = element_voisin(entete, direction)
+            porteur = parent.get(voisin) if voisin is not None else None
+            if voisin is None:
+                familles["aucun élément de ce côté"] += 1
+            elif porteur == parent.get(entete):
+                familles["le PARENT de la section (son intro)"] += 1
+            elif porteur == oncle:
+                familles["l'ONCLE lui-même"] += 1
+            elif porteur == _descendant_entete(oncle, enfants, tags, dernier=True):
+                familles["le DERNIER descendant en-tête de l'oncle"] += 1
+            else:
+                familles["ailleurs"] += 1
+        print(f"  {direction:6s} : {len(population)} remontées — qui porte le voisin RÉEL ?")
+        for famille, nombre in familles.most_common():
+            print(f"      {famille:42s} : {nombre}")
+
+    # Seule la direction « avant » descend dans l'oncle : « après » sert l'oncle
+    # lui-même, donc il n'y a rien à confronter de ce côté.
+    print("\n  ── la règle « dernier descendant » est-elle juste DANS le sous-arbre ? ──")
+    juste = faux = 0
+    for entete in entetes:
+        oncle_trouve, crans = _frere_c(entete, "before", enfants, parent, rang, tags)
+        if oncle_trouve is None or crans < 1:
+            continue
+        fin = rang_dfs[oncle_trouve] + taille[oncle_trouve] - 1
+        dernier_lu = next(
+            (
+                ordre[i]
+                for i in range(fin, rang_dfs[oncle_trouve] - 1, -1)
+                if not est_titre[ordre[i]] and tags.get(ordre[i]) != "Document"
+            ),
+            None,
+        )
+        if dernier_lu is None:
+            continue
+        queue = _descendant_entete(oncle_trouve, enfants, tags, dernier=True)
+        if parent.get(dernier_lu) == queue:
+            juste += 1
+        else:
+            faux += 1
+    print(
+        "  before : le dernier élément lu du sous-arbre de l'oncle est porté "
+        f"par le « dernier descendant en-tête » — juste {juste}, faux {faux}"
+    )
+
+    print("\n  ── (B), le voisin en ORDRE DE LECTURE, et ses dégénérescences ──")
+    plats = [v for v in ordre if est_titre[v]]
+    position = {v: i for i, v in enumerate(plats)}
+
+    def lie(a: str, b: str) -> bool:
+        for depart, cible in ((a, b), (b, a)):
+            courant: str | None = depart
+            while courant is not None:
+                if courant == cible:
+                    return True
+                courant = parent.get(courant)
+        return False
+
+    couples = 0
+    adjacences: set[tuple[str, str]] = set()
+    for direction, pas in (("before", -1), ("after", 1)):
+        servis = 0
+        for entete in plats:
+            j = position[entete] + pas
+            voisin = plats[j] if 0 <= j < len(plats) else None
+            if voisin is None or document[voisin] != document[entete]:
+                continue
+            servis += 1
+            if lie(entete, voisin):
+                couples += 1
+                adjacences.add((min(entete, voisin), max(entete, voisin)))
+        print(f"  {direction:6s} : en-têtes servis {servis}/{len(entetes)}")
+    print(
+        f"  DÉGÉNÉRÉS : {len(adjacences)} adjacences, "
+        f"soit {couples} couples (en-tête, direction)"
+    )
+
+
+def _rapporter_le_cout_de_la_descente(
+    entetes: list[str],
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> None:
+    """Le coût de la descente du sous-choix, et l'ÉQUIVALENCE des deux balayages.
+
+    CETTE SECTION EXISTE POUR LA MÊME RAISON QUE LA PRÉCÉDENTE, et le lot 4 s'y
+    est pris lui-même. Il a publié au §4.41 et dans le docstring de
+    `_last_header_descendant` que le balayage avant coûtait **2 018**
+    aller-retours nGQL contre **136** à rebours, pire cas **180** contre **1** —
+    et il les a d'abord publiés **sans instrument**, exactement ce que la
+    réserve 1 du §4.6 reprochait au pilote. Ils se rejouent ici.
+
+    CE QU'ELLE MESURE, ET POURQUOI LES DEUX CHOSES ENSEMBLE :
+
+    1. **l'équivalence.** Les deux sens de balayage doivent rendre le MÊME nœud
+       pour les 746 en-têtes. C'est vrai par construction — « le dernier enfant
+       en-tête » est le dernier des enfants en-tête quel que soit le sens de
+       lecture —, et *« vrai par construction » est précisément la forme de
+       phrase que ce chantier a payée huit fois*. C'est aussi ce qui autorise à
+       transporter les métriques de QUALITÉ d'une campagne mesurée avant la
+       correction de coût : si les deux versions servent le même nœud, elles
+       servent le même markdown, et seule la latence diffère. Sans cette ligne,
+       ce transport est `calculé` ;
+    2. **le coût**, en tags demandés. `_get_node_properties` n'est pas mémoïsée :
+       un tag demandé est un aller-retour nGQL. Le balayage avant les paie tous,
+       le balayage arrière s'arrête au premier en-tête rencontré depuis la fin.
+    """
+    print("\n  ── la descente du sous-choix : équivalence et coût des deux balayages ──")
+    # LE COMPTAGE COMPTE TOUS LES NIVEAUX, LE TERMINAL INCLUS, et c'est une
+    # correction. Le lot 4 a d'abord publié « 2 018 contre 136 » : le premier
+    # chiffre omettait le niveau terminal, le second l'incluait — deux
+    # comptabilités confrontées l'une à l'autre. Or `_last_header_descendant`
+    # PAIE le niveau terminal : c'est celui où elle ne trouve aucun en-tête,
+    # donc celui où elle demande le tag de tous les enfants avant de rendre.
+    # C'est même le niveau le plus cher des deux côtés, puisqu'aucun arrêt
+    # anticipé n'y est possible. *Un chiffre de coût qui ne compte pas le cas
+    # où la boucle ne trouve rien mesure la boucle qui réussit, pas la boucle.*
+    desaccords = 0
+    population = 0
+    niveaux_intermediaires = 0
+    cout_avant = cout_arriere = 0
+    pire_avant = pire_arriere = 0
+    for entete in entetes:
+        oncle, crans = _frere_c(entete, "before", enfants, parent, rang, tags)
+        if oncle is None or crans < 1:
+            continue
+        population += 1
+        # Les deux implémentations, côte à côte, sur la même descente.
+        en_avant = _descendant_entete(oncle, enfants, tags, dernier=True)
+        courant = oncle
+        par_reconstruction_avant = par_reconstruction_arriere = 0
+        while True:
+            fils = [c for _, c in enfants.get(courant, [])]
+            # balayage AVANT : le tag de CHAQUE enfant, à tous les niveaux.
+            par_reconstruction_avant += len(fils)
+            # balayage ARRIÈRE : on s'arrête au premier en-tête depuis la fin ;
+            # s'il n'y en a aucun, on paie tout, comme l'autre.
+            depuis_la_fin = next(
+                (
+                    i
+                    for i, candidat in enumerate(reversed(fils), start=1)
+                    if tags.get(candidat) == "SectionHeader"
+                ),
+                None,
+            )
+            par_reconstruction_arriere += len(fils) if depuis_la_fin is None else depuis_la_fin
+            if depuis_la_fin is None:
+                break
+            niveaux_intermediaires += 1
+            courant = fils[len(fils) - depuis_la_fin]
+        cout_avant += par_reconstruction_avant
+        cout_arriere += par_reconstruction_arriere
+        pire_avant = max(pire_avant, par_reconstruction_avant)
+        pire_arriere = max(pire_arriere, par_reconstruction_arriere)
+        if courant != en_avant:
+            desaccords += 1
+    print(f"  remontées « avant » concernées          : {population}")
+    print(f"  niveaux de descente intermédiaires      : {niveaux_intermediaires}")
+    print(f"  DÉSACCORDS entre les deux sens          : {desaccords}")
+    print(f"  tags demandés, balayage AVANT           : {cout_avant}")
+    print(f"    pire cas pour UNE reconstruction      : {pire_avant}")
+    print(f"  tags demandés, balayage ARRIÈRE         : {cout_arriere}")
+    print(f"    pire cas pour UNE reconstruction      : {pire_arriere}")
+    plus_gros = max(
+        (len(f) for cle, f in enfants.items() if tags.get(cle) == "SectionHeader"), default=0
+    )
+    print(f"  enfants du plus gros en-tête            : {plus_gros}")
+
+
+def rapporter_les_definitions_de_voisine(
+    aretes: list[tuple[str, str, int | None]], tags: dict[str, str]
+) -> None:
+    """Le point d'entrée de la section — les trois définitions, bout à bout."""
+    enfants, parent = _index(aretes)
+    rang = {c: s for _, c, s in aretes if s is not None}
+    entetes, poids, total = _entetes_et_poids(tags, parent)
+
+    print("\n── « Section voisine » : (A), (B), (C) confrontées (§4.6) ──")
+    _controle_des_chiffres_deja_publies(entetes, enfants, parent, rang, tags)
+    _rapporter_les_definitions(entetes, poids, total, enfants, parent, rang, tags)
+    _rapporter_la_lecture(entetes, enfants, parent, rang, tags)
+    _rapporter_le_cout_de_la_descente(entetes, enfants, parent, rang, tags)
+
+
 def rapporter_les_ecritures(pool: Any, aretes: list[tuple[str, str, int | None]]) -> None:
     """Les écritures d'un même encadrement, confrontées sur le graphe EN SERVICE.
 
@@ -405,6 +906,7 @@ def main() -> int:
     pool = _pool()
     aretes, tags = lire_le_graphe(pool)
     rapporter(aretes, tags)
+    rapporter_les_definitions_de_voisine(aretes, tags)
     rapporter_les_ecritures(pool, aretes)
     return 0
 
