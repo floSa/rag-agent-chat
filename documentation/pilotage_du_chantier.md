@@ -306,7 +306,9 @@ dépôt, pas dans la conversation.*
 
 | **46** | LOT-4 — « section voisine » élargie aux oncles, l'instrument, et la campagne | **distribué le 9 septembre 2026 à 14:01 UTC**, en vol. La définition a été **tranchée par l'utilisateur** sur mesure du pilote : (C) remontée aux oncles bornée au document, et le voisin réel en lecture côté par côté. Trois fermetures : le code de `graph_context.py` — **premier changement du chemin de lecture depuis le lot 3** —, le portage de la mesure dans `scripts/mesurer_le_graphe.py` (les pourcentages du §4.6 sont `mesuré` **et sans instrument**), et la **campagne** qui dira si le rappel suit la couverture — §4.6 |
 
-**Prochain numéro libre : 47.**
+| **47** | LOT-8 — figer la référence, armer l'agent, et (C) derrière un réglage éteint | **distribué le 10 septembre 2026 à 12:48 UTC**, en vol. **L'agent en service tourne le code du 3 septembre** : les gardes des lots 3 et 6 ont **0 occurrence** dans le conteneur (§4.42). Sur décision de l'utilisateur : rejouer les deux campagnes contre l'agent ACTUEL pour figer un antécédent comparable, **puis** reconstruire l'image et les rejouer — l'ordre est irréversible —, et garder la définition (C) derrière un réglage **éteint par défaut**, gardé dans ses DEUX positions. Le pilote a vérifié avant de distribuer que l'estampille de la collection concorde avec le réglage, donc que l'armement du garde du lot 3 **ne produira pas de 503** |
+
+**Prochain numéro libre : 48.**
 
 **Cinq lots fusionnés, NEUF audits.** Le neuvième rend **deux bloquantes** : le compte des bloquantes du chantier passe de six à **huit** (`calculé`). **Aucun lot n'a encore été fusionné sans qu'un audit indépendant y trouve quelque chose**, et le lot 6 attend sa réparation. Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
