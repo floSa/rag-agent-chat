@@ -90,7 +90,8 @@ _REGISTRE = "documentation/axes_amelioration.md"
 #
 #     suite lue : 1 2 3 4 5 1 2 3 4 5 6 7 20 21 … 20-bis … 43
 #     doublons  : **5** (les jetons `1` à `5`, chacun deux fois)
-#     trou      : **8 à 19** — douze entiers absents, `7` et `20` présents
+#     trou      : **10 à 19** — dix entiers absents (`8 à 19` avant que le
+#                 plan de lots porte ses rangs 8 et 9), `7` et `20` présents
 #
 # La propriété est gardée par `test_le_scope_du_journal_est_porteur`, qui
 # reproduit la lecture non bornée et exige qu'elle soit fautive : un scope dont
@@ -620,7 +621,8 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
 
         La suite non bornée est celle que le commentaire de `_DEBUT_DU_JOURNAL`
         écrit, et ses deux chiffres y sont désormais exacts : **5** doublons, et
-        un trou de **8 à 19**. Le commentaire annonçait « onze doublons et un
+        un trou de **10 à 19** — `8 à 19` au relevé du lot 7, remesuré le
+        10 septembre 2026. Le commentaire annonçait « onze doublons et un
         trou de 7 à 20 », et les deux étaient faux sous l'étiquette `mesuré`.
         """
         bornee = numeros_du_journal(journal)
@@ -645,8 +647,19 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
             f"{doublons(non_bornee)}. Le commentaire de `_DEBUT_DU_JOURNAL` porte ce "
             "chiffre : remesure-le AVANT de le réécrire — il a déjà été faux une fois"
         )
-        assert trous(non_bornee) == list(range(8, 20)), (
-            f"le trou de la lecture non bornée n'est plus 8→19 : {trous(non_bornee)}. "
+        # REMESURÉ le 10 septembre 2026 : le trou vaut 10→19 depuis que le plan
+        # de lots porte ses rangs 8 et 9. Il valait 8→19 quand le lot 7 l'a
+        # épinglé, et « 7 à 20 » dans un commentaire qui était faux.
+        #
+        # RÉSERVE ÉCRITE, ET ELLE EST UNE DETTE DE CE GARDE : épingler le trou
+        # EXACT fait rougir ce test à chaque rang ajouté au plan de lots, qui
+        # est un acte éditorial normal — c'est le geste « monter le chiffre »
+        # que le §4.35 désapprouve, appliqué ici à une mesure de document. Ce
+        # qui rend le scope porteur n'est pas la VALEUR du trou, c'est qu'une
+        # lecture non bornée en ait UN, plus des doublons : la forme, pas
+        # l'instantané. Un lot doit porter cette assertion sur la propriété.
+        assert trous(non_bornee) == list(range(10, 20)), (
+            f"le trou de la lecture non bornée n'est plus 10→19 : {trous(non_bornee)}. "
             "Le commentaire annonçait « 7 à 20 », et c'était faux : `7` et `20` sont "
             "tous deux présents dans la suite. Remesure avant de réécrire"
         )
