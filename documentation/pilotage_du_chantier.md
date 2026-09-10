@@ -310,7 +310,9 @@ dépôt, pas dans la conversation.*
 
 | **47** | LOT-8 — figer la référence, armer l'agent, et (C) derrière un réglage éteint | **livré et FUSIONNÉ** `9509228`, **726 passés**, poussé. **L'agent en service tourne le code du 3 septembre** : les gardes des lots 3 et 6 ont **0 occurrence** dans le conteneur (§4.42). Sur décision de l'utilisateur : rejouer les deux campagnes contre l'agent ACTUEL pour figer un antécédent comparable, **puis** reconstruire l'image et les rejouer — l'ordre est irréversible —, et garder la définition (C) derrière un réglage **éteint par défaut**, gardé dans ses DEUX positions. Le pilote a vérifié avant de distribuer que l'estampille de la collection concorde avec le réglage, donc que l'armement du garde du lot 3 **ne produira pas de 503** |
 
-**Prochain numéro libre : 48.**
+| **48** | LOT-9 — la recette de campagne cesse de muter l'environnement, et l'écart cesse de dériver en silence | **distribué le 10 septembre 2026 à 15:30 UTC**, en vol. Sur décision de l'utilisateur : **le protocole du §2.2 fait foi**, la resynchronisation est neutralisée, et un garde tient l'écart avec `uv.lock`. Le pilote a mesuré que **le dépôt connaît déjà ce piège** — `scripts/installer-les-garde-fous.sh:151` écrit `uv run --no-sync` sous un commentaire disant que ce n'est pas cosmétique — et que **trois** recettes du `Makefile` l'ont oublié. Plus la réserve du garde de numérotation : il épingle un instantané là où il doit asserter la propriété — §4.43 |
+
+**Prochain numéro libre : 49.**
 
 **Cinq lots fusionnés, NEUF audits.** Le neuvième rend **deux bloquantes** : le compte des bloquantes du chantier passe de six à **huit** (`calculé`). **Aucun lot n'a encore été fusionné sans qu'un audit indépendant y trouve quelque chose**, et le lot 6 attend sa réparation. Les
 deux derniers lots sont passés **sans une seule bloquante**, et les deux derniers
