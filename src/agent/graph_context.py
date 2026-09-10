@@ -379,17 +379,43 @@ def _last_header_descendant(section_id: str) -> str:
     première écriture de cette fonction établissait la liste complète des
     enfants en-tête avant de prendre le dernier, donc elle demandait le tag de
     **chaque** enfant — un aller-retour nGQL par enfant, `_get_node_properties`
-    n'étant pas mémoïsée. `mesuré` le 9 septembre 2026 sur les 189 remontées
-    « avant » du graphe en service, sur 136 niveaux de descente : **2 018** tags
-    évalués, **pire cas 180 pour une seule reconstruction** — un en-tête du
-    corpus porte 183 enfants. À rebours, on s'arrête au premier en-tête
-    rencontré depuis la fin : **136** tags évalués, **pire cas 1**. Le dernier
-    enfant en-tête est en effet le dernier enfant, ou tout près.
+    n'étant pas mémoïsée. On s'arrête désormais au premier en-tête rencontré
+    depuis la fin : le dernier enfant en-tête est en effet le dernier enfant, ou
+    tout près.
 
-    C'est le chemin de lecture de CHAQUE recherche : 180 aller-retours nGQL
-    ajoutés à une reconstruction qui en compte quelques dizaines n'est pas une
-    optimisation manquée, c'est une régression de latence. Gardé par
-    `tests/unit/test_section_voisine.py::TestLeCoutDeLaDescenteEstBorne`.
+    `mesuré` le 10 septembre 2026 sur les 189 remontées « avant » du graphe en
+    service et leurs 136 niveaux intermédiaires, **tous niveaux comptés** :
+
+    | balayage | tags demandés | pire cas, UNE reconstruction |
+    |---|---|---|
+    | avant | 6 084 | **234** |
+    | arrière | **4 202** | **159** |
+
+    Un en-tête du corpus porte 183 enfants, et 234 aller-retours nGQL ajoutés à
+    une reconstruction qui en compte quelques dizaines n'est pas une
+    optimisation manquée : c'est une régression de latence sur le chemin de
+    lecture de CHAQUE recherche.
+
+    > **CORRECTION D'UN CHIFFRE QUE CE LOT AVAIT PUBLIÉ FAUX, ET DANS LE SENS
+    > QUI L'ARRANGEAIT.** Ce docstring a d'abord annoncé « 2 018 contre 136,
+    > pire cas 180 contre 1 », soit un gain de quinze fois. Les deux comptages
+    > n'étaient pas le même : le premier omettait le niveau **terminal** de la
+    > descente, le second l'incluait. Or c'est le niveau terminal qui domine —
+    > celui où aucun en-tête n'est trouvé, donc le seul où aucun arrêt anticipé
+    > n'est possible, des deux côtés. Le gain réel est de **31 %**, pas de
+    > quinze fois. *Un chiffre de coût qui ne compte pas le cas où la boucle ne
+    > trouve rien mesure la boucle qui réussit, pas la boucle.* La correction
+    > reste juste, c'est son amplitude qui était fausse.
+
+    ET L'ÉQUIVALENCE DES DEUX SENS EST MESURÉE, pas déduite : ils rendent le
+    même nœud pour les 189 remontées, **0 désaccord** (même commande). C'est ce
+    qui autorise à transporter les métriques de qualité d'une campagne mesurée
+    avant cette correction — même nœud servi, donc même markdown, donc seule la
+    latence diffère.
+
+    Gardé par `tests/unit/test_section_voisine.py::TestLeCoutDeLaDescenteEstBorne`,
+    et rejoué par la section « la descente du sous-choix » de
+    `scripts/mesurer_le_graphe.py`.
     """
     current = section_id
     for _ in range(_MAX_DEPTH):

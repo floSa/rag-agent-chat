@@ -687,10 +687,25 @@ class TestLeCoutDeLaDescenteEstBorne:
     NE L'AVAIT PAS. Elle établissait la liste des enfants en-tête avant de
     prendre le dernier, donc elle demandait le tag de **chaque** enfant, et
     `_get_node_properties` n'est pas mémoïsée : un aller-retour nGQL par enfant.
-    `mesuré` le 9 septembre 2026 sur le graphe en service, sur les 189 remontées
-    « avant » et leurs 136 niveaux de descente : **2 018** tags évalués contre
-    **136** à rebours, et **pire cas 180 pour une seule reconstruction** contre
-    **1**. Un en-tête du corpus porte 183 enfants.
+    `mesuré` le 10 septembre 2026 sur le graphe en service, sur les 189
+    remontées « avant » et leurs 136 niveaux intermédiaires, **tous niveaux
+    comptés** : **6 084** tags demandés par le balayage avant contre **4 202** à
+    rebours, et **pire cas 234 pour une seule reconstruction** contre **159**.
+    Un en-tête du corpus porte 183 enfants.
+
+    *Ce garde a d'abord été écrit sous des chiffres que le lot avait publiés
+    faux — « 2 018 contre 136, pire cas 180 contre 1 » — parce que le premier
+    comptage omettait le niveau terminal de la descente et le second non. Le
+    gain réel est de 31 %, pas de quinze fois ; le site canonique de la
+    correction est le docstring de `_last_header_descendant`. Le garde, lui,
+    n'a pas bougé : il mord sur la MÊME mutation, et c'est ce qui distingue une
+    amplitude fausse d'un garde faux.*
+
+    CE QUE LE GARDE ASSERTE, ET IL EST PLUS SERRÉ QUE LE GRAPHE RÉEL. Sur sa
+    fixture, le balayage avant demande **42** tags là où le balayage arrière en
+    demande **2** : le seuil de 4 sépare donc les deux sans ambiguïté. C'est
+    délibéré — un garde n'a pas à reproduire l'amplitude du corpus, il a à
+    séparer les deux implémentations de façon qu'aucun bruit ne les confonde.
 
     C'est le chemin de lecture de CHAQUE recherche. La suite était verte des
     deux côtés : aucun garde du dépôt ne compte les aller-retours, et une
