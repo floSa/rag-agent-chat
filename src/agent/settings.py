@@ -231,6 +231,11 @@ class Settings(BaseSettings):
     #   reconstruction_ms_p50               114  →     197   (+73 %)
     #   reconstruction_ms_p95               181  →     571   (+215 %)
     #
+    # Ces chiffres ont été REJOUÉS par le lot 8 le 10 septembre 2026 (14:39 →
+    # 14:58 UTC) sur un lecteur hors service, (C) allumée, et versionnés :
+    # `runs/2026-09-10-definition-c-allumee-reglage.json` — 10 633, 3 291 et 32
+    # à l'unité, reconstruction 191 / 550 ms. La colonne « après » a un site.
+    #
     # Le §P1 du registre tranche : un rapport prix/apport défavorable tranche sans
     # juge. Décision de l'utilisateur, 10 septembre 2026 : le comportement de
     # production reste (A), le code de (C) survit derrière ce réglage. Ce que la
