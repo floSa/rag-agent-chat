@@ -498,7 +498,19 @@ def _neighbour_section(parent_id: str, sequence: int, direction: str) -> str | N
         DÉCISION : les 25 / 24 en-têtes qui ouvrent ou ferment leur document
         gardent un bloc d'encadrement vide de ce côté, plutôt qu'un voisin
         emprunté à l'ouvrage suivant.
+
+    LE RÉGLAGE, ET IL EST ÉTEINT PAR DÉFAUT. `settings.neighbour_section_uncles`
+    (`NEIGHBOUR_SECTION_UNCLES`) décide si la remontée a lieu. Éteint, cette
+    fonction rend EXACTEMENT ce que `_find_sibling` rend — même valeur, mêmes
+    requêtes nGQL, aucune remontée même silencieuse —, ce qui est le
+    comportement de `main` avant le lot 4. Le motif est écrit au site du
+    réglage, dans `settings.py` : la campagne du 10 septembre 2026 achète la
+    couverture (71 % → 98 %) pour zéro point de rappel et un prix mesuré. Le
+    code survit parce qu'aucun des deux jeux ne note la réponse générée.
+    Gardé dans les deux positions par `tests/unit/test_section_voisine.py`.
     """
+    if not settings.neighbour_section_uncles:
+        return _find_sibling(parent_id, sequence, direction)
     remonte = False
     for _ in range(_MAX_DEPTH):
         sibling_id = _find_sibling(parent_id, sequence, direction)
@@ -892,10 +904,12 @@ def _neighbour_elements(
     """Retourne la queue de la section précédente, ou la tête de la suivante.
 
     Répond au besoin « récupérer les informations avant et après ». La section
-    voisine est celle que `_neighbour_section` désigne — définition (C), le
-    frère en-tête sous le parent commun PUIS la remontée aux oncles, bornée au
-    document. Voir ce docstring pour ce que la définition couvre, ce qu'elle
-    coûte, et pourquoi le voisin en ordre de lecture a été écarté.
+    voisine est celle que `_neighbour_section` désigne : le frère en-tête sous
+    le parent commun — définition (A), le comportement de production —, PUIS,
+    seulement si `settings.neighbour_section_uncles` est allumé, la remontée
+    aux oncles bornée au document — définition (C), éteinte par défaut sur la
+    mesure de sa campagne. Voir ce docstring pour ce que la définition couvre,
+    ce qu'elle coûte, et pourquoi le voisin en ordre de lecture a été écarté.
 
     QUAND ELLE REND `None`, CE BLOC EST VIDE, TITRE COMPRIS — et c'est la
     décision, pas un reste : les 25 en-têtes « avant » et 24 « après » qui

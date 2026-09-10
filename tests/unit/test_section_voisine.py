@@ -41,6 +41,9 @@ de contact est vérifié ici : la remontée ne doit pas rendre un découpage moi
 positionnel qu'il ne l'était.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 
 from src.agent import graph_context
@@ -50,7 +53,15 @@ from src.agent.graph_context import (
     _neighbour_section,
     reconstruct_section,
 )
+from src.agent.settings import Settings
 from tests.unit.test_lecture_sequence import GrapheFactice, _branche
+
+_RACINE = Path(__file__).resolve().parents[2]
+# Le nom du réglage et son alias d'environnement, LUS dans `Settings` plutôt que
+# recopiés : une faute de frappe dans l'un des deux doit rougir ici, pas dans
+# le `.env` d'un exploitant.
+_REGLAGE = "neighbour_section_uncles"
+_ALIAS = str(Settings.model_fields[_REGLAGE].alias)
 
 # Rangs du graphe des oncles. Nommés plutôt qu'écrits en clair : PLR2004
 # refuserait les littéraux, et une règle muselée n'est pas une correction.
@@ -69,6 +80,73 @@ def _element(g: GrapheFactice, vid: str, parent: str, seq: int, texte: str) -> s
 
 def _entete(g: GrapheFactice, vid: str, parent: str, seq: int, texte: str) -> str:
     return g.noeud(vid, "SectionHeader", "section_header", texte, parent, seq)
+
+
+@pytest.fixture(autouse=True)
+def definition_c_allumee(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TOUT CE FICHIER ÉPROUVE (C), DONC IL L'ALLUME — le défaut du dépôt est ÉTEINT.
+
+    Décision de l'utilisateur du 10 septembre 2026, sur la campagne du lot 4 :
+    la remontée aux oncles n'est pas le comportement de production, elle vit
+    derrière `settings.neighbour_section_uncles`, faux par défaut. Les gardes de
+    (C) ci-dessous doivent donc l'allumer pour atteindre leur cas — `mesuré` :
+    sans cette fixture, 13 des 23 tests du fichier rougissent sous le défaut
+    (`pytest tests/unit/test_section_voisine.py`, `rc=1`, 10 septembre 2026).
+    C'est la preuve que le réglage est bien ce qui les fait passer de (A) à (C).
+
+    Les gardes de la position ÉTEINTE — `TestLeReglageEteintRendLeComportementDeMain`
+    — l'éteignent explicitement par `_eteint`, qui vient APRÈS cette fixture
+    dans l'ordre des `setattr` et gagne donc.
+    """
+    _allume(monkeypatch)
+
+
+def _allume(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(graph_context.settings, _REGLAGE, True)
+
+
+def _eteint(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(graph_context.settings, _REGLAGE, False)
+
+
+def _position(monkeypatch: pytest.MonkeyPatch, allume: bool) -> None:
+    (_allume if allume else _eteint)(monkeypatch)
+
+
+def _graphe_des_oncles() -> tuple[GrapheFactice, dict[str, str]]:
+    """Le graphe des oncles, construisible PLUSIEURS fois dans un même test.
+
+    La comparaison des flux de requêtes a besoin de deux exemplaires vierges du
+    même graphe — un par branche comparée —, ce qu'une fixture ne rend qu'une
+    fois. La fixture `graphe_des_oncles` en garde la forme habituelle.
+    """
+    g = GrapheFactice()
+    v: dict[str, str] = {}
+    v["doc"] = g.document("doc_essai/Livre/Chapitres", "Livre.pdf", collection="Ouvrage")
+
+    v["oncle_avant"] = _entete(g, "aa00000001", v["doc"], _SEQ_ONCLE_AVANT, "Chapitre 1")
+    _element(g, "aa00000002", v["oncle_avant"], 1, "a1")
+    v["queue_avant"] = _entete(g, "aa00000010", v["oncle_avant"], 10, "Section 1.9")
+    for i in range(3):
+        _element(g, f"aa0000001{i + 1}", v["queue_avant"], 11 + i, f"x{i + 1}")
+
+    v["parent"] = _entete(g, "bb00000001", v["doc"], _SEQ_PARENT, "Chapitre 2")
+    v["intro_parent"] = _element(g, "bb00000002", v["parent"], 101, "p1")
+    v["cible"] = _entete(g, "bb00000010", v["parent"], _SEQ_CIBLE, "Section 2.1")
+    v["ancre"] = ""
+    for i in range(3):
+        vid = _element(g, f"bb0000001{i + 1}", v["cible"], 111 + i, f"c{i + 1}")
+        if i == 1:
+            v["ancre"] = vid
+    v["queue_parent"] = _element(g, "bb00000020", v["parent"], 200, "p2")
+
+    v["oncle_apres"] = _entete(g, "cc00000001", v["doc"], _SEQ_ONCLE_APRES, "Chapitre 3")
+    _element(g, "cc00000002", v["oncle_apres"], 301, "b1")
+    v["tete_apres"] = _entete(g, "cc00000010", v["oncle_apres"], 310, "Section 3.1")
+    for i in range(3):
+        _element(g, f"cc0000001{i + 1}", v["tete_apres"], 311 + i, f"y{i + 1}")
+
+    return g, v
 
 
 @pytest.fixture
@@ -99,33 +177,7 @@ def graphe_des_oncles() -> tuple[GrapheFactice, dict[str, str]]:
     diffèrent dans les deux directions : `queue_avant != oncle_avant` et
     `tete_apres != oncle_apres`. Sans cela le sous-choix serait invisible.
     """
-    g = GrapheFactice()
-    v: dict[str, str] = {}
-    v["doc"] = g.document("doc_essai/Livre/Chapitres", "Livre.pdf", collection="Ouvrage")
-
-    v["oncle_avant"] = _entete(g, "aa00000001", v["doc"], _SEQ_ONCLE_AVANT, "Chapitre 1")
-    _element(g, "aa00000002", v["oncle_avant"], 1, "a1")
-    v["queue_avant"] = _entete(g, "aa00000010", v["oncle_avant"], 10, "Section 1.9")
-    for i in range(3):
-        _element(g, f"aa0000001{i + 1}", v["queue_avant"], 11 + i, f"x{i + 1}")
-
-    v["parent"] = _entete(g, "bb00000001", v["doc"], _SEQ_PARENT, "Chapitre 2")
-    v["intro_parent"] = _element(g, "bb00000002", v["parent"], 101, "p1")
-    v["cible"] = _entete(g, "bb00000010", v["parent"], _SEQ_CIBLE, "Section 2.1")
-    v["ancre"] = ""
-    for i in range(3):
-        vid = _element(g, f"bb0000001{i + 1}", v["cible"], 111 + i, f"c{i + 1}")
-        if i == 1:
-            v["ancre"] = vid
-    v["queue_parent"] = _element(g, "bb00000020", v["parent"], 200, "p2")
-
-    v["oncle_apres"] = _entete(g, "cc00000001", v["doc"], _SEQ_ONCLE_APRES, "Chapitre 3")
-    _element(g, "cc00000002", v["oncle_apres"], 301, "b1")
-    v["tete_apres"] = _entete(g, "cc00000010", v["oncle_apres"], 310, "Section 3.1")
-    for i in range(3):
-        _element(g, f"cc0000001{i + 1}", v["tete_apres"], 311 + i, f"y{i + 1}")
-
-    return g, v
+    return _graphe_des_oncles()
 
 
 # ─── (1) La remontée trouve ce que (A) manquait, DANS LES DEUX DIRECTIONS ─────
@@ -490,13 +542,17 @@ class TestLAncrageSuitLaRemontee:
         assert comparaisons, "aucune requête ne compare sequence : garde vide"
         # — le cas est-il atteint ? la remontée doit avoir eu lieu, donc des
         #   requêtes doivent partir du DOCUMENT et non du seul parent.
-        ancres = {GrapheFactice._VID.search(q).group(1) for q in comparaisons}  # type: ignore[union-attr]
+        # Chaque requête est ancrée, et l'ancre est relevée dans le même geste :
+        # c'est ce qui rend la suppression du contrôle de type inutile — le
+        # `None` est refusé AVANT qu'on lise le groupe, et il est refusé avec
+        # la requête fautive en clair.
+        ancres: set[str] = set()
+        for requete in comparaisons:
+            correspondance = GrapheFactice._VID.search(requete)
+            assert correspondance is not None, f"requête non ancrée sur un VID : {requete}"
+            ancres.add(correspondance.group(1))
         assert v["doc"] in ancres, "aucune requête ne part du document : pas de remontée"
         assert v["parent"] in ancres
-        for requete in comparaisons:
-            assert GrapheFactice._VID.search(requete) is not None, (
-                f"requête non ancrée sur un VID : {requete}"
-            )
 
 
 # ─── (6) (C) ne peut pas dégénérer — ce qui a écarté (B) ─────────────────────
@@ -816,10 +872,14 @@ class TestLeCoutDeLaDescenteEstBorne:
 # ─── (10) LE TÉMOIN INERTE ────────────────────────────────────────────────────
 
 
+@pytest.mark.parametrize("allume", [True, False], ids=["allume", "eteint"])
 def test_temoin_inerte_le_graphe_plat_est_servi_comme_avant(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, allume: bool
 ) -> None:
     """LE TÉMOIN. Sur un graphe PLAT, (A) et (C) rendent la MÊME chose.
+
+    Et dans les DEUX positions du réglage : un témoin qui ne serait inerte que
+    sous (C) ne dirait rien des mutations de l'interrupteur.
 
     Un graphe plat — tous les en-têtes enfants directs du `Document`, la forme
     d'avant le 2 septembre 2026 — n'offre aucun oncle : la remontée ne peut
@@ -830,6 +890,7 @@ def test_temoin_inerte_le_graphe_plat_est_servi_comme_avant(
     cassé » dans le tableau des mutations : une mutation qui rougit ICI n'a pas
     éprouvé la remontée, elle a cassé autre chose.
     """
+    _position(monkeypatch, allume)
     g = GrapheFactice()
     doc = g.document("doc_essai/Plat/Chapitre", "Plat.pdf")
     avant = _entete(g, "aa00000001", doc, 0, "Chapitre 1")
@@ -862,3 +923,151 @@ def test_temoin_inerte_le_graphe_plat_est_servi_comme_avant(
     assert contexte.after_title == "Chapitre 3"
     assert [e.text for e in contexte.before] == ["a1", "a2", "a3"]
     assert [e.text for e in contexte.after] == ["c1", "c2", "c3"]
+
+
+# ─── (10) LE RÉGLAGE, ÉTEINT : le comportement de `main`, PROUVÉ ─────────────
+
+
+def _requetes_d_une_reconstruction(monkeypatch: pytest.MonkeyPatch) -> tuple[list[str], str]:
+    """Le flux nGQL complet d'une reconstruction sur un graphe des oncles vierge.
+
+    Rend aussi le markdown servi : deux branches qui émettent les mêmes requêtes
+    ET servent le même texte ont le même comportement observable — c'est la
+    définition que ce fichier retient de « identique à `main` ».
+    """
+    g, v = _graphe_des_oncles()
+    _branche(monkeypatch, g)
+    contexte = reconstruct_section(v["ancre"])
+    return list(g.requetes), contexte.markdown
+
+
+class TestLeReglageEteintRendLeComportementDeMain:
+    """ÉTEINT, LE CHEMIN EST CELUI DE `main` — et c'est prouvé, pas promis.
+
+    L'AST hors docstrings de `graph_context.py` ne peut pas être celui de `main`,
+    puisque le code de (C) est dedans. La preuve est donc COMPORTEMENTALE, et
+    elle tient en deux faits observables depuis la frontière nGQL :
+
+    1. `_neighbour_section` rend, éteint, la même valeur que `_find_sibling` —
+       qui est l'appel que `main` fait à ce site, mot pour mot ;
+    2. une reconstruction complète émet, éteint, EXACTEMENT les requêtes qu'elle
+       émet quand `_neighbour_section` est remplacé par `_find_sibling` — c'est
+       le site de `main` reconstitué —, et sert le même markdown.
+
+    Le second fait est ce que le premier ne voit pas : une remontée faite puis
+    JETÉE rendrait la bonne valeur en payant les aller-retours de (C). La
+    mutation qui l'éprouve est dans le tableau du rapport du lot 8.
+
+    Le symétrique des dix mutations du lot 4 : un réglage dont une seule
+    position est éprouvée est un garde à moitié écrit, et ce chantier a trouvé
+    neuf fois un garde vert sous une scène que le défaut ne rencontre jamais.
+    """
+
+    def test_eteint_la_voisine_est_celle_de_la_definition_a(
+        self, graphe_des_oncles: tuple, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        g, v = graphe_des_oncles
+        _branche(monkeypatch, g)
+        # — le cas est-il atteint ? ALLUMÉ, ce graphe fait remonter des deux
+        #   côtés ; c'est donc bien l'interrupteur qui décide ci-dessous.
+        assert _neighbour_section(v["parent"], _SEQ_CIBLE, "before") == v["queue_avant"]
+        assert _neighbour_section(v["parent"], _SEQ_CIBLE, "after") == v["oncle_apres"]
+
+        _eteint(monkeypatch)
+        for direction in ("before", "after"):
+            attendu = _find_sibling(v["parent"], _SEQ_CIBLE, direction)
+            assert attendu is None, "le montage ne fait plus échouer (A) : garde vide"
+            assert _neighbour_section(v["parent"], _SEQ_CIBLE, direction) is attendu, (
+                f"éteint, la remontée a encore lieu en « {direction} » : le "
+                f"comportement de production n'est plus celui de main"
+            )
+        contexte = reconstruct_section(v["ancre"])
+        assert contexte.before == [] and contexte.before_title == ""
+        assert contexte.after == [] and contexte.after_title == ""
+        for titre_d_oncle in ("Chapitre 1", "Section 1.9", "Chapitre 3"):
+            assert titre_d_oncle not in contexte.markdown
+
+    def test_eteint_le_flux_de_requetes_est_celui_du_site_de_main(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Mêmes requêtes nGQL, dans le même ordre, et même markdown que `main`.
+
+        La branche « main » est reconstituée en remplaçant `_neighbour_section`
+        par `_find_sibling` au site où `main` l'appelle — c'est exactement le
+        diff hors docstrings de `_neighbour_elements` entre `main` et ce lot.
+        """
+        _allume(monkeypatch)
+        allume, _ = _requetes_d_une_reconstruction(monkeypatch)
+
+        _eteint(monkeypatch)
+        eteint, markdown_eteint = _requetes_d_une_reconstruction(monkeypatch)
+
+        monkeypatch.setattr(graph_context, "_neighbour_section", _find_sibling)
+        main, markdown_main = _requetes_d_une_reconstruction(monkeypatch)
+
+        # — le cas est-il atteint ? allumé, la remontée coûte des requêtes que
+        #   main n'émet pas ; sans cet écart, l'égalité ci-dessous serait vide.
+        assert len(allume) > len(main), "la remontée n'a rien coûté : le montage ne l'exerce pas"
+
+        assert eteint == main, (
+            "éteint, la reconstruction n'émet pas les requêtes de main : soit la "
+            "remontée a lieu en silence, soit une requête a changé de forme"
+        )
+        assert markdown_eteint == markdown_main
+
+    @pytest.mark.parametrize(
+        ("allume", "avant", "apres"),
+        [(False, None, None), (True, "queue_avant", "oncle_apres")],
+        ids=["eteint", "allume"],
+    )
+    def test_les_deux_positions_rendent_chacune_ce_qu_elles_promettent(
+        self,
+        graphe_des_oncles: tuple,
+        monkeypatch: pytest.MonkeyPatch,
+        allume: bool,
+        avant: str | None,
+        apres: str | None,
+    ) -> None:
+        """Les deux positions côte à côte, sur la même scène.
+
+        Une inversion de l'interrupteur rougit ici dans les DEUX identifiants.
+        """
+        g, v = graphe_des_oncles
+        _branche(monkeypatch, g)
+        _position(monkeypatch, allume)
+
+        attendu_avant = v[avant] if avant else None
+        attendu_apres = v[apres] if apres else None
+        assert _neighbour_section(v["parent"], _SEQ_CIBLE, "before") == attendu_avant
+        assert _neighbour_section(v["parent"], _SEQ_CIBLE, "after") == attendu_apres
+
+    def test_le_reglage_est_eteint_par_defaut_et_son_site_dit_son_prix(self) -> None:
+        """Le DÉFAUT est faux, l'alias est publié, et le site porte les chiffres.
+
+        Lu dans la classe et non dans l'instance : l'instance lit un `.env` s'il
+        en existe un dans le répertoire courant, et le défaut du dépôt n'est pas
+        ce qu'un poste y a écrit.
+        """
+        champ = Settings.model_fields[_REGLAGE]
+        assert champ.default is False, (
+            "la définition (C) est allumée par défaut : c'est la décision inverse"
+        )
+        assert _ALIAS == "NEIGHBOUR_SECTION_UNCLES"
+
+        exemple = (_RACINE / ".env.example").read_text(encoding="utf-8")
+        assert re.search(rf"^{_ALIAS}=false$", exemple, re.M), (
+            f"`.env.example` ne publie pas `{_ALIAS}=false` : un exploitant ne peut "
+            f"ni découvrir le réglage ni lire qu'il est éteint"
+        )
+
+        # Le prix, AU SITE du réglage : les deux métriques qui décident (§4.41)
+        # doivent être écrites dans le commentaire qui précède le champ.
+        source = (_RACINE / "src/agent/settings.py").read_text(encoding="utf-8")
+        declaration = source.index(f"{_REGLAGE}: bool = Field(")
+        site = source[max(0, declaration - 3000) : declaration]
+        decisifs = ("prompt_eval_count_p50", "contextes_ecartes_total", "reconstruction_ms_p95")
+        for chiffre in decisifs:
+            assert chiffre in site, (
+                f"le site du réglage ne dit plus ce qu'il coûte ({chiffre} absent) : "
+                f"quelqu'un l'allumera en croyant que c'est gratuit"
+            )
