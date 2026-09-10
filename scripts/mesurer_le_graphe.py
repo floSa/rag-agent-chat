@@ -702,6 +702,99 @@ def _rapporter_la_lecture(
     )
 
 
+def _rapporter_le_cout_de_la_descente(
+    entetes: list[str],
+    enfants: dict[str, list[tuple[int, str]]],
+    parent: dict[str, str],
+    rang: dict[str, int],
+    tags: dict[str, str],
+) -> None:
+    """Le coût de la descente du sous-choix, et l'ÉQUIVALENCE des deux balayages.
+
+    CETTE SECTION EXISTE POUR LA MÊME RAISON QUE LA PRÉCÉDENTE, et le lot 4 s'y
+    est pris lui-même. Il a publié au §4.41 et dans le docstring de
+    `_last_header_descendant` que le balayage avant coûtait **2 018**
+    aller-retours nGQL contre **136** à rebours, pire cas **180** contre **1** —
+    et il les a d'abord publiés **sans instrument**, exactement ce que la
+    réserve 1 du §4.6 reprochait au pilote. Ils se rejouent ici.
+
+    CE QU'ELLE MESURE, ET POURQUOI LES DEUX CHOSES ENSEMBLE :
+
+    1. **l'équivalence.** Les deux sens de balayage doivent rendre le MÊME nœud
+       pour les 746 en-têtes. C'est vrai par construction — « le dernier enfant
+       en-tête » est le dernier des enfants en-tête quel que soit le sens de
+       lecture —, et *« vrai par construction » est précisément la forme de
+       phrase que ce chantier a payée huit fois*. C'est aussi ce qui autorise à
+       transporter les métriques de QUALITÉ d'une campagne mesurée avant la
+       correction de coût : si les deux versions servent le même nœud, elles
+       servent le même markdown, et seule la latence diffère. Sans cette ligne,
+       ce transport est `calculé` ;
+    2. **le coût**, en tags demandés. `_get_node_properties` n'est pas mémoïsée :
+       un tag demandé est un aller-retour nGQL. Le balayage avant les paie tous,
+       le balayage arrière s'arrête au premier en-tête rencontré depuis la fin.
+    """
+    print("\n  ── la descente du sous-choix : équivalence et coût des deux balayages ──")
+    # LE COMPTAGE COMPTE TOUS LES NIVEAUX, LE TERMINAL INCLUS, et c'est une
+    # correction. Le lot 4 a d'abord publié « 2 018 contre 136 » : le premier
+    # chiffre omettait le niveau terminal, le second l'incluait — deux
+    # comptabilités confrontées l'une à l'autre. Or `_last_header_descendant`
+    # PAIE le niveau terminal : c'est celui où elle ne trouve aucun en-tête,
+    # donc celui où elle demande le tag de tous les enfants avant de rendre.
+    # C'est même le niveau le plus cher des deux côtés, puisqu'aucun arrêt
+    # anticipé n'y est possible. *Un chiffre de coût qui ne compte pas le cas
+    # où la boucle ne trouve rien mesure la boucle qui réussit, pas la boucle.*
+    desaccords = 0
+    population = 0
+    niveaux_intermediaires = 0
+    cout_avant = cout_arriere = 0
+    pire_avant = pire_arriere = 0
+    for entete in entetes:
+        oncle, crans = _frere_c(entete, "before", enfants, parent, rang, tags)
+        if oncle is None or crans < 1:
+            continue
+        population += 1
+        # Les deux implémentations, côte à côte, sur la même descente.
+        en_avant = _descendant_entete(oncle, enfants, tags, dernier=True)
+        courant = oncle
+        par_reconstruction_avant = par_reconstruction_arriere = 0
+        while True:
+            fils = [c for _, c in enfants.get(courant, [])]
+            # balayage AVANT : le tag de CHAQUE enfant, à tous les niveaux.
+            par_reconstruction_avant += len(fils)
+            # balayage ARRIÈRE : on s'arrête au premier en-tête depuis la fin ;
+            # s'il n'y en a aucun, on paie tout, comme l'autre.
+            depuis_la_fin = next(
+                (
+                    i
+                    for i, candidat in enumerate(reversed(fils), start=1)
+                    if tags.get(candidat) == "SectionHeader"
+                ),
+                None,
+            )
+            par_reconstruction_arriere += len(fils) if depuis_la_fin is None else depuis_la_fin
+            if depuis_la_fin is None:
+                break
+            niveaux_intermediaires += 1
+            courant = fils[len(fils) - depuis_la_fin]
+        cout_avant += par_reconstruction_avant
+        cout_arriere += par_reconstruction_arriere
+        pire_avant = max(pire_avant, par_reconstruction_avant)
+        pire_arriere = max(pire_arriere, par_reconstruction_arriere)
+        if courant != en_avant:
+            desaccords += 1
+    print(f"  remontées « avant » concernées          : {population}")
+    print(f"  niveaux de descente intermédiaires      : {niveaux_intermediaires}")
+    print(f"  DÉSACCORDS entre les deux sens          : {desaccords}")
+    print(f"  tags demandés, balayage AVANT           : {cout_avant}")
+    print(f"    pire cas pour UNE reconstruction      : {pire_avant}")
+    print(f"  tags demandés, balayage ARRIÈRE         : {cout_arriere}")
+    print(f"    pire cas pour UNE reconstruction      : {pire_arriere}")
+    plus_gros = max(
+        (len(f) for cle, f in enfants.items() if tags.get(cle) == "SectionHeader"), default=0
+    )
+    print(f"  enfants du plus gros en-tête            : {plus_gros}")
+
+
 def rapporter_les_definitions_de_voisine(
     aretes: list[tuple[str, str, int | None]], tags: dict[str, str]
 ) -> None:
@@ -714,6 +807,7 @@ def rapporter_les_definitions_de_voisine(
     _controle_des_chiffres_deja_publies(entetes, enfants, parent, rang, tags)
     _rapporter_les_definitions(entetes, poids, total, enfants, parent, rang, tags)
     _rapporter_la_lecture(entetes, enfants, parent, rang, tags)
+    _rapporter_le_cout_de_la_descente(entetes, enfants, parent, rang, tags)
 
 
 def rapporter_les_ecritures(pool: Any, aretes: list[tuple[str, str, int | None]]) -> None:
