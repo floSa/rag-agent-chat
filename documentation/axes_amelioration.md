@@ -6716,3 +6716,136 @@ propre mesure.**
   était nécessaire à la campagne ; il est consigné ici parce qu'il touche
   l'antécédent des deux références ;
 - **cinquième lot de suite à trouver ses propres faux résultats et à les écrire.**
+
+---
+
+### 4.43 → FERMÉ — le lot 8 fusionné : le garde du lot 3 s'exécute enfin, et sept lots n'ont rien changé au contenu servi
+
+`Conv' 47` (LOT-8) a livré le 10 septembre 2026. **Fusionné dans `main` :
+`9509228`.** Trois commits, adresse autorisée, **zéro** `type: ignore` dans
+`tests/` — là où le lot 4 en avait laissé un sans justification.
+
+#### Ce que le pilote a mesuré de ses mains, sur le service en marche
+
+Le 10 septembre 2026 à 15:09 UTC :
+
+| | `mesuré` |
+|---|---|
+| image en service | **`2f4f1aa93f55`**, construite à 14:12:47, conteneur créé à 14:13:13, `healthy` |
+| `graph_context.py` dans le conteneur | **`9b4a0739…` — IDENTIQUE à `main`** |
+| `retriever.py` dans le conteneur | **`78affe08…` — IDENTIQUE à `main`** |
+| `grep -c 'verifier_modele_embedding'` | **5** dans `retriever.py` (0 la veille) |
+| `grep -c 'verdict_langue_du_reranker'` | **3** (0 la veille) |
+| `/health` | **200**, et il publie désormais **`embedding_model: {status: "ok"}`** |
+| chemin de retour | l'ancienne image est étiquetée `rag-agent-chat-agent-api:2026-09-03-ancien-lecteur` = `946dc14c` |
+
+**LE GARDE DU MODÈLE D'EMBEDDING S'EXÉCUTE EN PRODUCTION POUR LA PREMIÈRE FOIS.**
+Le lot 3 — quatre audits, quatre bloquantes, trois réparations, le lot le plus
+cher du chantier — avait été écrit, audité, réparé, réaudité, fusionné et poussé
+**sans jamais exécuter une ligne**. Il tourne depuis 14:13:22, et son verdict est
+au journal : *« la collection 'rag_documents' est estampillée '…L12-v2', conforme
+au réglage »*.
+
+#### Et sept lots n'ont rien changé au contenu servi — ce qui est exactement ce qu'ils promettaient
+
+Le lot a fait ce que personne n'avait fait : **figer l'ancien lecteur avant de le
+remplacer**. Les deux campagnes rejouées contre lui, puis contre le neuf,
+`mesuré` par le pilote depuis les artefacts **versionnés** :
+
+| | `caracteres_retenus_p50` | `prompt_eval_count_p50` | `contextes_ecartes_total` |
+|---|---|---|---|
+| référence du 8 septembre | 9 529 | 3 131 | 26 |
+| **lecteur neuf** | **9 529** | **3 131** | **26** |
+| (C) allumée — la colonne « après » du lot 4 | 10 633 | 3 291 | 32 |
+
+**Ex æquo à l'unité sur 130/130 et 26/26 questions appariées, mêmes strates
+d'échec.** Sept lots de gardes et d'instruments n'ont pas déplacé un caractère du
+contenu servi — *et c'est le résultat attendu : ce chantier n'a jamais promis
+d'améliorer les réponses, il a promis de rendre bruyantes les pannes
+silencieuses.* La lecture de `sequence` corrigée par le lot 2 sert le même
+contenu au caractère près sur 168 questions.
+
+**Les trois défauts du §4.42 sont fermés** : le `type: ignore` est retiré
+(l'assertion refuse le `None` avant de lire le groupe), la colonne « après » a
+son artefact — `runs/2026-09-10-definition-c-allumee-*.json`, qui **reproduit les
+chiffres du lot 4 à l'unité** —, et six fichiers de campagne sont désormais
+versionnés avec leur description dans `runs/README.md`.
+
+#### La définition (C) survit éteinte, et l'éteint est `main` — vérifié par mutation
+
+`settings.neighbour_section_uncles`, `default=False`, alias
+`NEIGHBOUR_SECTION_UNCLES`, publié à `false` dans `.env.example`.
+
+`mesuré` par le pilote : rendre la remontée **inconditionnelle** — `if not
+settings.…` remplacé par `if False:` — fait rougir **exactement trois** tests,
+tous de `TestLeReglageEteintRendLeComportementDeMain`, dont un qui compare le
+**flux nGQL complet** d'une reconstruction à celui du site de `main` reconstitué.
+Empreintes `0455caf7…` → `f6db3007…` → `0455caf7…`. *L'éteint n'est pas promis,
+il est gardé.*
+
+**Et un faux résultat du pilote, attrapé par son propre garde-fou** : sa première
+pose de cette mutation visait `settings.neighbour_section_uncles`, qui apparaît
+**trois** fois dans le fichier — deux en prose. L'`assert` d'ancre unique a
+refusé d'écrire, et le `pytest` qui a suivi a rendu **726 verts sur un arbre non
+muté**. Sans l'`assert`, ce vert aurait été publié comme « la mutation ne mord
+pas ». *Sixième fois dans ce chantier qu'un `rc` juste vient de la mauvaise
+raison, et la première où c'est l'outil d'édition qui l'arrête.*
+
+#### NEUVIÈME FAUTE DU PILOTE, et le lot la relève en une phrase
+
+Le prompt du lot 8 écrivait la mesure de concordance **avec sa conclusion** :
+*« → CONCORDANTS, donc l'armement ne produira pas de 503 »*. Le §9 du mandat dit
+l'inverse : *ne jamais annoncer le résultat attendu d'une mesure qu'on commande —
+donner le mécanisme, pas le chiffre.* Le lot l'a relevé : *« il était juste, mais
+c'est le motif qu'il fallait donner, pas le chiffre. »*
+
+*Les huit fautes précédentes étaient des états non mesurés. Celle-ci est
+l'inverse : un état **bien** mesuré, mais publié de façon à priver le lot de sa
+propre mesure. Un lot à qui l'on donne la réponse ne mesure plus, il vérifie —
+et ce chantier a huit trouvailles qui viennent d'un lot ayant mesuré ce que le
+pilote croyait savoir.*
+
+#### La trouvaille du lot contre le chantier, et elle reste OUVERTE
+
+**`make eval` passe par `uv run`, qui resynchronise le `.venv` sur `uv.lock`.**
+`mesuré` par le pilote, `uv sync --inexact --dry-run`, en lecture seule :
+
+    torch        2.14.0+cpu  →  2.13.0        (le build CPU cède au build CUDA)
+    triton                   +  3.7.1         (dépendance CUDA, ajoutée)
+    transformers 5.17.0      →  5.14.1
+    tokenizers   0.23.2      →  0.22.2
+    … et une quinzaine d'autres versions
+
+**`transformers` et `tokenizers` sont exactement ce qui calcule les embeddings et
+fait tourner le cross-encoder.** Donc la recette de campagne de ce dépôt peut
+muter, en silence, l'environnement que son propre protocole §2.2 vient de monter
+— et le premier `uv run` d'un arbre neuf le fait avant la première question.
+
+Le mandat garde déjà `make install` contre `uv sync` pour cette raison exacte,
+avec sa mesure : *183 paquets ramenés à 10, `ruff`, `mypy` et `pytest` retirés,
+`rc=0`, et `make lint` ensuite en `rc=2`.* **Rien ne garde `uv run`, qui fait la
+même chose implicitement.**
+
+Le lot a lancé ses quatre campagnes sous `UV_NO_SYNC=1` et vérifié le `.venv`
+intact ; ses chiffres sont donc sous l'environnement du §2.2. **Et c'est ce qui
+rend la trouvaille moins alarmante qu'elle n'en a l'air** : ses campagnes
+reproduisent les références du 8 septembre **à l'unité** alors qu'elles tournaient
+sous un environnement possiblement différent — les métriques de recherche sont
+donc robustes à cet écart. Mais *« possiblement »* n'est pas une mesure.
+
+**Le lot a refusé de toucher au `Makefile` et a rendu la question au pilote,
+avec sa mesure. C'est la bonne conduite** — la forme de la recette engage la
+reproductibilité de toutes les campagnes futures, et c'est une décision de
+pilotage. **Elle reste ouverte et monte au plan.**
+
+#### Deux réserves du lot, écrites et non fermées
+
+- **les colonnes `*_ms` de l'ancien lecteur sont contaminées** : le lot a fait
+  tourner `make lint`, `make test` et ses mutations sur le même hôte pendant le
+  rejeu, et il l'écrit dans `runs/README.md`. Les métriques de rappel et de
+  contexte sont déterministes et ne le sont pas. *Une contamination déclarée vaut
+  mieux qu'une latence crue* ;
+- le lecteur neuf **interroge le Hub HF sans jeton à chaque démarrage** (un
+  `WARNING`), non instruit.
+
+**Sixième lot de suite à trouver ses propres faux résultats et à les écrire.**
