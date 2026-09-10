@@ -6379,8 +6379,9 @@ définition (C) porte la couverture de **71,2 % à 98,0 %** des éléments servi
 (direction « avant ») et de **67,6 % à 95,5 %** (« après »), et **elle ne gagne
 aucun point de rappel**.
 
-`mesuré` le 9 septembre 2026, `make eval` sur les 138 questions du jeu de
-réglage, comparaison **appariée** contre `runs/2026-09-08-reference.json` :
+`mesuré` le 10 septembre 2026, `make eval` sur les 138 questions du jeu de
+réglage, `rc=0`, contre l'antécédent **versionné** `runs/2026-09-08-reference.json`
+— comparaison **appariée** :
 
 | métrique | avant | après | Δ apparié, IC 95 % |
 |---|---|---|---|
@@ -6396,12 +6397,10 @@ réglage, comparaison **appariée** contre `runs/2026-09-08-reference.json` :
 
 **Les six métriques de rappel sont IDENTIQUES À LA QUATRIÈME DÉCIMALE, sur 130
 questions appariées, sans une seule bascule.** Les deux métriques d'utilité
-bougent de moins d'un point et le test apparié ne les distingue pas du bruit
-(p = 0,109 et p = 0,850). La seule métrique dont l'écart soit significatif est
-le **coût** : +915 caractères retenus par question, 119 questions sur 138 en
-retenant davantage.
+bougent de moins d'un point et le test apparié ne les distingue pas du bruit. La
+seule métrique dont l'écart soit significatif est le **coût**.
 
-**Ce que ça coûte, en fenêtre et en latence** (`mesuré`, même campagne) :
+#### Le prix, mesuré
 
 | | avant | après |
 |---|---|---|
@@ -6409,61 +6408,124 @@ retenant davantage.
 | `prompt_eval_count_p50` | 3 131 | **3 291** (+5,1 %) |
 | `prompt_eval_count_p95` | 3 582 | **3 800** (+6,1 %) |
 | `contextes_ecartes_total` | 26 | **32** |
-| `total_ms_p50` | 7 835 | 8 378 (+6,9 %) |
+| `reconstruction_ms_p50` | 114 | **197** (+73 %) |
+| `reconstruction_ms_p95` | 181 | **571** (+215 %) |
+| `total_ms_p50` | 7 298 | 7 112 |
 
 **`contextes_ecartes_total` est la ligne à lire.** Six contextes de plus sont
 écartés avant le LLM parce que chaque source coûte désormais plus de fenêtre :
 l'encadrement ne s'ajoute pas, il **évince**. `rappel_contexte` ne bouge pas —
 aucun passage doré n'a été perdu sur CE jeu, à CE budget —, mais le mécanisme est
-là, et un budget plus serré le paierait.
+là, et un budget plus serré le paierait. `total_ms_p50` est en baisse : les
++83 ms de reconstruction disparaissent dans la génération, qui domine le total.
 
-**Le jeu de CONTRÔLE dit la même chose, et sa réserve reste entière** — trente
-questions ne tranchent pas un réglage, un écart de deux points y est du bruit
-(§5 du registre de pilotage). `rappel_recherche` 0,801 → 0,801, `rappel_elements`
-0,686 → 0,686, `mrr` 0,770 → 0,770, `rappel_documents` 0,962 → 0,962 : **Δ
-apparié +0,0000 sur les 26 questions appariables, aucune bascule.** Ce qui bouge
-va dans le bon sens sans être décidable : `rappel_contexte` 0,712 → 0,731,
-`taux_contexte_utile` 0,315 → 0,350. **Ce n'est pas une confirmation du gain,
-c'est l'absence de contradiction.**
+#### LE CRITÈRE DU §P1 EST APPLICABLE, ET IL TRANCHE
 
-**CE QUE CE RÉSULTAT NE DIT PAS, et il faut le borner.** Les deux jeux mesurent
-le **rappel de passages** et l'utilité du contexte retenu ; **aucun des deux ne
-mesure la qualité de la réponse générée**, et l'encadrement sert précisément à
-donner au LLM de quoi situer un passage. Un jeu doré à `reviewed: false` et sans
-notation de réponse ne peut pas voir un gain de compréhension. *L'encadrement
-peut donc rapporter quelque chose que ces deux instruments sont structurellement
-incapables de mesurer — et c'est une raison de ne pas conclure, pas une raison
-de croire au gain.*
+Le §P1 « Le pari central n'est pas vérifié » écrit la règle de décision et nomme
+les métriques : *« Ce que le lot 4 rend décidable sans juge : le prix
+(`reconstruction_ms`), le coût en contexte (`caracteres_retenus`), la composition
+du contexte payé (`taux_contexte_utile`, `part_utile_caracteres`) et l'apport
+propre de la fenêtre (`rappel_contexte` moins `rappel_elements`). Un rapport
+prix/apport défavorable tranche sans juge ; seul un rapport favorable en demande
+un. »*
+
+**L'apport propre de la fenêtre ne bouge pas.** `rappel_contexte` moins
+`rappel_elements` vaut **−0,008 avant et −0,008 après** sur le jeu de réglage —
+identique. Sur le jeu de contrôle il passe de **+0,026 à +0,045**, ce qui est
+dans sa propre réserve à trente questions.
+
+**Le rapport prix/apport est donc DÉFAVORABLE sur l'instrument de référence, et
+la règle du §P1 dit qu'il tranche sans juge.** Ce qui va dans l'autre sens, et
+qu'il faut porter honnêtement : la **composition** du contexte payé s'améliore
+un peu partout — `taux_contexte_utile` +0,006 au réglage, **+0,035** au contrôle ;
+`part_utile_caracteres` +0,009 et **+0,043**. Le contexte servi est marginalement
+mieux composé ; il n'est pas plus efficace.
+
+*Cette entrée n'ôte pas le §P1 : la conclusion « défavorable » porte sur les
+métriques sans juge, et le §P1 demandait aussi ce que le LLM en fait. La
+fermeture est la décision du pilote.*
+
+#### Le jeu de CONTRÔLE dit la même chose, et sa réserve reste entière
+
+Trente questions ne tranchent pas un réglage, un écart de deux points y est du
+bruit (§5 du registre de pilotage). `rappel_recherche` 0,801 → 0,801,
+`rappel_elements` 0,686 → 0,686, `mrr` 0,770 → 0,770, `rappel_documents`
+0,962 → 0,962 : **Δ apparié +0,0000 sur les 26 questions appariables, aucune
+bascule.** Ce qui bouge va dans le bon sens sans être décidable :
+`rappel_contexte` 0,712 → 0,731. **Ce n'est pas une confirmation du gain, c'est
+l'absence de contradiction.**
+
+#### CE QUE CE RÉSULTAT NE DIT PAS, et il faut le borner
+
+Les deux jeux mesurent le **rappel de passages** et la composition du contexte
+retenu ; **aucun des deux ne note la qualité de la réponse générée**, et
+l'encadrement sert précisément à donner au LLM de quoi situer un passage. Un jeu
+doré à `reviewed: false` et sans juge calibré ne peut pas voir un gain de
+compréhension. *L'encadrement peut donc rapporter quelque chose que ces deux
+instruments sont structurellement incapables de mesurer — et c'est une raison de
+ne pas conclure, pas une raison de croire au gain.*
 
 **LA DÉCISION APPARTIENT AU PILOTE**, et elle se pose ainsi : (C) achète une
-couverture presque complète et une absence — le bloc d'encadrement qui
-disparaissait, titre compris, pour un tiers des éléments servis — au prix de
-+5 % de fenêtre de prompt et de six sources évincées sur 138 questions, sans
-aucun gain de rappel mesurable. **Le lot livre la décision tranchée ; il ne
-prétend pas qu'elle rapporte.**
+couverture presque complète et supprime une **absence** — le bloc d'encadrement
+qui disparaissait, titre compris, pour un tiers des éléments servis — au prix de
++5 % de fenêtre de prompt, +73 % de latence de reconstruction et six sources
+évincées sur 138 questions, sans aucun gain de rappel mesurable. **Le lot livre
+la décision tranchée ; il ne prétend pas qu'elle rapporte.**
 
-#### Le défaut que le lot a trouvé DANS SON PROPRE CODE, par la mesure
+#### Le défaut que le lot a trouvé DANS SON PROPRE CODE — et le chiffre qu'il avait publié FAUX
 
 `_last_header_descendant` établissait la liste complète des enfants en-tête avant
 d'en prendre le dernier : elle demandait donc le tag de **chaque** enfant, et
-`_get_node_properties` n'est pas mémoïsée. `mesuré` sur le graphe en service, sur
-les 189 remontées « avant » et leurs 136 niveaux de descente : **2 018**
-aller-retours nGQL, **pire cas 180 pour une seule reconstruction** — un en-tête
-du corpus porte 183 enfants. À rebours : **136** aller-retours, **pire cas 1**.
+`_get_node_properties` n'est pas mémoïsée. Le balayage va désormais à rebours et
+s'arrête au premier en-tête rencontré depuis la fin.
 
-*Ce défaut n'était visible ni au lint, ni à la suite, ni à la relecture : aucun
-garde de ce dépôt ne compte les aller-retours, et une régression de latence ne
-rougit nulle part.* Deux gardes le comptent désormais, dont un sur
-`reconstruct_section` — le point d'entrée réel —, parce qu'un garde posé sur la
-seule fonction interne se laisse contourner par une réécriture qui déplace le
-balayage.
+> **CE LOT A PUBLIÉ CE GAIN FAUX, ET DANS LE SENS QUI L'ARRANGEAIT.** La première
+> écriture de cette entrée annonçait « 2 018 aller-retours contre 136, pire cas
+> 180 contre 1 », soit un gain de **quinze fois**. Les deux comptages n'étaient
+> pas le même : le premier omettait le niveau **terminal** de la descente, le
+> second l'incluait. Or c'est le niveau terminal qui domine — celui où aucun
+> en-tête n'est trouvé, donc le seul où aucun arrêt anticipé n'est possible, des
+> deux côtés. *Un chiffre de coût qui ne compte pas le cas où la boucle ne trouve
+> rien mesure la boucle qui réussit, pas la boucle.*
+
+`mesuré` le 10 septembre 2026, **tous niveaux comptés**, sur les 189 remontées
+« avant » et leurs 136 niveaux intermédiaires, par
+`scripts/mesurer_le_graphe.py` :
+
+| balayage | tags demandés | pire cas, UNE reconstruction |
+|---|---|---|
+| avant | 6 084 | **234** |
+| arrière (livré) | **4 202** | **159** |
+
+Le gain est de **31 %**, pas de quinze fois. Un en-tête du corpus porte 183
+enfants.
+
+**ET LA PRÉDICTION DE L'INSTRUMENT EST VALIDÉE PAR LA CAMPAGNE**, ce qui est le
+contrôle le plus fort de cette entrée. Les deux campagnes « après » ont été
+jouées **deux fois** : une première sur le balayage avant, une seconde sur le
+code livré. `reconstruction_ms` passe de **279 à 197** en p50 (**−29,4 %**) et de
+**798 à 571** en p95 (**−28,4 %**), là où l'instrument annonçait **−31 %**
+d'aller-retours nGQL. *Un modèle de coût qui prédit une latence mesurée à trois
+points près n'est plus une hypothèse.*
+
+**Et l'ÉQUIVALENCE des deux sens est mesurée, pas déduite** : ils rendent le même
+nœud pour les 189 remontées, **0 désaccord**. C'est ce qui autorise à comparer
+les deux campagnes « après » entre elles — seule la latence diffère. Les
+métriques appariées le confirment de leur côté : elles sont identiques à la
+quatrième décimale entre les deux jeux, IC compris.
+
+*Ce défaut n'était visible ni au lint, ni aux 720 tests, ni à la relecture :
+aucun garde de ce dépôt ne comptait les aller-retours. Deux le comptent
+désormais, dont un sur `reconstruct_section` — le point d'entrée réel —, parce
+qu'un garde posé sur la seule fonction interne se laisse contourner par une
+réécriture qui déplace le balayage.*
 
 #### ⚠️ LA TROUVAILLE BLOQUANTE, ET ELLE N'EST PAS DANS LE PÉRIMÈTRE DU LOT
 
-**L'agent en service ne fait pas tourner le code de `main`. Il fait tourner
-celui du 3 septembre 2026, et il est CINQ LOTS EN RETARD.**
+**L'agent en service ne fait pas tourner le code de `main`. Il fait tourner celui
+du 3 septembre 2026, et il est CINQ LOTS EN RETARD.**
 
-`mesuré` le 9 septembre 2026 :
+`mesuré` le 9 septembre 2026, confirmé le 10 :
 
 ```bash
 docker image inspect $(docker inspect -f '{{.Image}}' rag-agent-api) --format '{{.Created}}'
@@ -6497,11 +6559,12 @@ niveau du **déploiement** : le garde est vert en intégration continue et **abs
 de l'artefact livré**.
 
 **Ce que ça fait aux campagnes de ce dépôt** : les deux références du 8 septembre
-2026 et les quatre campagnes de ce lot mesurent toutes le **même** agent du
-3 septembre. La comparaison avant / après de ce lot reste donc valide — les deux
-côtés ne diffèrent que par le seul fichier substitué, empreinte SHA-256 relevée
-aux deux bouts —, mais **toute campagne postérieure à une reconstruction de
-l'image se déplacera pour des raisons étrangères au changement mesuré.**
+2026 et les six campagnes de ce lot mesurent toutes le **même** agent du
+3 septembre. La comparaison avant / après reste donc valide — les deux côtés ne
+diffèrent que par le seul fichier substitué, empreinte SHA-256 relevée aux deux
+bouts et restauration vérifiée —, mais **toute campagne postérieure à une
+reconstruction de l'image se déplacera pour des raisons étrangères au changement
+mesuré.**
 
 **Le geste minimal qui l'arme, et le lot ne l'a PAS écrit** : une assertion
 `"embedding_model" in /health` dans `tests/integration/test_stack.py` rougirait
