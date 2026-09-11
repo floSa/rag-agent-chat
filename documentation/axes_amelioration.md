@@ -7270,16 +7270,28 @@ service.* À trancher par le pilote.
    écart de 10⁻⁷. Recalculé en `float64` : **1,000000000000000**. *Un chiffre juste
    rendu par une commande qui ne le rend pas est pire qu'un chiffre nu.*
 
-#### RÉSERVE OUVERTE — le garde du compte de tests peut capturer la mauvaise ligne
+#### La réserve ouverte par le faux résultat n° 2 est FERMÉE dans le même lot
 
-`_comptes_annonces()` cherche `\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers` par
-`re.search`, donc **la première occurrence du fichier**. Aujourd'hui c'est la note
-`mesuré`, et le garde est juste. Mais la page porte **plusieurs** phrases de cette
-forme — le récit du §4.13 en est une —, et rien n'ancre la lecture sur la note.
-Deux pannes en découlent : le faux message ci-dessus, et — plus grave et **muette**
-— un garde **vert pour la mauvaise raison** le jour où la note disparaîtrait ou
-changerait de forme et où un récit porterait par hasard les bons chiffres. *Le
-geste : ancrer la lecture sur la phrase `mesuré`, et garder les deux directions.*
+`_comptes_annonces()` cherchait `\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers` par
+`re.search`, donc **la première occurrence du fichier**, sans rien qui l'ancre sur
+la note `mesuré`. La page porte pourtant **plusieurs** phrases de cette forme — le
+récit du §4.13 en est une. Deux pannes en découlaient : le faux message ci-dessus,
+et — plus grave et **muette** — un garde **vert pour la mauvaise raison** le jour
+où la note disparaîtrait et où un récit porterait par hasard les bons chiffres.
+
+La lecture est désormais ancrée sur le mot `mesuré`, **sur la même ligne** (c'est
+le retour à la ligne qui avait mordu), et l'**unicité** est exigée : deux notes
+concurrentes laisseraient `re.search` en choisir une en silence. Trois tests la
+gardent dans les deux sens, `TestLaNoteDuCompteEstLueAuBonEndroit` :
+
+| scène | attendu | `mesuré` |
+|---|---|---|
+| un récit SEUL, portant `**520** tests sur **36** fichiers` | refusé | refusé — et la preuve d'atteinte vérifie que **l'ancienne lecture, elle, s'y laissait prendre** |
+| la note ET un récit concurrent sur la même page | la NOTE est lue | `(755, 44)` |
+| la page réelle du dépôt | une note et une seule | vert, **et elle porte bien ≥ 2 phrases de cette forme** — sans quoi l'ancrage ne serait pas mis à l'épreuve par la page elle-même |
+
+*Le témoin inerte de ce trio n'est pas un cas neutre mais la page livrée : s'il
+rougit, les deux autres mesurent une page qui n'existe pas.*
 
 #### CE QUE CE LOT A REFUSÉ, ET C'EST LA DEUXIÈME FOIS DE SUITE
 
