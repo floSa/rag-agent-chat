@@ -1029,12 +1029,21 @@ class TestLaCibleInstallNeDesarmeRien:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _pousse(depot: Path, lignes: str, distant: str = "origin"):
+def _pousse(
+    depot: Path,
+    lignes: str,
+    distant: str = "origin",
+    env: dict[str, str] | None = None,
+):
     """Execute le hook `pre-push` ARME du depot, avec `lignes` sur son entree.
 
     C'est la copie posee par l'installeur qui est executee — `<type>.legacy` —
     et non le script du dossier `scripts/`. Un test qui lancerait la source ne
     dirait rien du montage ; celui-ci prouve les deux ensemble.
+
+    `env` sert a UN SEUL appelant — `TestLaBorneDeTempsDuLsRemoteEstGardee`, qui
+    interpose un mouchard `timeout` sur le `PATH`. Il est ajoute ici plutot que
+    dans un second lanceur : deux facons d'executer le hook arme divergeraient.
     """
     hook = depot / ".git" / "hooks" / "pre-push.legacy"
     assert hook.is_file(), (
@@ -1044,6 +1053,8 @@ def _pousse(depot: Path, lignes: str, distant: str = "origin"):
     environnement = dict(os.environ)
     environnement.pop("GIT_DIR", None)
     environnement.pop("GIT_WORK_TREE", None)
+    if env:
+        environnement.update(env)
     return subprocess.run(
         ["sh", str(hook), distant, "https://example.invalid/depot.git"],
         cwd=depot,
@@ -2695,3 +2706,297 @@ class TestLeMotifDAttributionNaQuUnSeulSite:
         finally:
             (depot / "scripts" / INSTALLEUR.name).write_text(INSTALLEUR.read_text())
             pose.write_text(sauvegarde)
+
+
+# ── LA BORNE DE TEMPS DU `ls-remote`, ET ELLE N'ETAIT QUE BORNEE PAR ECRIT ────
+
+# Un distant qui PEND VRAIMENT, sans reseau ni port ni processus a piloter.
+#
+# **TROIS AUTRES FORMES ONT ETE FABRIQUEES ET MESUREES AVANT CELLE-CI, le
+# 11 septembre 2026, et deux etaient des scenes FAUSSES :**
+#
+# - *`ext::sh -c "sleep 45"`* — un assistant de transport artisanal. `mesure` :
+#   `git ls-remote` rend **`rc=128` en 0 seconde**, refuse par
+#   `protocol.ext.allow`, et **meme avec `protocol.ext.allow=always` pose dans la
+#   configuration du depot**. Il ne pend donc pas : le repli serait atteint par
+#   une ERREUR et non par une EXPIRATION, et le test serait vert pour la
+#   mauvaise raison — la famille de defaut que ce chantier traque ;
+# - *un ecouteur TCP muet* (`accept()` puis silence) — il pend reellement
+#   (`mesure` : `rc=124` en 6 s sous un `timeout 6`), mais il demande un port,
+#   un fil d'execution et une socket qui fuit si le test meurt. Et il ecrirait
+#   une URL `git://` dans ce fichier, ce que
+#   `test_le_cout_de_cette_classe_reste_tenable` refuse explicitement ;
+# - *`git daemon`* — un processus a demarrer et a arreter, un port, et une
+#   course sur sa disponibilite.
+#
+# **LA FORME RETENUE N'A AUCUN DE CES DEFAUTS** : le distant est un
+# `git init --bare` local, et c'est la commande que git lance A L'AUTRE BOUT qui
+# dort. Pure configuration, aucun reseau, aucun port, aucun processus a piloter.
+# `mesure` le 11 septembre 2026 : `git ls-remote origin` pend, et le hook LIVRE
+# — `timeout 30`, non interpose — rend la main en **31 s** sur le message de
+# repli.
+_UPLOADPACK_QUI_PEND = 'sh -c "sleep 15"'
+
+
+def _mouchard_timeout(dossier: Path, journal: Path, delai: int) -> dict[str, str]:
+    """Interpose un `timeout` qui NOTE ses arguments puis raccourcit le delai.
+
+    **POURQUOI INTERPOSER PLUTOT QU'ATTENDRE.** La scene complete existe et elle
+    est mesuree : distant qui pend, hook livre, `timeout 30` reel, **31 s**. Elle
+    prouverait la valeur, et elle couterait **31 s A CHAQUE EXECUTION DE LA
+    PORTE** — pour une porte qui tient aujourd'hui en 68 s. Ce fichier porte
+    deja `test_le_cout_de_cette_classe_reste_tenable`, dont le motif ecrit dit
+    qu'un `ls-remote` qui pend 30 s par test « rendrait la porte inutilisable ».
+    Remplacer une reserve par un cout n'est pas une fermeture.
+
+    **CE QUE LE MOUCHARD OBSERVE EST LE VRAI APPEL**, et non le texte du script :
+    il enregistre `argv` tel que le hook le passe. La VALEUR ecrite s'y lit
+    (`30`), et le fait que la borne soit EXTERIEURE au processus git s'y lit
+    aussi — `git` est le mot qui suit le delai. Une mutation `30 -> 25` change
+    ce que le mouchard note, donc elle rougit.
+
+    **CE QUE CETTE FORME NE PROUVE PAS, ET C'EST DECLARE** : que `timeout 30`
+    rende bien la main apres 30 secondes. C'est le contrat de `timeout`, pas du
+    code de ce depot, et le garder ici reviendrait a garder coreutils.
+    """
+    dossier.mkdir(parents=True, exist_ok=True)
+    vrai = shutil.which("timeout")
+    assert vrai is not None, (
+        "`timeout` est absent de ce poste : le hook prend alors sa branche SANS "
+        "borne, et cette classe ne mesure plus la borne"
+    )
+    shim = dossier / "timeout"
+    shim.write_text(
+        "#!/bin/sh\n"
+        '# Mouchard de test : note les arguments, puis delegue au vrai `timeout`\n'
+        "# avec un delai raccourci. Voir `_mouchard_timeout`.\n"
+        'printf \'%s\\n\' "$*" >> "$MOUCHARD_JOURNAL"\n'
+        "shift\n"
+        'exec "$MOUCHARD_VRAI" "$MOUCHARD_DELAI" "$@"\n'
+    )
+    shim.chmod(0o755)
+    journal.write_text("")
+    return {
+        "PATH": f"{dossier}{os.pathsep}{os.environ['PATH']}",
+        "MOUCHARD_JOURNAL": str(journal),
+        "MOUCHARD_VRAI": vrai,
+        "MOUCHARD_DELAI": str(delai),
+    }
+
+
+class TestLaBorneDeTempsDuLsRemoteEstGardee:
+    """« BORNE PAR ECRIT, PAS GARDEE » — la reserve que le lot 7 a laissee.
+
+    Le hook demande au distant son etat REEL par `git ls-remote`, borne par un
+    `timeout` EXTERIEUR au processus git : un hook qui pend est un hook qu'on
+    desarme, et l'attente ne doit pas dependre des reglages du transport. Au-dela
+    de la borne, il bascule sur un repli **fail-closed** qui n'exclut rien — donc
+    verifie PLUS — et qui **le dit** sur `stderr`.
+
+    **CE QUI N'ETAIT PAS GARDE.** La mutation `timeout 30 -> 25` etait VERTE : le
+    repli n'etait atteint dans aucun test par une EXPIRATION, seulement par un
+    distant qui echoue vite (`test_une_ref_neuve_est_bornee_sur_l_etat_reel_du_distant`).
+    Un distant qui echoue et un distant qui PEND ne prennent pas le meme chemin
+    de code, et seul le second passe par la borne.
+
+    **CE QUE CETTE CLASSE FERME, ET CE QU'ELLE LAISSE OUVERT.** Elle ferme : la
+    borne est passee a un `timeout` EXTERIEUR, sa valeur est **30**, le repli est
+    ATTEINT quand `ls-remote` expire, il le DIT, et la poussee reste POSSIBLE. Ce
+    qui reste ouvert est nomme dans `_mouchard_timeout` : que `timeout 30` rende
+    la main apres 30 s, ce qui est le contrat de coreutils.
+    """
+
+    @pytest.fixture
+    def couple(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Un depot arme et un distant local qui PEND a la demande."""
+        depot = tmp_path / "depot-borne"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        distant = tmp_path / "distant.git"
+        assert subprocess.run(
+            ["git", "init", "--bare", "-q", str(distant)], capture_output=True
+        ).returncode == 0
+        assert _git(depot, "remote", "add", "origin", str(distant)).returncode == 0
+        return depot, distant
+
+    @staticmethod
+    def _fait_pendre(depot: Path) -> None:
+        assert _git(
+            depot, "config", "remote.origin.uploadpack", _UPLOADPACK_QUI_PEND
+        ).returncode == 0
+
+    def test_la_borne_passee_a_timeout_est_exterieure_a_git_et_vaut_trente(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LA VALEUR, OBSERVEE SUR L'APPEL REEL ET NON LUE DANS LE SCRIPT.
+
+        Un garde qui lirait `timeout 30` dans le texte du hook ne dirait pas que
+        le hook l'EXECUTE. Le mouchard, lui, est execute par le hook : ce qu'il
+        note est ce qui est passe.
+        """
+        depot, _ = couple
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        notes = [ligne for ligne in journal.read_text().splitlines() if ligne.strip()]
+        # PREUVE D'ATTEINTE : sans cette assertion, un hook qui n'appellerait
+        # PLUS `timeout` laisserait le journal vide et tout le reste passerait
+        # par vacuite — le `rc` juste pour la mauvaise raison, sept fois dans ce
+        # chantier.
+        assert notes, (
+            "le hook n'a appele aucun `timeout` : la borne n'est plus posee, ou "
+            "elle l'est par un autre moyen que ce test ne voit pas"
+        )
+        champs = notes[0].split()
+        assert champs[0] == "30", (
+            f"la borne passee a `timeout` vaut {champs[0]!r} et non 30 : la "
+            "valeur ecrite au site a change sans que le site le dise"
+        )
+        assert champs[1] == "git", (
+            f"`timeout` n'enveloppe pas git mais {champs[1]!r} : la borne n'est "
+            "plus EXTERIEURE au processus git, donc elle depend des reglages du "
+            "transport — c'est le motif ecrit au site"
+        )
+        assert "ls-remote" in champs, (
+            f"la commande bornee n'est pas `ls-remote` : {notes[0]!r}"
+        )
+
+    def test_un_distant_qui_pend_atteint_le_repli_et_la_poussee_passe(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LES DEUX EXIGENCES DU REPLI, DANS LA SCENE QUI LE DECLENCHE VRAIMENT.
+
+        Le repli verifie PLUS, il ne refuse pas : une plage propre doit passer.
+        Un repli qui refuserait serait arrache le premier jour ou le reseau
+        tousse, et les deux seules sorties seraient `--no-verify` — que ce
+        chantier interdit — ou le retrait du garde.
+        """
+        depot, _ = couple
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        acheve = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert journal.read_text().strip(), "le `timeout` n'a pas ete appele"
+        assert "indisponible" in acheve.stderr, (
+            "le repli fail-closed n'est pas atteint, ou il ne se dit plus. Une "
+            "borne dont on ne sait pas si elle a servi redevient la cecite qu'on "
+            f"vient de fermer.\n{acheve.stderr}"
+        )
+        assert acheve.returncode == 0, (
+            "le repli REFUSE une plage propre : il verifie plus, il ne refuse "
+            f"pas.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+
+    def test_le_repli_verifie_plus_et_refuse_la_plage_fautive(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LE SENS QUI MORD : le repli n'exclut RIEN, donc il voit tout.
+
+        Sans ce sens, `test_..._la_poussee_passe` serait satisfait par un repli
+        qui ne verifierait rien du tout — un `rc=0` pour la pire des raisons.
+        """
+        depot, _ = couple
+        vide = depot / ".git" / "hooks-desarmes"
+        vide.mkdir(exist_ok=True)
+        (depot / "fautif.txt").write_text("contenu\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        # JAMAIS `--no-verify` : un `core.hooksPath` vide, le temps de fabriquer
+        # la scene. C'est un reglage de harnais, pas un geste d'auteur.
+        assert _git(
+            depot,
+            "-c",
+            f"core.hooksPath={vide}",
+            "commit",
+            "-m",
+            "un commit hors liste blanche",
+            env=_identite(ADRESSE_INTERDITE, ADRESSE_INTERDITE),
+        ).returncode == 0
+        fautif = _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        refus = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert "indisponible" in refus.stderr, (
+            f"le repli n'est pas atteint : scene non atteinte.\n{refus.stderr}"
+        )
+        assert refus.returncode == 1, (
+            "le repli laisse passer un commit hors liste blanche : il n'ouvre pas "
+            f"la plage, et il ne verifie donc rien.\n{refus.stdout}"
+        )
+        assert fautif[:12] in refus.stderr, (
+            f"le refus ne nomme pas le commit fautif.\n{refus.stderr}"
+        )
+
+    def test_le_temoin_inerte_un_distant_qui_repond_ne_declenche_aucun_repli(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LE TEMOIN INERTE DE CETTE CLASSE.
+
+        Meme depot, meme mouchard, meme plage — mais le distant REPOND. Le repli
+        ne doit pas se dire. S'il se disait quand meme, les trois tests ci-dessus
+        seraient verts sans que la borne ait rien a voir avec leur resultat.
+        """
+        depot, _ = couple
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        acheve = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert journal.read_text().strip(), (
+            "le `timeout` n'a pas ete appele : le temoin ne mesure pas le meme "
+            "chemin de code que les scenes qui pendent"
+        )
+        assert "indisponible" not in acheve.stderr, (
+            "le repli se declenche alors que le distant REPOND : les scenes qui "
+            f"pendent sont vertes pour une raison etrangere a la borne.\n{acheve.stderr}"
+        )
+        assert acheve.returncode == 0, f"{acheve.stdout}\n{acheve.stderr}"
+
+    def test_le_cout_de_cette_classe_est_mesure_et_borne(self) -> None:
+        """LE COUT, MESURE, ET LA DECISION D'HEBERGEMENT QU'IL COMMANDE.
+
+        `mesure` le 11 septembre 2026, recette du site `pytest tests/unit/` : la
+        scene COMPLETE — distant qui pend, hook livre, `timeout 30` non
+        interpose — rend la main en **31 s**, et il en faudrait une par sens.
+        Interposee, la meme scene coute **2 s** par test, soit le delai du
+        mouchard.
+
+        Ce test tient la propriete qui rendrait le cout faux : **aucun delai de
+        cette classe ne depasse quelques secondes.** Si le `sleep` du distant ou
+        le delai du mouchard montaient, la porte se paierait en attente pure, et
+        c'est exactement ce que `test_le_cout_de_cette_classe_reste_tenable`
+        refuse une classe plus haut.
+        """
+        source = Path(__file__).read_text(encoding="utf-8")
+        debut = source.index("class TestLaBorneDeTempsDuLsRemoteEstGardee")
+        suite = source.find("\nclass ", debut + 1)
+        corps = source[debut : suite if suite > 0 else len(source)]
+        assert corps.count("\nclass ") == 0, "la borne de lecture deborde"
+
+        delais = [int(n) for n in re.findall(r"delai=(\d+)", corps)]
+        # PREUVE D'ATTEINTE : on lit bien des delais, et non une liste vide qui
+        # satisferait la boucle par vacuite.
+        assert len(delais) >= 3, (
+            f"seulement {len(delais)} delai(s) lu(s) dans cette classe : ce test "
+            "balaie autre chose que ce qu'il croit"
+        )
+        assert max(delais) <= 5, (
+            f"un delai de mouchard monte a {max(delais)} s : la porte se paierait "
+            "en attente pure"
+        )
+        sommeil = re.search(r"sleep (\d+)", _UPLOADPACK_QUI_PEND)
+        assert sommeil is not None, (
+            "le distant qui pend ne dort plus : la scene ne pend plus, et le "
+            "repli serait atteint par une erreur et non par une expiration"
+        )
+        assert int(sommeil.group(1)) <= 30, (
+            "le distant dort plus de 30 s : ses processus survivraient au test"
+        )

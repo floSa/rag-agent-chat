@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 747 tests, aucune dépendance
+## Unitaire — 752 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,7 +20,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 11 septembre 2026 à 08:34 UTC par LOT-10 : **747** tests sur **44** fichiers,
+> `mesuré` le 11 septembre 2026 à 08:52 UTC par LOT-10 : **752** tests sur **44** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent. Les dix-sept de plus gardent l'armement de
 > `commit-msg` : le MESSAGE d'un commit n'était lu par aucun des trois types
@@ -30,7 +30,11 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > Ils couvrent les deux directions (la forme refusée, le récit accepté), les deux
 > formes de **fusion** — c'est là que le mandat prescrit `--no-ff` — et le fait
 > que le motif n'a qu'un **seul site** au runtime, prouvé par mutation du
-> fragment posé.
+> fragment posé. Les cinq derniers ferment la réserve « borné par écrit, pas
+> gardé » du `timeout` de `pre-push` : le repli fail-closed n'était atteint
+> jusque-là que par un distant qui **échoue vite**, jamais par un distant qui
+> **pend** — deux chemins de code différents, et seul le second passe par la
+> borne.
 > Relevés antérieurs : **730** sur **44** le 11 septembre 2026 à 07:32 UTC
 > (LOT-9), **720** sur **44** le 9 septembre 2026 à 15:04 UTC (LOT-4 ;
 > le fichier neuf est `tests/unit/test_section_voisine.py`, qui garde la
