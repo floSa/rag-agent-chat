@@ -298,7 +298,17 @@ cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
   stricte (`^[a-f0-9]{10}$`) reste sur le seul format qu'un appelant fournit.
 - **Endpoints synchrones en `def`** : l'inférence CPU tourne dans le threadpool
   FastAPI, l'event loop reste libre.
-- **Torch CPU-only** dans l'image : pas de libs CUDA embarquées.
+- **Torch en build CUDA dans l'image depuis le 11 septembre 2026, et le service
+  calcule quand même sur CPU par défaut.** Ce n'est pas une contradiction : trois
+  conditions indépendantes décident qu'un calcul part sur la carte — le build de
+  torch, la réservation du GPU au conteneur, et le réglage `TORCH_DEVICE` (défaut
+  `cpu`). L'image a changé pour rendre la mesure POSSIBLE ; le défaut n'a pas
+  changé pour que la reconstruction ne décide de rien. `GET /health` publie les
+  trois conditions et le périphérique réellement porté par chaque modèle
+  (`torch_device`). La ligne précédente disait « Torch CPU-only dans l'image :
+  pas de libs CUDA embarquées » — c'était vrai, et le motif était la taille de
+  l'image. Mode d'emploi, coût mesuré et retour en arrière :
+  [gpu_cuda.md](gpu_cuda.md).
 - **La capture d'usage est branchée sur l'API, non sur le graphe**, et son
   drapeau est à vrai par défaut. Un drapeau à faux annulerait le dispositif :
   personne ne le basculera avant les premiers utilisateurs, et les premières

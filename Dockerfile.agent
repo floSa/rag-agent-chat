@@ -7,9 +7,35 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-# Torch CPU-only d'abord : tout tourne en CPU dans ce service, et la roue CUDA
-# par défaut alourdit l'image de plusieurs Go pour rien.
-RUN pip install --no-cache-dir --user torch --index-url https://download.pytorch.org/whl/cpu \
+
+# L'INDEX DE TORCH EST UN ARGUMENT DE CONSTRUCTION, ET C'EST LE CHEMIN DE RETOUR.
+#
+# CE QUI ÉTAIT ÉCRIT ICI, ET QUI ÉTAIT VRAI : « Torch CPU-only d'abord : tout
+# tourne en CPU dans ce service, et la roue CUDA par défaut alourdit l'image de
+# plusieurs Go pour rien. » Le motif était la TAILLE. Il n'a pas disparu — il est
+# mesuré, et il est le prix de cette ligne : 2,92 Go en `+cpu`, à confronter au
+# chiffre que `documentation/gpu_cuda.md` §6 relève en `+cu130`.
+#
+# CE QUI A CHANGÉ, LE 11 SEPTEMBRE 2026 : décision du propriétaire de MESURER si
+# le GPU vaut son prix sur ce service. Le mesurer exige que l'image sache faire
+# du CUDA ; ça n'implique PAS que le service l'utilise, et il ne l'utilise pas
+# par défaut — `TORCH_DEVICE` vaut `cpu` (`src/agent/settings.py`), donc cette
+# image calcule exactement là où elle calculait, tant que personne ne l'allume.
+#
+# POURQUOI `cu130` ET PAS UN AUTRE. Le poste rend CUDA **13.2** (`nvidia-smi`,
+# `mesuré` le 11 septembre 2026), et le pilote d'une carte sert les runtimes
+# ANTÉRIEURS au sien, jamais les postérieurs. `cu130` est le plus haut index que
+# ce pilote peut servir, ET le seul, avec `cu126`, à publier la roue `2.14.0` en
+# cp312 — `cu128` s'arrête à 2.11.0 et `cu129` à 2.13.0 (`mesuré` le
+# 11 septembre 2026 sur l'index de PyTorch). Il garde donc l'image sur la MÊME
+# version de torch qu'en CPU : ce lot change le build, pas la version.
+#
+# LE RETOUR EN ARRIÈRE NE DEMANDE AUCUNE ÉDITION DE CE FICHIER :
+#     docker build -f Dockerfile.agent \
+#         --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu .
+# Mode d'emploi complet, vérifications et diagnostic : `documentation/gpu_cuda.md`.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
+RUN pip install --no-cache-dir --user torch --index-url ${TORCH_INDEX_URL} \
     && pip install --no-cache-dir --user -r requirements.txt
 
 

@@ -35,6 +35,36 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+    # LA RÉSERVATION DU GPU, ET ELLE NE VAUT QUE POUR CE SERVICE.
+    #
+    # C'est la deuxieme des trois conditions qui font qu'un calcul part sur la
+    # carte : sans elle, aucun `/dev/nvidia*` n'entre dans le conteneur et
+    # `torch.cuda.is_available()` rend faux, build CUDA ou non. Les deux autres
+    # sont le build de torch (`Dockerfile.agent`) et le réglage `TORCH_DEVICE`
+    # (`src/agent/settings.py`, défaut `cpu`). Chacune suffit à désactiver le
+    # GPU, et aucune ne le signale : `documentation/gpu_cuda.md` dit comment
+    # vérifier les trois, une par une.
+    #
+    # PAS SUR `frontend`, et ce n'est pas un oubli : il ne charge aucun modèle.
+    # Une réservation y prendrait un périphérique sur une carte que se PARTAGENT
+    # déjà Ollama — 4 904 Mio, et 84 % du temps d'une réponse — et ce service.
+    #
+    # `count: 1` plutôt que `all` : ce poste n'a qu'une carte (`nvidia-smi`,
+    # `mesuré` le 11 septembre 2026), et `all` sur un poste qui en aurait
+    # plusieurs donnerait au lecteur des cartes que personne ne lui a décidées.
+    #
+    # CE QU'ELLE NE FAIT PAS : mettre le service sur le GPU. Elle le rend
+    # ATTEIGNABLE. `/health` publie `torch_device.cuda_available` pour cette
+    # condition-ci, et `torch_device.embedding` / `.rerank` pour dire s'il est
+    # réellement atteint — un `cuda_available: true` avec `embedding: "cpu"` est
+    # l'état normal de ce service, pas une panne.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     networks:
       - rag_network
       - internal
