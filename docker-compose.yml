@@ -53,6 +53,21 @@ services:
     # `mesuré` le 11 septembre 2026), et `all` sur un poste qui en aurait
     # plusieurs donnerait au lecteur des cartes que personne ne lui a décidées.
     #
+    # ⚠ CE QU'ELLE COÛTE, ET C'EST MESURÉ : elle rend le DÉMARRAGE de ce service
+    # dépendant d'un GPU, alors que son CALCUL ne l'est pas. Sur une machine sans
+    # carte, sans pilote ou sans NVIDIA Container Toolkit, le conteneur ne démarre
+    # pas du tout — `mesuré` le 11 septembre 2026 en demandant deux cartes à un
+    # poste qui n'en a qu'une : `docker run` rend **rc=125** et
+    # `nvidia-container-cli: device error: 1: unknown device`, sans qu'aucun
+    # processus ait démarré. Ce n'est pas une dégradation, c'est une panne
+    # sèche, et c'est ce qui a été RENDU au pipeline d'ingestion
+    # (`documentation/pour_le_pipeline_ingestion.md`), dont le document
+    # déclarait « aucun GPU n'est requis ».
+    #
+    # POUR DÉMARRER SANS CARTE : commenter ce bloc `deploy:`, puis
+    # `docker compose up -d agent-api`. Le service fonctionne à l'identique —
+    # `TORCH_DEVICE` vaut `cpu`. Le geste est au §8 de `documentation/gpu_cuda.md`.
+    #
     # CE QU'ELLE NE FAIT PAS : mettre le service sur le GPU. Elle le rend
     # ATTEIGNABLE. `/health` publie `torch_device.cuda_available` pour cette
     # condition-ci, et `torch_device.embedding` / `.rerank` pour dire s'il est
