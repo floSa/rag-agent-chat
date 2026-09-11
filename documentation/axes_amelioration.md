@@ -6925,6 +6925,34 @@ disjointes, donc le trou est exactement l'intervalle qui les sépare. Elle reste
 rouge quand le scope disparaît, et verte sur un rang ajouté au plan comme sur
 une ligne ajoutée au journal.
 
+**LA RÉSERVE DU LOT 8 EST TRANCHÉE, ET ELLE TOMBE DU BON CÔTÉ.** Le lot 8
+écrivait que ses quatre campagnes reproduisaient les références du 8 septembre
+« à l'unité » sous un environnement possiblement différent, donc que les
+métriques « semblaient » robustes — et *« semblent » n'est pas une mesure*.
+`mesuré` le 11 septembre 2026, **sans rien resynchroniser** : un second
+environnement, **jetable et hors du projet**, a été monté aux versions
+qu'`uv.lock` épingle (`transformers` 5.14.1, `tokenizers` 0.22.2), et les mêmes
+cinq phrases — deux français, un anglais, deux requêtes d'exploitation — ont été
+encodées des deux côtés par le même modèle, sur CPU.
+
+| | `.venv` du §2.2 | venv jetable aux versions du lock |
+|---|---|---|
+| `transformers` | 5.17.0 | 5.14.1 |
+| `tokenizers` | 0.23.2 | 0.22.2 |
+| `torch` | 2.14.0+cpu | 2.14.0+cpu (**tenu constant**) |
+| empreinte des vecteurs | `28a1ebe08e94165e…` | `28a1ebe08e94165e…` |
+
+**Écart absolu maximum : 0.0. Cosinus minimum sur les cinq : 1.000. Identiques
+au bit près.** C'est la même méthode que le 3 août 2026 (`b7841ba`), qui avait
+écarté le même risque sur `sentence-transformers` et `chromadb`.
+
+**CE QUE CETTE MESURE NE COUVRE PAS, ET IL FAUT LE LIRE.** `torch` a été tenu
+constant à 2.14.0+cpu des deux côtés, pour isoler la seule variable
+`transformers`/`tokenizers` : l'écart de `torch` (2.13.0 côté lock, et un build
+CUDA) n'est **pas** mesuré. Le **cross-encoder** du rerank ne l'est pas non plus
+— seul l'encodeur de requête l'est. La réserve est donc levée **pour
+l'embedding**, et elle reste ouverte pour ces deux-là.
+
 **TROIS FAUX RÉSULTATS ONT ÉTÉ PRODUITS ET ÉCRITS PENDANT CE LOT.** Une mutation
 par numéro de ligne qui visait un commentaire et n'a jamais muté (`rc=0` lu
 comme « la mutation ne mord pas » — septième occurrence de ce piège) ; un garde
