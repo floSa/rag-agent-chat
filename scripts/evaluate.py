@@ -12,9 +12,9 @@ donne la boucle courte : un chiffre en deux minutes après chaque changement de
 retrieval ou de prompt — et, depuis le lot 4, une comparaison **appariée** avec
 test de signe et intervalle de confiance par bootstrap, tous deux déterministes.
 
-    uv run python scripts/evaluate.py
-    uv run python scripts/evaluate.py --api http://localhost:8011 --out runs/base.json
-    uv run python scripts/evaluate.py --compare runs/base.json
+    uv run --no-sync python scripts/evaluate.py
+    uv run --no-sync python scripts/evaluate.py --api http://localhost:8011 --out runs/base.json
+    uv run --no-sync python scripts/evaluate.py --compare runs/base.json
 
 Codes de sortie :
 

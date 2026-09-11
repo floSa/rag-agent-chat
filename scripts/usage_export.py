@@ -5,9 +5,9 @@ C'est **le robinet, pas la décision**. Décider quelles questions promeuvent en
 jeu doré, et avec quelle annotation, est le travail d'un lot ultérieur : ce
 script sort ce qui a été capturé, sous une forme documentée, et s'arrête là.
 
-    uv run python scripts/usage_export.py
-    uv run python scripts/usage_export.py --db data/usage.sqlite --out runs/usage.json
-    uv run python scripts/usage_export.py --endpoint chat --since 2026-09-01
+    uv run --no-sync python scripts/usage_export.py
+    uv run --no-sync python scripts/usage_export.py --db data/usage.sqlite --out runs/usage.json
+    uv run --no-sync python scripts/usage_export.py --endpoint chat --since 2026-09-01
 
 Le schéma de sortie est documenté dans documentation/capture_usage.md. Chaque
 interaction porte ses sources proposées, chacune avec son rang, sa pertinence et

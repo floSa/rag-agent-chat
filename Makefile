@@ -59,9 +59,12 @@ format:
 	ruff format src/ tests/
 	ruff check --fix src/ tests/
 
-# La version de mypy est epinglee dans requirements-dev.txt : `uv run --with
-# mypy` en tirerait une plus recente, plus permissive sur certains points, et
-# la CI trouverait des erreurs invisibles en local.
+# La version de mypy est epinglee dans requirements-dev.txt : l'invoquer par
+# le drapeau `--with mypy` d'uv en tirerait une plus recente, plus permissive
+# sur certains points, et la CI trouverait des erreurs invisibles en local.
+# La periphrase est deliberee : le garde de forme de
+# tests/unit/test_coherence_depot.py refuse, dans un fichier de code, toute
+# invocation nue de l executeur d'uv — y compris citee en commentaire.
 typecheck:
 	mypy src/
 
@@ -124,7 +127,7 @@ health:
 # La cible `eval` en depend donc, et un desaccord d'ancrage arrete la campagne
 # avant qu'elle ne coute une demi-heure de generation.
 eval: verifier-les-ancrages
-	uv run python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.yaml \
+	uv run --no-sync python scripts/evaluate.py --golden tests/fixtures/golden_qa_generated.yaml \
 		--out runs/$(shell date +%Y%m%d-%H%M)-reglage.json \
 		--compare runs/2026-09-08-reference.json
 
@@ -133,7 +136,7 @@ eval: verifier-les-ancrages
 # controle de bon fonctionnement, JAMAIS decision d'architecture. Un ecart de
 # deux points sur trente questions est du bruit.
 eval-controle: verifier-les-ancrages
-	uv run python scripts/evaluate.py --golden tests/fixtures/jeu_de_questions_pipeline.yaml \
+	uv run --no-sync python scripts/evaluate.py --golden tests/fixtures/jeu_de_questions_pipeline.yaml \
 		--out runs/$(shell date +%Y%m%d-%H%M)-controle.json \
 		--compare runs/2026-09-08-controle-30.json
 
@@ -145,7 +148,7 @@ eval-controle: verifier-les-ancrages
 # DECOUVERTES ici plutot que figees, une adresse ecrite en dur perimant a la
 # premiere reconstruction de la pile.
 verifier-les-ancrages:
-	uv run python scripts/verifier_les_ancrages.py \
+	uv run --no-sync python scripts/verifier_les_ancrages.py \
 		--chroma-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
 		--nebula-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' graphd)" \
 		tests/fixtures/golden_qa_generated.yaml \

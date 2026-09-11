@@ -15,7 +15,7 @@ stack démarrée. Sans elle, tout est ignoré plutôt qu'en échec — un test r
 faute d'infrastructure ne dit rien sur le code.
 
     make test-integration
-    API_URL=http://localhost:8011 uv run pytest tests/integration -m integration
+    API_URL=http://localhost:8011 uv run --no-sync pytest tests/integration -m integration
 """
 
 from __future__ import annotations

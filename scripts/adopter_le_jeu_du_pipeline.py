@@ -13,8 +13,8 @@ Un jeu recopié à la main est un second site pour trente questions et
 quarante-quatre identifiants. Un jeu transposé par un script est une
 DÉRIVATION : on la rejoue, et l'empreinte dit si la source a bougé sous elle.
 
-    uv run python scripts/adopter_le_jeu_du_pipeline.py
-    uv run python scripts/adopter_le_jeu_du_pipeline.py --source <chemin> --out <chemin>
+    uv run --no-sync python scripts/adopter_le_jeu_du_pipeline.py
+    uv run --no-sync python scripts/adopter_le_jeu_du_pipeline.py --source <chemin> --out <chemin>
 
 LA RÉSERVE DU JEU VOYAGE AVEC LUI, ET ELLE N'EST PAS NÉGOCIABLE. Trente
 questions prouvent que la chaîne fonctionne et montrent un défaut grossier ;

@@ -269,9 +269,7 @@ def desordre_numerique(jetons: list[str]) -> list[tuple[str, str]]:
     """
     entiers = _entiers(jetons)
     return [
-        (jetons[i], jetons[i + 1])
-        for i in range(len(entiers) - 1)
-        if entiers[i] > entiers[i + 1]
+        (jetons[i], jetons[i + 1]) for i in range(len(entiers) - 1) if entiers[i] > entiers[i + 1]
     ]
 
 
@@ -569,8 +567,7 @@ class TestLesQuatreReglesMordentSurLaDeriveReelleDuDepot:
 
         apres = numeros_du_registre(mute)
         assert 20 in trous(apres), (
-            f"le trou planté en 4.20 n'est pas vu : {trous(apres)}. La règle du trou "
-            "ne garde rien"
+            f"le trou planté en 4.20 n'est pas vu : {trous(apres)}. La règle du trou ne garde rien"
         )
 
     def test_deux_bis_du_meme_numero_restent_un_doublon(self) -> None:
@@ -619,11 +616,13 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
     def test_le_scope_du_journal_est_porteur(self, journal: str) -> None:
         """SANS SCOPE, LA LECTURE EST FAUTIVE — et voici de combien.
 
-        La suite non bornée est celle que le commentaire de `_DEBUT_DU_JOURNAL`
-        écrit, et ses deux chiffres y sont désormais exacts : **5** doublons, et
-        un trou de **10 à 19** — `8 à 19` au relevé du lot 7, remesuré le
-        10 septembre 2026. Le commentaire annonçait « onze doublons et un
-        trou de 7 à 20 », et les deux étaient faux sous l'étiquette `mesuré`.
+        La suite non bornée agrège deux numérotations disjointes : les tableaux
+        étrangers du fichier, numérotés bas, et le journal, numéroté haut. Elle
+        ouvre donc un trou ENTRE elles et duplique dans leur recouvrement — et
+        c'est cette FORME qui est assertée, calculée sur le document, non
+        l'instantané. Le trou valait `8→19` au relevé du lot 7 et `10→19` le
+        10 septembre 2026 : deux valeurs en trois jours, pour deux rangs ajoutés
+        au plan de lots, qui est un acte éditorial normal.
         """
         bornee = numeros_du_journal(journal)
         non_bornee = _extraire(journal, _NUMERO_DU_JOURNAL)
@@ -647,21 +646,62 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
             f"{doublons(non_bornee)}. Le commentaire de `_DEBUT_DU_JOURNAL` porte ce "
             "chiffre : remesure-le AVANT de le réécrire — il a déjà été faux une fois"
         )
-        # REMESURÉ le 10 septembre 2026 : le trou vaut 10→19 depuis que le plan
-        # de lots porte ses rangs 8 et 9. Il valait 8→19 quand le lot 7 l'a
-        # épinglé, et « 7 à 20 » dans un commentaire qui était faux.
+        # LA DETTE DU LOT 7 EST PAYÉE ICI : CE QUI EST ASSERTÉ EST LA PROPRIÉTÉ,
+        # PLUS L'INSTANTANÉ.
         #
-        # RÉSERVE ÉCRITE, ET ELLE EST UNE DETTE DE CE GARDE : épingler le trou
-        # EXACT fait rougir ce test à chaque rang ajouté au plan de lots, qui
-        # est un acte éditorial normal — c'est le geste « monter le chiffre »
-        # que le §4.35 désapprouve, appliqué ici à une mesure de document. Ce
-        # qui rend le scope porteur n'est pas la VALEUR du trou, c'est qu'une
-        # lecture non bornée en ait UN, plus des doublons : la forme, pas
-        # l'instantané. Un lot doit porter cette assertion sur la propriété.
-        assert trous(non_bornee) == list(range(10, 20)), (
-            f"le trou de la lecture non bornée n'est plus 10→19 : {trous(non_bornee)}. "
-            "Le commentaire annonçait « 7 à 20 », et c'était faux : `7` et `20` sont "
-            "tous deux présents dans la suite. Remesure avant de réécrire"
+        # L'assertion précédente épinglait le trou EXACT — `list(range(10, 20))`,
+        # remesuré `8→19` puis `10→19` en trois jours. Elle rougissait donc à
+        # chaque rang ajouté au plan de lots, qui est un acte éditorial normal,
+        # et enseignait le geste « monter le chiffre » que le §4.35 désapprouve
+        # et que le plancher monotone du lot 6 a refusé ailleurs.
+        #
+        # CE QUI REND LE SCOPE PORTEUR N'EST PAS LA VALEUR DU TROU. C'est que la
+        # lecture non bornée AGRÈGE deux numérotations disjointes — les tableaux
+        # étrangers, numérotés bas, et le journal, numéroté haut — donc qu'elle
+        # ouvre un trou ENTRE elles et duplique dans leur recouvrement. La
+        # borne est donc CALCULÉE sur le document, jamais recopiée :
+        etrangers = sorted(
+            {int(n.split("-")[0]) for n in non_bornee} - {int(n.split("-")[0]) for n in bornee}
+        )
+        plancher_du_journal = min(int(n.split("-")[0]) for n in bornee)
+
+        # PREUVE D'ATTEINTE — les deux numérotations sont bien DISJOINTES et
+        # séparées. Sans elle, un document dont les tableaux étrangers
+        # rejoindraient le journal rendrait l'assertion suivante vide de sens.
+        assert etrangers, (
+            "la lecture non bornée n'apporte aucun numéro étranger au journal : "
+            "les autres tableaux numérotés ont disparu du document, et le scope "
+            "est devenu décoratif"
+        )
+        assert max(etrangers) + 1 < plancher_du_journal, (
+            f"les tableaux étrangers montent à {max(etrangers)} et le journal "
+            f"commence à {plancher_du_journal} : les deux numérotations se "
+            "touchent désormais, la lecture non bornée n'ouvre plus de trou et "
+            "cette scène ne reproduit plus le défaut. Remesure ce qui justifie "
+            "le scope AVANT de relâcher quoi que ce soit"
+        )
+
+        # LE TROU EST EXACTEMENT L'INTERVALLE ENTRE LES DEUX NUMÉROTATIONS — une
+        # propriété, pas un instantané. Elle survit à un rang ajouté au plan de
+        # lots (le plafond étranger monte, l'intervalle se réduit) comme à une
+        # ligne ajoutée au journal (ni l'un ni l'autre ne bouge), et elle reste
+        # aussi mordante : elle DISCRIMINE, là où « au moins un trou » serait
+        # vert sous une lecture bornée par erreur.
+        assert trous(non_bornee) == list(range(max(etrangers) + 1, plancher_du_journal)), (
+            f"le trou de la lecture non bornée n'est plus l'intervalle qui sépare "
+            f"les tableaux étrangers (jusqu'à {max(etrangers)}) du journal (à partir "
+            f"de {plancher_du_journal}) : {trous(non_bornee)}. Le trou vient donc "
+            "d'ailleurs que de l'agrégation, et c'est le document qu'il faut relire"
+        )
+
+        # ET LES DOUBLONS VIENNENT DU RECOUVREMENT DES TABLEAUX ÉTRANGERS, pas du
+        # journal — sans quoi la lecture bornée en porterait, ce qui est déjà
+        # réfuté plus haut.
+        assert set(doublons(non_bornee)) <= {str(n) for n in etrangers}, (
+            f"des doublons de la lecture non bornée ne sont pas des numéros "
+            f"étrangers : {sorted(set(doublons(non_bornee)) - {str(n) for n in etrangers})}. "
+            "Le journal borné en porterait alors, et c'est l'autre assertion qu'il "
+            "faut croire"
         )
 
     def test_le_recit_remonte_au_dessus_du_journal_ne_fait_plus_lire_le_faux_nombre(
@@ -680,9 +720,7 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
         assert etat == max(int(j.split("-")[0]) for j in numeros_du_journal(journal)) + 1
 
         lignes = journal.splitlines(keepends=True)
-        i_titre = next(
-            k for k, ligne in enumerate(lignes) if ligne.startswith(_DEBUT_DU_JOURNAL)
-        )
+        i_titre = next(k for k, ligne in enumerate(lignes) if ligne.startswith(_DEBUT_DU_JOURNAL))
         i_recit = next(k for k, ligne in enumerate(lignes) if self._RECIT in ligne)
 
         # PREUVE D'ATTEINTE 1 — le récit est bien APRÈS le titre dans le document
@@ -695,10 +733,7 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
 
         recit = lignes[i_recit]
         mute = "".join(
-            lignes[: i_titre + 1]
-            + [recit]
-            + lignes[i_titre + 1 : i_recit]
-            + lignes[i_recit + 1 :]
+            lignes[: i_titre + 1] + [recit] + lignes[i_titre + 1 : i_recit] + lignes[i_recit + 1 :]
         )
 
         # PREUVE D'ATTEINTE 2 — le récit est bien ENTRÉ dans le scope. Sans elle,
@@ -728,9 +763,7 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
             "une réorganisation de document le casserait en silence"
         )
 
-    def test_deux_lignes_d_autorite_ne_sont_pas_tranchees_en_silence(
-        self, journal: str
-    ) -> None:
+    def test_deux_lignes_d_autorite_ne_sont_pas_tranchees_en_silence(self, journal: str) -> None:
         """L'AMBIGUÏTÉ EST UNE ERREUR, PAS UN PREMIER-ARRIVÉ.
 
         Si deux lignes d'autorité apparaissaient dans le scope, la forme ne
@@ -754,8 +787,7 @@ class TestLeScopeEtLaFormeSontPorteursEtNonDecoratifs:
         fin = double.find("\n## ", debut)
         fenetre = double[debut : fin if fin > 0 else len(double)]
         assert len(_LIGNE_DU_PROCHAIN.findall(fenetre)) == 2, (
-            "la seconde ligne d'autorité n'est pas dans le scope : la scène "
-            "n'atteint pas son cas"
+            "la seconde ligne d'autorité n'est pas dans le scope : la scène n'atteint pas son cas"
         )
 
         assert prochain_numero_annonce(double) is None, (
