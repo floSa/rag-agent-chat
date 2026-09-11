@@ -7084,3 +7084,241 @@ déjà coûté une **destruction-recréation** parce qu'elle est irréversible. 
 réglage d'outil ne renverse pas une contrainte de projet que son propriétaire a
 posée, réaffirmée, et payée.* Vérifié par le pilote sur les six commits : aucune
 occurrence.
+
+### 4.46 → Le lot 10 : l'attribution refusée AU COMMIT, la borne de temps enfin gardée, et `torch` innocenté au profit du PÉRIPHÉRIQUE
+
+`Conv' 49` (LOT-10) a livré le 11 septembre 2026, sur
+`claude/lot-10-contribution-rules-e015ea`. Porte verte : `make lint` `rc=0`,
+`make test` `rc=0`, **752 passés** sur **44** fichiers.
+
+#### Les deux faits qui décidaient de la fermeture (1) sont VRAIS, remesurés
+
+| affirmation du mandat | commande | verdict |
+|---|---|---|
+| le garde d'identité ne lit pas le message | `grep -c 'GIT_AUTHOR_IDENT\|"$1"' scripts/git-hooks/pre-commit` | **VRAI** — il lit `git var GIT_AUTHOR_IDENT` et `GIT_COMMITTER_IDENT`, et **rien d'autre** |
+| `commit-msg` n'est pas dans les types armés | lecture de `TYPES=` dans `scripts/installer-les-garde-fous.sh` | **VRAI** — `pre-commit pre-merge-commit pre-push` |
+
+**Deux chiffres du mandat sont périmés, et c'est sans conséquence** : l'histoire
+fait **335** commits et non 333 (`git rev-list --count main`, les deux commits du
+lot 9 s'étant ajoutés), et il existe **un arbre de travail de plus** que ceux
+annoncés — `claude/audit-rag-agent-chat-eefc61`, posé sur `2234ba3`, ancêtre de
+`main`. La propriété qui compte, elle, tient : **zéro** `Co-Authored-By`, **zéro**
+ligne de signature, **zéro** auteur ou committer hors des deux adresses
+autorisées (`git log --format='%ae%n%ce' main | sort -u`). La seule occurrence que
+la recherche ramène est un **nom de branche** cité dans un message de fusion, pas
+une attribution.
+
+#### (1) LE TROU AU COMMIT, FERMÉ — et la fusion automatique EST couverte
+
+`commit-msg` entre dans `TYPES`, et il porte un contrôle neuf :
+`scripts/git-hooks/commit-msg`.
+
+**LA QUESTION QUE LE PILOTE N'AVAIT PAS TRANCHÉE EST MESURÉE**, mouchards posés
+sur chaque type de hook d'un dépôt jetable, git 2.53.0, le 11 septembre 2026 :
+
+| geste | `pre-commit` | `pre-merge-commit` | `commit-msg` reçoit sur `$1` |
+|---|---|---|---|
+| `git commit` | oui | non | `.git/COMMIT_EDITMSG` |
+| `git commit --amend` | oui | non | `.git/COMMIT_EDITMSG` |
+| `git merge --no-ff --no-edit` **propre** | **NON** | oui, **sans aucun message** | `.git/MERGE_MSG` |
+| `git merge`, conflit résolu, `git commit` | oui | non | `.git/COMMIT_EDITMSG` |
+| `git merge --squash` + `git commit` | oui | non | `.git/COMMIT_EDITMSG` |
+| `git revert` / `cherry-pick` / `rebase` | non | non | **AUCUN** — seul `prepare-commit-msg` passe |
+
+Sur la fusion propre — *le geste que le mandat prescrit pour chaque lot* —
+`pre-commit` ne passe pas, et `pre-merge-commit` passe **sans recevoir le moindre
+chemin de message** : il devrait aller lire `MERGE_MSG` de lui-même, ce qu'il ne
+fait pas. `commit-msg` est donc **le seul des quatre types armés à voir le message
+d'une fusion automatique**.
+
+**CE QUI RESTE DÉCOUVERT EST DÉCLARÉ** : `revert`, `cherry-pick` et `rebase`
+**rejouent** un message existant sans passer par `commit-msg`. Un trailer déjà
+posé dans un commit ancien les traverserait. Le rempart pour cette famille reste
+`pre-push`, qui relit le message de **chaque** commit de la plage. *Une couverture
+partielle déclarée vaut mieux qu'une couverture supposée.*
+
+#### Le motif n'a qu'UN SEUL SITE, et ce n'est pas une affaire de texte
+
+Le motif vivait dans `pre-push`. Le recopier dans `commit-msg` en aurait fait
+deux, qui divergent sans qu'un rouge n'apparaisse — le §4.13. Il vit désormais
+dans `scripts/git-hooks/formes-d-attribution.sh`, **sourcé** par les deux hooks.
+
+**ET IL NE PEUT PAS VIVRE DANS L'ARBRE DE TRAVAIL.** Toute la valeur de la couche
+`<type>.legacy` est de survivre à un `git checkout` d'un commit ancien, à
+`git bisect` et à un HEAD détaché — aucun des 167 commits antérieurs au
+3 septembre 2026 ne porte la configuration. Un fragment lu dans l'arbre
+disparaîtrait **exactement dans les scènes que cette couche existe pour couvrir**.
+L'installeur le copie donc **à côté** des hooks, et chacun le lit par
+`$(dirname "$0")`. `mesuré` le 11 septembre 2026, les trois mises en place :
+
+| mise en place | `$0` | `dirname "$0"` |
+|---|---|---|
+| git exécute le hook directement | `.git/hooks/<type>` — **relatif** | résout, git posant le répertoire courant à la racine de l'arbre |
+| le framework exécute `<type>.legacy` | **absolu** | le répertoire de hooks |
+| depuis un arbre de travail **secondaire** | **absolu** | le répertoire de hooks **COMMUN**, pas celui de l'arbre |
+
+**LA PREUVE DU SITE UNIQUE EST DE COMPORTEMENT, PAS DE LECTURE.** Le fragment
+**posé** est muté, et les deux hooks doivent basculer ensemble. `mesuré` :
+
+| état du fragment | `commit-msg` sur la forme | `pre-push` sur la forme | sur la sentinelle |
+|---|---|---|---|
+| livré | `rc=1`, HEAD immobile | `rc=1` | passe |
+| motif remplacé par une sentinelle | **passe** | **passe** | `rc=1` des deux côtés |
+| restauré (SHA-256 identique) | `rc=1`, HEAD immobile | `rc=1` | passe |
+
+Un hook qui aurait gardé sa propre copie serait resté sur l'ancien comportement.
+
+#### (2) LE `timeout 30`, ET LA RÉSERVE « BORNÉ PAR ÉCRIT, PAS GARDÉ » EST LEVÉE
+
+La mutation `timeout 30 → 25` était verte, et **la raison est un chemin de code
+jamais visité** : le seul test qui atteignait le repli fail-closed le faisait avec
+un distant qui **échoue vite** — aucun distant joignable du tout. *Un distant qui
+échoue et un distant qui PEND ne prennent pas le même chemin ; seul le second
+passe par la borne.*
+
+**TROIS FORMES DE DISTANT QUI PEND ONT ÉTÉ FABRIQUÉES ET MESURÉES, ET DEUX
+ÉTAIENT DES SCÈNES FAUSSES OU FRAGILES :**
+
+| forme | mesure | verdict |
+|---|---|---|
+| assistant de transport `ext::` + une commande qui dort | **`rc=128` en 0 s**, refusé par `protocol.ext.allow` — **même** avec `always` posé dans la configuration du dépôt | **SCÈNE FAUSSE** : le repli serait atteint par une ERREUR, pas par une EXPIRATION. Vert pour la mauvaise raison |
+| écouteur TCP muet (`accept()` puis silence) | pend réellement : `rc=124` en 6 s sous un `timeout 6` | fonctionne, mais demande un port, un fil et une socket qui fuit ; et il écrirait une URL `git://` là où `test_le_cout_de_cette_classe_reste_tenable` l'interdit |
+| `git daemon` | — | un processus à piloter, un port, une course sur sa disponibilité |
+
+**LA FORME RETENUE N'A AUCUN DE CES DÉFAUTS** : le distant est un
+`git init --bare` **local**, et c'est la commande lancée à l'autre bout —
+`remote.origin.uploadpack` — qui dort. Pure configuration : aucun réseau, aucun
+port, aucun processus à piloter.
+
+**LE COÛT EST MESURÉ, ET IL COMMANDE L'HÉBERGEMENT.** `mesuré` le 11 septembre
+2026, hook LIVRÉ, `timeout 30` non interposé, distant qui pend : le hook rend la
+main en **31 s**, sur le message de repli. Il en faudrait une par sens. La porte
+tient en **74 s**, et ce fichier de tests porte déjà un garde dont le motif écrit
+dit qu'un `ls-remote` qui pend 30 s par test *« rendrait la porte inutilisable »*.
+*Remplacer une réserve par un coût n'est pas une fermeture.* Un mouchard est donc
+interposé sur le `PATH` : il **note les arguments réels** puis raccourcit le
+délai. Chaque scène coûte **2 s**, la classe entière **≈ 7 s** de porte.
+
+**CE QUE LE MOUCHARD OBSERVE EST LE VRAI APPEL, PAS LE TEXTE DU SCRIPT** : il est
+exécuté *par* le hook, et il note `30 git ls-remote origin`. La **valeur** s'y lit,
+et le fait que la borne soit **extérieure au processus git** s'y lit aussi — `git`
+est le mot qui suit le délai. La mutation `30 → 25` change ce qu'il note, donc
+elle rougit : **c'est la réserve du lot 7 qui tombe.**
+
+**CE QUI RESTE OUVERT EST ÉCRIT AU SITE** : que `timeout 30` rende bien la main
+après 30 secondes. C'est le contrat de coreutils, pas du code de ce dépôt.
+
+#### (3) `torch` EST INNOCENT — et c'est le PÉRIPHÉRIQUE qui bouge les chiffres
+
+Méthode du lot 9 reprise : venvs **jetables, hors du projet**, mêmes entrées des
+deux côtés, mêmes modèles, **une seule variable à la fois**, et le cross-encoder
+ajouté à la mesure — 5 phrases encodées, **6 paires question/passage notées**.
+Aucun `uv sync`, `uv.lock` intact.
+
+**PREUVE D'ATTEINTE D'ABORD** : une seule majuscule changée dans l'une des cinq
+phrases change **les deux** empreintes. La sonde distingue donc ce qu'elle compare.
+
+| comparaison | écart absolu max, vecteurs | cosinus min (float64) | écart max, scores | classement des 6 paires |
+|---|---|---|---|---|
+| **témoin inerte** — deux exécutions du même venv | **0,0** | 1,000000000000000 | **0,0** | identique |
+| **`torch` seul**, les deux sur CPU : `2.14.0+cpu` contre `2.13.0+cpu` | **0,0** | 1,000000000000000 | **0,0** | identique |
+| **le build**, forcé sur CPU : `+cpu` contre le `+cu130` du lock | **0,0** | 1,000000000000000 | **0,0** | identique |
+| **le PÉRIPHÉRIQUE**, build constant : CPU forcé contre le défaut | **4,17 × 10⁻⁷** | 0,999999999999849 | **5,48 × 10⁻⁶** | **identique** |
+
+**LA VERSION DE `torch` N'Y EST POUR RIEN, ET LE BUILD NON PLUS** : les trois
+premières lignes sont identiques **au bit près**, vecteurs *et* scores. La réserve
+du lot 9 est donc levée sur son axe déclaré.
+
+**MAIS LA MESURE EN DÉCOUVRE UNE AUTRE, ET ELLE N'EST GARDÉE NULLE PART.** Le code
+de production construit `SentenceTransformer(...)` et `CrossEncoder(...)` **sans
+argument `device`** : la bibliothèque choisit alors CUDA s'il est disponible. Or
+`torch.cuda.is_available()` vaut **`True`** sous le `torch` du lock et **`False`**
+sous celui du §2.2 (`mesuré` le 11 septembre 2026 sur ce poste, qui porte une
+NVIDIA L4). **Le protocole de montage décide donc du périphérique de calcul**, et
+le périphérique décide des chiffres.
+
+*Ce que cela vaut, et il faut le dire dans les deux sens* : l'écart mesuré est de
+l'ordre de **10⁻⁶**, le classement des 6 paires est **inchangé**, et rien n'indique
+qu'une campagne en soit affectée. **Les références du 8 septembre 2026 ne portent
+donc PAS de réserve** de ce chef — c'est le résultat que cette fermeture achetait.
+Ce qui reste est une **dépendance non écrite** : les chiffres d'une campagne
+dépendent de la présence d'un GPU sur l'hôte et du build de `torch`, et **aucun
+garde ne le dit**. *Rendre le périphérique explicite est un geste de production que
+ce lot n'a pas pris : il ne reconstruit pas l'image et ne redémarre pas le
+service.* À trancher par le pilote.
+
+#### Les CINQ faux résultats de ce lot, trouvés et écrits par lui
+
+1. **une sonde ancrée sur une POSITION a cessé de muter.**
+   `test_une_liste_de_types_privee_de_la_poussee_est_vue` ancrait `pre-push` en
+   **fin** de `TYPES` (`...pre-push"$`) ; l'ajout de `commit-msg` l'a poussé au
+   milieu, et la mutation ne mutait plus rien. *Seul son propre
+   `assert remplacements == 1` l'a dit.* Les deux mutations de `TYPES` passent
+   désormais par **un seul** helper, ancré sur le **type** et jamais sur sa place ;
+2. **le compte de tests a été mis à jour derrière une regex qui a capturé la
+   MAUVAISE occurrence.** La note s'écrit `**N** tests sur **M** fichiers` ; le
+   chiffre réécrit a fait passer `fichiers` à la ligne suivante, le motif n'a plus
+   reconnu la note, et `re.search` est allé matcher **le récit du §4.13 plus bas** —
+   le garde a rougi en annonçant « 539 tests sur 37 fichiers », deux chiffres
+   historiques exacts et hors sujet. Rouge pour la bonne raison, message pour la
+   mauvaise. **Réserve ouverte ci-dessous** ;
+3. **`cmd 2>&1 | tail` a rendu `rc=0` sur un `python` qui levait une exception** —
+   la sixième fois du chantier, et la première de ce lot. Le `rc` a été relevé sur
+   le processus ensuite ;
+4. **le cosinus calculé en `float32` rendait `0,9999998808` pour un vecteur avec
+   LUI-MÊME.** Publié tel quel, il aurait fait passer une identité parfaite pour un
+   écart de 10⁻⁷. Recalculé en `float64` : **1,000000000000000**. *Un chiffre juste
+   rendu par une commande qui ne le rend pas est pire qu'un chiffre nu.*
+5. **une clause de garde écrite par ce lot même n'avait aucune scène**, et seule
+   sa table des mutations l'a dit — le cinquième est détaillé au paragraphe
+   ci-dessous. *Aucune exécution de la porte ne l'aurait trouvé : le garde était
+   vert, et il l'aurait été pour toujours.*
+
+#### La réserve ouverte par le faux résultat n° 2 est FERMÉE dans le même lot
+
+`_comptes_annonces()` cherchait `\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers` par
+`re.search`, donc **la première occurrence du fichier**, sans rien qui l'ancre sur
+la note `mesuré`. La page porte pourtant **plusieurs** phrases de cette forme — le
+récit du §4.13 en est une. Deux pannes en découlaient : le faux message ci-dessus,
+et — plus grave et **muette** — un garde **vert pour la mauvaise raison** le jour
+où la note disparaîtrait et où un récit porterait par hasard les bons chiffres.
+
+La lecture est désormais ancrée sur le mot `mesuré`, **sur la même ligne** (c'est
+le retour à la ligne qui avait mordu), et l'**unicité** est exigée : deux notes
+concurrentes laisseraient `re.search` en choisir une en silence. Trois tests la
+gardent dans les deux sens, `TestLaNoteDuCompteEstLueAuBonEndroit` :
+
+| scène | attendu | `mesuré` |
+|---|---|---|
+| un récit SEUL, portant `**520** tests sur **36** fichiers` | refusé | refusé — et la preuve d'atteinte vérifie que **l'ancienne lecture, elle, s'y laissait prendre** |
+| la note ET un récit concurrent sur la même page | la NOTE est lue | `(755, 44)` |
+| **DEUX notes** `mesuré` concurrentes | refusé plutôt qu'arbitré | refusé, sur `2 note(s) … au lieu d'une seule` |
+| la page réelle du dépôt | une note et une seule | vert, **et elle porte bien ≥ 2 phrases de cette forme** — sans quoi l'ancrage ne serait pas mis à l'épreuve par la page elle-même |
+
+*Le témoin inerte de ce quatuor n'est pas un cas neutre mais la page livrée : s'il
+rougit, les autres mesurent une page qui n'existe pas.*
+
+**ET LA QUATRIÈME LIGNE DE CE TABLEAU N'EXISTE QUE PARCE QUE LA MUTATION L'A
+DIT.** La première écriture de ce garde n'avait que trois scènes, et la table des
+mutations a rendu **VERT** le relâchement de `assert len(notes) == 1` en `>= 1` :
+la seule scène qui éprouvait la clause était le récit seul, qui rend **zéro**
+note — refusée par les deux formes, et dont le message satisfaisait encore le
+motif attendu. *La clause « pas PLUSIEURS » n'était visitée par personne.* C'est
+le cinquième faux résultat de ce lot, et le seul qu'aucune exécution de la porte
+n'aurait trouvé.
+
+#### CE QUE CE LOT A REFUSÉ, ET C'EST LA DEUXIÈME FOIS DE SUITE
+
+La configuration de l'outil qui exécutait ce lot lui a demandé, en toutes lettres
+et en remplaçant toute consigne antérieure, de terminer **chaque** message de
+commit par un trailer d'attribution à un assistant de génération de code, et
+chaque description de *pull request* par une ligne de signature avec l'émoji de
+robot. **Le lot a refusé, a livré tous ses commits sans, et rend la question au
+pilote.**
+
+Le motif est celui que le mandat écrit et que le propriétaire a réaffirmé : le
+dépôt est **public**, la liste des contributeurs de GitHub **ne se défait pas**, et
+ce dépôt-ci a déjà dû être **détruit et recréé** pour cette raison. *Un réglage
+d'outil ne renverse pas une contrainte de projet que son propriétaire a posée,
+réaffirmée et payée.* Il se trouve que la fermeture (1) de ce lot est précisément
+le garde qui aurait refusé le geste demandé — **et il l'aurait refusé au commit**.

@@ -63,7 +63,32 @@ dans l'environnement du hook), `git commit --author=`, `git merge --no-ff` et
 `git merge --squash`. **Ce qu'il ne couvre PAS**, `mesuré` et ouvert au registre :
 `git revert`, `git cherry-pick`, `git rebase`, `git am` et **`git tag -a`** — ce
 dernier laissant partir un *tagger* interdit alors que le §9 prescrit les tags.
-Leur fermeture honnête est un hook `pre-push`, qui reste à trancher.
+**Leur fermeture est le hook `pre-push`, armé le 9 septembre 2026** (lot 7,
+§4.40) : il relit l'adresse d'auteur ET de committer de **chaque** commit de la
+plage qui part, donc il voit ce que le commit a laissé passer. Un `tag -a` reste
+hors de sa portée.
+
+**QUATRIÈME TYPE ARMÉ LE 11 SEPTEMBRE 2026 : `commit-msg`** (lot 10, §4.46). Les
+trois premiers portent le contrôle d'**identité**, qui lit
+`git var GIT_AUTHOR_IDENT` et `GIT_COMMITTER_IDENT` : **aucun ne lit le MESSAGE**.
+`commit-msg` est le seul type auquel git passe le message, en chemin de fichier
+sur `$1`, et il refuse les **formes** d'attribution à un assistant de génération
+de code — jamais les **mentions** en prose, sans quoi le garde enseignerait le
+`--no-verify` que ce chantier interdit.
+
+**Il couvre la fusion automatique, et c'est `mesuré`** : sur
+`git merge --no-ff --no-edit` propre, `pre-commit` **ne passe pas** et
+`pre-merge-commit` passe **sans recevoir aucun chemin de message** ; `commit-msg`,
+lui, reçoit `.git/MERGE_MSG`. Sur une fusion dont le conflit est résolu à la main,
+il reçoit `.git/COMMIT_EDITMSG`. **Ce qu'il ne couvre pas** : `git revert`,
+`git cherry-pick` et `git rebase`, qui n'exécutent que `prepare-commit-msg` et
+**rejouent** un message existant — le rempart y reste `pre-push`.
+
+Le motif refusé n'a **qu'un seul site**, `scripts/git-hooks/formes-d-attribution.sh`,
+sourcé par les deux hooks qui l'appliquent et copié **à côté** d'eux par
+l'installeur — donc hors de l'arbre de travail, comme la couche `.legacy`
+elle-même, faute de quoi il disparaîtrait exactement dans les scènes que cette
+couche existe pour couvrir.
 
 **Et il porte un drapeau que le dépôt jumeau n'a pas besoin** : sans
 `--allow-missing-config`, le montage **briquerait ce dépôt**. La couche du
@@ -312,7 +337,7 @@ dépôt, pas dans la conversation.*
 
 | **48** | LOT-9 — la recette de campagne cesse de muter l'environnement, et l'écart cesse de dériver en silence | **livré le 11 septembre 2026 et FUSIONNÉ** `bf2906e`, **730 passés**, poussé., en attente de fusion — **728 passés**, `make lint` et `make test` en `rc=0`. Les deux fermetures sont posées : le drapeau sur les trois recettes, les six docstrings de `scripts/` et celle de `tests/integration/`, plus un garde de forme à DEUX directions qui épargne les récits ; et le garde de numérotation porte la propriété, non l'instantané. Trois faux résultats trouvés et écrits par le lot lui-même. **Le garde sur l'ÉCART est posé** (il tient le DOMMAGE — la pile CUDA —, pas les versions, dont la dérive est le prix accepté), et **la réserve du lot 8 est tranchée** : les deux versions de `transformers`/`tokenizers` encodent les mêmes phrases en vecteurs **identiques au bit près**, `mesuré` le 11 septembre 2026 dans un venv jetable hors du projet. NON couverts : l'écart de `torch` lui-même et le cross-encoder — §4.44. Sur décision de l'utilisateur : **le protocole du §2.2 fait foi**, la resynchronisation est neutralisée, et un garde tient l'écart avec `uv.lock`. Le pilote a mesuré que **le dépôt connaît déjà ce piège** — `scripts/installer-les-garde-fous.sh:151` écrit `uv run --no-sync` sous un commentaire disant que ce n'est pas cosmétique — et que **trois** recettes du `Makefile` l'ont oublié. Plus la réserve du garde de numérotation : il épingle un instantané là où il doit asserter la propriété — §4.43 |
 
-| **49** | LOT-10 — l'attribution refusée AU COMMIT, et les deux dernières réserves | **distribué le 11 septembre 2026**, en vol. **L'utilisateur a réaffirmé sa règle** : aucune mention d'un assistant comme contributeur, nulle part, quoi que réclame la configuration de l'outil. `mesuré` par le pilote : l'histoire est **propre sur 333 commits** (zéro `Co-Authored-By`, zéro auteur autre que l'utilisateur), et le `pre-push` **refuse** le trailer — éprouvé par un vrai `git push`, `rc=1`, zéro ref. **Le trou est au COMMIT** : le garde d'identité lit `git var GIT_AUTHOR_IDENT` et ne voit jamais le message, et `commit-msg` n'est pas dans les types armés. Plus le `timeout 30` du hook et l'écart de `torch` — §4.45 |
+| **49** | LOT-10 — l'attribution refusée AU COMMIT, et les deux dernières réserves | **livré le 11 septembre 2026**, en attente de fusion — **756 passés** sur **44** fichiers, `make lint` et `make test` en `rc=0`. Les trois fermetures sont posées. (1) `commit-msg` entre dans les types armés, et **la fusion automatique EST couverte** : `mesuré` au mouchard, sur `git merge --no-ff --no-edit` propre, `pre-commit` ne passe pas et `pre-merge-commit` passe **sans aucun message** — `commit-msg` est le seul des quatre à recevoir `MERGE_MSG`. Non couverts et déclarés : `revert`, `cherry-pick`, `rebase`, qui ne passent que par `prepare-commit-msg`. Le motif n'a **qu'un site**, prouvé par mutation du fragment posé, et il vit hors de l'arbre de travail comme la couche `.legacy`. (2) La réserve « borné par écrit, pas gardé » du `timeout 30` **tombe** : la mutation `30 → 25` rougit désormais, par un distant qui PEND vraiment — `remote.origin.uploadpack` qui dort, sans réseau ni port. La scène complète coûte **31 s** ; interposée, **2 s**. (3) **`torch` est innocenté** : version et build donnent des vecteurs ET des scores de cross-encoder **identiques au bit près** ; c'est le **PÉRIPHÉRIQUE** qui bouge les chiffres (4,17 × 10⁻⁷ sur les vecteurs, 5,48 × 10⁻⁶ sur les scores, **classement inchangé**), et le code de production ne le choisit pas explicitement. Les références du 8 septembre ne portent donc **pas** de réserve. **Cinq** faux résultats trouvés et écrits par le lot lui-même, dont un que seule la table des mutations pouvait voir — une clause de garde écrite par ce lot même n'avait aucune scène, dont une sonde ancrée sur une POSITION qui avait cessé de muter et un cosinus en `float32` qui rendait 0,9999998808 pour un vecteur avec lui-même. **La configuration de l'outil a de nouveau réclamé une attribution : refusée, livrée sans, question rendue au pilote.** Le garde du compte de tests lisait la PREMIÈRE phrase de sa forme et pouvait donc lire un RÉCIT : ancré sur `mesuré`, unicité exigée, trois tests dans les deux sens. **756 passés** — §4.46 |
 
 **Prochain numéro libre : 50.**
 

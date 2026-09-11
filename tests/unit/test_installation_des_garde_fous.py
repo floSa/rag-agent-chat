@@ -60,6 +60,15 @@ HOOK_IDENTITE = RACINE / "scripts" / "git-hooks" / "pre-commit"
 # commit qu'on fabrique, `pre-push` valide TOUS les commits de la plage qui
 # part, lue sur son entree standard.
 HOOK_POUSSEE = RACINE / "scripts" / "git-hooks" / "pre-push"
+# LE CONTROLE DU MESSAGE, ajoute au montage le 11 septembre 2026. Les trois
+# types armes jusque-la lisaient l'IDENTITE — `git var GIT_AUTHOR_IDENT` — et
+# aucun ne lisait le MESSAGE. `commit-msg` est le seul type auquel git passe
+# le message, en chemin de fichier sur `$1`.
+HOOK_MESSAGE = RACINE / "scripts" / "git-hooks" / "commit-msg"
+# LE MOTIF D'ATTRIBUTION : un fragment SOURCE, pas un hook. Il est le SEUL
+# site de la regle au runtime, et `pre-push` comme `commit-msg` le lisent par
+# `$(dirname "$0")`. Copier le motif dans chacun en ferait deux sites.
+MOTIFS = RACINE / "scripts" / "git-hooks" / "formes-d-attribution.sh"
 MAKEFILE = RACINE / "Makefile"
 
 # Le chemin tel que la recette du Makefile le nomme, et tel qu'un renommage le
@@ -114,6 +123,8 @@ def _monte_un_depot_jetable(
     (scripts / "git-hooks").mkdir(parents=True)
     shutil.copy2(HOOK_IDENTITE, scripts / "git-hooks" / "pre-commit")
     shutil.copy2(HOOK_POUSSEE, scripts / "git-hooks" / "pre-push")
+    shutil.copy2(HOOK_MESSAGE, scripts / "git-hooks" / "commit-msg")
+    shutil.copy2(MOTIFS, scripts / "git-hooks" / MOTIFS.name)
     installeur = scripts / INSTALLEUR.name
     installeur.write_text(contenu_installeur)
 
@@ -1018,12 +1029,21 @@ class TestLaCibleInstallNeDesarmeRien:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _pousse(depot: Path, lignes: str, distant: str = "origin"):
+def _pousse(
+    depot: Path,
+    lignes: str,
+    distant: str = "origin",
+    env: dict[str, str] | None = None,
+):
     """Execute le hook `pre-push` ARME du depot, avec `lignes` sur son entree.
 
     C'est la copie posee par l'installeur qui est executee — `<type>.legacy` —
     et non le script du dossier `scripts/`. Un test qui lancerait la source ne
     dirait rien du montage ; celui-ci prouve les deux ensemble.
+
+    `env` sert a UN SEUL appelant — `TestLaBorneDeTempsDuLsRemoteEstGardee`, qui
+    interpose un mouchard `timeout` sur le `PATH`. Il est ajoute ici plutot que
+    dans un second lanceur : deux facons d'executer le hook arme divergeraient.
     """
     hook = depot / ".git" / "hooks" / "pre-push.legacy"
     assert hook.is_file(), (
@@ -1033,6 +1053,8 @@ def _pousse(depot: Path, lignes: str, distant: str = "origin"):
     environnement = dict(os.environ)
     environnement.pop("GIT_DIR", None)
     environnement.pop("GIT_WORK_TREE", None)
+    if env:
+        environnement.update(env)
     return subprocess.run(
         ["sh", str(hook), distant, "https://example.invalid/depot.git"],
         cwd=depot,
@@ -2042,6 +2064,29 @@ class TestLaPousseeEstGardeeSurTouteLaPlage:
         assert acheve.stderr == "", f"le hook ecrit sur stderr sans refuser : {acheve.stderr!r}"
 
 
+def _types_prives_de(source: str, type_: str) -> str:
+    """Le script d'installation, prive d'UN type dans `TYPES`.
+
+    **ECRIT UNE SEULE FOIS, ET SANS SUPPOSER LA POSITION DU TYPE.** La premiere
+    ecriture de cette mutation ancrait `pre-push` en FIN de liste (`...pre-push"$`).
+    L'ajout de `commit-msg` le 11 septembre 2026 l'a pousse au milieu : la
+    mutation ne mutait plus rien, et seul son propre `assert remplacements == 1`
+    l'a dit. C'est la deuxieme fois dans ce chantier qu'une sonde ancree sur une
+    position cesse de muter en silence — d'ou l'ancrage sur le TYPE, jamais sur
+    sa place.
+    """
+    mutee, remplacements = re.subn(
+        rf'^(TYPES="[^"]*?) {re.escape(type_)}(?=[ "])', r"\1", source, count=1, flags=re.M
+    )
+    assert remplacements == 1, (
+        f"`{type_}` n'est plus dans la liste `TYPES` sous la forme attendue : "
+        "cette mutation ne mute plus rien"
+    )
+    liste = mutee.split('TYPES="')[1].split("\n")[0]
+    assert type_ not in liste, f"la mutation n'a pas retire le type : {liste}"
+    return mutee
+
+
 class TestLeMontageDeLaPousseeEstConstate:
     """`make install` doit armer `pre-push` ET s'en apercevoir s'il ne l'a pas fait.
 
@@ -2051,7 +2096,7 @@ class TestLeMontageDeLaPousseeEstConstate:
     pas diverger sur un type.
     """
 
-    def test_les_trois_types_sont_armes_et_leur_couche_legacy_est_conforme(
+    def test_les_quatre_types_sont_armes_et_leur_couche_legacy_est_conforme(
         self, depot_arme: Path
     ) -> None:
         hooks = depot_arme / ".git" / "hooks"
@@ -2059,6 +2104,7 @@ class TestLeMontageDeLaPousseeEstConstate:
             "pre-commit": HOOK_IDENTITE,
             "pre-merge-commit": HOOK_IDENTITE,
             "pre-push": HOOK_POUSSEE,
+            "commit-msg": HOOK_MESSAGE,
         }
         for type_, source in attendu.items():
             genere = hooks / type_
@@ -2073,6 +2119,36 @@ class TestLeMontageDeLaPousseeEstConstate:
                 f"{type_}.legacy ne porte pas {source.name} : la correspondance "
                 "type -> source du script a change"
             )
+
+    def test_le_fragment_de_motifs_est_pose_a_cote_des_hooks(
+        self, depot_arme: Path
+    ) -> None:
+        """LE FRAGMENT FAIT PARTIE DU MONTAGE, ET SON ABSENCE BRIQUE LE DEPOT.
+
+        `pre-push` et `commit-msg` le `.`-sourcent par `$(dirname "$0")`. Absent,
+        les deux refusent TOUT en fail-closed : la panne est bruyante plutot que
+        silencieuse — c'est le bon sens d'erreur — mais elle briquerait le depot,
+        donc le script qui « constate son propre resultat » doit la voir.
+
+        **ET IL DOIT VIVRE ICI, PAS DANS L'ARBRE DE TRAVAIL.** La couche
+        `<type>.legacy` vaut precisement parce qu'elle survit a un `git checkout`
+        d'un commit ancien, a `git bisect` et a un HEAD detache : aucun des
+        167 commits anterieurs au 3 septembre 2026 ne porte le dossier de hooks
+        dans l'etat attendu. Un fragment lu dans l'arbre disparaitrait dans
+        exactement ces scenes.
+        """
+        pose = depot_arme / ".git" / "hooks" / MOTIFS.name
+        assert pose.is_file(), (
+            f"{MOTIFS.name} n'est pas pose a cote des hooks : `pre-push` et "
+            "`commit-msg` refuseront tout en fail-closed"
+        )
+        assert pose.read_text() == MOTIFS.read_text(), (
+            f"{MOTIFS.name} pose diverge de celui qui est livre"
+        )
+        assert "FORMES_D_ATTRIBUTION=" in pose.read_text(), (
+            "le fragment pose ne definit pas le motif : les deux hooks sortiront "
+            "en fail-closed sur « ne definit pas FORMES_D_ATTRIBUTION »"
+        )
 
     def test_le_controle_de_poussee_n_est_pas_le_controle_d_identite(self) -> None:
         """LA MUTATION QUI AURAIT DONNE UN HOOK CREUX, ET ELLE EST INTERDITE ICI.
@@ -2110,17 +2186,7 @@ class TestLeMontageDeLaPousseeEstConstate:
         sortirait en 0, et la poussee redeviendrait la seule chose que personne
         ne garde. C'est mot pour mot le defaut que cette fermeture ferme.
         """
-        source = INSTALLEUR.read_text()
-        mutee, remplacements = re.subn(
-            r'^(TYPES=".*?)\s*pre-push"$', r'\1"', source, count=1, flags=re.M
-        )
-        assert remplacements == 1, (
-            "`pre-push` n'est plus le dernier type de la liste `TYPES` : cette "
-            "mutation ne mute plus rien"
-        )
-        assert "pre-push" not in mutee.split("TYPES=")[1].split("\n")[0], (
-            "la mutation n'a pas retire le type de la liste"
-        )
+        mutee = _types_prives_de(INSTALLEUR.read_text(), "pre-push")
 
         depot = tmp_path / "depot-sans-poussee"
         execution = _monte_un_depot_jetable(depot, mutee)
@@ -2132,4 +2198,805 @@ class TestLeMontageDeLaPousseeEstConstate:
         assert not (depot / ".git" / "hooks" / "pre-push.legacy").exists(), (
             "la couche `.legacy` de `pre-push` est posee alors que le type est "
             "sorti de la liste : la mutation ne mute pas ce qu'elle croit"
+        )
+
+    def test_une_liste_de_types_privee_du_message_est_vue(self, tmp_path: Path) -> None:
+        """LA MUTATION QUI RETIRE `commit-msg` DU MONTAGE.
+
+        Sans ce test, le type pourrait sortir de `TYPES` sans qu'un seul rouge
+        n'apparaisse : le script s'installerait proprement sur les trois autres,
+        sortirait en 0, et le MESSAGE redeviendrait la seule chose que personne
+        ne lit au commit — le trou exact que cette fermeture ferme. Les trois
+        autres types portent le controle d'IDENTITE, qui lit
+        `git var GIT_AUTHOR_IDENT` et jamais le message.
+        """
+        mutee = _types_prives_de(INSTALLEUR.read_text(), "commit-msg")
+
+        depot = tmp_path / "depot-sans-message"
+        execution = _monte_un_depot_jetable(depot, mutee)
+        # C'est tout le probleme : le script mute reste VERT.
+        assert execution.returncode == 0, (
+            "le script mute echoue deja : ce test ne mesure plus le defaut "
+            f"silencieux qu'il decrit.\n{execution.stderr}"
+        )
+        assert not (depot / ".git" / "hooks" / "commit-msg.legacy").exists(), (
+            "la couche `.legacy` de `commit-msg` est posee alors que le type est "
+            "sorti de la liste : la mutation ne mute pas ce qu'elle croit"
+        )
+
+
+# ── LE MESSAGE, GARDE AU COMMIT ET PLUS SEULEMENT A LA POUSSEE ──────────────
+
+# Les deux FORMES que ces outils produisent reellement, assemblees A
+# L'EXECUTION morceau par morceau. Ce depot est PUBLIC : aucune n'est ecrite en
+# clair dans un fichier suivi, et c'est la convention deja tenue par
+# `TestLaPousseeEstGardeeSurTouteLaPlage`.
+_TRAILER = "Co-Authored" + "-By: un outil <un@exemple.invalid>"
+_SIGNATURE = "Generated" + " with" + " ["
+
+
+def _commit_reel(
+    depot: Path, nom: str, message: str
+) -> tuple[subprocess.CompletedProcess[str], bool]:
+    """Un VRAI `git commit`, et il rend le `rc` ET le deplacement de HEAD.
+
+    **POUR UN HOOK, LA PREUVE EST L'ETAT DU DEPOT, PAS LE `rc` SEUL.** Le lot 7
+    de ce chantier a decouvert son propre faux vert par un vrai `push` la ou
+    37 tests verts ne voyaient rien : un `rc` peut etre juste pour la mauvaise
+    raison. Le second membre du couple dit si le commit EXISTE.
+    """
+    avant = _git(depot, "rev-parse", "HEAD").stdout.strip()
+    (depot / nom).write_text(f"contenu de {nom}\n")
+    assert _git(depot, "add", "-A").returncode == 0
+    acheve = _git(depot, "commit", "-m", message)
+    apres = _git(depot, "rev-parse", "HEAD").stdout.strip()
+    if avant == apres:
+        # Le refus laisse l'index charge : on le rend au test suivant.
+        assert _git(depot, "reset", "--hard", "HEAD").returncode == 0
+        assert _git(depot, "clean", "-fd").returncode == 0
+    return acheve, avant != apres
+
+
+class TestLeMessageEstGardeAuCommit:
+    """LE TROU FERME PAR CE LOT, ET IL EST MESURE AVANT D'ETRE FERME.
+
+    **CE QUI MANQUAIT.** Le montage armait `pre-commit`, `pre-merge-commit` et
+    `pre-push`. Les deux premiers portent le controle d'IDENTITE, qui lit
+    `git var GIT_AUTHOR_IDENT` et `GIT_COMMITTER_IDENT` : **il ne lit jamais le
+    message**. Et `commit-msg` — le seul type auquel git passe le message, en
+    chemin de fichier sur `$1` — n'etait pas dans `TYPES`.
+
+    Consequence, `mesure` le 11 septembre 2026 : un trailer d'attribution
+    entrait dans un commit local sans rien rencontrer, et n'etait attrape qu'a
+    la POUSSEE, ou `pre-push` tient — eprouve par un vrai `git push`. Jamais
+    public, donc, mais au prix d'une REECRITURE de commits.
+
+    **POURQUOI LA REGLE.** Le depot est public, la liste des contributeurs de
+    GitHub ne se defait pas, et ce depot-ci a deja du etre detruit et recree
+    pour cette raison.
+
+    **CE QUE CETTE CLASSE EXECUTE.** De VRAIS `git commit` dans le depot arme
+    par le script LIVRE — jamais un appel du script a la main, qui ne dirait
+    rien du montage. Et jamais `--no-verify` : il n'y a ici aucune scene a
+    fabriquer en contournant le garde, puisque c'est le garde qu'on mesure.
+    """
+
+    @pytest.fixture
+    def depot(self, tmp_path: Path) -> Path:
+        """Portee FONCTION : chaque test avance ou n'avance pas HEAD.
+
+        Une portee module ferait dependre les plages de l'ordre de collecte, et
+        `TestLaPousseeEstGardeeSurTouteLaPlage` a deja paye cette lecon.
+        """
+        depot = tmp_path / "depot-message"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        return depot
+
+    def test_un_trailer_d_attribution_est_refuse_au_commit(self, depot: Path) -> None:
+        """LE SENS QUI MORD, et les deux etats sont montres."""
+        acheve, a_avance = _commit_reel(depot, "a.txt", f"un travail\n\n{_TRAILER}\n")
+        assert acheve.returncode == 1, (
+            "un trailer d'attribution passe le commit : le message n'est lu par "
+            f"aucun hook, et il faudra reecrire l'historique.\n{acheve.stderr}"
+        )
+        assert not a_avance, (
+            "le commit EXISTE malgre le `rc` non nul : le refus est decoratif"
+        )
+        assert "attribution" in acheve.stderr, (
+            "le refus ne vient pas du controle d'attribution : "
+            f"scene non atteinte.\n{acheve.stderr}"
+        )
+
+    @pytest.mark.parametrize("prefixe", ["", "   "])
+    def test_une_signature_est_refusee_indentee_comprise(
+        self, depot: Path, prefixe: str
+    ) -> None:
+        """LA DEUXIEME FORME, ET LA BORNE `[[:space:]]*` DE SON ANCRE.
+
+        L'ancrage pose le 9 septembre 2026 ne doit rien OUVRIR : une signature
+        indentee reste une signature. Sans ce sens, l'ancrage serait un
+        relachement et non une correction.
+        """
+        acheve, a_avance = _commit_reel(
+            depot,
+            f"b{len(prefixe)}.txt",
+            f"un travail\n\n{prefixe}{_SIGNATURE}un outil](https://exemple.invalid)\n",
+        )
+        assert acheve.returncode == 1, (
+            f"la signature prefixee par {prefixe!r} passe le commit : l'ancre a "
+            f"perdu son `[[:space:]]*`.\n{acheve.stderr}"
+        )
+        assert not a_avance, "le commit existe malgre le refus"
+
+    @pytest.mark.parametrize(
+        "recit",
+        [
+            "docs: la regle interdit toute attribution a un assistant de "
+            "generation de code, ni auteur ni committer ni trailer",
+            f"docs: on documente que {_SIGNATURE}Nom] est une forme d'attribution",
+            f"fix(commit-msg): la forme « {_SIGNATURE}… » est refusee en tete de ligne",
+        ],
+    )
+    def test_un_message_qui_raconte_la_regle_passe(self, depot: Path, recit: str) -> None:
+        """LE SENS QUI NE DOIT PAS MORDRE, ET C'EST LA BORNE QUI DECIDE DE TOUT.
+
+        Ce depot documente sa propre regle sur plusieurs pages, et **le message
+        de commit de cette fermeture-ci en est un exemple**. Un hook qui
+        refuserait le MOT enseignerait le seul geste que ce chantier interdit
+        absolument — `--no-verify` — et un garde qu'on desarme pour travailler
+        ne garde plus rien.
+        """
+        acheve, a_avance = _commit_reel(depot, f"c{abs(hash(recit)) % 9999}.txt", recit)
+        assert acheve.returncode == 0, (
+            f"un message qui RACONTE la regle est refuse : {recit!r}. Les deux "
+            "seules sorties seraient `--no-verify`, que ce chantier interdit, ou "
+            f"le retrait du garde.\n{acheve.stderr}"
+        )
+        assert a_avance, "le `rc` est nul mais le commit n'existe pas"
+        # PREUVE D'ATTEINTE : la scene contient bien ce qu'elle pretend contenir.
+        assert recit.split("\n")[0] in _git(
+            depot, "show", "-s", "--format=%B", "HEAD"
+        ).stdout, "le recit n'est pas dans le message : scene non atteinte"
+
+    def test_un_message_ordinaire_passe(self, depot: Path) -> None:
+        """LE TEMOIN INERTE.
+
+        Il ne porte aucune des quatre formes et ne raconte rien. S'il rougit,
+        ce n'est pas le garde qui mord : c'est le montage qui est casse, et tous
+        les refus mesures au-dessus le seraient pour la mauvaise raison.
+        """
+        acheve, a_avance = _commit_reel(depot, "temoin.txt", "feat: un travail ordinaire")
+        assert acheve.returncode == 0, (
+            f"un message ordinaire est refuse : le montage est casse.\n{acheve.stderr}"
+        )
+        assert a_avance, "le commit temoin n'existe pas"
+
+
+class TestLaFusionAutomatiqueEstCouverte:
+    """LA QUESTION QUE LE PILOTE N'AVAIT PAS TRANCHEE, ET ELLE DECIDE DE TOUT.
+
+    Le mandat prescrit `--no-ff` pour chaque fusion de lot, et le pilote fusionne
+    plusieurs fois par jour : c'est exactement la qu'un message GENERE porterait
+    un trailer. Il fallait donc mesurer si `commit-msg` y passe.
+
+    **LA MESURE, le 11 septembre 2026, mouchards poses sur chaque type de hook
+    d'un depot jetable, git 2.53.0 :**
+
+        geste                                 | pre-commit | pre-merge-commit | commit-msg
+        --------------------------------------+------------+------------------+-----------
+        git commit                            |    oui     |       non        | COMMIT_EDITMSG
+        git commit --amend                    |    oui     |       non        | COMMIT_EDITMSG
+        git merge --no-ff --no-edit (PROPRE)  |    NON     |  oui, SANS $1    | MERGE_MSG
+        git merge, conflit resolu, git commit |    oui     |       non        | COMMIT_EDITMSG
+        git merge --squash + git commit       |    oui     |       non        | COMMIT_EDITMSG
+        git revert / cherry-pick / rebase     |    non     |       non        | **AUCUN**
+
+    **SUR LA FUSION PROPRE, `pre-commit` NE PASSE PAS**, et `pre-merge-commit`
+    passe mais ne recoit AUCUN chemin de message — il devrait aller lire
+    `MERGE_MSG` de lui-meme, ce qu'il ne fait pas. `commit-msg` est donc le SEUL
+    des quatre types armes a voir le message d'une fusion automatique.
+
+    **CE QUI RESTE DECOUVERT EST DECLARE** : `git revert`, `git cherry-pick` et
+    `git rebase` n'executent que `prepare-commit-msg`. Ils REJOUENT un message
+    existant, donc un trailer deja pose dans un commit ancien les traverserait.
+    Le rempart pour cette famille reste `pre-push`. Une couverture partielle
+    declaree vaut mieux qu'une couverture supposee.
+    """
+
+    @pytest.fixture
+    def depot(self, tmp_path: Path) -> Path:
+        depot = tmp_path / "depot-fusion"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        return depot
+
+    @staticmethod
+    def _deux_branches(depot: Path, nom: str, en_conflit: bool) -> None:
+        """Une branche a fusionner, avec ou sans conflit sur le meme fichier."""
+        fichier = "conflit.txt" if en_conflit else f"{nom}.txt"
+        assert _git(depot, "checkout", "-b", nom).returncode == 0
+        (depot / fichier).write_text(f"version de {nom}\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        assert _git(depot, "commit", "-m", f"travail sur {nom}").returncode == 0
+        assert _git(depot, "checkout", "principale").returncode == 0
+        (depot / (fichier if en_conflit else "tronc.txt")).write_text("version du tronc\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        assert _git(depot, "commit", "-m", "travail sur le tronc").returncode == 0
+
+    def test_une_fusion_propre_portant_un_trailer_est_refusee(self, depot: Path) -> None:
+        """LE SENS QUI MORD SUR LA FUSION AUTOMATIQUE."""
+        self._deux_branches(depot, "cote", en_conflit=False)
+        avant = _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+        refus = _git(
+            depot, "merge", "--no-ff", "cote", "-m", f"merge: un lot\n\n{_TRAILER}\n"
+        )
+        assert refus.returncode == 1, (
+            "une fusion automatique dont le message porte un trailer passe : "
+            "`commit-msg` ne couvre pas la fusion, et le mandat prescrit `--no-ff` "
+            f"pour chaque lot.\n{refus.stderr}"
+        )
+        assert _git(depot, "rev-parse", "HEAD").stdout.strip() == avant, (
+            "le commit de fusion EXISTE malgre le `rc` non nul"
+        )
+        assert "attribution" in refus.stderr, (
+            f"le refus ne vient pas du controle d'attribution.\n{refus.stderr}"
+        )
+
+    def test_une_fusion_propre_au_message_conforme_passe(self, depot: Path) -> None:
+        """LE SENS QUI NE DOIT PAS MORDRE — sans lui, le garde refuserait le
+        geste que le mandat prescrit, et il serait arrache le premier jour."""
+        self._deux_branches(depot, "cote", en_conflit=False)
+        avant = _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+        acheve = _git(depot, "merge", "--no-ff", "cote", "-m", "merge: un lot propre")
+        assert acheve.returncode == 0, (
+            f"une fusion au message conforme est refusee.\n{acheve.stderr}"
+        )
+        parents = _git(depot, "rev-list", "--parents", "-n", "1", "HEAD").stdout.split()
+        assert len(parents) == 3, (
+            f"HEAD n'est pas un commit de fusion ({len(parents) - 1} parent(s)) : "
+            "la scene ne mesure pas ce qu'elle croit"
+        )
+        assert parents[0] != avant, "HEAD n'a pas avance"
+
+    def test_une_fusion_dont_le_conflit_est_resolu_est_gardee(self, depot: Path) -> None:
+        """LE SECOND CAS DE FUSION, ET IL PASSE PAR UN AUTRE FICHIER DE MESSAGE.
+
+        La resolution s'acheve par un `git commit` ordinaire : `commit-msg` y
+        recoit `.git/COMMIT_EDITMSG`, et non `.git/MERGE_MSG`. Les deux sens sont
+        eprouves, parce qu'un garde qui refuserait la resolution propre
+        bloquerait le seul geste qui sort d'un conflit.
+        """
+        self._deux_branches(depot, "cote", en_conflit=True)
+        conflit = _git(depot, "merge", "--no-ff", "cote")
+        assert conflit.returncode == 1, (
+            "la fusion ne conflicte pas : la scene n'est pas atteinte"
+        )
+        (depot / "conflit.txt").write_text("resolu a la main\n")
+        assert _git(depot, "add", "conflit.txt").returncode == 0
+        avant = _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+        refus = _git(depot, "commit", "-m", f"merge: conflit resolu\n\n{_TRAILER}\n")
+        assert refus.returncode == 1, (
+            f"un trailer passe la resolution de conflit.\n{refus.stderr}"
+        )
+        assert _git(depot, "rev-parse", "HEAD").stdout.strip() == avant, (
+            "le commit de fusion existe malgre le refus"
+        )
+
+        acheve = _git(depot, "commit", "-m", "merge: conflit resolu proprement")
+        assert acheve.returncode == 0, (
+            "la resolution au message conforme est refusee : le garde bloque le "
+            f"seul geste qui sort d'un conflit.\n{acheve.stderr}"
+        )
+        assert _git(depot, "rev-parse", "HEAD").stdout.strip() != avant
+
+
+class TestLeMotifDAttributionNaQuUnSeulSite:
+    """DEUX SITES POUR UNE MEME REGLE, C'EST LA DERIVE QUE CE DEPOT CONSIGNE.
+
+    `pre-push` refuse l'attribution sur la plage qui part, `commit-msg` sur le
+    message du commit qu'on fabrique. La regle est UNE. Recopiee, elle
+    divergerait sans qu'un seul rouge n'apparaisse — le §4.13 du registre.
+
+    **ET LA PREUVE N'EST PAS TEXTUELLE, ELLE EST DE COMPORTEMENT.** Un balayage
+    de fichiers dit seulement que personne n'a recopie le motif AUJOURD'HUI ; la
+    mutation du fragment POSE dit que les deux hooks le lisent VRAIMENT au
+    runtime. Les deux sont ici, et c'est la seconde qui mord.
+    """
+
+    @pytest.fixture
+    def depot(self, tmp_path: Path) -> Path:
+        depot = tmp_path / "depot-site-unique"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        return depot
+
+    def test_le_motif_n_est_affecte_qu_une_fois_dans_les_fichiers_suivis(self) -> None:
+        """LE BALAYAGE, et il porte sur les fichiers SUIVIS, pas sur un dossier.
+
+        Un motif recopie ailleurs — un troisieme hook, un script d'appoint — est
+        un second site, meme identique au premier le jour ou il est ecrit.
+        """
+        suivis = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=RACINE,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split("\0")
+        sites = []
+        for relatif in suivis:
+            if not relatif:
+                continue
+            chemin = RACINE / relatif
+            if not chemin.is_file():
+                continue
+            try:
+                texte = chemin.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            # L'AFFECTATION, pas la mention : ce fichier-ci nomme le motif, et
+            # le registre le raconte. Seule une affectation cree un site.
+            sites += [relatif] * len(re.findall(r"^FORMES_D_ATTRIBUTION=", texte, re.M))
+
+        assert sites == [MOTIFS.relative_to(RACINE).as_posix()], (
+            "le motif d'attribution est affecte ailleurs que dans son fragment : "
+            f"{sites}. Deux sites pour une regle unique divergent en silence"
+        )
+
+    def test_les_deux_hooks_lisent_le_meme_fragment_au_runtime(self, depot: Path) -> None:
+        """LA PREUVE D'ATTEINTE, ET ELLE EST EN TROIS ETATS.
+
+        On mute le fragment POSE — celui que les hooks lisent vraiment — et on
+        exige que les DEUX suivent. Un hook qui garderait sa propre copie
+        resterait sur l'ancien comportement, et c'est precisement le defaut
+        qu'on ne veut pas pouvoir introduire.
+
+        Le fragment est restaure par EMPREINTE : `git checkout --` a deja efface
+        deux gardes non commites dans ce chantier, et rien ici n'est suivi.
+        """
+        import hashlib
+
+        pose = depot / ".git" / "hooks" / MOTIFS.name
+        empreinte_livree = hashlib.sha256(pose.read_bytes()).hexdigest()
+        livre = pose.read_text()
+        sentinelle = "sentinelle-du-site-unique"
+
+        def refus_au_commit(nom: str, message: str) -> bool:
+            acheve, a_avance = _commit_reel(depot, nom, message)
+            return acheve.returncode != 0 and not a_avance
+
+        def refus_a_la_poussee(message: str) -> bool:
+            avant = _git(depot, "rev-parse", "HEAD").stdout.strip()
+            vide = depot / ".git" / "hooks-desarmes"
+            vide.mkdir(exist_ok=True)
+            # JAMAIS `--no-verify` : un `core.hooksPath` vide, le temps de la
+            # fabrication. C'est un reglage de harnais, pas un geste d'auteur.
+            fabrique = _git(
+                depot,
+                "-c",
+                f"core.hooksPath={vide}",
+                "commit",
+                "--allow-empty",
+                "-m",
+                message,
+            )
+            assert fabrique.returncode == 0, fabrique.stderr
+            refuse = _pousse(depot, _ligne_de_poussee(depot, avant))
+            assert _git(depot, "reset", "--hard", avant).returncode == 0
+            return refuse.returncode != 0
+
+        # ETAT 1 — LE FRAGMENT LIVRE : la forme est refusee, la sentinelle non.
+        assert refus_au_commit("s1.txt", f"un travail\n\n{_TRAILER}\n")
+        assert refus_a_la_poussee(f"un travail\n\n{_TRAILER}\n")
+        assert not refus_au_commit("s2.txt", f"un travail {sentinelle}")
+        assert not refus_a_la_poussee(f"un travail {sentinelle}")
+
+        # ETAT 2 — LE FRAGMENT MUTE : les deux hooks doivent BASCULER ENSEMBLE.
+        mute = re.sub(
+            r"^FORMES_D_ATTRIBUTION=.*$",
+            f"FORMES_D_ATTRIBUTION='{sentinelle}'",
+            livre,
+            count=1,
+            flags=re.M,
+        )
+        assert mute != livre, "la mutation du fragment ne mute rien"
+        pose.write_text(mute)
+        try:
+            assert refus_au_commit("s3.txt", f"un travail {sentinelle}"), (
+                "`commit-msg` ne suit pas le fragment mute : il porte sa propre "
+                "copie du motif, et les deux sites divergeront"
+            )
+            assert refus_a_la_poussee(f"un travail {sentinelle}"), (
+                "`pre-push` ne suit pas le fragment mute : il porte sa propre "
+                "copie du motif, et les deux sites divergeront"
+            )
+            assert not refus_au_commit("s4.txt", f"un travail\n\n{_TRAILER}\n"), (
+                "`commit-msg` refuse encore la forme alors que le fragment ne la "
+                "porte plus : il ne lit pas le fragment"
+            )
+            assert not refus_a_la_poussee(f"un travail\n\n{_TRAILER}\n"), (
+                "`pre-push` refuse encore la forme alors que le fragment ne la "
+                "porte plus : il ne lit pas le fragment"
+            )
+        finally:
+            # ETAT 3 — RESTAURATION PAR EMPREINTE, et elle est constatee.
+            pose.write_text(livre)
+            assert hashlib.sha256(pose.read_bytes()).hexdigest() == empreinte_livree
+
+        assert refus_au_commit("s5.txt", f"un travail\n\n{_TRAILER}\n")
+        assert refus_a_la_poussee(f"un travail\n\n{_TRAILER}\n")
+
+    @pytest.mark.parametrize("hook", ["commit-msg", "pre-push"])
+    def test_un_fragment_absent_refuse_plutot_que_de_laisser_passer(
+        self, depot: Path, hook: str
+    ) -> None:
+        """LE SENS DE L'ERREUR, ET C'EST LE SEUL ACCEPTABLE.
+
+        Un fragment absent ne doit JAMAIS faire sortir un hook en 0 : ce serait
+        la panne muette de ce chantier — `rc=0`, rien de verifie — dans sa forme
+        la plus facile a provoquer, puisqu'il suffit d'un fichier oublie.
+        """
+        pose = depot / ".git" / "hooks" / MOTIFS.name
+        sauvegarde = pose.read_text()
+        pose.unlink()
+        try:
+            if hook == "commit-msg":
+                acheve, a_avance = _commit_reel(depot, "f.txt", "feat: un travail")
+                assert acheve.returncode != 0, (
+                    "le commit passe SANS le fragment : le garde est muet et le "
+                    f"`rc` ment.\n{acheve.stdout}"
+                )
+                assert not a_avance, "le commit existe alors que le montage est casse"
+                sortie = acheve.stderr
+            else:
+                avant = _git(depot, "rev-parse", "HEAD~1").stdout.strip()
+                refuse = _pousse(depot, _ligne_de_poussee(depot, avant))
+                assert refuse.returncode != 0, (
+                    f"la poussee passe SANS le fragment.\n{refuse.stdout}"
+                )
+                sortie = refuse.stderr
+            assert "make install" in sortie, (
+                "le refus ne nomme pas le geste correctif : un garde dont l'echec "
+                f"n'est pas lisible est un garde qu'on desarme.\n{sortie}"
+            )
+        finally:
+            pose.write_text(sauvegarde)
+
+    def test_l_installeur_voit_un_fragment_perime(self, depot: Path) -> None:
+        """`make install` DOIT CONSTATER LE FRAGMENT, pas seulement le copier.
+
+        Sans cette verification, un fragment perime ou tronque resterait pose et
+        le script sortirait en 0 en annoncant un montage qu'il n'a pas.
+        """
+        pose = depot / ".git" / "hooks" / MOTIFS.name
+        sauvegarde = pose.read_text()
+        pose.write_text("# un fragment perime\n")
+        environnement = dict(os.environ)
+        environnement.pop("GIT_DIR", None)
+        environnement.pop("GIT_WORK_TREE", None)
+        environnement["PRE_COMMIT"] = f"{sys.executable} -m pre_commit"
+        try:
+            # On remet le fragment POSE en etat faux APRES la copie du script :
+            # c'est la boucle de verification qu'on mesure, donc on la lance
+            # seule, sur le script livre, apres avoir perime la copie.
+            mutee = INSTALLEUR.read_text().replace('cp "$motifs" "$motifs_poses"\n', "")
+            assert mutee != INSTALLEUR.read_text(), (
+                "la copie du fragment n'est plus ecrite ainsi : cette mutation ne "
+                "mute plus rien"
+            )
+            (depot / "scripts" / INSTALLEUR.name).write_text(mutee)
+            execution = subprocess.run(
+                ["sh", str(depot / "scripts" / INSTALLEUR.name)],
+                cwd=depot,
+                env=environnement,
+                capture_output=True,
+                text=True,
+            )
+            assert execution.returncode != 0, (
+                "le script sort en 0 avec un fragment perime : il annonce un "
+                f"montage qu'il n'a pas.\n{execution.stdout}"
+            )
+            assert MOTIFS.name in execution.stderr, (
+                f"l'echec ne nomme pas le fragment.\n{execution.stderr}"
+            )
+        finally:
+            (depot / "scripts" / INSTALLEUR.name).write_text(INSTALLEUR.read_text())
+            pose.write_text(sauvegarde)
+
+
+# ── LA BORNE DE TEMPS DU `ls-remote`, ET ELLE N'ETAIT QUE BORNEE PAR ECRIT ────
+
+# Un distant qui PEND VRAIMENT, sans reseau ni port ni processus a piloter.
+#
+# **TROIS AUTRES FORMES ONT ETE FABRIQUEES ET MESUREES AVANT CELLE-CI, le
+# 11 septembre 2026, et deux etaient des scenes FAUSSES :**
+#
+# - *`ext::sh -c "sleep 45"`* — un assistant de transport artisanal. `mesure` :
+#   `git ls-remote` rend **`rc=128` en 0 seconde**, refuse par
+#   `protocol.ext.allow`, et **meme avec `protocol.ext.allow=always` pose dans la
+#   configuration du depot**. Il ne pend donc pas : le repli serait atteint par
+#   une ERREUR et non par une EXPIRATION, et le test serait vert pour la
+#   mauvaise raison — la famille de defaut que ce chantier traque ;
+# - *un ecouteur TCP muet* (`accept()` puis silence) — il pend reellement
+#   (`mesure` : `rc=124` en 6 s sous un `timeout 6`), mais il demande un port,
+#   un fil d'execution et une socket qui fuit si le test meurt. Et il ecrirait
+#   une URL `git://` dans ce fichier, ce que
+#   `test_le_cout_de_cette_classe_reste_tenable` refuse explicitement ;
+# - *`git daemon`* — un processus a demarrer et a arreter, un port, et une
+#   course sur sa disponibilite.
+#
+# **LA FORME RETENUE N'A AUCUN DE CES DEFAUTS** : le distant est un
+# `git init --bare` local, et c'est la commande que git lance A L'AUTRE BOUT qui
+# dort. Pure configuration, aucun reseau, aucun port, aucun processus a piloter.
+# `mesure` le 11 septembre 2026 : `git ls-remote origin` pend, et le hook LIVRE
+# — `timeout 30`, non interpose — rend la main en **31 s** sur le message de
+# repli.
+_UPLOADPACK_QUI_PEND = 'sh -c "sleep 15"'
+
+
+def _mouchard_timeout(dossier: Path, journal: Path, delai: int) -> dict[str, str]:
+    """Interpose un `timeout` qui NOTE ses arguments puis raccourcit le delai.
+
+    **POURQUOI INTERPOSER PLUTOT QU'ATTENDRE.** La scene complete existe et elle
+    est mesuree : distant qui pend, hook livre, `timeout 30` reel, **31 s**. Elle
+    prouverait la valeur, et elle couterait **31 s A CHAQUE EXECUTION DE LA
+    PORTE** — pour une porte qui tient aujourd'hui en 68 s. Ce fichier porte
+    deja `test_le_cout_de_cette_classe_reste_tenable`, dont le motif ecrit dit
+    qu'un `ls-remote` qui pend 30 s par test « rendrait la porte inutilisable ».
+    Remplacer une reserve par un cout n'est pas une fermeture.
+
+    **CE QUE LE MOUCHARD OBSERVE EST LE VRAI APPEL**, et non le texte du script :
+    il enregistre `argv` tel que le hook le passe. La VALEUR ecrite s'y lit
+    (`30`), et le fait que la borne soit EXTERIEURE au processus git s'y lit
+    aussi — `git` est le mot qui suit le delai. Une mutation `30 -> 25` change
+    ce que le mouchard note, donc elle rougit.
+
+    **CE QUE CETTE FORME NE PROUVE PAS, ET C'EST DECLARE** : que `timeout 30`
+    rende bien la main apres 30 secondes. C'est le contrat de `timeout`, pas du
+    code de ce depot, et le garder ici reviendrait a garder coreutils.
+    """
+    dossier.mkdir(parents=True, exist_ok=True)
+    vrai = shutil.which("timeout")
+    assert vrai is not None, (
+        "`timeout` est absent de ce poste : le hook prend alors sa branche SANS "
+        "borne, et cette classe ne mesure plus la borne"
+    )
+    shim = dossier / "timeout"
+    shim.write_text(
+        "#!/bin/sh\n"
+        '# Mouchard de test : note les arguments, puis delegue au vrai `timeout`\n'
+        "# avec un delai raccourci. Voir `_mouchard_timeout`.\n"
+        'printf \'%s\\n\' "$*" >> "$MOUCHARD_JOURNAL"\n'
+        "shift\n"
+        'exec "$MOUCHARD_VRAI" "$MOUCHARD_DELAI" "$@"\n'
+    )
+    shim.chmod(0o755)
+    journal.write_text("")
+    return {
+        "PATH": f"{dossier}{os.pathsep}{os.environ['PATH']}",
+        "MOUCHARD_JOURNAL": str(journal),
+        "MOUCHARD_VRAI": vrai,
+        "MOUCHARD_DELAI": str(delai),
+    }
+
+
+class TestLaBorneDeTempsDuLsRemoteEstGardee:
+    """« BORNE PAR ECRIT, PAS GARDEE » — la reserve que le lot 7 a laissee.
+
+    Le hook demande au distant son etat REEL par `git ls-remote`, borne par un
+    `timeout` EXTERIEUR au processus git : un hook qui pend est un hook qu'on
+    desarme, et l'attente ne doit pas dependre des reglages du transport. Au-dela
+    de la borne, il bascule sur un repli **fail-closed** qui n'exclut rien — donc
+    verifie PLUS — et qui **le dit** sur `stderr`.
+
+    **CE QUI N'ETAIT PAS GARDE.** La mutation `timeout 30 -> 25` etait VERTE : le
+    repli n'etait atteint dans aucun test par une EXPIRATION, seulement par un
+    distant qui echoue vite (`test_une_ref_neuve_est_bornee_sur_l_etat_reel_du_distant`).
+    Un distant qui echoue et un distant qui PEND ne prennent pas le meme chemin
+    de code, et seul le second passe par la borne.
+
+    **CE QUE CETTE CLASSE FERME, ET CE QU'ELLE LAISSE OUVERT.** Elle ferme : la
+    borne est passee a un `timeout` EXTERIEUR, sa valeur est **30**, le repli est
+    ATTEINT quand `ls-remote` expire, il le DIT, et la poussee reste POSSIBLE. Ce
+    qui reste ouvert est nomme dans `_mouchard_timeout` : que `timeout 30` rende
+    la main apres 30 s, ce qui est le contrat de coreutils.
+    """
+
+    @pytest.fixture
+    def couple(self, tmp_path: Path) -> tuple[Path, Path]:
+        """Un depot arme et un distant local qui PEND a la demande."""
+        depot = tmp_path / "depot-borne"
+        execution = _monte_un_depot_jetable(depot, INSTALLEUR.read_text())
+        assert execution.returncode == 0, f"{execution.stdout}\n{execution.stderr}"
+        distant = tmp_path / "distant.git"
+        assert subprocess.run(
+            ["git", "init", "--bare", "-q", str(distant)], capture_output=True
+        ).returncode == 0
+        assert _git(depot, "remote", "add", "origin", str(distant)).returncode == 0
+        return depot, distant
+
+    @staticmethod
+    def _fait_pendre(depot: Path) -> None:
+        assert _git(
+            depot, "config", "remote.origin.uploadpack", _UPLOADPACK_QUI_PEND
+        ).returncode == 0
+
+    def test_la_borne_passee_a_timeout_est_exterieure_a_git_et_vaut_trente(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LA VALEUR, OBSERVEE SUR L'APPEL REEL ET NON LUE DANS LE SCRIPT.
+
+        Un garde qui lirait `timeout 30` dans le texte du hook ne dirait pas que
+        le hook l'EXECUTE. Le mouchard, lui, est execute par le hook : ce qu'il
+        note est ce qui est passe.
+        """
+        depot, _ = couple
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        notes = [ligne for ligne in journal.read_text().splitlines() if ligne.strip()]
+        # PREUVE D'ATTEINTE : sans cette assertion, un hook qui n'appellerait
+        # PLUS `timeout` laisserait le journal vide et tout le reste passerait
+        # par vacuite — le `rc` juste pour la mauvaise raison, sept fois dans ce
+        # chantier.
+        assert notes, (
+            "le hook n'a appele aucun `timeout` : la borne n'est plus posee, ou "
+            "elle l'est par un autre moyen que ce test ne voit pas"
+        )
+        champs = notes[0].split()
+        assert champs[0] == "30", (
+            f"la borne passee a `timeout` vaut {champs[0]!r} et non 30 : la "
+            "valeur ecrite au site a change sans que le site le dise"
+        )
+        assert champs[1] == "git", (
+            f"`timeout` n'enveloppe pas git mais {champs[1]!r} : la borne n'est "
+            "plus EXTERIEURE au processus git, donc elle depend des reglages du "
+            "transport — c'est le motif ecrit au site"
+        )
+        assert "ls-remote" in champs, (
+            f"la commande bornee n'est pas `ls-remote` : {notes[0]!r}"
+        )
+
+    def test_un_distant_qui_pend_atteint_le_repli_et_la_poussee_passe(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LES DEUX EXIGENCES DU REPLI, DANS LA SCENE QUI LE DECLENCHE VRAIMENT.
+
+        Le repli verifie PLUS, il ne refuse pas : une plage propre doit passer.
+        Un repli qui refuserait serait arrache le premier jour ou le reseau
+        tousse, et les deux seules sorties seraient `--no-verify` — que ce
+        chantier interdit — ou le retrait du garde.
+        """
+        depot, _ = couple
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        acheve = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert journal.read_text().strip(), "le `timeout` n'a pas ete appele"
+        assert "indisponible" in acheve.stderr, (
+            "le repli fail-closed n'est pas atteint, ou il ne se dit plus. Une "
+            "borne dont on ne sait pas si elle a servi redevient la cecite qu'on "
+            f"vient de fermer.\n{acheve.stderr}"
+        )
+        assert acheve.returncode == 0, (
+            "le repli REFUSE une plage propre : il verifie plus, il ne refuse "
+            f"pas.\n{acheve.stdout}\n{acheve.stderr}"
+        )
+
+    def test_le_repli_verifie_plus_et_refuse_la_plage_fautive(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LE SENS QUI MORD : le repli n'exclut RIEN, donc il voit tout.
+
+        Sans ce sens, `test_..._la_poussee_passe` serait satisfait par un repli
+        qui ne verifierait rien du tout — un `rc=0` pour la pire des raisons.
+        """
+        depot, _ = couple
+        vide = depot / ".git" / "hooks-desarmes"
+        vide.mkdir(exist_ok=True)
+        (depot / "fautif.txt").write_text("contenu\n")
+        assert _git(depot, "add", "-A").returncode == 0
+        # JAMAIS `--no-verify` : un `core.hooksPath` vide, le temps de fabriquer
+        # la scene. C'est un reglage de harnais, pas un geste d'auteur.
+        assert _git(
+            depot,
+            "-c",
+            f"core.hooksPath={vide}",
+            "commit",
+            "-m",
+            "un commit hors liste blanche",
+            env=_identite(ADRESSE_INTERDITE, ADRESSE_INTERDITE),
+        ).returncode == 0
+        fautif = _git(depot, "rev-parse", "HEAD").stdout.strip()
+
+        self._fait_pendre(depot)
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        refus = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert "indisponible" in refus.stderr, (
+            f"le repli n'est pas atteint : scene non atteinte.\n{refus.stderr}"
+        )
+        assert refus.returncode == 1, (
+            "le repli laisse passer un commit hors liste blanche : il n'ouvre pas "
+            f"la plage, et il ne verifie donc rien.\n{refus.stdout}"
+        )
+        assert fautif[:12] in refus.stderr, (
+            f"le refus ne nomme pas le commit fautif.\n{refus.stderr}"
+        )
+
+    def test_le_temoin_inerte_un_distant_qui_repond_ne_declenche_aucun_repli(
+        self, couple: tuple[Path, Path], tmp_path: Path
+    ) -> None:
+        """LE TEMOIN INERTE DE CETTE CLASSE.
+
+        Meme depot, meme mouchard, meme plage — mais le distant REPOND. Le repli
+        ne doit pas se dire. S'il se disait quand meme, les trois tests ci-dessus
+        seraient verts sans que la borne ait rien a voir avec leur resultat.
+        """
+        depot, _ = couple
+        journal = tmp_path / "journal.txt"
+        env = _mouchard_timeout(tmp_path / "bin", journal, delai=2)
+
+        acheve = _pousse(depot, _ligne_de_poussee(depot, _ZEROS), env=env)
+
+        assert journal.read_text().strip(), (
+            "le `timeout` n'a pas ete appele : le temoin ne mesure pas le meme "
+            "chemin de code que les scenes qui pendent"
+        )
+        assert "indisponible" not in acheve.stderr, (
+            "le repli se declenche alors que le distant REPOND : les scenes qui "
+            f"pendent sont vertes pour une raison etrangere a la borne.\n{acheve.stderr}"
+        )
+        assert acheve.returncode == 0, f"{acheve.stdout}\n{acheve.stderr}"
+
+    def test_le_cout_de_cette_classe_est_mesure_et_borne(self) -> None:
+        """LE COUT, MESURE, ET LA DECISION D'HEBERGEMENT QU'IL COMMANDE.
+
+        `mesure` le 11 septembre 2026, recette du site `pytest tests/unit/` : la
+        scene COMPLETE — distant qui pend, hook livre, `timeout 30` non
+        interpose — rend la main en **31 s**, et il en faudrait une par sens.
+        Interposee, la meme scene coute **2 s** par test, soit le delai du
+        mouchard.
+
+        Ce test tient la propriete qui rendrait le cout faux : **aucun delai de
+        cette classe ne depasse quelques secondes.** Si le `sleep` du distant ou
+        le delai du mouchard montaient, la porte se paierait en attente pure, et
+        c'est exactement ce que `test_le_cout_de_cette_classe_reste_tenable`
+        refuse une classe plus haut.
+        """
+        source = Path(__file__).read_text(encoding="utf-8")
+        debut = source.index("class TestLaBorneDeTempsDuLsRemoteEstGardee")
+        suite = source.find("\nclass ", debut + 1)
+        corps = source[debut : suite if suite > 0 else len(source)]
+        assert corps.count("\nclass ") == 0, "la borne de lecture deborde"
+
+        delais = [int(n) for n in re.findall(r"delai=(\d+)", corps)]
+        # PREUVE D'ATTEINTE : on lit bien des delais, et non une liste vide qui
+        # satisferait la boucle par vacuite.
+        assert len(delais) >= 3, (
+            f"seulement {len(delais)} delai(s) lu(s) dans cette classe : ce test "
+            "balaie autre chose que ce qu'il croit"
+        )
+        assert max(delais) <= 5, (
+            f"un delai de mouchard monte a {max(delais)} s : la porte se paierait "
+            "en attente pure"
+        )
+        sommeil = re.search(r"sleep (\d+)", _UPLOADPACK_QUI_PEND)
+        assert sommeil is not None, (
+            "le distant qui pend ne dort plus : la scene ne pend plus, et le "
+            "repli serait atteint par une erreur et non par une expiration"
+        )
+        assert int(sommeil.group(1)) <= 30, (
+            "le distant dort plus de 30 s : ses processus survivraient au test"
         )

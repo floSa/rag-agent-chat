@@ -56,6 +56,16 @@ cd "$racine"
 commun=$(cd "$(git rev-parse --git-common-dir)" && pwd)
 identite="$racine/scripts/git-hooks/pre-commit"
 poussee="$racine/scripts/git-hooks/pre-push"
+attribution="$racine/scripts/git-hooks/commit-msg"
+
+# LE MOTIF D'ATTRIBUTION N'EST PAS UN HOOK : c'est un fragment SOURCE par
+# `pre-push` ET par `commit-msg`. Il est copie a cote d'eux — donc HORS de
+# l'arbre de travail, comme la couche `.legacy` elle-meme — et chacun le lit
+# par `$(dirname "$0")`. Lu depuis l'arbre, il disparaitrait exactement dans
+# les scenes que `.legacy` existe pour couvrir : `git bisect`, HEAD detache,
+# commit ancien. Voir le commentaire en tete du fragment.
+motifs="$racine/scripts/git-hooks/formes-d-attribution.sh"
+motifs_poses="$commun/hooks/formes-d-attribution.sh"
 
 # LE CONTROLE DE POUSSEE EST UN AUTRE SCRIPT, ET IL LE FAUT.
 #
@@ -73,6 +83,7 @@ poussee="$racine/scripts/git-hooks/pre-push"
 source_du_type() {
     case "$1" in
         pre-push) echo "$poussee" ;;
+        commit-msg) echo "$attribution" ;;
         *) echo "$identite" ;;
     esac
 }
@@ -102,7 +113,27 @@ source_du_type() {
 #
 # `pre-push` a sa propre source — voir `source_du_type()` ci-dessus — parce
 # qu'il valide une PLAGE lue sur l'entree standard, et non le commit courant.
-TYPES="pre-commit pre-merge-commit pre-push"
+# `commit-msg` ENTRE DANS CETTE LISTE LE 11 SEPTEMBRE 2026, et le motif est
+# mesure. Le controle d'identite lit `git var GIT_AUTHOR_IDENT` et
+# `GIT_COMMITTER_IDENT` : **il ne lit JAMAIS le message**. Aucun des trois
+# types armes jusqu'ici ne le lisait, et `commit-msg` est le SEUL type auquel
+# git passe le message — en chemin de fichier, sur `$1`. Un trailer
+# d'attribution entrait donc dans un commit local sans rien rencontrer, et
+# n'etait attrape qu'a la POUSSEE : jamais public, mais au prix d'une
+# reecriture de commits.
+#
+# **IL COUVRE LA FUSION AUTOMATIQUE, ET C'ETAIT LA QUESTION QUI DECIDAIT DE
+# SA VALEUR.** `mesure` le 11 septembre 2026, mouchards poses sur chaque type
+# d'un depot jetable, git 2.53.0 : sur `git merge --no-ff --no-edit` PROPRE,
+# `pre-commit` ne passe pas, `pre-merge-commit` passe mais SANS aucun chemin
+# de message, et `commit-msg` recoit `.git/MERGE_MSG` sur `$1`. Sur une fusion
+# dont le conflit a ete resolu a la main, il recoit `.git/COMMIT_EDITMSG`. Le
+# mandat prescrit `--no-ff` pour chaque fusion de lot : c'est exactement la
+# qu'un message genere porterait un trailer.
+#
+# Ce qu'il ne couvre PAS est declare au site du hook : `git revert`,
+# `git cherry-pick` et `git rebase` n'executent que `prepare-commit-msg`.
+TYPES="pre-commit pre-merge-commit pre-push commit-msg"
 
 # UNE BOUCLE SUR UNE LISTE VIDE VERIFIE ZERO CHOSE, ET ELLE EST VRAIE.
 #
@@ -134,6 +165,16 @@ for type in $TYPES; do
     cp "$source" "$commun/hooks/$type"
     chmod +x "$commun/hooks/$type"
 done
+
+# Le fragment de motifs, pose AVANT `pre-commit install` comme les hooks :
+# le framework ne le connait pas et ne le deplacera pas, mais un hook copie
+# sans son fragment refuserait tout commit en fail-closed jusqu'a la ligne
+# suivante. L'ordre evite cette fenetre.
+if [ ! -f "$motifs" ]; then
+    echo "ECHEC : $motifs est introuvable." >&2
+    exit 1
+fi
+cp "$motifs" "$motifs_poses"
 
 # `PRE_COMMIT` existe pour un seul appelant : le test qui verifie ce script
 # (`tests/unit/test_installation_des_garde_fous.py`), qui monte un depot
@@ -215,6 +256,17 @@ for type in $TYPES; do
     fi
 done
 
+# LE FRAGMENT FAIT PARTIE DU MONTAGE, DONC IL SE CONSTATE. Absent ou perime,
+# `pre-push` et `commit-msg` refusent TOUT en fail-closed : la panne est bruyante
+# plutot que silencieuse, mais elle briquerait le depot, et c'est exactement ce
+# qu'un script qui « constate son propre resultat » doit voir avant l'utilisateur.
+if ! cmp -s "$motifs" "$motifs_poses"; then
+    echo "ECHEC : $motifs_poses ne porte pas le motif d'attribution livre." >&2
+    echo "  Sans lui, « pre-push » et « commit-msg » refusent tout en" >&2
+    echo "  fail-closed. Corrige la cause, puis relance : make install" >&2
+    erreurs=1
+fi
+
 if [ "$erreurs" -ne 0 ]; then
     echo "" >&2
     echo "Les garde-fous ne sont PAS armes. Ne commite pas avant d'avoir" >&2
@@ -230,8 +282,12 @@ for type in $TYPES; do
         pre-push)
             echo "  $type.legacy   controle de la PLAGE poussee, valable pour toute branche"
             ;;
+        commit-msg)
+            echo "  $type.legacy   controle du MESSAGE, valable pour toute branche"
+            ;;
         *)
             echo "  $type.legacy   controle d'identite, valable pour toute branche"
             ;;
     esac
 done
+echo "  formes-d-attribution.sh   motif partage par pre-push et commit-msg"

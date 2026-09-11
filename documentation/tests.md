@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 730 tests, aucune dépendance
+## Unitaire — 756 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,14 +20,29 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 11 septembre 2026 à 07:32 UTC par LOT-9 : **730** tests sur **44** fichiers,
-> et les deux comptes de la recette — la somme par fichier et le total que
-> `pytest` annonce — concordent. Les six de plus gardent le réglage
-> `NEIGHBOUR_SECTION_UNCLES` dans ses DEUX positions — la définition (C) de
-> « section voisine » est désormais ÉTEINTE par défaut, sur la mesure de sa
-> propre campagne (§4.41, §4.42) — et le témoin inerte du fichier est rejoué
-> dans les deux positions.
-> Relevés antérieurs : **720** sur **44** le 9 septembre 2026 à 15:04 UTC (LOT-4 ;
+> `mesuré` le 11 septembre 2026 à 09:13 UTC par LOT-10 : **756** tests sur **44** fichiers,
+> et les deux comptes de la recette — la somme par fichier et le total
+> que `pytest` annonce — concordent. Les dix-sept de plus gardent l'armement de
+> `commit-msg` : le MESSAGE d'un commit n'était lu par aucun des trois types
+> armés jusque-là — tous portent le contrôle d'**identité**, qui lit
+> `git var GIT_AUTHOR_IDENT` et jamais le message — et un trailer d'attribution
+> n'était donc attrapé qu'à la **poussée**, au prix d'une réécriture de commits.
+> Ils couvrent les deux directions (la forme refusée, le récit accepté), les deux
+> formes de **fusion** — c'est là que le mandat prescrit `--no-ff` — et le fait
+> que le motif n'a qu'un **seul site** au runtime, prouvé par mutation du
+> fragment posé. Les cinq derniers ferment la réserve « borné par écrit, pas
+> gardé » du `timeout` de `pre-push` : le repli fail-closed n'était atteint
+> jusque-là que par un distant qui **échoue vite**, jamais par un distant qui
+> **pend** — deux chemins de code différents, et seul le second passe par la
+> borne. Les trois derniers gardent **la lecture de cette note-ci** : elle se
+> faisait par un motif non ancré, qui lisait donc la PREMIÈRE phrase de cette
+> forme dans la page — et la page en porte plusieurs, dont le récit du §4.13.
+> L'ancrage porte désormais sur le mot `mesuré`, **sur la même ligne**, et
+> l'unicité est exigée. Le quatrième vient de la **table des mutations** : relâcher
+> `== 1` en `>= 1` restait VERT, la seule scène qui éprouvait la clause rendant
+> **zéro** note et non plusieurs.
+> Relevés antérieurs : **730** sur **44** le 11 septembre 2026 à 07:32 UTC
+> (LOT-9), **720** sur **44** le 9 septembre 2026 à 15:04 UTC (LOT-4 ;
 > le fichier neuf est `tests/unit/test_section_voisine.py`, qui garde la
 > définition (C) de « section voisine », §4.6), **718** sur **44** le même jour à
 > 14:30 UTC (LOT-4, avant son garde de coût), **697** sur **43** le 9 septembre

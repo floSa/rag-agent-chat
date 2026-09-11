@@ -13,6 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from src.agent.chronometrie import ETAGES
 from src.api.schemas import MAX_HISTORY_MESSAGES, StageTimings
 
@@ -1897,6 +1899,45 @@ def test_la_premisse_docker_fausse_ne_sert_de_motif_a_rien() -> None:
 _PAGE_DES_TESTS = "documentation/tests.md"
 
 
+# LA NOTE, ET NON UNE PHRASE QUI LUI RESSEMBLE — CORRECTION DU 11 SEPTEMBRE 2026.
+#
+# La lecture était `re.search(r"\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers")`,
+# donc **la première occurrence du fichier**, sans rien qui l'ancre sur la note
+# `mesuré`. Or cette page porte PLUSIEURS phrases de cette forme : le récit du
+# §4.13, qui raconte que « cette note annonçait **520** tests sur **36**
+# fichiers », en est une.
+#
+# `mesuré` le 11 septembre 2026, sur ce garde lui-même : en réécrivant le compte,
+# le mot `fichiers` est passé à la ligne suivante, le motif n'a plus reconnu la
+# note, et `re.search` est allé matcher le récit plus bas. **Le garde a rougi en
+# annonçant « 539 tests sur 37 fichiers »** — deux chiffres historiques exacts et
+# entièrement hors sujet. Rouge pour la bonne raison, message pour la mauvaise.
+#
+# **ET LE SENS INVERSE EST LE GRAVE, PARCE QU'IL EST MUET** : le jour où la note
+# disparaîtrait ou changerait de forme, ce garde continuerait de lire un RÉCIT.
+# S'il portait par hasard les bons chiffres, il serait **vert sans que la note
+# existe** — la forme de défaut que ce chantier traque depuis dix audits.
+#
+# L'ancrage porte donc sur la phrase `mesuré`, sur UNE SEULE LIGNE — c'est ce qui
+# a mordu —, et l'UNICITÉ est exigée : deux notes concurrentes laisseraient
+# `re.search` en choisir une en silence.
+# Garde : `TestLaNoteDuCompteEstLueAuBonEndroit`, dans les deux directions.
+_MOTIF_DE_LA_NOTE = r"`mesuré`[^\n]*?\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers"
+
+
+def _lit_la_note(texte: str) -> tuple[int, int]:
+    """Les deux chiffres de la note `mesuré`, et d'elle seule."""
+    notes = re.findall(_MOTIF_DE_LA_NOTE, texte)
+    assert len(notes) == 1, (
+        f"{len(notes)} note(s) « `mesuré` … **N** tests sur **M** fichiers » dans "
+        f"{_PAGE_DES_TESTS}, au lieu d'une seule. Zéro : la note a changé de "
+        "forme, ou son `mesuré` et ses chiffres ne sont plus sur la même ligne — "
+        "ce garde lirait alors un RÉCIT. Plusieurs : `re.search` en choisirait "
+        "une en silence."
+    )
+    return int(notes[0][0]), int(notes[0][1])
+
+
 def _comptes_annonces() -> tuple[int, int, int]:
     """Les chiffres écrits dans `tests.md` : le titre, puis la note `mesuré`.
 
@@ -1905,16 +1946,104 @@ def _comptes_annonces() -> tuple[int, int, int]:
     """
     texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
     titre = re.search(r"^## Unitaire — (\d+) tests", texte, re.M)
-    note = re.search(r"\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers", texte)
     assert titre is not None, (
         f"le titre « ## Unitaire — N tests » n'a pas été trouvé dans "
         f"{_PAGE_DES_TESTS} : ce garde ne mesure plus rien, et c'est un rouge"
     )
-    assert note is not None, (
-        f"la note « **N** tests sur **M** fichiers » n'a pas été trouvée dans "
-        f"{_PAGE_DES_TESTS} : ce garde ne mesure plus rien, et c'est un rouge"
-    )
-    return int(titre.group(1)), int(note.group(1)), int(note.group(2))
+    note_tests, note_fichiers = _lit_la_note(texte)
+    return int(titre.group(1)), note_tests, note_fichiers
+
+
+class TestLaNoteDuCompteEstLueAuBonEndroit:
+    """LE GARDE DU GARDE, et il tient les deux directions.
+
+    Sans lui, la lecture de la note pourrait redevenir un `re.search` non ancré
+    sans qu'un seul rouge n'apparaisse : la page porte aujourd'hui la note en
+    premier, donc le défaut serait LATENT — exactement comme il l'était jusqu'au
+    11 septembre 2026.
+    """
+
+    def test_un_recit_seul_ne_passe_pas_pour_la_note(self) -> None:
+        """LE SENS QUI MORD, et c'est le sens MUET du défaut.
+
+        Une page dont la note a disparu ne doit pas se laisser lire par un récit,
+        même quand ce récit porte des chiffres de la bonne forme.
+        """
+        recit = (
+            "## Unitaire — 999 tests, aucune dépendance\n\n"
+            "> Cette note annonçait **520** tests sur **36** fichiers, et c'était\n"
+            "> faux.\n"
+        )
+        # PREUVE D'ATTEINTE : l'ancienne lecture, elle, se serait laissé prendre.
+        ancienne = re.search(r"\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers", recit)
+        assert ancienne is not None and ancienne.group(1) == "520", (
+            "la scène ne reproduit plus le défaut : l'ancienne lecture ne mord "
+            "plus sur ce récit, et ce test ne mesurerait rien"
+        )
+
+        with pytest.raises(AssertionError, match="au lieu d'une seule"):
+            _lit_la_note(recit)
+
+    def test_deux_notes_concurrentes_sont_refusees_plutot_qu_arbitrees(self) -> None:
+        """LA SECONDE DIRECTION DE L'UNICITÉ, ET ELLE N'AVAIT PAS DE SCÈNE.
+
+        **CE TEST EXISTE PARCE QUE LA MUTATION L'A DIT.** `assert len(notes) == 1`
+        relâché en `>= 1` restait **VERT** : la seule scène qui l'éprouvait était
+        le récit seul, qui rend **zéro** note — donc refusée par les deux formes,
+        et le message « 0 … au lieu d'une seule » satisfaisait encore le motif
+        attendu. La clause « pas PLUSIEURS » n'était visitée par personne.
+        `mesuré` le 11 septembre 2026, table des mutations de ce lot.
+
+        Deux notes ne doivent pas être arbitrées en silence par l'ordre du
+        fichier : c'est exactement le défaut qu'on vient de fermer, déplacé d'un
+        cran.
+        """
+        page = (
+            "## Unitaire — 755 tests, aucune dépendance\n\n"
+            "> `mesuré` le 11 septembre 2026 : **755** tests sur **44** fichiers.\n"
+            "> `mesuré` le 9 septembre 2026 : **720** tests sur **44** fichiers.\n"
+        )
+        # PREUVE D'ATTEINTE : la page porte bien DEUX notes ancrées, et non une.
+        assert len(re.findall(_MOTIF_DE_LA_NOTE, page)) == 2, (
+            "la scène ne porte pas deux notes concurrentes : ce test ne mesure "
+            "pas la clause d'unicité"
+        )
+        with pytest.raises(AssertionError, match="2 note"):
+            _lit_la_note(page)
+
+    def test_la_note_reste_lue_quand_elle_est_la(self) -> None:
+        """LE SENS QUI NE DOIT PAS MORDRE, récit concurrent inclus.
+
+        Un ancrage qui refuserait la page réelle ne serait pas une correction
+        mais une panne : la note ET le récit coexistent sur cette page depuis le
+        9 septembre 2026.
+        """
+        page = (
+            "## Unitaire — 752 tests, aucune dépendance\n\n"
+            "> `mesuré` le 11 septembre 2026 par LOT-10 : **752** tests sur "
+            "**44** fichiers,\n> et les deux comptes concordent.\n"
+            "> Cette note annonçait **520** tests sur **36** fichiers, et c'était\n"
+            "> faux.\n"
+        )
+        assert _lit_la_note(page) == (752, 44)
+
+    def test_la_page_reelle_du_depot_se_lit_sans_ambiguite(self) -> None:
+        """LE TÉMOIN INERTE : la page livrée porte une note et une seule.
+
+        Si ce test rougit, les deux ci-dessus mesurent une page qui n'existe pas.
+        """
+        texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+        tests, fichiers = _lit_la_note(texte)
+        assert tests > 0 and fichiers > 0
+        # Et la page porte bien AUSSI un récit de la même forme : sans lui, le
+        # défaut fermé ici n'aurait jamais pu se produire, et ce garde serait
+        # vert sur une page qui ne le met pas à l'épreuve.
+        toutes = re.findall(r"\*\*(\d+)\*\* tests sur \*\*(\d+)\*\* fichiers", texte)
+        assert len(toutes) >= 2, (
+            f"la page ne porte plus qu'une seule phrase de cette forme ({toutes}) : "
+            "le récit concurrent a disparu, et l'ancrage n'est plus mis à "
+            "l'épreuve par la page elle-même"
+        )
 
 
 def _comptes_collectes() -> tuple[int, int]:
