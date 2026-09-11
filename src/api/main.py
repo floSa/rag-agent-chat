@@ -33,6 +33,7 @@ from src.agent.llm import PromptFit, generate_stream
 from src.agent.minio_client import get_object_bytes
 from src.agent.retriever import (
     EmbeddingModelMismatchError,
+    etat_du_peripherique,
     etat_modele_embedding,
     group_by_document,
     lexical_ready,
@@ -70,6 +71,7 @@ from src.api.schemas import (
     SourceSelectionRequest,
     SourcesResponse,
     StageTimings,
+    TorchDeviceHealth,
 )
 
 logging.basicConfig(
@@ -113,6 +115,24 @@ def _embedding_inconnu() -> EmbeddingModelHealth:
     """Ce qu'on publie quand la sonde n'est pas revenue ou a levé."""
     return EmbeddingModelHealth(
         status="unknown", expected=settings.embedding_model_name, collection=None
+    )
+
+
+def _peripherique_inconnu() -> TorchDeviceHealth:
+    """Ce qu'on publie quand la sonde du périphérique n'est pas revenue.
+
+    `requested` est le SEUL champ qu'on peut encore affirmer : il vient du
+    réglage, pas de torch. Les autres sont donnés au pire cas — build sans CUDA,
+    carte invisible, modèles non chargés — et c'est le bon sens de repli pour
+    CE champ-ci : « je n'ai pas pu lire » et « pas de GPU » se soignent par le
+    même geste, ouvrir le mode d'emploi et vérifier les trois conditions, là où
+    l'inverse ferait croire à un GPU en service qu'on n'a pas su voir.
+    """
+    return TorchDeviceHealth(
+        requested=settings.torch_device,
+        torch_version="",
+        cuda_build=None,
+        cuda_available=False,
     )
 
 
@@ -646,10 +666,23 @@ async def health() -> HealthResponse:
     tache_embedding = asyncio.create_task(
         _sonder("modele_embedding", etat_modele_embedding, appelant="/health")
     )
+    # Sous le même plafond, et pour une raison PRÉCISE : `etat_du_peripherique`
+    # ne fait aucune entrée-sortie réseau, mais `torch.cuda.is_available()`
+    # interroge le pilote de la carte au premier appel d'un build CUDA. Un
+    # pilote qui ne rend pas la main est une panne comme une autre, et elle ne
+    # doit pas coûter le healthcheck — donc pas de traitement de faveur.
+    tache_peripherique = asyncio.create_task(
+        _sonder("peripherique_torch", etat_du_peripherique, appelant="/health")
+    )
 
     # Liste typée `Future[Any]` : les tâches n'ont pas toutes le même type de
     # résultat, et c'est bien la même attente qui les borne toutes.
-    attente: list[asyncio.Future[Any]] = [*taches.values(), tache_usage, tache_embedding]
+    attente: list[asyncio.Future[Any]] = [
+        *taches.values(),
+        tache_usage,
+        tache_embedding,
+        tache_peripherique,
+    ]
     await asyncio.wait(attente, timeout=_PLAFOND_SONDES_S)
 
     services: dict[str, bool] = {}
@@ -702,6 +735,10 @@ async def health() -> HealthResponse:
             failures=echecs,
         ),
         embedding_model=embedding,
+        torch_device=(
+            _relever("peripherique_torch", tache_peripherique, si_levee=None)
+            or _peripherique_inconnu()
+        ),
     )
 
 

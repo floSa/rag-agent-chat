@@ -93,10 +93,46 @@ Constaté, pas supposé :
   redémarrage ;
 - `rag_hf_cache` et `rag_models_cache` existent : les modèles d'embedding et de
   reranking n'auront pas à être retéléchargés ;
-- **aucun GPU n'est requis.** L'image de l'agent embarque Torch **CPU-only** et
-  le projet est conçu pour tourner sur processeur. Les « heures de GPU » que la
-  documentation mentionne concernent `RAG-Eval-Bench`, un outil d'évaluation
-  séparé qui n'est pas dans cette boucle ;
+- **⚠ CECI A CHANGÉ LE 11 SEPTEMBRE 2026, ET C'EST CE QUE NOUS VOUS RENDONS.**
+  Ce document déclarait : *« aucun GPU n'est requis. L'image de l'agent embarque
+  Torch CPU-only et le projet est conçu pour tourner sur processeur. »* La
+  première phrase est **devenue fausse**, la deuxième aussi, la troisième reste
+  vraie. Le détail, parce que la nuance décide de ce que vous avez à faire :
+
+  | | avant | depuis le 11 septembre 2026 |
+  |---|---|---|
+  | `torch` dans l'image de l'agent | build **CPU** (`2.14.0+cpu`) | build **CUDA** (`2.14.0+cu130`) |
+  | taille de l'image | 2,92 Go | **10,5 Go** |
+  | le CALCUL a-t-il besoin d'un GPU | non | **oui par défaut** — `TORCH_DEVICE` vaut `cuda` depuis la campagne du 11 septembre. `TORCH_DEVICE=cpu` le ramène sur processeur, sans rien reconstruire |
+  | le DÉMARRAGE a-t-il besoin d'un GPU | non | **OUI**, et c'est le point qui vous concerne |
+
+  **Ce qui vous concerne vraiment** : `docker-compose.yml` réserve désormais une
+  carte au service `agent-api`. Sur une machine **sans** carte, sans pilote ou
+  sans NVIDIA Container Toolkit, **le conteneur ne démarre pas** — il ne démarre
+  pas *lentement*, il ne démarre **pas** : `mesuré` le 11 septembre 2026,
+  `docker run` rend **`rc=125`** et `nvidia-container-cli: device error`, aucun
+  processus lancé. C'est une panne sèche, pas une dégradation.
+
+  **Ce que ça ne change pas** : le contrat entre nos deux projets. L'agent lit
+  les mêmes stores, avec le même modèle d'embedding, et il trouve **les mêmes
+  passages** — la campagne du 11 septembre l'a vérifié question par question sur
+  les 138 du jeu de référence : neuf métriques de rappel identiques, 130/130 ex
+  æquo. Rien de ce que vous produisez n'a besoin d'être différent, et **vous
+  n'avez pas besoin d'un GPU pour le pipeline**.
+
+  **Le geste, si votre machine n'a pas de carte** : commenter le bloc `deploy:`
+  du service `agent-api` dans `docker-compose.yml`, puis
+  `docker compose up -d agent-api`. Le service repart à l'identique. Le mode
+  d'emploi complet — les trois conditions qui décident du GPU, comment vérifier
+  chacune, le coût et le retour en arrière — est à
+  [`gpu_cuda.md`](gpu_cuda.md).
+
+  **Ce que nous ne tranchons pas** : si votre registre porte une exigence de
+  portabilité sur cette pile, c'est votre pilote qui cote. Nous rendons le fait,
+  pas la décision.
+
+  Les « heures de GPU » que la documentation mentionne concernent toujours
+  `RAG-Eval-Bench`, un outil d'évaluation séparé qui n'est pas dans cette boucle ;
 - le réseau Docker `rag_network` est **créé par ce pipeline** — l'agent s'y
   raccroche en `external: true` et ne démarrera pas sans lui ;
 - le réseau `llm-net` est créé par un troisième dépôt, `llm-service`, qui porte

@@ -7454,3 +7454,149 @@ commits sans, et rendu la question. Vérifié par le pilote sur les cinq commits
 **Et l'ironie est utile à écrire** : la fermeture que ce lot livrait est
 précisément le garde qui aurait refusé le geste réclamé — **et il l'aurait refusé
 au commit.**
+
+
+### 4.48 → Le lot 11 : le GPU rapporte 817 ms et coûte 40, et la conclusion « classement inchangé » du lot 10 est corrigée
+
+**Décision du propriétaire, 11 septembre 2026** : l'agent prend le GPU. Le CPU
+était un choix ÉCRIT — `Dockerfile.agent` (« la roue CUDA alourdit l'image de
+plusieurs Go pour rien »), `architecture.md`, et une **déclaration au pipeline**
+(« aucun GPU n'est requis »). Les trois sont défaites en connaissance de cause,
+et la déclaration au pipeline est **rendue**, pas corrigée en silence.
+
+#### Ce que le lot a fermé
+
+**(1) LE PÉRIPHÉRIQUE ÉTAIT IMPLICITE, ET C'EST CE QUI RENDAIT LA MESURE
+IMPOSSIBLE.** Le lot 10 avait trouvé que `retriever` construit ses deux modèles
+sans argument `device`. `SentenceTransformer` et `CrossEncoder` portent tous deux
+`device: str | None = None` (`mesuré` le 11 septembre 2026 par `inspect` sur
+sentence-transformers 5.6.1), et `None` ne veut pas dire « CPU » : il veut dire
+« décide pour moi ». *Tant que l'image ne portait qu'un torch CPU, rien ne
+distinguait « le GPU n'est pas utilisé » de « il n'y a pas de GPU ».* Fermé
+**avant** de toucher à l'image : `TORCH_DEVICE`, passé explicitement aux deux
+constructeurs, publié par `/health` sous `torch_device` — ce qui est demandé, la
+version CUDA du build, si la carte est visible, et **sur quoi chaque modèle est
+réellement posé**. Les deux derniers champs sont les seuls qui disent que le GPU
+**sert** : `cuda_available: true` avec `embedding: "cpu"` est un état possible,
+et c'était l'état du service entre 12:54 et 14:26 ce jour-là.
+
+**(2) LES TROIS CONDITIONS, ET UN MODE D'EMPLOI QUI LES SÉPARE.**
+`documentation/gpu_cuda.md` : (a) le build CUDA dans l'image, (b) la réservation
+au conteneur, (c) le réglage. **Chacune suffit à tout ramener sur le CPU, et
+aucune ne se signale.** Chaque condition a sa commande de vérification, son
+symptôme et son diagnostic. Plus le choix de la roue (`cu130` : le plus haut
+runtime que le pilote 595 sert, et le seul avec `cu126` à publier `2.14.0` en
+cp312 — `cu128` s'arrête à 2.11.0, `cu129` à 2.13.0), ce qui casse si on se
+trompe, le coût mesuré (**2,92 Go → 10,5 Go**) et le retour en arrière.
+
+**(3) LA MESURE, QUI EST LE LIVRABLE.** Site canonique :
+`documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`. `make eval`,
+138 questions, `rc=0`, apparié à `runs/2026-09-10-lecteur-neuf-reglage.json` :
+
+| métrique | CPU | GPU | écart |
+|---|---:|---:|---|
+| `rerank_ms` p50 | 498 | **58** | −440 ms (−88 %) |
+| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
+| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
+| `generation_ms` p50 | 4 682 | 4 722 | **+40 ms — LA CONTENTION** |
+| `total_ms` p50 | 7 298 | **6 481** | **−817 ms (−11,2 %)** |
+
+**Le risque qui justifiait la prudence est mesuré, et il est petit.** La crainte
+écrite en distribuant le lot était d'« optimiser 11 % en risquant de ralentir
+67 % ». Partager la carte avec Ollama coûte **40 ms** sur la génération contre
+**817 ms** gagnés au total : **vingt contre un**. La mémoire n'est pas en cause
+(1 262 MiB pour l'agent à côté de ~4 900 pour Ollama, sur 23 034).
+
+Le défaut de `TORCH_DEVICE` est né à `cpu` le matin — pour que la seule
+reconstruction de l'image ne bascule pas la production avant la mesure — et il
+est passé à `cuda` le soir, **sur décision du propriétaire adossée à ces
+chiffres**. Le garde n'a pas été relâché : *il a changé de valeur gardée*, et les
+deux positions restent éprouvées.
+
+#### Les trouvailles du lot contre lui-même
+
+**T-1 — LE GARDE DU CÂBLAGE DE `/health` ÉTAIT CREUX, et seule la table des
+mutations pouvait le voir.** Le test vérifiait que la route publie
+`requested == "cuda:7"`. Or `_peripherique_inconnu()` — le repli publié quand la
+sonde ne revient pas — publie **exactement le même `requested`**, qu'il tient du
+même réglage. `mesuré` : la mutation M8, qui remplace la sonde par son repli dans
+la route, laissait **15 tests verts**. Réparé par `torch_version`, que la sonde
+lit dans torch et que le repli laisse vide. *La famille de défaut que ce chantier
+a trouvée neuf fois, retournée cette fois contre le garde lui-même.*
+
+**T-2 — LA CONCLUSION « CLASSEMENT INCHANGÉ » DU §4.46 EST CORRIGÉE.** Le lot 10
+avait mesuré que le périphérique déplace les scores du cross-encoder de
+**5,48 × 10⁻⁶** et conclu que le classement ne bougeait pas. Sur les 138
+questions du jeu de référence, **il bouge une fois** : `G-006`, `rang_reciproque`
+1,0 → 0,5, le bon élément passant du rang 1 au rang 2. Δ moyen −0,0038, p=1,000,
+et `rappel_recherche` / `rappel_elements` / `rappel_documents` valent 1,0 des deux
+côtés — le document reste trouvé, c'est son ordre face à un quasi ex æquo qui
+s'inverse. *La mesure du lot 10 n'était pas fausse ; sa généralisation l'était.*
+Un écart de 5 × 10⁻⁶ suffit à inverser deux candidats dont les scores diffèrent
+de moins que ça.
+
+**T-3 — LE POSTE EST PARTAGÉ, ET LA PREMIÈRE CAMPAGNE EN EST MORTE.** `mesuré` le
+11 septembre entre 13:06 et 13:09 : les logs d'`ollama-central` montrent **deux**
+clients — `172.19.0.3` (cet agent, `POST /api/chat`) et `172.19.0.1`, la
+passerelle, donc un client sur l'hôte, en `POST /v1/chat/completions`. `ss -tnp`
+le nomme : trois processus de `/home/ubuntu/data-analyst-agent`. L'effet est
+mesuré à l'échantillonnage de la carte toutes les 3 s : **sept cycles complets de
+chargement/déchargement de 4,9 Go en deux minutes**, alors qu'Ollama est réglé à
+`OLLAMA_KEEP_ALIVE=24h` — le modèle n'expire pas, il est **évincé** par
+l'alternance. Le temps par question passe de 6 846 ms à **~55 s** (×8). La
+première `make eval` a été interrompue après 82 questions sur 138 ; elle a été
+rejouée **entièrement** après 14:34, quand le tiers s'est calmé, en 23 min 29 s.
+*Projet distinct, hors mandat : ce lot ne l'a pas touché.*
+
+**T-4 — LA RÉSERVATION GPU REND LE DÉMARRAGE DÉPENDANT D'UNE CARTE, pas seulement
+le calcul.** `mesuré` : demander deux cartes à un poste qui n'en a qu'une fait
+rendre **`rc=125`** à `docker run`, avec `nvidia-container-cli: device error`, et
+**aucun processus n'est lancé**. Ce n'est pas une dégradation, c'est une panne
+sèche — et c'est le fait qui a été **rendu au pipeline d'ingestion**, dont le
+document déclarait « aucun GPU n'est requis ». Écrit au site, dans le compose
+lui-même, avec le geste de retrait.
+
+**T-5 — UN `rc` LU SUR LE MAUVAIS PROGRAMME, ATTRAPÉ PAR LE LOT.** La première
+mesure de T-4 a été faite par `docker run … 2>&1 | head -3`, qui a rendu `rc=0`
+sur un `docker run` en échec — le `rc` de `head`. *Le piège que ce chantier a payé
+six fois.* Remesuré en redirigeant vers des fichiers : `rc=125`.
+
+#### La batterie : onze mutations, dix mordent, la onzième est un témoin inerte
+
+Restauration par `git checkout --` **et** vérification d'empreinte SHA-256 à
+chaque tour, le travail étant commité d'abord.
+
+| | mutation | `rc` | ce qui rougit |
+|---|---|---|---|
+| M1 | l'embedder sans `device=` | 1 | les deux positions + l'état publié |
+| M2 | le cross-encoder sans `device=` | 1 | idem |
+| M3 | l'embedder figé sur le littéral `"cpu"` | 1 | la position `cuda` seule |
+| M4 | l'état répète le réglage au lieu de lire le modèle | 1 | la sonde ne charge rien |
+| M5 | la sonde CHARGE le modèle pour répondre | 1 | trois tests |
+| M6 | le défaut du réglage inversé | 1 | le défaut |
+| M7 | l'alias d'environnement retiré | 1 | la « réglabilité » |
+| M8 | `/health` sert le repli au lieu de la sonde | **0 → 1** | **T-1 : creux, puis réparé** |
+| M9 | `cuda_build` recopié en dur | 1 | deux tests |
+| M10 | la ligne de journal du périphérique POSÉ retirée | 1 | le journal |
+| M11 | **témoin inerte** — un commentaire réécrit | **0** | **rien, et c'est le résultat** |
+
+#### Ce que le lot n'a PAS fermé, et qui reste ouvert
+
+- **la contention sous charge CONCURRENTE.** Les 138 questions ont été posées en
+  série. Le service à venir répondra à plusieurs personnes à la fois, donc fera
+  tourner l'embedder, le cross-encoder et le serveur LLM **simultanément** sur la
+  même carte. Les p95 qui s'effondrent (2 943 → 68 ms) sont le contraire d'un
+  signe de saturation, mais le chiffre de +40 ms est propre à une charge
+  séquentielle ;
+- **le passage à vLLM**, annoncé par le propriétaire : il change le serveur qui
+  partage la carte, donc la contention, donc ce +40 ms devra être rejoué ;
+- **`.github/workflows/ci.yml` porte encore « tout tourne en CPU dans ce
+  projet »**, ce qui est désormais imprécis. **Délibérément non corrigé** :
+  modifier un workflow exige un jeton avec le scope `workflow`, que le jeton de
+  poussée n'a pas (§2.2 du journal), et le corriger empêcherait la poussée. La CI
+  elle-même reste juste : elle installe torch depuis l'index CPU, et les gardes
+  de ce lot n'écrivent aucune valeur attendue de `cuda_build` — ils confrontent
+  deux lectures de la même source, donc ils sont verts dans les deux
+  environnements ;
+- **aucun des deux jeux ne note la réponse GÉNÉRÉE.** Réserve permanente de
+  l'instrument, pas de ce lot.
