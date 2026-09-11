@@ -100,13 +100,41 @@ class Settings(BaseSettings):
     # c'est exactement là qu'on ne peut plus distinguer « le GPU est utilisé » de
     # « le GPU est là et on ne s'en sert pas ».
     #
-    # LE DÉFAUT EST `cpu`, ET C'EST UNE DÉCISION, PAS UNE COMMODITÉ. Il préserve
-    # le comportement mesuré du service le 11 septembre 2026 — `rerank` et
-    # `dense` sur CPU — Y COMPRIS une fois l'image passée à un build CUDA et le
-    # GPU réservé au conteneur. Sans cette valeur-ci, la seule reconstruction de
-    # l'image basculerait la production sur la carte AVANT qu'une campagne ait
-    # dit si ça vaut le coup, et le GPU de ce poste n'est pas libre : Ollama y
-    # tient déjà 4 904 Mio et porte 84 % du temps d'une réponse.
+    # LE DÉFAUT EST `cuda`, ET IL EST MESURÉ — décision du propriétaire du
+    # 11 septembre 2026, prise CONTRE une campagne et non contre une intuition.
+    #
+    # Ce réglage est né à `cpu` le matin même, délibérément : tant que la mesure
+    # n'avait pas tranché, la seule reconstruction de l'image n'avait pas à
+    # basculer la production. La campagne l'a tranché le jour même, sur les
+    # 138 questions du jeu de référence, `rc=0`, comparée à
+    # `runs/2026-09-10-lecteur-neuf-reglage.json` — site canonique des chiffres :
+    # `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md` :
+    #
+    #   rerank_ms   p50   498 → 58     (−88 %)      p95  2 943 → 68   (−98 %)
+    #   dense_ms    p50   120 → 72     (−40 %)      p95  1 516 → 85   (−94 %)
+    #   generation  p50 4 682 → 4 722  (+40 ms, +0,85 % — LA CONTENTION)
+    #   total_ms    p50 7 298 → 6 481  (−817 ms, −11,2 %)
+    #
+    # LE RISQUE QUI JUSTIFIAIT LA PRUDENCE EST MESURÉ, ET IL EST PETIT. Partager
+    # la carte avec Ollama — qui porte 67 % du temps d'une réponse — coûte
+    # **40 ms** sur la génération, contre **817 ms** gagnés au total : un rapport
+    # de vingt contre un. La mémoire n'est pas en cause non plus (1 266 MiB pour
+    # l'agent à côté des 4 900 MiB d'Ollama, sur 23 034).
+    #
+    # ET LE RAPPEL NE BOUGE PAS — à une question près, écrite plutôt que tue :
+    # sur les 138, `rang_reciproque` baisse sur **G-006** seule (1,0 → 0,5, le bon
+    # élément passe du rang 1 au rang 2), Δ moyen −0,0038, p=1,000. Les neuf
+    # autres métriques sont identiques à la quatrième décimale, 130/130 ex æquo.
+    # C'est la conséquence exacte de ce que le lot 10 avait mesuré — le
+    # périphérique déplace les scores du cross-encoder de 5,48 × 10⁻⁶ — et **sa
+    # conclusion « classement inchangé » est ici corrigée** : sur 138 questions
+    # réelles, deux candidats quasi ex æquo finissent par s'inverser. Le rappel,
+    # lui, est intact : `rappel_recherche`, `rappel_elements` et
+    # `rappel_documents` valent 1,0 des deux côtés sur cette question.
+    #
+    # POUR REVENIR AU CPU : `TORCH_DEVICE=cpu` dans le `.env`, sans rien
+    # reconstruire. Le service repart sur processeur, et il y est éprouvé —
+    # `tests/unit/test_peripherique_torch.py` garde les DEUX positions.
     #
     # CE QUI EST ACCEPTÉ : une chaîne libre, transmise telle quelle à torch —
     # `cpu`, `cuda`, `cuda:1`. Elle n'est pas validée ici, et c'est délibéré :
@@ -119,7 +147,7 @@ class Settings(BaseSettings):
     # réellement posé — voir `retriever.etat_du_peripherique`.
     #
     # Gardé dans les DEUX positions : `tests/unit/test_peripherique_torch.py`.
-    torch_device: str = Field(default="cpu", alias="TORCH_DEVICE")
+    torch_device: str = Field(default="cuda", alias="TORCH_DEVICE")
     embedding_model_name: str = Field(
         default="paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME"
     )

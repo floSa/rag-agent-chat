@@ -8,15 +8,26 @@ sur l'agent en service (image `f4d488b447a6`, `torch 2.14.0+cu130`, carte
 
 ## 1. Ce que cette campagne mesure, et pourquoi elle ne ressemble pas aux autres
 
-**Elle ne passe pas par le LLM, et c'est une décision forcée par le poste.**
+**Elle a DEUX instruments, et le second n'était pas prévu.**
 
 Le plan d'origine était de rejouer `make eval` (138 questions) et
-`make eval-controle` (30 questions) sous les deux périphériques. La première a
-été lancée à 12:54 UTC et **interrompue à 14:24 UTC après 82 questions sur 138**,
-pour la raison mesurée au §5 : un autre projet du poste dispute le service
-Ollama, et le temps par question est passé de **6 846 ms** (antécédent du
-10 septembre) à **~55 s**. Deux campagnes complètes auraient coûté quatre heures
-pour rendre un `generation_ms` dominé par un tiers.
+`make eval-controle` (30) sous les deux périphériques. Une première tentative a
+été lancée à 12:54 UTC et **interrompue à 14:24 après 82 questions sur 138** :
+un autre projet du poste disputait le service Ollama, et le temps par question
+était passé de **6 846 ms** (antécédent du 10 septembre) à **~55 s** — quatre
+heures pour rendre un `generation_ms` dominé par un tiers. Le §5 le mesure.
+
+L'instrument de repli est **`POST /sources`** (§2 et §3), qui fait exactement le
+travail de torch — l'embedder puis le cross-encoder — et **rien d'autre** : ni
+génération, ni traduction, ni reconstruction par le graphe. Son temps mural
+mesure l'étage que le périphérique change, sans la variance de celui qu'il ne
+change pas.
+
+**Puis le poste s'est libéré**, et les deux campagnes ont pu tourner pour de
+bon : le contrôle à 14:29 (4 min 21 s) et les 138 questions à 14:34 (23 min 29 s),
+les deux en `rc=0`. **C'est le §4bis qui porte le résultat décisif** — celui que
+`/sources` ne pouvait pas donner : le coût de la **contention** sur la
+génération.
 
 **L'instrument retenu est `POST /sources`**, qui fait exactement le travail de
 torch — l'embedder (`dense`), puis le cross-encoder (`rerank`) — et **rien
@@ -92,6 +103,72 @@ machine ; sur la carte, il ne l'est qu'avec Ollama.
 
 ---
 
+## 3bis. LES DEUX CAMPAGNES, ET LE CHIFFRE QUI DÉCIDE
+
+`mesuré` le 11 septembre 2026, agent en `TORCH_DEVICE=cuda`, `make eval` de
+14:34 à 14:58 UTC (**23 min 29 s**, `rc=0`) et `make eval-controle` de 14:29 à
+14:33 (**4 min 21 s**, `rc=0`).
+
+### Les 138 questions, contre `runs/2026-09-10-lecteur-neuf-reglage.json`
+
+| métrique | CPU (antécédent) | GPU | écart |
+|---|---:|---:|---|
+| `rerank_ms` p50 | 498 | **58** | **−440 ms (−88 %)** |
+| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
+| `dense_ms` p50 | 120 | **72** | −48 ms (−40 %) |
+| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
+| `retrieval_ms` p50 | 700 | **218** | −482 ms |
+| **`generation_ms` p50** | **4 682** | **4 722** | **+40 ms (+0,85 %)** |
+| **`total_ms` p50** | **7 298** | **6 481** | **−817 ms (−11,2 %)** |
+
+**LA CONTENTION EST MESURÉE, ET ELLE EST PETITE : +40 ms.** C'est le chiffre que
+ce lot existait pour produire, et il renverse la crainte qui avait présidé au
+lot : partager la carte avec Ollama — qui porte 67 % du temps — coûte **40 ms**
+là où le GPU en fait gagner **817**. Rapport de **vingt contre un**.
+
+**Les p95 sont l'information la plus utile pour un service multi-utilisateurs** :
+`rerank_ms` passe de 2 943 à **68 ms**. Sur CPU, le cross-encoder est en
+concurrence avec tout ce qui tourne sur la machine ; sur la carte, seulement avec
+Ollama. C'est la queue de distribution qui décide du ressenti, pas la médiane.
+
+### Le rappel — et LA question qui bascule
+
+Neuf métriques de rappel sur dix sont **identiques question par question**,
+130/130 ex æquo, contre les **deux** antécédents (`2026-09-08-reference.json` par
+la recette, et `2026-09-10-lecteur-neuf-reglage.json` par comparaison croisée).
+
+La dixième bouge sur **une seule question**, et elle est écrite plutôt que tue :
+
+| | `G-006` |
+|---|---|
+| `rang_reciproque` | 1,0 → **0,5** (le bon élément passe du rang 1 au rang 2) |
+| `rappel_recherche` | 1,0 → 1,0 |
+| `rappel_elements` | 1,0 → 1,0 |
+| `rappel_documents` | 1,0 → 1,0 |
+| Δ moyen sur 130 | **−0,0038**, IC 95 % [−0,011, +0,000], p=1,000 |
+
+Le document reste trouvé ; c'est son **ordre** face à un candidat quasi ex æquo
+qui s'inverse.
+
+**ET CELA CORRIGE UNE CONCLUSION DU LOT 10.** Celui-ci avait mesuré que le
+périphérique déplace les scores du cross-encoder de **5,48 × 10⁻⁶** et conclu
+« **classement inchangé** ». Sur 138 questions réelles, le classement change —
+une fois. La mesure du lot 10 n'était pas fausse ; sa **généralisation** l'était,
+et c'est exactement la classe d'erreur que ce chantier traque : un résultat vrai
+sur son échantillon, lu comme vrai partout. *Un écart de 5 × 10⁻⁶ suffit à
+inverser deux candidats dont les scores diffèrent de moins que ça.*
+
+### Le contrôle, 30 questions
+
+`rc=0`. Rappel **identique** contre les deux antécédents (26/26 et 30/30 ex
+æquo), aucune question ne bascule. `retrieval_ms` p50 879 → 237, `rerank_ms` p95
+2 817 → 72, `total_ms` p50 8 296 → 7 403 (−10,8 %). `generation_ms` p50 5 165 →
+5 633 (+468 ms) — **et cette valeur-là n'est pas exploitable** : le contrôle a
+tourné pendant que le tiers du §5 était encore actif, sur 30 questions seulement.
+C'est la campagne à 138 qui porte le chiffre de contention.
+
+---
+
 ## 4. La preuve que le GPU est ATTEINT, et non seulement présent
 
 Trois preuves indépendantes, `mesuré` le 11 septembre 2026 à 14:26 UTC. Aucune
@@ -164,45 +241,46 @@ mesure du §3, qui ne passe pas par Ollama.
 
 ---
 
-## 6. Ce qui n'a PAS été mesuré, et qui décide pourtant
+## 6. Ce que cette campagne NE dit pas
 
-**LA CONTENTION DE CALCUL ENTRE TORCH ET OLLAMA SUR LA MÊME CARTE.** C'est le
-risque que le propriétaire a nommé en distribuant ce lot, et **cette campagne ne
-le tranche pas.**
+**La contention, elle, a fini par être mesurée** — c'est le §3bis, et c'était la
+réserve centrale de ce lot. Restent trois choses qu'aucun de ces chiffres ne
+couvre, et qu'il faut savoir avant de s'en servir.
 
-Ce qu'on sait : la mémoire n'est pas le sujet (§4). Ce qu'on ne sait pas : si
-faire calculer l'embedder et le cross-encoder sur la L4 ralentit la génération
-d'Ollama, qui porte **67 %** du temps d'une réponse. La seule mesure qui le
-dirait est une campagne complète comparée à un antécédent, et elle exige un poste
-où Ollama n'est pas déjà disputé par un tiers.
+1. **La contention a été mesurée SOUS UN SEUL UTILISATEUR.** Les 138 questions
+   ont été posées en série, une à la fois. Un service qui répond à plusieurs
+   personnes simultanément fait tourner l'embedder, le cross-encoder ET Ollama
+   **en même temps** sur la même carte, ce que cette campagne ne reproduit pas.
+   Le sens du résultat ne devrait pas s'inverser — les p95 s'améliorent
+   massivement, ce qui est le contraire d'un signe de saturation — mais le
+   chiffre de +40 ms, lui, est propre à une charge séquentielle.
 
-**Ce que l'arithmétique permet quand même de poser**, et c'est `calculé`, pas
-`mesuré` : sur la partition du 10 septembre, le GPU retire **650,7 ms** des
-6 846 ms d'une réponse, soit **9,5 %**. Pour que l'opération soit neutre, il
-faudrait que la contention ajoute autant à la génération, c'est-à-dire **+14 %**
-sur `generation_ms`. *C'est le seuil à mesurer* — et il n'est pas
-invraisemblable, ce qui est exactement pourquoi il faut le mesurer plutôt que de
-le supposer dans un sens ou dans l'autre.
+2. **Le tiers du §5 tournait par intermittence.** Il était actif pendant le
+   contrôle à 30 questions (dont le `generation_ms` est donc écarté) et absent ou
+   faible pendant les 138. C'est la raison pour laquelle le `+40 ms` vient de la
+   campagne longue et non du contrôle.
 
-**C'est pour cela que `TORCH_DEVICE` reste à `cpu` par défaut.** Le gain sur
-l'étage torch est net, reproduit et hors de portée du bruit ; le prix sur l'étage
-dominant est inconnu. Le §P1 du registre tranche sur un rapport prix/apport
-connu — ici le prix ne l'est pas encore.
+3. **Aucun des deux jeux ne note la réponse GÉNÉRÉE.** Ils mesurent le rappel,
+   la précision du contexte, la complétude des citations et la latence — jamais
+   la qualité de la réponse. L'absence de mouvement sur le rappel n'est donc pas
+   une preuve d'absence d'effet sur la réponse ; c'est une réserve permanente de
+   l'instrument, pas de ce lot.
+
+**Ce que le résultat permet malgré tout d'affirmer** : sur cet usage et cette
+charge, le GPU retire 817 ms des 7 298 d'une réponse et en rend 40 à la
+génération. C'est le rapport prix/apport que le §P1 du registre demande, et il
+est favorable d'un facteur vingt.
 
 ---
 
-## 7. Ce qu'il faudrait pour conclure
+## 7. Ce qu'il faudrait pour aller plus loin
 
-1. **un poste où seul cet agent parle à Ollama** — ou une fenêtre où le projet
-   `data-analyst-agent` ne tourne pas ;
-2. `make eval` sous `TORCH_DEVICE=cpu` puis sous `cuda`, comparés à
-   `runs/2026-09-10-lecteur-neuf-reglage.json` ;
-3. la lecture des **trois** colonnes, et pas d'une seule : `rerank_ms` et
-   `dense_ms` (ce que le GPU rapporte), **`generation_ms`** (ce que la contention
-   coûte), `total_ms` (ce que l'utilisateur ressent) ;
-4. et la vérification que les métriques de rappel ne bougent pas — le lot 10 a
-   mesuré que le périphérique ne change les scores qu'à **5,48 × 10⁻⁶ avec
-   classement inchangé**, donc tout mouvement serait une trouvaille.
-
-Coût estimé : **~40 min par campagne** sur un poste libre, contre 2 h 07 observées
-sous contention.
+1. **une mesure sous charge concurrente** — plusieurs requêtes simultanées, qui
+   est le régime du service à venir. C'est la seule réserve qui pourrait encore
+   renverser la décision ;
+2. **une mesure sur un poste où seul cet agent parle au service LLM** — ou une
+   fenêtre où le projet `data-analyst-agent` ne tourne pas — pour resserrer
+   l'intervalle sur `generation_ms` ;
+3. **une reprise après le passage à vLLM**, annoncé par le propriétaire : il
+   change le serveur qui partage la carte, donc il change la contention, donc ce
+   chiffre de +40 ms devra être rejoué.

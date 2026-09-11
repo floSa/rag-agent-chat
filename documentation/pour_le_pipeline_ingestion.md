@@ -103,7 +103,7 @@ Constaté, pas supposé :
   |---|---|---|
   | `torch` dans l'image de l'agent | build **CPU** (`2.14.0+cpu`) | build **CUDA** (`2.14.0+cu130`) |
   | taille de l'image | 2,92 Go | **10,5 Go** |
-  | le CALCUL a-t-il besoin d'un GPU | non | **non** — `TORCH_DEVICE` vaut `cpu` par défaut |
+  | le CALCUL a-t-il besoin d'un GPU | non | **oui par défaut** — `TORCH_DEVICE` vaut `cuda` depuis la campagne du 11 septembre. `TORCH_DEVICE=cpu` le ramène sur processeur, sans rien reconstruire |
   | le DÉMARRAGE a-t-il besoin d'un GPU | non | **OUI**, et c'est le point qui vous concerne |
 
   **Ce qui vous concerne vraiment** : `docker-compose.yml` réserve désormais une
@@ -114,9 +114,11 @@ Constaté, pas supposé :
   processus lancé. C'est une panne sèche, pas une dégradation.
 
   **Ce que ça ne change pas** : le contrat entre nos deux projets. L'agent lit
-  les mêmes stores, avec le même modèle d'embedding, et le calcul reste sur
-  processeur par défaut. Rien de ce que vous produisez n'a besoin d'être
-  différent, et **vous n'avez pas besoin d'un GPU pour le pipeline**.
+  les mêmes stores, avec le même modèle d'embedding, et il trouve **les mêmes
+  passages** — la campagne du 11 septembre l'a vérifié question par question sur
+  les 138 du jeu de référence : neuf métriques de rappel identiques, 130/130 ex
+  æquo. Rien de ce que vous produisez n'a besoin d'être différent, et **vous
+  n'avez pas besoin d'un GPU pour le pipeline**.
 
   **Le geste, si votre machine n'a pas de carte** : commenter le bloc `deploy:`
   du service `agent-api` dans `docker-compose.yml`, puis

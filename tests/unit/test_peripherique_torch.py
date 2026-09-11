@@ -113,24 +113,32 @@ def _aucun_modele_ne_survit_a_un_test() -> Any:
 # ─── (1) LE DÉFAUT, ET IL EST UNE DÉCISION ────────────────────────────────────
 
 
-def test_le_defaut_du_reglage_est_cpu() -> None:
-    """LE DÉFAUT PRÉSERVE LE SERVICE MESURÉ, image CUDA ou non.
+def test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche() -> None:
+    """LE DÉFAUT EST `cuda`, ET IL EST ADOSSÉ À UNE MESURE.
 
     Lu sur une instance NEUVE de `Settings`, jamais sur le singleton `settings` :
     celui-ci a été construit à l'import, donc sous le `.env` du poste, et un
     test qui le lirait mesurerait la configuration de la machine plutôt que la
     décision écrite dans le code.
 
-    Ce que ce test refuse : qu'on passe le défaut à `cuda` (ou à un `auto` qui
-    reviendrait au même dès que l'image porte CUDA) sans le décider. Le faire
-    changerait le comportement de la production par la seule reconstruction de
-    l'image, ce que le §P1 du registre appelle trancher sans mesure.
+    CE QUE CE TEST A GARDÉ D'ABORD, ET POURQUOI IL A CHANGÉ DE SENS. Il exigeait
+    `cpu`, le matin du 11 septembre 2026 : tant que la campagne n'avait pas
+    tranché, la seule reconstruction de l'image n'avait pas à basculer la
+    production sur une carte partagée avec Ollama. La campagne du même jour a
+    tranché — `rerank_ms` p50 498 → 58, `total_ms` p50 7 298 → 6 481, et la
+    contention sur la génération chiffrée à **+40 ms** —, et le propriétaire a
+    décidé. **Le garde n'a pas été relâché : il a changé de valeur gardée**, et
+    la valeur qu'il garde porte désormais la mesure qui la justifie.
+
+    Ce que ce test refuse toujours : qu'on change ce défaut sans décision. Le
+    motif complet, avec ses chiffres, est au site du réglage.
     """
-    assert Settings().torch_device == "cpu", (
-        "le défaut de TORCH_DEVICE n'est plus `cpu`. Ce défaut n'est pas une "
-        "commodité : c'est lui qui fait qu'une image reconstruite avec un build "
-        "CUDA et un GPU réservé continue de calculer là où la campagne du "
-        "11 septembre 2026 l'a mesurée. Le changer change le service"
+    assert Settings().torch_device == "cuda", (
+        "le défaut de TORCH_DEVICE n'est plus `cuda`. Ce défaut n'est pas une "
+        "commodité : il est le résultat de la campagne du 11 septembre 2026 "
+        "(−817 ms sur `total_ms` p50, contention mesurée à +40 ms sur la "
+        "génération). Le changer change le service, et demande la même chose "
+        "qu'il a demandé la première fois : une mesure, pas une intuition"
     )
 
 

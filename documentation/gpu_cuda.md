@@ -25,11 +25,16 @@ réponses sont justes — simplement plus lentes.
 |---|---|---|---|
 | **(a)** | `torch` est un build **CUDA** dans l'image | `Dockerfile.agent`, `ARG TORCH_INDEX_URL` | `torch.version.cuda` |
 | **(b)** | le conteneur a **accès à la carte** | `docker-compose.yml`, bloc `deploy.resources.reservations.devices` du service `agent-api`, **plus** le NVIDIA Container Toolkit installé sur l'hôte | `torch.cuda.is_available()` |
-| **(c)** | le **réglage** nomme la carte | `TORCH_DEVICE` dans le `.env` (défaut : `cpu`) | `settings.torch_device` |
+| **(c)** | le **réglage** nomme la carte | `TORCH_DEVICE` dans le `.env` (défaut : `cuda`) | `settings.torch_device` |
 
-**(c) vaut `cpu` par défaut, et c'est délibéré.** Reconstruire l'image avec un
-build CUDA et réserver la carte ne met **pas** ce service sur le GPU : ça le rend
-seulement *possible*. Le motif est au §7, et il est chiffré.
+**Les trois sont indépendantes.** Reconstruire l'image avec un build CUDA et
+réserver la carte ne met **pas** ce service sur le GPU si `TORCH_DEVICE` dit
+`cpu` ; et inversement, `TORCH_DEVICE=cuda` ne sert à rien si l'image est en CPU
+ou si la carte n'entre pas dans le conteneur. C'est pour ça qu'on les vérifie
+une par une, §2 à §4.
+
+**(c) vaut `cuda` depuis le 11 septembre 2026**, sur mesure — le §7 donne les
+chiffres. `TORCH_DEVICE=cpu` ramène tout sur processeur sans rien reconstruire.
 
 Les trois sont publiées en continu par `GET /health`, champ `torch_device` :
 
@@ -39,12 +44,12 @@ curl -s http://localhost:8011/health | python3 -m json.tool
 
 ```
 "torch_device": {
-    "requested": "cpu",            <- condition (c)
-    "torch_version": "2.14.0+cpu", <- condition (a), le suffixe
-    "cuda_build": null,            <- condition (a), la version CUDA compilée
-    "cuda_available": false,       <- condition (b)
-    "embedding": null,             <- le modèle est-il POSÉ sur la carte
-    "rerank": null
+    "requested": "cuda",            <- condition (c)
+    "torch_version": "2.14.0+cu130",<- condition (a), le suffixe
+    "cuda_build": "13.0",           <- condition (a), la version CUDA compilée
+    "cuda_available": true,         <- condition (b)
+    "embedding": "cuda:0",          <- le modèle est-il POSÉ sur la carte
+    "rerank": "cuda:0"
 }
 ```
 
@@ -256,13 +261,19 @@ df -h /var/lib/docker
 
 ---
 
-## 7. Ce que le GPU rapporte ici — et pourquoi le défaut reste `cpu`
+## 7. Ce que le GPU rapporte ici — MESURÉ le 11 septembre 2026
 
-**Le GPU de ce poste n'est pas libre.** Ollama y sert les LLM du projet, et il
-porte l'essentiel du temps d'une réponse. Partition d'une réponse, `citée` du
-relevé du pilote du 11 septembre 2026 :
+**La question n'était pas « peut-on mettre le GPU » mais « est-ce que ça vaut le
+coup ».** Le GPU de ce poste n'est pas libre : Ollama y sert les LLM du projet et
+porte l'essentiel du temps d'une réponse, donc mettre torch sur la même carte
+optimise une petite part du temps en risquant d'en ralentir une grande.
 
-| étage | p50 | où ça tourne |
+### 7.1 Ce qu'on craignait
+
+Partition d'une réponse **AVANT**, `citée` de
+`runs/2026-09-10-lecteur-neuf-reglage.json` :
+
+| étage | p50 | où ça tournait |
 |---|---|---|
 | `generation` | **4 616 ms** (67 %) | GPU — Ollama |
 | `translation` | 1 196 ms (17 %) | GPU — Ollama |
@@ -270,16 +281,57 @@ relevé du pilote du 11 septembre 2026 :
 | `dense` | 115 ms (1,7 %) | CPU — l'embedder |
 | **total** | **6 846 ms** | |
 
-Ce que `torch` fait sur CPU vaut donc **~737 ms sur 6 846, soit 11 %** : c'est le
-**plafond** de ce que le GPU peut rapporter ici. Et le risque n'est pas
-symétrique — mettre les deux modèles sur la même carte qu'Ollama les fait
-**partager le calcul** avec l'étage qui porte 67 % du temps. La mémoire n'est pas
-le sujet (4 904 Mio occupés sur 23 034) ; la **contention de calcul** l'est.
+Le travail de torch valait **~737 ms sur 6 846, soit 11 %** : le plafond du gain.
+Le risque, lui, portait sur les 67 % de la génération.
 
-C'est pour ça que `TORCH_DEVICE` vaut `cpu` par défaut : **allumer le GPU sur ce
-service est une décision qui se prend contre une mesure, pas contre une
-intuition.** Le résultat de la campagne du 11 septembre 2026 est au rapport du
-lot 11 et au §4.48 de `axes_amelioration.md`.
+### 7.2 Ce que la mesure a rendu
+
+`mesuré` le 11 septembre 2026, `make eval`, **138 questions**, `rc=0`, comparaison
+appariée à `runs/2026-09-10-lecteur-neuf-reglage.json`. Site canonique de ces
+chiffres : `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
+
+| métrique | CPU | GPU | écart |
+|---|---:|---:|---|
+| `rerank_ms` p50 | 498 | **58** | **−440 ms (−88 %)** |
+| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
+| `dense_ms` p50 | 120 | **72** | −48 ms (−40 %) |
+| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
+| `generation_ms` p50 | 4 682 | 4 722 | **+40 ms (+0,85 %) ← la contention** |
+| **`total_ms` p50** | **7 298** | **6 481** | **−817 ms (−11,2 %)** |
+
+**LA CONTENTION EST RÉELLE ET PETITE : 40 ms.** C'est le chiffre que ce lot
+existait pour produire. Le GPU fait gagner **817 ms** et coûte **40 ms** sur
+l'étage qu'on craignait : un rapport de **vingt contre un**. La mémoire n'est pas
+en cause non plus — 1 262 MiB pour l'agent à côté des ~4 900 MiB d'Ollama, sur
+23 034 MiB.
+
+**Et le GPU est surtout beaucoup plus RÉGULIER.** Les p95 sont l'information la
+plus utile ici : `rerank_ms` passe de 2 943 à 68 ms. Sur CPU, le cross-encoder est
+en concurrence avec tout ce qui tourne sur la machine ; sur la carte, il ne l'est
+qu'avec Ollama. Pour un service qui doit répondre à plusieurs utilisateurs, c'est
+la queue de distribution qui décide du ressenti, pas la médiane.
+
+### 7.3 Le rappel ne bouge pas — à une question près, et elle est écrite
+
+Neuf métriques de rappel sur dix sont **identiques question par question**,
+130/130 ex æquo. La dixième, `rang_reciproque`, baisse sur **une seule**
+question — `G-006`, 1,0 → 0,5 : le bon élément passe du rang 1 au rang 2. Δ moyen
+**−0,0038**, p=1,000, et `rappel_recherche`, `rappel_elements` et
+`rappel_documents` valent **1,0 des deux côtés** sur cette question : le document
+est toujours trouvé.
+
+C'est la conséquence attendue de ce que le lot 10 avait mesuré — le périphérique
+déplace les scores du cross-encoder de **5,48 × 10⁻⁶** — mais **sa conclusion
+« classement inchangé » est ici corrigée** : sur 138 questions réelles, deux
+candidats quasi ex æquo finissent par s'inverser. C'est un effet numérique, pas
+une régression de qualité.
+
+### 7.4 La décision
+
+**`TORCH_DEVICE` vaut `cuda` par défaut depuis le 11 septembre 2026**, décision
+du propriétaire prise contre cette mesure. Le §P1 du registre demande un rapport
+prix/apport : il est de 817 contre 40.
+
 
 ---
 
@@ -348,7 +400,7 @@ curl -s http://localhost:8011/health | python3 -c "import json,sys; print(json.l
 |---|---|---|
 | `/health` : `cuda_build: null` | **(a)** — l'image est en CPU | `docker exec rag-agent-api python -c "import torch; print(torch.version.cuda)"` |
 | `cuda_build: "13.0"` mais `cuda_available: false` | **(b)** — la carte n'entre pas | `docker exec rag-agent-api sh -c 'ls /dev/nvidia*'` |
-| `cuda_available: true` mais `embedding: "cpu"` | **(c)** — le réglage. **Ce n'est pas une panne** : c'est le défaut | `docker exec rag-agent-api python -c "from src.agent.settings import settings; print(settings.torch_device)"` |
+| `cuda_available: true` mais `embedding: "cpu"` | **(c)** — le réglage. Depuis le 11 septembre 2026 le défaut est `cuda`, donc un `cpu` ici vient d'un `.env` qui le pose | `docker exec rag-agent-api python -c "from src.agent.settings import settings; print(settings.torch_device)"` |
 | `embedding: null` après une requête | le modèle n'a pas été chargé : la recherche n'est pas allée jusque-là (voir les 503 de concordance) | `curl -s localhost:8011/health \| grep embedding_model` |
 | une recherche rend 500, `/health` reste `200` | `TORCH_DEVICE` nomme un périphérique que le build ou la machine ne sert pas | `docker logs rag-agent-api --tail 50` |
 | tout est vert, rien n'est plus rapide | la **contention** — §7 | `nvidia-smi` pendant une recherche |
