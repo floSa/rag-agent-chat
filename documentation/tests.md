@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 755 tests, aucune dépendance
+## Unitaire — 756 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,7 +20,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 11 septembre 2026 à 09:08 UTC par LOT-10 : **755** tests sur **44** fichiers,
+> `mesuré` le 11 septembre 2026 à 09:13 UTC par LOT-10 : **756** tests sur **44** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent. Les dix-sept de plus gardent l'armement de
 > `commit-msg` : le MESSAGE d'un commit n'était lu par aucun des trois types
@@ -38,7 +38,9 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > faisait par un motif non ancré, qui lisait donc la PREMIÈRE phrase de cette
 > forme dans la page — et la page en porte plusieurs, dont le récit du §4.13.
 > L'ancrage porte désormais sur le mot `mesuré`, **sur la même ligne**, et
-> l'unicité est exigée.
+> l'unicité est exigée. Le quatrième vient de la **table des mutations** : relâcher
+> `== 1` en `>= 1` restait VERT, la seule scène qui éprouvait la clause rendant
+> **zéro** note et non plusieurs.
 > Relevés antérieurs : **730** sur **44** le 11 septembre 2026 à 07:32 UTC
 > (LOT-9), **720** sur **44** le 9 septembre 2026 à 15:04 UTC (LOT-4 ;
 > le fichier neuf est `tests/unit/test_section_voisine.py`, qui garde la

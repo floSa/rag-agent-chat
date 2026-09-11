@@ -7247,7 +7247,7 @@ garde ne le dit**. *Rendre le périphérique explicite est un geste de productio
 ce lot n'a pas pris : il ne reconstruit pas l'image et ne redémarre pas le
 service.* À trancher par le pilote.
 
-#### Les faux résultats de ce lot, trouvés et écrits par lui
+#### Les CINQ faux résultats de ce lot, trouvés et écrits par lui
 
 1. **une sonde ancrée sur une POSITION a cessé de muter.**
    `test_une_liste_de_types_privee_de_la_poussee_est_vue` ancrait `pre-push` en
@@ -7269,6 +7269,10 @@ service.* À trancher par le pilote.
    LUI-MÊME.** Publié tel quel, il aurait fait passer une identité parfaite pour un
    écart de 10⁻⁷. Recalculé en `float64` : **1,000000000000000**. *Un chiffre juste
    rendu par une commande qui ne le rend pas est pire qu'un chiffre nu.*
+5. **une clause de garde écrite par ce lot même n'avait aucune scène**, et seule
+   sa table des mutations l'a dit — le cinquième est détaillé au paragraphe
+   ci-dessous. *Aucune exécution de la porte ne l'aurait trouvé : le garde était
+   vert, et il l'aurait été pour toujours.*
 
 #### La réserve ouverte par le faux résultat n° 2 est FERMÉE dans le même lot
 
@@ -7288,10 +7292,20 @@ gardent dans les deux sens, `TestLaNoteDuCompteEstLueAuBonEndroit` :
 |---|---|---|
 | un récit SEUL, portant `**520** tests sur **36** fichiers` | refusé | refusé — et la preuve d'atteinte vérifie que **l'ancienne lecture, elle, s'y laissait prendre** |
 | la note ET un récit concurrent sur la même page | la NOTE est lue | `(755, 44)` |
+| **DEUX notes** `mesuré` concurrentes | refusé plutôt qu'arbitré | refusé, sur `2 note(s) … au lieu d'une seule` |
 | la page réelle du dépôt | une note et une seule | vert, **et elle porte bien ≥ 2 phrases de cette forme** — sans quoi l'ancrage ne serait pas mis à l'épreuve par la page elle-même |
 
-*Le témoin inerte de ce trio n'est pas un cas neutre mais la page livrée : s'il
-rougit, les deux autres mesurent une page qui n'existe pas.*
+*Le témoin inerte de ce quatuor n'est pas un cas neutre mais la page livrée : s'il
+rougit, les autres mesurent une page qui n'existe pas.*
+
+**ET LA QUATRIÈME LIGNE DE CE TABLEAU N'EXISTE QUE PARCE QUE LA MUTATION L'A
+DIT.** La première écriture de ce garde n'avait que trois scènes, et la table des
+mutations a rendu **VERT** le relâchement de `assert len(notes) == 1` en `>= 1` :
+la seule scène qui éprouvait la clause était le récit seul, qui rend **zéro**
+note — refusée par les deux formes, et dont le message satisfaisait encore le
+motif attendu. *La clause « pas PLUSIEURS » n'était visitée par personne.* C'est
+le cinquième faux résultat de ce lot, et le seul qu'aucune exécution de la porte
+n'aurait trouvé.
 
 #### CE QUE CE LOT A REFUSÉ, ET C'EST LA DEUXIÈME FOIS DE SUITE
 

@@ -1984,6 +1984,33 @@ class TestLaNoteDuCompteEstLueAuBonEndroit:
         with pytest.raises(AssertionError, match="au lieu d'une seule"):
             _lit_la_note(recit)
 
+    def test_deux_notes_concurrentes_sont_refusees_plutot_qu_arbitrees(self) -> None:
+        """LA SECONDE DIRECTION DE L'UNICITÉ, ET ELLE N'AVAIT PAS DE SCÈNE.
+
+        **CE TEST EXISTE PARCE QUE LA MUTATION L'A DIT.** `assert len(notes) == 1`
+        relâché en `>= 1` restait **VERT** : la seule scène qui l'éprouvait était
+        le récit seul, qui rend **zéro** note — donc refusée par les deux formes,
+        et le message « 0 … au lieu d'une seule » satisfaisait encore le motif
+        attendu. La clause « pas PLUSIEURS » n'était visitée par personne.
+        `mesuré` le 11 septembre 2026, table des mutations de ce lot.
+
+        Deux notes ne doivent pas être arbitrées en silence par l'ordre du
+        fichier : c'est exactement le défaut qu'on vient de fermer, déplacé d'un
+        cran.
+        """
+        page = (
+            "## Unitaire — 755 tests, aucune dépendance\n\n"
+            "> `mesuré` le 11 septembre 2026 : **755** tests sur **44** fichiers.\n"
+            "> `mesuré` le 9 septembre 2026 : **720** tests sur **44** fichiers.\n"
+        )
+        # PREUVE D'ATTEINTE : la page porte bien DEUX notes ancrées, et non une.
+        assert len(re.findall(_MOTIF_DE_LA_NOTE, page)) == 2, (
+            "la scène ne porte pas deux notes concurrentes : ce test ne mesure "
+            "pas la clause d'unicité"
+        )
+        with pytest.raises(AssertionError, match="2 note"):
+            _lit_la_note(page)
+
     def test_la_note_reste_lue_quand_elle_est_la(self) -> None:
         """LE SENS QUI NE DOIT PAS MORDRE, récit concurrent inclus.
 
