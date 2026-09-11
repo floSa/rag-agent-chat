@@ -307,6 +307,111 @@ class TestAucuneRecetteNeResynchroniseLEnvironnement:
             )
 
 
+_PAQUETS_DE_LA_PILE_CUDA = ("triton", "nvidia-cublas-cu12", "nvidia-cudnn-cu12")
+
+
+def _pile_cuda(versions: "dict[str, str]", installes: "set[str]") -> list[str]:
+    """LE DÉTECTEUR, ET IL EST PUR — donc éprouvable sur une scène construite.
+
+    Il ne lit rien lui-même : on lui passe les versions et l'ensemble des
+    distributions installées. C'est ce qui permet de l'exercer sur le contenu
+    d'`uv.lock` SANS resynchroniser quoi que ce soit — une resynchronisation
+    réelle détruirait l'environnement, et c'est le sujet même de ce lot.
+    """
+    griefs = []
+    torch = versions.get("torch")
+    if torch is not None and "+cpu" not in torch:
+        griefs.append(f"torch {torch} n'est pas un build CPU")
+    for paquet in _PAQUETS_DE_LA_PILE_CUDA:
+        if paquet in installes:
+            griefs.append(f"{paquet} est installé")
+    return griefs
+
+
+def _versions_du_lock() -> "dict[str, str]":
+    texte = (_RACINE / "uv.lock").read_text(encoding="utf-8")
+    return dict(re.findall(r'name = "([^"]+)"\nversion = "([^"]+)"', texte))
+
+
+class TestLEnvironnementDExecutionEstCeluiDuProtocole:
+    """LE GARDE SUR L'ÉCART LUI-MÊME, et il tient HORS LIGNE.
+
+    **L'UTILISATEUR A TRANCHÉ QUE LE PROTOCOLE DU §2.2 FAIT FOI**, et le prix
+    accepté de cette décision est que l'écart avec `uv.lock` ne peut que
+    croître : `torch`, `transformers`, `tokenizers` et `triton` ne sont épinglés
+    dans AUCUN des deux `requirements` (`mesuré` le 10 septembre 2026), donc
+    `uv pip install -r` les résout à neuf à chaque montage quand `uv.lock` les
+    fige. **Ce garde ne garde donc PAS l'égalité des versions** — il rougirait
+    sur le prix accepté, et sur toute amélioration qui les rapprocherait.
+
+    **CE QU'IL GARDE EST LE DOMMAGE, PAS L'ÉCART.** Une resynchronisation ne
+    fait pas dériver des numéros de version : elle fait atterrir **la pile
+    CUDA**. `mesuré` le 10 septembre 2026 à 15:49 UTC, en lecture seule, les
+    deux côtés lus hors ligne :
+
+    | paquet | `uv.lock` | `.venv` du §2.2 |
+    |---|---|---|
+    | `torch` | 2.13.0 | **2.14.0+cpu** |
+    | `transformers` | 5.14.1 | **5.17.0** |
+    | `tokenizers` | 0.22.2 | **0.23.2** |
+    | `triton` | 3.7.1 | **ABSENT** |
+
+    plus **43** paquets `nvidia-*` dans le lock. L'assertion porte donc sur une
+    PROPRIÉTÉ — le `torch` qui exécute ces tests est un build CPU et la pile
+    CUDA est absente —, jamais sur un numéro.
+
+    **ET IL EST VERT EN CI, C'EST MESURÉ** : `.github/workflows/` installe
+    `torch` depuis l'index CPU puis les deux `requirements`, c'est-à-dire le
+    protocole du §2.2 au gestionnaire près. Un garde qui rougirait en CI serait
+    arraché à la première exécution.
+    """
+
+    def test_la_pile_cuda_n_a_pas_atterri_dans_l_environnement(self) -> None:
+        """LE GARDE — l'environnement qui exécute est bien celui du §2.2."""
+        from importlib.metadata import distributions, version
+
+        installes = {d.metadata["Name"].lower() for d in distributions() if d.metadata["Name"]}
+        griefs = _pile_cuda({"torch": version("torch")}, installes)
+        assert griefs == [], (
+            "l'environnement qui exécute ces tests n'est plus celui du protocole "
+            f"du §2.2 : {griefs}. La cause la plus probable est une "
+            "resynchronisation sur `uv.lock` — une invocation de l'executeur "
+            "d'uv sans `--no-sync`, ce que le garde voisin refuse dans les "
+            "fichiers de code. Remonte l'environnement par le §2.2 ; ne relache "
+            "pas ce garde"
+        )
+
+    def test_le_detecteur_rougit_sur_la_pile_que_le_lock_decrit(self) -> None:
+        """PREUVE D'ATTEINTE — le détecteur voit vraiment le dommage.
+
+        La scène est construite **à partir d'`uv.lock` lui-même**, jamais
+        inventée, et rien n'est resynchronisé : c'est la pile que le lock
+        installerait. Sans ce test, le garde ci-dessus serait vert parce qu'il
+        ne sait rien voir, et ce chantier a payé neuf fois cette famille-là.
+        """
+        lock = _versions_du_lock()
+
+        assert "+cpu" not in lock["torch"], (
+            f"`uv.lock` épingle désormais un build CPU de torch ({lock['torch']}) : "
+            "la scène ne reproduit plus le dommage, et c'est la DÉCISION qu'il "
+            "faut relire, pas ce test"
+        )
+        assert "triton" in lock, "`uv.lock` ne porte plus `triton` : remesure la scène"
+
+        griefs = _pile_cuda(
+            {"torch": lock["torch"]},
+            {nom for nom in _PAQUETS_DE_LA_PILE_CUDA if nom in lock},
+        )
+        assert len(griefs) >= 2, (
+            f"le détecteur ne voit que {griefs} sur la pile qu'`uv.lock` "
+            "décrit. Il ne garde alors presque rien : l'environnement pourrait "
+            "être resynchronisé sans qu'il rougisse"
+        )
+        assert any("torch" in grief for grief in griefs), (
+            f"le détecteur ne voit pas le build non-CPU de torch : {griefs}"
+        )
+
+
 # LE RELEVÉ DU PÉRIMÈTRE, ET C'EST UN PLANCHER — pas un compte exact, pas une
 # forme. `mesuré` le 9 septembre 2026 par REPAR-7, par la recette publiée dans
 # le docstring de `test_le_garde_balaie_au_moins_le_perimetre_de_l_inventaire`.
