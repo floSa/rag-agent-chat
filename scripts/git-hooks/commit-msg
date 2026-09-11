@@ -1,0 +1,118 @@
+#!/bin/sh
+# Refuse un COMMIT dont le message porte une attribution a un assistant de
+# generation de code.
+#
+# ── LE TROU QUE CE HOOK FERME, ET IL EST MESURE ──
+#
+# Le montage de ce depot armait `pre-commit`, `pre-merge-commit` et `pre-push`.
+# Les deux premiers portent le controle d'IDENTITE, qui lit
+# `git var GIT_AUTHOR_IDENT` et `GIT_COMMITTER_IDENT` : **il ne lit JAMAIS le
+# message**. Et `commit-msg` — le seul type de hook qui recoive le message, en
+# chemin de FICHIER sur `$1` — n'etait pas arme.
+#
+# Consequence, `mesure` le 11 septembre 2026 : un message portant un trailer
+# d'attribution entrait dans un commit local sans rien rencontrer, et n'etait
+# attrape qu'a la POUSSEE. Jamais public — `pre-push` tient, et c'est eprouve
+# par un vrai `git push` — mais il fallait alors REECRIRE des commits. Ce hook
+# refuse au commit, ou le geste correctif est `git commit --amend`.
+#
+# ── POURQUOI LA REGLE, ET POURQUOI ELLE N'EST PAS NEGOCIABLE ──
+#
+# Ce depot est PUBLIC et la liste des contributeurs de GitHub, une fois
+# constituee, NE SE DEFAIT PAS : ce depot-ci a deja du etre detruit et recree
+# pour cette raison (`mesure` : `created_at = 2026-08-28` pour un premier commit
+# du 2026-04-30). C'est aussi une conviction de son proprietaire — une IA est
+# une aide, pas un contributeur.
+#
+# ── CE QUE CE HOOK COUVRE, ET CE QU'IL NE COUVRE PAS ──
+#
+# `mesure` le 11 septembre 2026, mouchards poses sur chaque type de hook d'un
+# depot jetable, git 2.53.0 :
+#
+#   geste                                  | pre-commit | pre-merge-commit | commit-msg ($1)
+#   ---------------------------------------+------------+------------------+-----------------
+#   git commit                             |    oui     |       non        | oui (COMMIT_EDITMSG)
+#   git commit --amend                     |    oui     |       non        | oui (COMMIT_EDITMSG)
+#   git merge --no-ff --no-edit  (PROPRE)  |    NON     |   oui, SANS $1   | oui (MERGE_MSG)
+#   git merge, conflit resolu, git commit  |    oui     |       non        | oui (COMMIT_EDITMSG)
+#   git merge --squash + git commit        |    oui     |       non        | oui (COMMIT_EDITMSG)
+#   git revert / cherry-pick / rebase      |    non     |       non        | **NON**
+#
+# **LA FUSION AUTOMATIQUE EST COUVERTE, ET C'ETAIT LA QUESTION OUVERTE.** Le
+# pilote fusionne en `--no-ff` plusieurs fois par jour, et c'est exactement la
+# qu'un message genere pourrait porter un trailer. `pre-commit` n'y passe pas ;
+# `pre-merge-commit` y passe mais **ne recoit aucun chemin de message** — il
+# devrait aller lire `MERGE_MSG` de lui-meme. `commit-msg`, lui, recoit
+# `.git/MERGE_MSG` sur `$1`, dans les deux sens : fusion propre ET fusion dont
+# le conflit a ete resolu a la main.
+#
+# **CE QUI RESTE DECOUVERT EST DECLARE PLUTOT QUE SUPPOSE** : `git revert`,
+# `git cherry-pick` et `git rebase` n'executent que `prepare-commit-msg`
+# (`mesure` le meme jour, meme mouchard). Ils REJOUENT un message existant :
+# un trailer deja present dans un commit ancien traverserait donc ce hook. Le
+# rempart pour cette famille reste `pre-push`, qui relit le message de CHAQUE
+# commit de la plage qui part — une couverture partielle DECLAREE vaut mieux
+# qu'une couverture supposee.
+#
+# ── LE MOTIF N'EST PAS ECRIT ICI, ET C'EST DELIBERE ──
+#
+# `pre-push` refuse la meme chose sur la plage qui part. Recopier le motif en
+# ferait deux sites pour une regle unique. Il vit dans
+# `formes-d-attribution.sh`, que l'installeur copie A COTE de ce hook — voir ce
+# fichier pour les bornes du motif et pour la raison pour laquelle il ne peut
+# PAS etre lu depuis l'arbre de travail.
+#
+# Aucune sortie n'est produite quand tout est conforme : un hook bavard au
+# succes apprend a ne plus le lire.
+set -eu
+
+# FAIL-CLOSED, ET IL FAUT LE DIRE PLUTOT QUE LE LAISSER AU SHELL. `set -e`
+# suffirait a faire sortir non-zero sur un `.` qui echoue, donc a refuser le
+# commit ; mais le message serait celui de dash, qui ne nomme ni la cause ni le
+# geste. Un garde dont l'echec n'est pas lisible est un garde qu'on desarme.
+motifs="$(dirname "$0")/formes-d-attribution.sh"
+if [ ! -f "$motifs" ]; then
+    echo "COMMIT REFUSE : le fichier de motifs « $motifs » est absent." >&2
+    echo "  Le montage des garde-fous est incomplet. Relance :  make install" >&2
+    exit 1
+fi
+. "$motifs"
+
+if [ -z "${FORMES_D_ATTRIBUTION:-}" ]; then
+    echo "COMMIT REFUSE : « $motifs » ne definit pas FORMES_D_ATTRIBUTION." >&2
+    echo "  Le montage des garde-fous est incomplet. Relance :  make install" >&2
+    exit 1
+fi
+
+# `$1` est le CHEMIN du fichier de message, jamais le message. Son absence est
+# une anomalie de montage, pas un commit conforme.
+fichier="${1:-}"
+if [ -z "$fichier" ] || [ ! -r "$fichier" ]; then
+    echo "COMMIT REFUSE : le fichier de message est illisible (« $fichier »)." >&2
+    exit 1
+fi
+
+# `-e` ET NON UN ARGUMENT NU. Le motif de ce depot ne commence pas par un
+# tiret aujourd'hui, mais son voisin `FORMES_DE_SECRET` si — et l'avoir passe nu
+# faisait rendre `rc=2` a grep sur « unrecognized option », que le `if` lisait
+# comme faux : le hook sortait en **0 sans avoir rien verifie** (`mesure` le
+# 9 septembre 2026, sur 276 commits). La forme sure est la meme partout, pour
+# que la prochaine alternative ajoutee ici n'ait pas a y penser.
+#
+# Les lignes de COMMENTAIRE que git pose dans `COMMIT_EDITMSG` sont lues comme
+# le reste, et c'est sans consequence : elles commencent par `#`, donc aucune
+# des trois alternatives ancrees ne peut y mordre. La borne vaut d'etre ecrite
+# parce qu'elle repose entierement sur l'ancre.
+if grep -qiE -e "$FORMES_D_ATTRIBUTION" "$fichier"; then
+    echo "COMMIT REFUSE : le message porte une attribution a un assistant de" >&2
+    echo "generation de code." >&2
+    echo "" >&2
+    echo "Ce depot est PUBLIC, et la liste des contributeurs de GitHub ne se" >&2
+    echo "defait pas : il a deja fallu detruire et recreer ce depot-ci pour" >&2
+    echo "cette raison. Une IA est une aide, pas un contributeur." >&2
+    echo "" >&2
+    echo "Retire la ligne d'attribution du message, puis recommence." >&2
+    echo "Une MENTION en prose n'est pas refusee — seule la FORME l'est." >&2
+    echo "Jamais « git commit --no-verify »." >&2
+    exit 1
+fi

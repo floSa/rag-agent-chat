@@ -72,39 +72,34 @@ set -eu
 # celui-ci) : les modifier ensemble est ce que `make install` reinstalle.
 ADRESSES_AUTORISEES="florian.horellou@gmail.com florian_horellou@laposte.net"
 
-# Les FORMES d'attribution, et non le vocabulaire en prose. `-i` est applique a
-# l'appel. `^[[:space:]]*` : un trailer vit en tete de ligne, un recit ne s'y
-# trouve pas par accident.
+# LE MOTIF D'ATTRIBUTION EST SOURCE, PAS ECRIT ICI — CORRECTION DU
+# 11 SEPTEMBRE 2026. `commit-msg`, arme le meme jour, refuse la meme chose sur
+# le message du commit qu'on fabrique ; ce hook la refuse sur le message de
+# chaque commit de la plage qui part. La regle est UNE, et l'ecrire deux fois en
+# ferait deux sites qui divergent sans que rien ne rougisse — le §4.13 du
+# registre. Le motif, ses quatre alternatives et leurs bornes vivent desormais
+# dans `formes-d-attribution.sh`, que l'installeur copie A COTE de ce hook.
 #
-# **LA DEUXIEME ALTERNATIVE N'ETAIT PAS ANCREE, ET C'EST LA CORRECTION DU
-# 9 SEPTEMBRE 2026.** Les trois autres portaient leur `^[[:space:]]*` ; la
-# ligne de signature, non. Un message de commit qui RACONTE la forme — et ce
-# depot documente sa propre regle sur plusieurs pages — etait donc refuse au
-# milieu d'une phrase, et les deux seules sorties etaient `--no-verify`, que ce
-# chantier interdit absolument, ou le retrait du garde.
+# `$(dirname "$0")` ET NON LA RACINE DE L'ARBRE DE TRAVAIL : ce hook vaut par sa
+# couche `pre-push.legacy`, qui vit HORS de l'arbre, et un fragment lu dans
+# l'arbre disparaitrait exactement dans les scenes que cette couche existe pour
+# couvrir. Les trois mises en place sont mesurees au site du fragment.
 #
-# `mesure` le 9 septembre 2026, motif d'alors, chaine assemblee par programme :
-# les trois phrases « le motif refuse la forme … », « on documente que … » et la
-# forme nue etaient TOUTES LES TROIS refusees. Apres ancrage : les deux recits
-# passent, la forme nue reste refusee.
-#
-# **C'EST MOT POUR MOT LE DEFAUT CORRIGE DANS `e42d3e6` POUR LE MOTIF DE
-# SECRET**, une ligne plus bas, sur ce meme raisonnement : un garde qui provoque
-# la panne qu'il surveille. Le trouver deux fois dans le meme motif dit que la
-# propriete « chaque alternative porte sa borne » doit etre gardee, pas relue.
-#
-# Il etait LATENT — `git log --format='%B' | grep -icE 'generated (with|by) \['`
-# rend **0** sur toute l'histoire (`mesure` le meme jour) — et c'est precisement
-# ce qui le rendait invisible : le premier rapport qui nomme la forme est le
-# premier a ne plus pouvoir etre commite.
-#
-# La borne de ce choix est ecrite et assumee : une signature INDENTEE reste
-# refusee (`[[:space:]]*`), une signature au milieu d'une ligne de prose passe.
-# C'est la meme borne que les trois autres alternatives, et celle que ce hook
-# s'est deja donnee en tete — seules les FORMES sont refusees, jamais les
-# MENTIONS. Garde dans les deux sens par
-# `test_un_message_qui_raconte_la_signature_n_est_pas_refuse`.
-FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|^[[:space:]]*generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
+# L'echec est FAIL-CLOSED et il se dit : `set -e` suffirait a faire refuser la
+# poussee, mais sur un message de dash qui ne nomme ni la cause ni le geste.
+motifs="$(dirname "$0")/formes-d-attribution.sh"
+if [ ! -f "$motifs" ]; then
+    echo "POUSSEE REFUSEE : le fichier de motifs << $motifs >> est absent." >&2
+    echo "  Le montage des garde-fous est incomplet. Relance :  make install" >&2
+    exit 1
+fi
+. "$motifs"
+
+if [ -z "${FORMES_D_ATTRIBUTION:-}" ]; then
+    echo "POUSSEE REFUSEE : << $motifs >> ne definit pas FORMES_D_ATTRIBUTION." >&2
+    echo "  Le montage des garde-fous est incomplet. Relance :  make install" >&2
+    exit 1
+fi
 
 # Les formes de secret a haute confiance. Chacune porte un prefixe ou un en-tete
 # qui ne se rencontre pas par hasard dans une ligne de prose.
