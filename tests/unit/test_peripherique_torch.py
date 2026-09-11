@@ -384,12 +384,29 @@ def test_health_publie_le_peripherique(monkeypatch: pytest.MonkeyPatch) -> None:
         "service calcule"
     )
     publie = corps["torch_device"]
-    assert publie["requested"] == "cuda:7", (
-        f"/health ne publie pas le réglage en vigueur : {publie}. Le champ vient "
-        "d'ailleurs que de `etat_du_peripherique`, ou d'une valeur figée"
-    )
     for champ in ("torch_version", "cuda_build", "cuda_available", "embedding", "rerank"):
         assert champ in publie, f"`{champ}` manque au champ publié : {publie}"
+
+    # L'ASSERTION QUI DISCRIMINE, ET LA PREMIÈRE ÉCRITURE DE CE TEST NE L'AVAIT
+    # PAS. Elle se contentait de `requested == "cuda:7"` — or
+    # `_peripherique_inconnu()` publie EXACTEMENT le même `requested`, puisqu'il
+    # le tient du même réglage. `mesuré` le 11 septembre 2026 : la mutation qui
+    # remplace la sonde par son repli dans la route laissait **15 tests verts**.
+    # Le garde du câblage ne gardait rien, et c'est la famille de défaut que ce
+    # chantier a trouvée neuf fois — un garde vert sous une scène qu'il ne
+    # rencontre jamais, retourné cette fois contre le garde lui-même.
+    #
+    # `torch_version` est le champ qui sépare les deux : la sonde le lit dans
+    # torch, le repli le laisse vide faute de pouvoir l'affirmer.
+    assert publie["torch_version"] == torch.__version__, (
+        f"/health publie `torch_version={publie['torch_version']!r}` là où torch "
+        f"dit {torch.__version__!r} : la route ne sert pas la sonde, elle sert "
+        "son repli — ou une valeur figée. Le champ serait publié en permanence "
+        "comme s'il n'y avait ni build CUDA ni carte"
+    )
+    assert publie["requested"] == "cuda:7", (
+        f"/health ne publie pas le réglage en vigueur : {publie}"
+    )
 
 
 def test_le_repli_de_la_sonde_n_invente_pas_un_gpu() -> None:
