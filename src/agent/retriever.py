@@ -5,12 +5,13 @@ from functools import lru_cache
 from typing import Any, Literal
 
 import chromadb
+import torch
 from sentence_transformers import CrossEncoder, SentenceTransformer
 
 from src.agent.chronometrie import Chrono
 from src.agent.lexical import LexicalIndex, chunk_from_record, fuse
 from src.agent.settings import settings
-from src.api.schemas import ChunkResult, EmbeddingModelHealth, SourceGroup
+from src.api.schemas import ChunkResult, EmbeddingModelHealth, SourceGroup, TorchDeviceHealth
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,23 @@ _MAX_OVERLAP = 400
 
 @lru_cache(maxsize=1)
 def _get_embedding_model() -> SentenceTransformer:
-    logger.info("Chargement du modèle d'embedding : %s", settings.embedding_model_name)
-    model: SentenceTransformer = SentenceTransformer(settings.embedding_model_name)
+    logger.info(
+        "Chargement du modèle d'embedding : %s, périphérique demandé « %s »",
+        settings.embedding_model_name,
+        settings.torch_device,
+    )
+    model: SentenceTransformer = SentenceTransformer(
+        settings.embedding_model_name, device=settings.torch_device
+    )
+    # APRÈS le chargement, et ce n'est pas la répétition de la ligne du dessus :
+    # celle-là dit ce qu'on a DEMANDÉ, celle-ci ce que torch a réellement posé.
+    # Les deux diffèrent dès que le réglage nomme un périphérique que le build
+    # ne sait pas servir, et c'est le seul moment où la différence est visible
+    # dans un journal — `/health` la publie ensuite en continu.
+    logger.info(
+        "Modèle d'embedding chargé sur le périphérique « %s »",
+        getattr(model, "device", "inconnu"),
+    )
     return model
 
 
@@ -325,8 +341,16 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
 
 @lru_cache(maxsize=1)
 def _get_rerank_model() -> CrossEncoder:
-    logger.info("Chargement du modèle de reranking : %s", settings.rerank_model)
-    model: CrossEncoder = CrossEncoder(settings.rerank_model)
+    logger.info(
+        "Chargement du modèle de reranking : %s, périphérique demandé « %s »",
+        settings.rerank_model,
+        settings.torch_device,
+    )
+    model: CrossEncoder = CrossEncoder(settings.rerank_model, device=settings.torch_device)
+    logger.info(
+        "Modèle de reranking chargé sur le périphérique « %s »",
+        getattr(model, "device", "inconnu"),
+    )
     # APRÈS le chargement, et c'est l'inverse du lot 3 — délibérément. Là-bas le
     # garde passe AVANT, parce qu'il REFUSE et qu'il ne faut pas payer le
     # téléchargement d'un modèle qu'on va rejeter. Ici on signale et on se sert
@@ -343,6 +367,82 @@ def _get_rerank_model() -> CrossEncoder:
         # deux valeurs pour que le repli ne puisse plus rétrograder personne.
         logger.log(logging.WARNING if niveau == "warning" else logging.INFO, message)
     return model
+
+
+# ─── L'ÉTAT DU PÉRIPHÉRIQUE, ET IL DISTINGUE « PRÉSENT » DE « ATTEINT » ───────
+#
+# LA PANNE QUE CE BLOC REND VISIBLE. Trois conditions indépendantes décident que
+# ce service calcule sur le GPU, et chacune suffit à le désactiver SANS que rien
+# ne le dise : (a) un build CUDA de `torch` dans l'image, (b) le périphérique
+# donné au conteneur par le runtime `nvidia`, (c) le réglage `TORCH_DEVICE`. Une
+# image reconstruite avec la roue CUDA et un conteneur sans réservation rend
+# exactement la même chose qu'aujourd'hui — en plus lourd. Le mode d'emploi
+# complet, avec la commande de vérification de chacune, est à
+# `documentation/gpu_cuda.md`.
+#
+# CE QUE CHAQUE CHAMP RÉPOND, ET AUCUN NE RÉPOND POUR UN AUTRE :
+#
+#   `requested`      — ce que le réglage DEMANDE. Condition (c).
+#   `torch_version`  — le build, suffixé `+cpu` ou `+cuXXX`. Condition (a).
+#   `cuda_build`     — la version CUDA du build, `None` sur une roue `+cpu`.
+#                      Condition (a), et c'est elle qu'on confronte au pilote.
+#   `cuda_available` — `torch` VOIT-il une carte d'ici. Condition (b) — c'est
+#                      elle qui tombe à faux quand la réservation manque au
+#                      compose, build CUDA ou non.
+#   `embedding`      — le périphérique RÉELLEMENT porté par l'embedder.
+#   `rerank`         — idem pour le cross-encoder.
+#
+# LES DEUX DERNIERS SONT LES SEULS QUI DISENT QUE LE GPU SERT, et c'est la
+# raison d'être de ce bloc : `cuda_available` vrai avec `embedding: "cpu"` est
+# un GPU présent et jamais atteint, la forme dominante des défauts de ce
+# chantier — trouvée neuf fois.
+#
+# ET ILS VALENT `None` TANT QUE LE MODÈLE N'EST PAS CHARGÉ. C'est une décision,
+# pas une approximation : `/health` est appelé toutes les 20 s par le
+# healthcheck, et lire le périphérique en construisant le modèle ferait payer au
+# premier healthcheck un téléchargement de modèle. Un `None` se lit « personne
+# n'a encore eu besoin de ce modèle » — vrai, et différent de « il est sur CPU ».
+# Le `currsize` du `lru_cache` est ce qui le dit sans rien déclencher.
+
+
+def _peripherique_si_charge(accesseur: Any) -> str | None:
+    """Le périphérique d'un modèle SI ET SEULEMENT SI il est déjà chargé.
+
+    `accesseur` est l'un des deux singletons `lru_cache`és de ce module. On lit
+    son `currsize` plutôt que d'appeler : appeler CHARGERAIT, et cette fonction
+    sert une route de santé qui ne doit rien déclencher.
+
+    `getattr` plutôt qu'un accès direct, et sans `try` : `SentenceTransformer` et
+    `CrossEncoder` exposent tous deux `device` en `property` (`mesuré` le
+    11 septembre 2026 par `inspect` sur sentence-transformers 5.6.1), mais un
+    double de test n'a aucune raison de le faire, et faire lever la route de
+    santé sur la forme d'un double serait un garde qui se retourne.
+    """
+    if accesseur.cache_info().currsize == 0:
+        return None
+    peripherique = getattr(accesseur(), "device", None)
+    return None if peripherique is None else str(peripherique)
+
+
+def etat_du_peripherique() -> TorchDeviceHealth:
+    """Les trois conditions du GPU, lues à la source, sans rien charger.
+
+    `torch.cuda.is_available()` est le seul appel de cette fonction qui touche
+    autre chose que de la mémoire : sur un build CPU il court-circuite sur
+    `torch.version.cuda is None` et ne coûte rien ; sur un build CUDA il
+    interroge le pilote une fois, puis `torch` garde le compte de cartes. C'est
+    pourquoi l'appelant la passe quand même sous le plafond des sondes de
+    `/health` — un pilote qui ne rend pas la main est une panne comme une autre,
+    et elle ne doit pas coûter le healthcheck.
+    """
+    return TorchDeviceHealth(
+        requested=settings.torch_device,
+        torch_version=torch.__version__,
+        cuda_build=torch.version.cuda,
+        cuda_available=torch.cuda.is_available(),
+        embedding=_peripherique_si_charge(_get_embedding_model),
+        rerank=_peripherique_si_charge(_get_rerank_model),
+    )
 
 
 @lru_cache(maxsize=1)

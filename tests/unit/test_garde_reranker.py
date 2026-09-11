@@ -570,7 +570,9 @@ def test_le_chargement_du_reranker_journalise_le_verdict(monkeypatch, caplog) ->
     """
     charges: list[str] = []
 
-    def _faux_constructeur(nom: str) -> _FauxCrossEncoder:
+    def _faux_constructeur(nom: str, device: str | None = None) -> _FauxCrossEncoder:
+        # Voir le double de `_SCENE_DU_MODELE_EN_SERVICE` : le site d'appel
+        # passe `device` depuis le 11 septembre 2026.
         charges.append(nom)
         return _FauxCrossEncoder(_Config(_VOCABULAIRE_ANGLAIS_MESURE))
 
@@ -658,8 +660,12 @@ class _ModeleBouche:
         self.config = _ConfigInstrumentee()
 
 
-def _faux_constructeur(nom):
-    charges.append(nom)
+def _faux_constructeur(nom, device=None):
+    # `device` est nomme parce que le site d'appel le passe depuis le
+    # 11 septembre 2026 : un double qui ne l'accepte pas ne reproduit plus la
+    # signature reelle de `CrossEncoder`, et la scene echouerait sur un
+    # `TypeError` au lieu de mesurer ce qu'elle mesure.
+    charges.append([nom, device])
     return _ModeleBouche()
 
 
@@ -683,6 +689,7 @@ retriever._get_rerank_model()
 
 print(json.dumps({{
     "reglage": settings.rerank_model,
+    "peripherique_regle": settings.torch_device,
     "charges": charges,
     "lectures": len(lectures),
     "journal": collecteur.vus,
@@ -735,9 +742,10 @@ def test_le_modele_en_service_ne_dit_rien_par_le_chemin_reel() -> None:
     )
     releve = json.loads(acheve.stdout.strip().splitlines()[-1])
 
-    assert releve["charges"] == [releve["reglage"]], (
-        "le modèle n'a pas été chargé sous le réglage du reranker "
-        f"({releve['charges']} contre {releve['reglage']!r}) : cette scène "
+    assert releve["charges"] == [[releve["reglage"], releve["peripherique_regle"]]], (
+        "le modèle n'a pas été chargé sous le réglage du reranker, ou pas sur le "
+        f"périphérique réglé ({releve['charges']} contre "
+        f"{[releve['reglage'], releve['peripherique_regle']]}) : cette scène "
         "n'atteint pas le chemin qu'elle prétend éprouver"
     )
     assert releve["lectures"] >= 1, (
@@ -748,7 +756,11 @@ def test_le_modele_en_service_ne_dit_rien_par_le_chemin_reel() -> None:
     verdicts = [
         (niveau, texte)
         for niveau, texte in releve["journal"]
+        # DEUX lignes de chargement depuis le 11 septembre 2026 : celle qui dit
+        # le périphérique DEMANDÉ, avant, et celle qui dit celui que torch a
+        # POSÉ, après. Ni l'une ni l'autre n'est un verdict du garde de langue.
         if "Chargement du modèle de reranking" not in texte
+        and "Modèle de reranking chargé sur le périphérique" not in texte
     ]
     assert verdicts == [], (
         "le réglage EN SERVICE a produit un verdict par le chemin réel. Un garde "

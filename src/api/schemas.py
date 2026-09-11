@@ -496,6 +496,58 @@ class EmbeddingModelHealth(BaseModel):
     collection: str | None = None
 
 
+class TorchDeviceHealth(BaseModel):
+    """Sur quoi les deux modèles de torch calculent, et pourquoi.
+
+    TROIS CONDITIONS INDÉPENDANTES décident qu'un calcul part sur le GPU, et
+    chacune suffit à le ramener sur le CPU sans qu'aucune trace ne le dise : le
+    build de `torch` embarqué dans l'image, le périphérique donné au conteneur
+    par le runtime `nvidia`, et le réglage `TORCH_DEVICE`. Ce champ les publie
+    séparément parce qu'elles ne se soignent pas pareil — reconstruire l'image,
+    corriger le compose, changer une variable — et qu'un booléen unique
+    « gpu: true/false » ne dirait laquelle réparer dans aucun des trois cas.
+
+    `embedding` et `rerank` sont les seuls champs qui disent que le GPU SERT.
+    `cuda_available: true` avec `embedding: "cpu"` décrit une carte présente,
+    visible, et jamais atteinte ; c'est un état parfaitement possible — il est
+    même le DÉFAUT de ce service depuis le 11 septembre 2026 — et c'est
+    exactement ce qu'on ne pouvait pas voir avant que le périphérique soit
+    explicite.
+
+    Ils valent `null` tant que le modèle concerné n'a pas été chargé : la route
+    de santé ne charge rien. Voir `retriever._peripherique_si_charge`.
+
+    Mode d'emploi complet : `documentation/gpu_cuda.md`.
+    """
+
+    # Ce que `TORCH_DEVICE` demande — `cpu`, `cuda`, `cuda:1`…
+    requested: str
+    # Le build de torch, suffixe compris : `2.14.0+cpu` ou `2.14.0+cu130`.
+    torch_version: str
+    # La version de CUDA avec laquelle torch a été COMPILÉ — `torch.version.cuda`,
+    # par exemple `"13.0"` pour une roue `+cu130`. `null` sur une roue `+cpu`, et
+    # aucune réservation de GPU ne la fera apparaître : il faut reconstruire
+    # l'image. C'est le chiffre qu'on confronte à la version CUDA du PILOTE de
+    # l'hôte, celle que `nvidia-smi` affiche en haut à droite.
+    #
+    # POURQUOI CE CHAMP ET NON `torch.backends.cuda.is_built()`, qui est la
+    # forme canonique : cette fonction n'est pas annotée dans torch, et
+    # `[tool.mypy] strict = true` refuse un appel non typé. La contourner
+    # demanderait de relâcher une règle d'analyse pour un booléen que
+    # `torch.version.cuda is not None` rend exactement — annoté `str | None`,
+    # `vérifié` le 11 septembre 2026 par `reveal_type`. Le champ dit donc PLUS
+    # que le booléen, pour le même fait.
+    cuda_build: str | None
+    # torch VOIT-il une carte depuis ce processus. C'est le champ qui tombe à
+    # faux quand `/dev/nvidia*` manque au conteneur — donc quand la réservation
+    # manque au compose — même avec un build CUDA.
+    cuda_available: bool
+    # Périphérique réellement porté par chaque modèle, `null` s'il n'est pas
+    # encore chargé.
+    embedding: str | None = None
+    rerank: str | None = None
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
@@ -521,3 +573,8 @@ class HealthResponse(BaseModel):
     # comme une réponse rassurante. L'inconnu a donc un nom — `unknown` — plutôt
     # qu'un null.
     embedding_model: EmbeddingModelHealth
+    # Périphérique de torch. Non optionnel pour la MÊME raison que le champ
+    # ci-dessus : une réponse muette sur le périphérique se lirait comme une
+    # réponse rassurante, et ce champ existe précisément pour qu'on cesse de
+    # deviner sur quoi ce service calcule.
+    torch_device: TorchDeviceHealth

@@ -85,6 +85,41 @@ class Settings(BaseSettings):
                                           ge=0.0, le=1.0)
 
     # Retrieval
+    # ---------
+    # LE PÉRIPHÉRIQUE DE TORCH, ET IL EST EXPLICITE DEPUIS LE 11 SEPTEMBRE 2026.
+    #
+    # CE QUI ÉTAIT LÀ AVANT, ET POURQUOI CE N'ÉTAIT PAS TENABLE. `retriever`
+    # construisait ses deux modèles SANS argument `device` :
+    # `SentenceTransformer(nom)` et `CrossEncoder(nom)`. Or les deux portent
+    # `device: str | None = None` (`mesuré` le 11 septembre 2026,
+    # `inspect.signature` sur sentence-transformers 5.6.1), et `None` ne veut pas
+    # dire « CPU » — il veut dire « décide pour moi ». Le service prenait donc ce
+    # que l'image lui donnait, sans jamais le dire ni permettre d'en décider.
+    # Tant que l'image ne portait qu'un torch CPU, la distinction n'avait aucun
+    # effet observable ; elle en a un dès que l'image porte un build CUDA, et
+    # c'est exactement là qu'on ne peut plus distinguer « le GPU est utilisé » de
+    # « le GPU est là et on ne s'en sert pas ».
+    #
+    # LE DÉFAUT EST `cpu`, ET C'EST UNE DÉCISION, PAS UNE COMMODITÉ. Il préserve
+    # le comportement mesuré du service le 11 septembre 2026 — `rerank` et
+    # `dense` sur CPU — Y COMPRIS une fois l'image passée à un build CUDA et le
+    # GPU réservé au conteneur. Sans cette valeur-ci, la seule reconstruction de
+    # l'image basculerait la production sur la carte AVANT qu'une campagne ait
+    # dit si ça vaut le coup, et le GPU de ce poste n'est pas libre : Ollama y
+    # tient déjà 4 904 Mio et porte 84 % du temps d'une réponse.
+    #
+    # CE QUI EST ACCEPTÉ : une chaîne libre, transmise telle quelle à torch —
+    # `cpu`, `cuda`, `cuda:1`. Elle n'est pas validée ici, et c'est délibéré :
+    # la liste des périphériques que torch connaît dépend du build, donc un
+    # littéral posé ici périmerait, et un réglage refusé par pydantic empêcherait
+    # le service de DÉMARRER là où torch, lui, lève une erreur nommée au
+    # chargement du premier modèle. Ce qui remplace la validation est
+    # l'OBSERVABILITÉ : `/health` publie `torch_device`, qui dit ce qui est
+    # demandé, ce que le build sait faire, et sur quoi chaque modèle est
+    # réellement posé — voir `retriever.etat_du_peripherique`.
+    #
+    # Gardé dans les DEUX positions : `tests/unit/test_peripherique_torch.py`.
+    torch_device: str = Field(default="cpu", alias="TORCH_DEVICE")
     embedding_model_name: str = Field(
         default="paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME"
     )
