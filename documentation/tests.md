@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 756 tests, aucune dépendance
+## Unitaire — 771 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,20 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 11 septembre 2026 à 09:13 UTC par LOT-10 : **756** tests sur **44** fichiers,
+> `mesuré` le 11 septembre 2026 à 13:13 UTC par LOT-11 : **771** tests sur **45** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
-> que `pytest` annonce — concordent. Les dix-sept de plus gardent l'armement de
+> que `pytest` annonce — concordent. **Les quinze de plus** tiennent le
+> périphérique de torch, rendu explicite par le lot 11
+> (`tests/unit/test_peripherique_torch.py`) : le défaut `cpu` qui préserve le
+> service, l'alias qui rend le réglage utilisable sans reconstruire l'image, les
+> **deux positions** — `cpu` et `cuda` — vérifiées sur les **deux**
+> constructeurs, le journal des deux chargements, l'état publié par `/health`
+> qui distingue « la carte est là » de « la carte SERT », et un témoin inerte
+> dans les deux positions. Le garde du câblage de `/health` a d'abord été écrit
+> **creux** — la mutation qui remplace la sonde par son repli laissait quinze
+> verts — et c'est le lot qui l'a trouvé par sa propre table de mutations.
+>
+> Les dix-sept précédents gardent l'armement de
 > `commit-msg` : le MESSAGE d'un commit n'était lu par aucun des trois types
 > armés jusque-là — tous portent le contrôle d'**identité**, qui lit
 > `git var GIT_AUTHOR_IDENT` et jamais le message — et un trailer d'attribution
