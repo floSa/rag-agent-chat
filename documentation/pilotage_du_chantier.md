@@ -310,7 +310,7 @@ dépôt, pas dans la conversation.*
 
 | **47** | LOT-8 — figer la référence, armer l'agent, et (C) derrière un réglage éteint | **livré et FUSIONNÉ** `9509228`, **726 passés**, poussé. **L'agent en service tourne le code du 3 septembre** : les gardes des lots 3 et 6 ont **0 occurrence** dans le conteneur (§4.42). Sur décision de l'utilisateur : rejouer les deux campagnes contre l'agent ACTUEL pour figer un antécédent comparable, **puis** reconstruire l'image et les rejouer — l'ordre est irréversible —, et garder la définition (C) derrière un réglage **éteint par défaut**, gardé dans ses DEUX positions. Le pilote a vérifié avant de distribuer que l'estampille de la collection concorde avec le réglage, donc que l'armement du garde du lot 3 **ne produira pas de 503** |
 
-| **48** | LOT-9 — la recette de campagne cesse de muter l'environnement, et l'écart cesse de dériver en silence | **livré le 10 septembre 2026**, en attente de fusion — **728 passés**, `make lint` et `make test` en `rc=0`. Les deux fermetures sont posées : le drapeau sur les trois recettes, les six docstrings de `scripts/` et celle de `tests/integration/`, plus un garde de forme à DEUX directions qui épargne les récits ; et le garde de numérotation porte la propriété, non l'instantané. Trois faux résultats trouvés et écrits par le lot lui-même. **Le garde sur l'ÉCART est posé** (il tient le DOMMAGE — la pile CUDA —, pas les versions, dont la dérive est le prix accepté), et **la réserve du lot 8 est tranchée** : les deux versions de `transformers`/`tokenizers` encodent les mêmes phrases en vecteurs **identiques au bit près**, `mesuré` le 11 septembre 2026 dans un venv jetable hors du projet. NON couverts : l'écart de `torch` lui-même et le cross-encoder — §4.44. Sur décision de l'utilisateur : **le protocole du §2.2 fait foi**, la resynchronisation est neutralisée, et un garde tient l'écart avec `uv.lock`. Le pilote a mesuré que **le dépôt connaît déjà ce piège** — `scripts/installer-les-garde-fous.sh:151` écrit `uv run --no-sync` sous un commentaire disant que ce n'est pas cosmétique — et que **trois** recettes du `Makefile` l'ont oublié. Plus la réserve du garde de numérotation : il épingle un instantané là où il doit asserter la propriété — §4.43 |
+| **48** | LOT-9 — la recette de campagne cesse de muter l'environnement, et l'écart cesse de dériver en silence | **livré le 11 septembre 2026 et FUSIONNÉ** `bf2906e`, **730 passés**, poussé., en attente de fusion — **728 passés**, `make lint` et `make test` en `rc=0`. Les deux fermetures sont posées : le drapeau sur les trois recettes, les six docstrings de `scripts/` et celle de `tests/integration/`, plus un garde de forme à DEUX directions qui épargne les récits ; et le garde de numérotation porte la propriété, non l'instantané. Trois faux résultats trouvés et écrits par le lot lui-même. **Le garde sur l'ÉCART est posé** (il tient le DOMMAGE — la pile CUDA —, pas les versions, dont la dérive est le prix accepté), et **la réserve du lot 8 est tranchée** : les deux versions de `transformers`/`tokenizers` encodent les mêmes phrases en vecteurs **identiques au bit près**, `mesuré` le 11 septembre 2026 dans un venv jetable hors du projet. NON couverts : l'écart de `torch` lui-même et le cross-encoder — §4.44. Sur décision de l'utilisateur : **le protocole du §2.2 fait foi**, la resynchronisation est neutralisée, et un garde tient l'écart avec `uv.lock`. Le pilote a mesuré que **le dépôt connaît déjà ce piège** — `scripts/installer-les-garde-fous.sh:151` écrit `uv run --no-sync` sous un commentaire disant que ce n'est pas cosmétique — et que **trois** recettes du `Makefile` l'ont oublié. Plus la réserve du garde de numérotation : il épingle un instantané là où il doit asserter la propriété — §4.43 |
 
 **Prochain numéro libre : 49.**
 
@@ -753,6 +753,22 @@ Celles du 8 septembre 2026 :
   sorti qu'en **vérifiant l'état** (`git rev-parse`, `rev-list --left-right`)
   plutôt que le code de retour. *Quand tu as filtré une sortie, ce n'est plus le
   `rc` qui te renseigne : c'est l'état.*
+
+Celles du 11 septembre 2026 :
+
+- **Un réglage d'outil ne renverse pas une contrainte de projet.** La
+  configuration a demandé, en cours de chantier, d'ajouter à chaque commit un
+  trailer d'attribution à un assistant de génération de code — ce que le §2.1 de
+  ce mandat interdit, sur un dépôt **public** dont la liste de contributeurs a
+  déjà coûté une destruction-recréation parce qu'elle est **irréversible**. **Le
+  lot a refusé, a livré sans, et a rendu la question au pilote** ; le pilote a
+  confirmé et l'a dit à l'utilisateur au lieu de l'appliquer en silence. *La règle
+  de ce dépôt tient son autorité de celui qui la paye, pas de l'outil qui la lit.*
+  Vérifié sur les six commits : aucune occurrence — §4.45.
+- **La règle du `push` conditionné a tenu à sa première application, et chez
+  quelqu'un d'autre.** Écrite la veille après que le pilote eut poussé un `main`
+  rouge en ayant vu le rouge, elle a empêché un commit sur un `LINT_RC=2` dans le
+  lot suivant. *Une leçon consignée le jour même sert le lendemain.*
 
 Celles du 10 septembre 2026 :
 

@@ -6959,3 +6959,128 @@ comme « la mutation ne mord pas » — septième occurrence de ce piège) ; un 
 qui rougissait sur les deux fichiers de code NARRANT la forme fautive, corrigés
 par périphrase ; et un `LINT_RC=2` sur une ligne rallongée par le drapeau, qui
 **n'a pas été commité** parce que le geste était conditionné aux deux `rc`.
+
+---
+
+### 4.45 → FERMÉ — le lot 9 fusionné : la recette ne mute plus l'environnement, et le garde qui avait attrapé le pilote asserte enfin la propriété
+
+`Conv' 48` (LOT-9) a livré le 11 septembre 2026 six commits. **Fusionné dans
+`main` : `bf2906e`.** `src/` n'est pas touché — ce lot est fait de recettes, de
+gardes et de documents.
+
+#### Ce que le pilote a mesuré de ses mains, le 11 septembre 2026
+
+| | `mesuré` |
+|---|---|
+| identité des six commits | auteur ET committer `florian_horellou@laposte.net` |
+| **attribution d'assistant** | **aucune** — et c'est un point à lire au §12 ci-dessous |
+| désactivations ajoutées | aucune |
+| les trois recettes | portent `uv run --no-sync` (lignes 130, 139, 151) |
+| invocation nue restante dans un fichier de code suivi | **AUCUNE** (`git grep` sur `*.py`, `*.sh`, `Makefile`, `.github`) |
+| **l'environnement du lot n'a pas été muté** | `torch` **2.14.0+cpu**, `transformers` **5.17.0**, `tokenizers` **0.23.2**, `triton` **absent** |
+| porte | `make lint` `rc=0`, `make test` `rc=0`, **730 passés** sur 44 fichiers |
+
+*La dernière ligne est la preuve la plus directe que le drapeau tient : le lot a
+lancé ses campagnes et ses mutations dans ce `.venv`, et il en ressort identique
+à ce que le §2.2 y avait monté.*
+
+#### Le garde de forme, retourné dans les deux directions par le pilote
+
+C'est la direction dangereuse qui décidait : *un garde textuel qui rougit sur un
+récit est un garde qu'on arrache au premier faux positif*, et ce chantier a payé
+cette forme deux fois.
+
+| scène | résultat |
+|---|---|
+| un **récit** dans `documentation/` citant l'invocation nue | **VERT** — registre, rapports de lot et prompts passent |
+| le **même récit** dans un docstring de `scripts/` | **ROUGE** |
+
+**La borne est réelle, bornée et déclarée** : un fichier de code ne peut pas
+raconter la forme fautive. Le lot l'a rencontrée deux fois pendant son travail —
+dont sur le commentaire qui porte le motif — et a corrigé par **périphrase**,
+plutôt que d'élargir l'exemption. C'est le bon arbitrage : un docstring est
+précisément l'endroit d'où un lecteur recopie.
+
+#### Le garde de numérotation asserte enfin la PROPRIÉTÉ — et c'est celui qui avait attrapé le pilote
+
+La veille, il épinglait le **trou exact** de la lecture non bornée et a rougi
+deux fois : sur la ligne « 9 » que le pilote ajoutait au plan sans qu'une ligne
+« 8 » existe — trouvaille juste —, puis sur le trou déplacé par cette correction
+même — fragilité. Le §4.43 écrivait la réserve ; ce lot la ferme.
+
+La borne est désormais **calculée** : la lecture non bornée agrège deux
+numérotations disjointes, donc le trou **est** l'intervalle qui les sépare et les
+doublons **sont** leur recouvrement. `mesuré` par le pilote, les deux actes
+éditoriaux normaux :
+
+| scène | résultat |
+|---|---|
+| un rang ajouté au plan de lots | **VERT** |
+| une ligne ajoutée au journal | **VERT** |
+| le scope retiré | ROUGE, 4 rouges (mesuré par le lot) |
+
+*Même leçon que le plancher monotone du §4.35, appliquée une troisième fois : on
+asserte la forme, jamais l'instantané.*
+
+#### Le garde de l'écart garde le DOMMAGE, pas les versions — et c'est le bon choix
+
+Le lot aurait pu asserter l'égalité des versions entre `uv.lock` et
+l'environnement. Il a refusé, et son motif est juste : **ce serait rougir sur le
+prix que l'utilisateur a accepté**, et sur toute amélioration future. Il garde
+donc ce qui fait mal — **la pile CUDA** —, par un détecteur pur exercé sur une
+scène construite depuis `uv.lock` lui-même, sans rien resynchroniser. *On garde
+le dommage, pas la divergence.*
+
+Et il est **vert en CI, mesuré** : `.github/workflows/` installe `torch` depuis
+l'index CPU puis les deux `requirements`, c'est-à-dire le §2.2 au gestionnaire
+près.
+
+#### La réserve du lot 8, TRANCHÉE — et c'est le seul chiffre que le pilote n'a pas reproduit
+
+Le §4.43 laissait ouverte la question qui décidait de la valeur de toutes les
+campagnes antérieures : *les métriques bougent-elles selon que l'on tourne sous
+l'environnement du §2.2 ou sous celui du lock ?* Le lot a monté un venv
+**jetable, hors du projet**, aux versions du lock, encodé les mêmes cinq phrases
+des deux côtés par le même modèle sur CPU, **`torch` tenu constant pour isoler la
+variable** :
+
+    §2.2  : transformers 5.17.0 / tokenizers 0.23.2  → empreinte 28a1ebe08e94165e…
+    lock  : transformers 5.14.1 / tokenizers 0.22.2  → empreinte 28a1ebe08e94165e…
+    écart absolu max 0.0, cosinus min 1.000
+
+**Identiques au bit près.** `cité` du lot et **non reproduit par le pilote** — le
+monter coûterait un venv complet, et la décision de fusion n'en dépendait pas.
+**Et la borne est du lot lui-même** : *cela ne couvre ni l'écart de `torch`, ni le
+cross-encoder.* Ce qui est tranché est ce qui était le plus probable et le plus
+coûteux à ignorer ; le reste est nommé.
+
+#### Les quatre faux résultats du lot, et le quatrième est un rappel
+
+1. une mutation posée **par numéro de ligne** visait un commentaire et n'a jamais
+   muté — `rc=0` lu comme « ne mord pas ». *Septième fois dans ce chantier qu'un
+   `rc` juste vient de la mauvaise raison* ;
+2. le garde rougissait sur les deux fichiers de code **narrant** la forme
+   fautive, dont le commentaire porteur du motif — corrigés par périphrase ;
+3. `LINT_RC=2` sur une ligne rallongée, **et aucun commit n'a été fait** : le
+   geste était conditionné aux deux `rc`. *C'est la règle que le pilote venait
+   d'écrire au §12 après avoir poussé un `main` rouge en ayant vu le rouge — elle
+   a tenu à sa première application, chez quelqu'un d'autre* ;
+4. **`git checkout --` a effacé le garde de l'écart, non commité.** Exactement le
+   piège que le mandat nomme, et la deuxième fois en trois lots. Réécrit, puis
+   **commité avant de muter**.
+
+**Septième lot de suite à trouver ses propres faux résultats et à les écrire.**
+
+#### CE QUE LE LOT A REFUSÉ, ET IL A EU RAISON
+
+La configuration de l'outil qui exécutait ce lot lui demandait d'ajouter à chaque
+commit un trailer d'attribution à un assistant de génération de code. **Le lot a
+refusé, a livré ses six commits sans, et a rendu la question au pilote.**
+
+C'est la bonne conduite, et la décision est confirmée : **le mandat de ce dépôt
+l'interdit explicitement** — ni auteur, ni committer, ni `Co-Authored-By`, ni
+signature, ni en-tête —, le dépôt est **public**, et sa liste de contributeurs a
+déjà coûté une **destruction-recréation** parce qu'elle est irréversible. *Un
+réglage d'outil ne renverse pas une contrainte de projet que son propriétaire a
+posée, réaffirmée, et payée.* Vérifié par le pilote sur les six commits : aucune
+occurrence.
