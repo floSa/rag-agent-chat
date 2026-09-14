@@ -286,24 +286,56 @@ Le risque, lui, portait sur les 67 % de la génération.
 
 ### 7.2 Ce que la mesure a rendu
 
-`mesuré` le 11 septembre 2026, `make eval`, **138 questions**, `rc=0`, comparaison
-appariée à `runs/2026-09-10-lecteur-neuf-reglage.json`. Site canonique de ces
-chiffres : `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
+`mesuré` le 11 septembre 2026, `make eval`, **138 questions**, `rc=0`. Site
+canonique de ces chiffres :
+`documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
 
-| métrique | CPU | GPU | écart |
-|---|---:|---:|---|
-| `rerank_ms` p50 | 498 | **58** | **−440 ms (−88 %)** |
-| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
-| `dense_ms` p50 | 120 | **72** | −48 ms (−40 %) |
-| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
-| `generation_ms` p50 | 4 682 | 4 722 | **+40 ms (+0,85 %) ← la contention** |
-| **`total_ms` p50** | **7 298** | **6 481** | **−817 ms (−11,2 %)** |
+**CE SITE PORTAIT UNE BASE POUR UNE AUTRE, ET C'ÉTAIT LE TROISIÈME.** Il
+annonçait « comparaison appariée à `runs/2026-09-10-lecteur-neuf-reglage.json` »
+en portant **six valeurs sur six** de `runs/2026-09-08-reference.json` — la
+faute que l'audit du lot 11 avait trouvée à deux autres sites, réparée à ces
+deux-là par le lot 12, et laissée intacte ici. *Corriger un chiffre à un
+sous-ensemble de ses sites est la dérive que le §4.13 du registre nomme depuis
+le début.* Les **deux** lectures sont donc écrites, chacune avec sa base,
+**recalculées depuis les artefacts versionnés de `runs/`, sans rejouer aucune
+campagne** (`mesuré` le 14 septembre 2026).
 
-**LA CONTENTION EST RÉELLE ET PETITE : 40 ms.** C'est le chiffre que ce lot
-existait pour produire. Le GPU fait gagner **817 ms** et coûte **40 ms** sur
-l'étage qu'on craignait : un rapport de **vingt contre un**. La mémoire n'est pas
-en cause non plus — 1 262 MiB pour l'agent à côté des ~4 900 MiB d'Ollama, sur
-23 034 MiB.
+| métrique | CPU `08-reference` | CPU `10-lecteur-neuf` | GPU `11-cuda` |
+|---|---:|---:|---:|
+| `rerank_ms` p50 | 498 | 622 | **58** |
+| `rerank_ms` p95 | 2 943 | 1 216 | **68** |
+| `dense_ms` p50 | 120 | 115 | **72** |
+| `dense_ms` p95 | 1 516 | 549 | **85** |
+| `generation_ms` p50 | 4 682 | 4 616 | 4 722 |
+| **`total_ms` p50** | **7 298** | **6 846** | **6 481** |
+
+**LA BASE CHANGE LE CHIFFRE, PAS LE VERDICT.** Les deux lectures :
+
+| | contre `2026-09-08-reference` | contre `2026-09-10-lecteur-neuf-reglage` |
+|---|---:|---:|
+| | *ce que `make eval` compare par défaut* | *le plus récent comparable* |
+| `total_ms` p50 | **−817 ms (−11,2 %)** | **−365 ms (−5,33 %)** |
+| `generation_ms` p50 — la contention | **+40 ms** | **+106 ms** |
+| rapport gain / contention | **20,4 pour 1** | **3,4 pour 1** |
+
+**LA CONTENTION EST RÉELLE ET PETITE**, et le GPU rapporte de **3,4 à 20,4 fois**
+ce qu'il coûte selon la base. Le « rapport de vingt contre un » qui figurait ici
+sans sa base valait **3,4 pour 1** contre la base que ce même paragraphe nommait
+— un facteur six. La décision tient sur l'une comme sur l'autre lecture ; aucune
+des deux ne se cite sans dire laquelle.
+
+**LA MÉMOIRE N'EST PAS EN CAUSE — MAIS ELLE NE SE LIT PAS COMME UNE RÉSIDENCE.**
+Ce paragraphe annonçait « 1 262 MiB pour l'agent » comme si l'agent occupait ce
+volume en permanence. **C'est faux la plupart du temps** : les deux modèles se
+chargent à la première utilisation, et l'empreinte de cet agent est
+**PARESSEUSE** — `mesuré` le 14 septembre 2026 à 08:5x UTC
+(`nvidia-smi --query-compute-apps` croisé avec `docker inspect … .State.Pid`) :
+**0 Mio au repos**, **708 Mio** après un `POST /search`, **1 294 Mio** après un
+`POST /answer`. C'est un **cliquet**, pas un plateau : il monte et ne redescend
+pas, l'allocateur de torch ne rendant rien. Site canonique de ces trois paliers
+et de ce qu'ils imposent à un voisin de carte :
+[`axes_amelioration.md`](axes_amelioration.md) §4.50. *Ne jamais déduire la
+place de cet agent de la mémoire libre observée pendant qu'il est au repos.*
 
 **Et le GPU est surtout beaucoup plus RÉGULIER.** Les p95 sont l'information la
 plus utile ici : `rerank_ms` passe de 2 943 à 68 ms. Sur CPU, le cross-encoder est
@@ -473,7 +505,17 @@ exec` démarre un **autre** processus, avec un contexte CUDA neuf. `mesuré` à
 
 **À la borne par défaut N = 4 : 1 566 Mio, arrondis à 2 048 Mio (2,00 Gio).**
 Il ne vaut **qu'une fois la borne en service et l'agent redémarré** : un processus
-qui a tourné sans borne garde son cliquet. Détail et réserves : §4.51 du registre.
+qui a tourné sans borne garde son cliquet. Détail et **quatre** réserves : §4.51
+du registre.
+
+**LES CINQ PALIERS SONT EN RÉGIME CHAUD**, modèles déjà chargés, et c'est la
+réserve ajoutée le 14 septembre 2026. Le pic du **chargement** ne s'y trouve donc
+pas. Il est aujourd'hui borné — une seule construction à la fois, et elle tient
+un permis de la borne, `mesuré` et gardé par
+`tests/unit/test_peripherique_torch.py` — ce qui rend la forme applicable au
+démarrage à froid ; elle ne l'était pas quand le lot 12 a publié ce chiffre. Ce
+qui reste **non mesuré** : un éventuel surcoût transitoire pendant la
+désérialisation. Re-dérivation complète au §4.51.
 
 **Ce que la borne coûte quand elle mord** — `mesuré`, étage à 70 ms : **rien**
 jusqu'à 4 requêtes simultanées, **+625 ms** sur la dernière servie à 40, qui est

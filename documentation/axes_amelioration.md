@@ -7491,7 +7491,11 @@ trompe, le coût mesuré (**2,92 Go → 10,5 Go**) et le retour en arrière.
 
 **(3) LA MESURE, QUI EST LE LIVRABLE.** Site canonique :
 `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`. `make eval`,
-138 questions, `rc=0`, apparié à `runs/2026-09-10-lecteur-neuf-reglage.json` :
+138 questions, `rc=0`. **La colonne « CPU » ci-dessous est
+`runs/2026-09-08-reference.json`** — ce que `make eval` compare par défaut, et
+non `runs/2026-09-10-lecteur-neuf-reglage.json` que cette ligne annonçait ; la
+note qui suit le tableau donnait déjà la bonne base, la ligne de titre la
+contredisait. Les deux lectures sont à la note :
 
 | métrique | CPU | GPU | écart |
 |---|---:|---:|---|
@@ -8040,7 +8044,7 @@ propriété qu'on lui demande.
 > La marge est de **482 Mio (+30,8 %)** sur le calcul, et elle couvre les 226 MiB
 > de contexte CUDA mesurés ci-dessus plus la non-linéarité du cliquet.
 
-**TROIS RÉSERVES, ET ELLES CONDITIONNENT LE CHIFFRE :**
+**QUATRE RÉSERVES, ET ELLES CONDITIONNENT LE CHIFFRE :**
 
 1. **il ne vaut qu'une fois la borne EN SERVICE et l'agent REDÉMARRÉ.** Le
    processus de production tourne encore sans borne et son cliquet est déjà à
@@ -8048,7 +8052,53 @@ propriété qu'on lui demande.
 2. **les paliers ont été mesurés sans trafic LLM concurrent sur la carte** ;
 3. **la réservation doit rester INCONDITIONNELLE** — §4.50 : l'empreinte de cet
    agent est paresseuse, et un dimensionnement pris pendant qu'il est au repos
-   verrait de la place qui n'est pas libre.
+   verrait de la place qui n'est pas libre ;
+4. **les cinq paliers sont tous en régime CHAUD**, et c'est la réserve que
+   REPAR-13 a ajoutée le 14 septembre 2026 — voir la re-dérivation ci-dessous.
+   La forme ne contient PAS un éventuel surcoût transitoire de désérialisation
+   pendant la construction d'un modèle : il n'est **pas mesuré**, faute d'une
+   carte où le mesurer, et il est le seul terme du démarrage à froid qui reste
+   hors de la borne.
+
+#### LA RE-DÉRIVATION DU 14 SEPTEMBRE 2026 — ce chiffre ne majorait pas la scène du démarrage à froid
+
+**LE DÉFAUT, `mesuré` par l'audit du lot 12 puis par le garde de REPAR-13.** Les
+cinq paliers ci-dessus ont tous été relevés sur un processus **dont les deux
+modèles étaient déjà chargés**. Ils décrivent donc le régime chaud, et le pic de
+la carte n'est pas pris là : il est pris au **chargement**. Or le chargement
+était, au lot 12, hors de la borne ET non sérialisé — `lru_cache` ne sérialise
+pas les manques concurrents. `mesuré` sur le module réel : **8 constructions
+simultanées pour 8 fils à froid**, chacune plaçant sa copie des poids.
+
+Ordre de grandeur, `calculé` et **NON mesuré** — la carte n'a pas la place, et
+la faire tomber ferait tomber le voisin : l'embedder seul vaut **708 Mio** au
+palier `/search` de §4.50 (`nvidia-smi`, contexte CUDA compris), soit **≈ 482
+Mio** de poids torch une fois retranchés les **226 MiB** de contexte. À `K`
+chargements simultanés le pic vaudrait ≈ `K × 482` Mio hors contexte ; `K`
+n'étant borné que par les **40** fils d'AnyIO, cela va jusqu'à ≈ **19 Go** —
+contre 2 048 Mio annoncés et 2 892 MiB libres sur la carte au relevé de
+09:08 UTC. **Le chiffre ne majorait pas la scène qu'il devait couvrir**, qui est
+exactement celle du redémarrage de l'agent : *la seule où il doit valoir.*
+
+**CE QUE REPAR-13 A CHANGÉ, ET POURQUOI LE CHIFFRE TIENT MAINTENANT.** Deux
+gestes, tous deux gardés par une mutation qui rougit
+(`tests/unit/test_peripherique_torch.py`) :
+
+- le nombre de constructions simultanées d'un modèle est **1**, et il ne dépend
+  plus de l'ordonnanceur — `mesuré` : pic **1** et **une seule** construction
+  pour 8 fils à froid, contre 8 et 8 avant ;
+- cette construction **tient un permis de la borne**, comme les calculs. À tout
+  instant, chargement compris, le nombre de présences dans un étage torch est
+  donc **≤ `TORCH_MAX_CONCURRENCY`** — ce que la forme suppose, et qui n'était
+  vrai qu'en régime chaud.
+
+**LE CHIFFRE NE BOUGE PAS : 2 048 Mio à N = 4.** Je n'ai aucune mesure qui
+justifierait de le changer, et en inventer une serait refaire la faute. Ce qui
+change est la **condition** : elle est désormais *vraie* au lieu d'être
+seulement écrite, et la réserve n° 4 nomme ce qui reste non mesuré. *Ce chiffre
+est parti faux deux fois vers cette équipe, les deux fois pour avoir publié une
+scène comme une propriété ; la troisième fois, ce qu'on publie est la propriété,
+et ce qui reste une scène est dit comme tel.*
 
 #### Ce que le lot a trouvé CONTRE LUI-MÊME
 

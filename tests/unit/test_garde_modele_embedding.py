@@ -1375,12 +1375,21 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
     porte : le réservoir est ramené à une seule place et cette place est
     occupée, donc `tasks_waiting == 1` — le fil ne peut PAS démarrer. Retournée
     contre la suppression du retrait, elle rougit : le drapeau reste posé.
+
+    LE RÉSERVOIR SATURÉ EST CELUI DES SONDES, et c'est une correction de
+    REPAR-13 (14 septembre 2026). Ce test saturait le limiteur PAR DÉFAUT
+    d'AnyIO, qui était alors celui de `_sonder` ; depuis la fermeture de B-3, les
+    sondes ont le leur (`main._reservoir_des_sondes`) et le défaut ne les borne
+    plus. La propriété gardée n'a pas bougé d'un mot — seule la place où il faut
+    la mettre sous pression a changé. *Et c'est la précondition ci-dessous qui
+    l'a dit : elle a rougi la première, avec le motif exact. Un test qui vérifie
+    qu'il atteint son cas se répare au lieu de mentir.*
     """
     from anyio import to_thread
 
     from src.api import main
 
-    limiteur = to_thread.current_default_thread_limiter()
+    limiteur = main._reservoir_des_sondes()
     jetons_initiaux = limiteur.total_tokens
     occupe = threading.Event()
     dedans = threading.Event()
@@ -1394,7 +1403,7 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
         # pas, quoi qu'il arrive.
         limiteur.total_tokens = 1
         squat = asyncio.create_task(
-            to_thread.run_sync(_squatteur, abandon_on_cancel=True)
+            to_thread.run_sync(_squatteur, abandon_on_cancel=True, limiter=limiteur)
         )
         for _ in range(400):
             if dedans.is_set():

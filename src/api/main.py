@@ -785,6 +785,21 @@ async def health() -> HealthResponse:
     # RIEN. Le `or` de repli est donc APRÈS ce calcul, pas avant.
     peripherique = _relever("peripherique_torch", tache_peripherique, si_levee=None)
     peripherique_refuse = peripherique is not None and peripherique.hors_d_atteinte is not None
+    # ET L'IGNORANCE SE DIT, sinon `ok` sur une sonde muette est indiscernable
+    # de `ok` sur un service sain — NB-1 de l'audit du 14 septembre 2026. Ne pas
+    # dégrader est la bonne décision (ci-dessus) ; ne rien publier en était une
+    # autre, jamais prise. Le geste que `pour_le_pipeline_ingestion.md` rend au
+    # voisin imprimait `ok None` dans les deux cas, et seul `torch_version: ""`
+    # les distinguait — un détail que ce geste ne lisait pas.
+    #
+    # `services_unknown` et non un champ neuf : les cinq autres sondes disent
+    # déjà leur ignorance par cette liste, `_embedding_inconnu()` par
+    # `status="unknown"`, et un troisième dialecte pour le même non-savoir serait
+    # une divergence sans fait pour la porter. `peripherique_torch` n'est pas
+    # dans `taches` — il n'est pas un `bool` — donc la boucle ci-dessus ne l'y
+    # met pas : il faut le dire ici.
+    if peripherique is None:
+        inconnues.append("peripherique_torch")
     #
     # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
     # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier

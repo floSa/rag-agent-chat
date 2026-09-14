@@ -726,6 +726,51 @@ def test_une_sonde_qui_n_est_pas_revenue_ne_degrade_pas_le_statut(
         "`requested=cuda` et `cuda_available=false` parce qu'il ne sait pas, pas "
         "parce qu'il a mesuré"
     )
+    # NB-1 de l'audit du 14 septembre 2026, et c'est l'autre moitié de la même
+    # décision : ne pas dégrader est juste, mais le corps doit DIRE qu'il ne sait
+    # rien. Sans cette ligne, `ok` sur une sonde muette est indiscernable de `ok`
+    # sur un service sain — et c'est exactement ce que le geste rendu au pipeline
+    # imprime.
+    assert "peripherique_torch" in corps["services_unknown"], (
+        f"la sonde du périphérique n'est pas revenue et le corps ne le dit nulle "
+        f"part : {corps['services_unknown']}. Un exploitant lit alors `ok` sur une "
+        "ignorance, exactement comme sur un service sain — alors que les cinq "
+        "autres sondes savent le dire, et que `_embedding_inconnu()` le dit par "
+        "`status=unknown` à sept lignes d'écart"
+    )
+
+
+def test_temoin_un_peripherique_bien_sonde_ne_figure_pas_dans_les_inconnues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """TÉMOIN de la scène précédente : une sonde qui REVIENT ne s'y déclare pas.
+
+    Sans lui, `peripherique_torch in services_unknown` serait satisfait par un
+    site qui l'y met toujours — un garde vert sur une propriété que le code ne
+    tient pas. La scène est la même à une seule chose près : la sonde répond.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+
+    corps = TestClient(main.app).get("/health").json()
+
+    assert corps["torch_device"]["torch_version"] != "", (
+        f"la scène n'est pas atteinte : la route sert le repli, pas la sonde — {corps}"
+    )
+    assert "peripherique_torch" not in corps["services_unknown"], (
+        f"la sonde du périphérique a RÉPONDU et le corps la déclare inconnue : "
+        f"{corps['services_unknown']}. `services_unknown` cesserait de vouloir dire "
+        "quelque chose"
+    )
+    assert corps["status"] == "ok", f"le témoin ne décrit pas un service sain : {corps}"
 
 
 def test_une_levee_au_chargement_degrade_le_statut(monkeypatch: pytest.MonkeyPatch) -> None:
