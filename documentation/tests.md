@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 771 tests, aucune dépendance
+## Unitaire — 798 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,33 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 11 septembre 2026 à 13:13 UTC par LOT-11 : **771** tests sur **45** fichiers,
-> et les deux comptes de la recette — la somme par fichier et le total
-> que `pytest` annonce — concordent. **Les quinze de plus** tiennent le
+> `mesuré` le 14 septembre 2026 à 12:36 UTC par REPAR-13 : **798** tests sur **45** fichiers,
+> et les deux comptes de la recette — la somme par fichier et le
+> total que `pytest` annonce — concordent. *(LOT-12 avait relevé **793** sur les
+> mêmes 45 fichiers à 09:37 UTC ; les cinq de plus sont les gardes de REPAR-13 —
+> deux sur le chargement des modèles, deux sur le réservoir de fils des sondes,
+> un témoin sur `services_unknown`.)*
+>
+> **Les vingt-deux de plus** viennent du lot 12, et ils tiennent trois
+> propriétés qui n'existaient pas. Les deux premières : **`/health` cesse de dire `ok` sur un service qui ne sert
+> rien** — un périphérique demandé que torch ne sert pas dégrade le statut, dans
+> les deux directions, contrôle positif et témoin de la concordance compris —
+> et **une campagne consigne le périphérique sur lequel elle a tourné**, la
+> comparaison appariée signalant une bascule sans jamais la refuser. Huit tests
+> d'autres fichiers ont dû **épingler** le périphérique : ils assertaient un
+> service `ok` sans rien dire de la carte, et mesuraient donc leur propriété sur
+> un service qu'ils croyaient sain.
+>
+> **La troisième borne ce que cet agent prend sur la carte**, et elle existe pour
+> un lecteur qui n'est pas dans ce dépôt : le voisin de carte, qui dimensionne
+> son `--gpu-memory-utilization` **avant** de lancer vLLM. Un sémaphore réglable
+> plafonne les deux étages torch — éprouvé dans les **deux** directions, gratuit
+> sous la borne et bloquant au-dessus, et **câblé aux deux étages par leur vrai
+> chemin d'appel** — et `/health` publie le cliquet de mémoire réservée, `null`
+> tant que rien n'est chargé plutôt que `0.0`, qui se lirait « cet agent ne prend
+> rien ».
+>
+> **Les quinze d'avant** tiennent le
 > périphérique de torch, rendu explicite par le lot 11
 > (`tests/unit/test_peripherique_torch.py`) : le défaut `cpu` qui préserve le
 > service, l'alias qui rend le réglage utilisable sans reconstruire l'image, les

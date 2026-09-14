@@ -120,11 +120,136 @@ Constaté, pas supposé :
   æquo. Rien de ce que vous produisez n'a besoin d'être différent, et **vous
   n'avez pas besoin d'un GPU pour le pipeline**.
 
-  **Le geste, si votre machine n'a pas de carte** : commenter le bloc `deploy:`
-  du service `agent-api` dans `docker-compose.yml`, puis
-  `docker compose up -d agent-api`. Le service repart à l'identique. Le mode
-  d'emploi complet — les trois conditions qui décident du GPU, comment vérifier
-  chacune, le coût et le retour en arrière — est à
+  **Le geste, si votre machine n'a pas de carte — ⚠ IL EST EN DEUX LIGNES, ET
+  LA PREMIÈRE MANQUAIT.** Ce document ne donnait que la seconde, et nous vous la
+  rendons corrigée : *ce dépôt ne change pas une déclaration faite à une autre
+  équipe en silence*, et le corriger relève de la même règle.
+
+  ```bash
+  # 1. dans le .env de l'agent — SANS CETTE LIGNE le service démarre CASSÉ
+  TORCH_DEVICE=cpu
+  ```
+  ```bash
+  # 2. commenter le bloc `deploy:` du service `agent-api` dans docker-compose.yml
+  docker compose up -d agent-api
+  ```
+
+  **Pourquoi la première ligne n'est pas optionnelle.** `TORCH_DEVICE` vaut
+  `cuda` **par défaut** depuis le 11 septembre 2026. Retirer la réservation sans
+  la changer donne un conteneur qui démarre, un healthcheck **vert**, et **500
+  sur chaque recherche** — le modèle d'embedding lève au chargement, il ne
+  retombe pas sur processeur. `mesuré` le 14 septembre 2026 sur un jumeau branché
+  aux vrais stores : `POST /search` → **500**, `GET /health` → **200**.
+
+  **La commande qui vérifie que le geste a marché** :
+
+  ```bash
+  curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status'], d['torch_device']['hors_d_atteinte'], 'inconnues:', d['services_unknown'])"
+  ```
+
+  Elle doit rendre **`ok None inconnues: []`**. Trois lectures, et **la
+  troisième est une correction du 14 septembre 2026** :
+
+  | ce qu'elle imprime | ce que ça veut dire |
+  |---|---|
+  | `ok None inconnues: []` | **le geste a marché.** Le périphérique a été sondé, et il est servable |
+  | `degraded « … »` suivi d'un motif | la première ligne a été oubliée. Le motif dit laquelle des trois conditions manque |
+  | `ok None inconnues: ['peripherique_torch', …]` | **on n'en sait rien** — la sonde du périphérique n'a pas rendu la main sous son plafond de 3 s. Ce n'est **pas** un service sain : c'est une ignorance. Rejouez le geste |
+
+  **La troisième ligne n'existait pas avant le 14 septembre**, et c'est ce que
+  cette page vous devait : le geste imprimait `ok None` aussi bien sur un service
+  sain que sur une sonde muette d'un périphérique hors d'atteinte, et rien dans
+  le corps ne permettait de les distinguer. La scène n'est pas théorique — c'est
+  celle pour laquelle la sonde est sous plafond, et une simple saturation du
+  service suffit à la produire. Depuis le lot 12, `/health` **dit** la panne au
+  lieu de la laisser au seul journal ; depuis cette correction, il dit aussi
+  qu'il ne sait pas.
+
+  **Et un fait que nous vous rendons le 14 septembre 2026, si vous partagez cette
+  carte** : cet agent plafonne désormais la concurrence de ses deux étages torch
+  (`TORCH_MAX_CONCURRENCY`, défaut **4**) et **publie** ce qu'il prend, dans
+  `/health`. Vous n'avez pas à nous croire sur parole :
+
+  ```bash
+  curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin)['torch_device']; print('borne =', d['concurrence_max'], '| pic réservé =', d['pic_memoire_reservee_mio'], 'Mio')"
+  ```
+
+  **Réservation à prévoir pour cet agent : 2 048 Mio (2,00 Gio)**, `calculé`
+  le 14 septembre 2026 à la borne par défaut `TORCH_MAX_CONCURRENCY = 4`.
+
+  **SA BASE, parce qu'un nombre rond sans base ne vaut rien** : il vient de cinq
+  paliers `mesurés` par notre banc sur `/sources` — 1 → 1 362 Mio, 2 → 1 370,
+  4 → 1 506, 8 → 1 570, 16 → 1 984 — dont on tire la pente marginale maximale
+  entre paliers adjacents, **68,0 Mio par requête**, puis
+
+      réservation(N) = 1 362 Mio + (N - 1) x 68,0 Mio
+
+  soit **1 566 Mio à N = 4**, arrondis à 2 048. La marge est de **482 Mio
+  (+30,8 %)** ; elle couvre les **226 MiB de contexte CUDA** que le champ
+  `pic_memoire_reservee_mio` **ne compte pas**, plus la non-linéarité du cliquet.
+  Le détail, la dérivation et les quatre réserves sont au **§4.51** de
+  [`axes_amelioration.md`](axes_amelioration.md).
+
+  > **CE CHIFFRE NE VAUT QUE SI DEUX CONDITIONS SONT TENUES**, et elles sont à
+  > vous autant qu'à nous : **la borne doit être en service ET l'agent doit
+  > avoir été redémarré depuis**. Un processus qui a tourné sans borne garde son
+  > cliquet — l'allocateur de torch ne rend jamais ce qu'il a pris. Au
+  > 14 septembre 2026 à 09:08 UTC, le processus en service tournait **encore
+  > sans borne** et son cliquet était déjà à **1 984 MiB**, auxquels s'ajoutent
+  > les 226 MiB de contexte : **≈ 2 210 MiB, au-dessus des 2 048 annoncés.**
+  > *Tant que ce redémarrage n'a pas eu lieu, réservez sur le cliquet observé,
+  > pas sur ce calcul.*
+
+  **Elle doit être inconditionnelle** : l'empreinte de cet agent
+  est *paresseuse* — **0 Mio** au repos, ses deux modèles ne se chargeant qu'à la
+  première question. Un dimensionnement pris pendant qu'il dort verrait 1,3 Go de
+  libre qui ne l'est pas. Les pièges de lecture du champ sont au §10bis de
+  [`gpu_cuda.md`](gpu_cuda.md).
+
+  **Et ce que nous ne pouvons pas vous dire**, plutôt que de le taire : les cinq
+  paliers ci-dessus ont été mesurés **en régime chaud**, modèles déjà chargés. Le
+  pic du **chargement** lui-même est désormais borné — **une seule construction
+  par modèle**, et elle tient un permis de la borne. C'est une **propriété** :
+  elle ne dépend d'aucun réglage, `mesuré` le 14 septembre 2026 aux bornes
+  `TORCH_MAX_CONCURRENCY` **1, 4, 5 et 8** — **2 constructions au total** aux
+  quatre, soit une par modèle, jamais deux du même. Gardée par
+  `tests/unit/test_peripherique_torch.py`.
+
+  **CE QUI DÉPEND DE LA BORNE, ET C'EST CE QUI VOUS CONCERNE.** Les deux modèles
+  ont **chacun leur verrou** : rien n'interdit à l'embedder et au cross-encoder
+  de se désérialiser **en même temps**. Le nombre de désérialisations simultanées
+  vaut donc, `mesuré` le 14 septembre 2026 (doubles inertes, 4 `/search` + 4
+  `/sources` à froid, pic tous modèles confondus) :
+
+  | `TORCH_MAX_CONCURRENCY` | désérialisations simultanées |
+  |---:|---:|
+  | 1 | **1** |
+  | **4** — le défaut | **1** |
+  | 5 | **2** |
+  | 8 | **2** |
+
+  **À la borne par défaut le pic est 1, et ce n'est PAS parce que quelque chose
+  l'interdit** : les quatre permis sont consommés par des fils qui attendent le
+  verrou de l'embedder, si bien qu'aucun ne parvient jusqu'au cross-encoder. Dès
+  **5**, un fil passe, et vous avez deux désérialisations simultanées. Le majorant
+  sûr, quelle que soit la borne, est donc **2** — le nombre de modèles.
+
+  *Ce tableau est repris de `gpu_cuda.md` §10bis, qui en est le site canonique ;
+  il est recopié ici pour que ce document se lise sans accès au nôtre.*
+
+  **`TORCH_MAX_CONCURRENCY` est un réglage documenté** (publié dans `/health` et
+  au `README`), qu'un exploitant de notre côté peut desserrer sans vous prévenir.
+  Si vous dimensionnez `--gpu-memory-utilization` — **option de LANCEMENT, non
+  modifiable à chaud** — comptez sur **2** désérialisations simultanées et non
+  sur 1 : c'est la seule borne qu'aucun réglage ne peut franchir.
+
+  Le surcoût transitoire d'**une** désérialisation **n'est toujours pas mesuré** :
+  notre carte n'a pas la place de le mesurer, et la faire tomber vous ferait
+  tomber avec. Celui de **deux** ne l'est donc pas davantage — c'est la quatrième
+  réserve du §4.51 de notre registre, et elle était écrite au **singulier**.
+
+  Le mode d'emploi complet — les trois conditions qui décident du GPU, comment
+  vérifier chacune, le coût et le retour en arrière — est à
   [`gpu_cuda.md`](gpu_cuda.md).
 
   **Ce que nous ne tranchons pas** : si votre registre porte une exigence de

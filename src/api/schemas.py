@@ -546,6 +546,66 @@ class TorchDeviceHealth(BaseModel):
     # encore chargé.
     embedding: str | None = None
     rerank: str | None = None
+    # POURQUOI CE CHAMP EXISTE : `null` sur `embedding` et `rerank` couvre DEUX
+    # états qu'un exploitant ne pouvait pas distinguer — « personne n'a encore eu
+    # besoin de ce modèle » et « chaque chargement LÈVE depuis le démarrage, donc
+    # le cache ne se peuplera jamais ». `mesuré` le 14 septembre 2026 par l'audit
+    # du lot 11 : sur un service dont toute recherche rendait **500**, `/health`
+    # publiait EXACTEMENT le même corps au repos et après trois chargements qui
+    # avaient levé, et rendait `status: ok`.
+    #
+    # Ce champ porte le MOTIF, en clair, ou `null` quand aucun motif n'a été
+    # trouvé. Il est ce qui fait dégrader `status` — voir `main.health` — et il
+    # est ce qu'un exploitant lit pour savoir quoi réparer.
+    #
+    # `null` NE VEUT PAS DIRE « tout va bien » DANS TOUS LES CAS. Il veut dire
+    # « la sonde n'a trouvé aucun motif », et le repli `main._peripherique_inconnu`
+    # le porte aussi alors qu'il n'a rien sondé : c'est `torch_version: ""` qui
+    # sépare les deux, et c'est pourquoi le statut se lit sur le RÉSULTAT de la
+    # sonde et jamais sur le repli.
+    #
+    # CE QUE CE CHAMP NE COUVRE PAS, et la borne est celle de la route : `/health`
+    # NE CHARGE RIEN, donc il ne peut pas voir venir une levée qui ne tient pas à
+    # l'EXISTENCE du périphérique — mémoire insuffisante sur la carte, modèle
+    # absent du cache HuggingFace, droits refusés dessus. Ces pannes-là rendent
+    # toujours 500 sous un `status: ok`. Ce qui est connaissable sans charger,
+    # c'est que le périphérique demandé n'existe pas d'ici, et c'est exactement
+    # ce que ce champ dit.
+    hors_d_atteinte: str | None = None
+    # ─── CE QUE CET AGENT PREND SUR LA CARTE, ET CE QUI LE PLAFONNE ──────────
+    #
+    # CES DEUX CHAMPS EXISTENT POUR UN LECTEUR QUI N'EST PAS DANS CE DÉPÔT : le
+    # voisin de carte, qui doit dimensionner son `--gpu-memory-utilization`
+    # AVANT de lancer vLLM, puisque c'est une option de lancement. *Il ne doit
+    # pas avoir à croire ce dépôt sur parole : il doit pouvoir le lire.*
+    #
+    # `concurrence_max` — la borne du sémaphore des deux étages torch. C'est la
+    # variable dont l'empreinte dépend, et sans elle le pic ci-dessous ne serait
+    # qu'un relevé sans garantie de ne pas être dépassé.
+    concurrence_max: int = 0
+    # `pic_memoire_reservee_mio` — `torch.cuda.max_memory_reserved()`, en Mio.
+    #
+    # ⚠ **C'EST UN MAXIMUM HISTORIQUE, PAS UNE CONSOMMATION COURANTE.**
+    # L'allocateur de torch ne rend rien : cette valeur est un **cliquet**, elle
+    # monte et ne redescend jamais. `mesuré` sur le service en production le
+    # 14 septembre 2026 : 1 294 Mio à 09:08 UTC, 1 984 à 09:28, même PID, aucun
+    # redémarrage entre les deux.
+    #
+    # `null` TANT QU'AUCUN MODÈLE N'EST CHARGÉ — et c'est la même décision que
+    # pour `embedding`/`rerank` : la route ne charge rien, un `0.0` au repos se
+    # lirait « cet agent ne prend rien » quand il veut dire « on ne sait pas
+    # encore ». Un voisin qui dimensionnerait sur ce zéro prendrait 1,3 Go de
+    # trop et ferait tomber cet agent plus tard — §4.50.
+    #
+    # ⚠ **CE CHAMP SOUS-ESTIME CE QUE `nvidia-smi` ATTRIBUE AU PROCESSUS**, et
+    # l'écart est le CONTEXTE CUDA, que torch ne compte pas. `mesuré` le
+    # 14 septembre 2026 à 09:34 UTC sur un jumeau `--gpus all`, les deux modèles
+    # chargés : ce champ rend **1 036,0 Mio** quand `nvidia-smi` attribue
+    # **1 262 MiB** au même PID — **226 MiB d'écart**. Un voisin qui réserverait
+    # sur ce seul chiffre sous-réserverait d'autant. *Le chiffre de réservation
+    # du §4.51 est donc dérivé des paliers `nvidia-smi`, pas de ce champ ; ce
+    # champ sert à VÉRIFIER de l'extérieur que la borne tient, pas à dimensionner.*
+    pic_memoire_reservee_mio: float | None = None
 
 
 class HealthResponse(BaseModel):

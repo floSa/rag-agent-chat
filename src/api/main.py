@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from anyio import to_thread
+from anyio import CapacityLimiter, to_thread
+from anyio.lowlevel import RunVar
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -403,6 +404,65 @@ async def _refus_modele_embedding(
 # dehors est du calcul en mémoire, énuméré dans `health()`.
 _PLAFOND_SONDES_S = 3.0
 
+# ─── LE RÉSERVOIR DE FILS DES SONDES, ET POURQUOI IL EST À ELLES SEULES ──────
+#
+# LA PANNE QUE CECI FERME — B-3 de l'audit du 14 septembre 2026, et elle est
+# NOUVELLE, dans l'autre sens que celle que le lot 12 existait pour fermer.
+# `/search` et `/sources` sont des `def` : Starlette les exécute dans le
+# threadpool d'AnyIO. `_sonder` passait par `to_thread.run_sync` SANS limiteur,
+# c'est-à-dire dans le MÊME réservoir, dont le limiteur par défaut vaut **40**
+# (`mesuré` le 14 septembre 2026, anyio 4.15.1,
+# `current_default_thread_limiter().total_tokens`).
+#
+# Et `borne_des_etages_torch()` fait un `.acquire()` BLOQUANT DANS LE FIL : une
+# requête qui attend son permis ne rend pas son fil. La borne de concurrence
+# torch convertissait donc une saturation de CARTE en saturation du réservoir
+# que les sondes de santé utilisent pour interroger les stores.
+#
+# CE QUE `/health` PUBLIAIT ALORS : `degraded`, avec `chromadb`, `nebulagraph`
+# et `index_lexical` à **false** — trois dépendances parfaitement saines,
+# déclarées en panne parce qu'aucun fil n'était libre pour les interroger.
+# `mesuré` par l'audit sur l'application réelle : 13 appels sur 197 à 3,00 s
+# pile (`_PLAFOND_SONDES_S`) ; borne désarmée, 1 sur 29. C'est strictement plus
+# difficile à diagnostiquer qu'un 503 honnête : l'exploitant part chercher une
+# panne de store qui n'existe pas.
+#
+# LA TAILLE, ET POURQUOI ELLE N'EST PAS 40. Le nombre de fils de sonde
+# simultanés est déjà borné par `_sondes_en_vol`, qui n'en laisse partir qu'UN
+# par nom de sonde ; les noms sont au nombre de cinq (`chromadb`,
+# `nebulagraph`, `index_lexical`, `modele_embedding`, `peripherique_torch`).
+# Huit laisse donc une marge de trois noms sans que ce limiteur devienne à son
+# tour le goulot — et reste assez petit pour que les sondes ne puissent pas, à
+# leur tour, affamer les recherches.
+#
+# UN `RunVar` ET NON UNE GLOBALE : un `CapacityLimiter` appartient à la boucle
+# d'événements qui l'a créé. C'est exactement la forme qu'AnyIO emploie pour son
+# propre limiteur par défaut, et elle garde les bancs de test — qui ouvrent une
+# boucle par scénario — indépendants les uns des autres.
+#
+# SUR QUELLES VERSIONS D'ANYIO CECI TIENT, et c'est R-1 de l'audit du
+# 14 septembre 2026. Tout ce bloc repose sur une propriété de l'implémentation
+# d'AnyIO — un limiteur distinct fait NAÎTRE des fils supplémentaires au lieu
+# d'en emprunter à un pool global borné — et cette dépendance arrivait ici en
+# TRANSITIF, déclarée nulle part. Elle l'est désormais : `anyio>=4.1.0,<5` dans
+# `requirements.txt`, et le plancher y porte la mesure qui le soutient (20
+# versions jouées une par une, banc à deux directions). Sans plancher mesuré, la
+# ligne ne vaudrait pas mieux que l'absence de ligne.
+_JETONS_DES_SONDES = 8
+
+_limiteur_des_sondes: RunVar[CapacityLimiter] = RunVar("_limiteur_des_sondes")
+
+
+def _reservoir_des_sondes() -> CapacityLimiter:
+    """Le limiteur de fils RÉSERVÉ aux sondes, créé à la première demande."""
+    try:
+        return _limiteur_des_sondes.get()
+    except LookupError:
+        limiteur = CapacityLimiter(_JETONS_DES_SONDES)
+        _limiteur_des_sondes.set(limiteur)
+        return limiteur
+
+
 # Sondes lancées et pas encore revenues.
 #
 # Une sonde SYNCHRONE ne s'interrompt pas : rien ne peut tuer un fil bloqué dans
@@ -533,8 +593,17 @@ async def _sonder[T](
     _sondes_en_vol.add(nom)
     demarre = threading.Event()
     try:
+        # `limiter=` ET C'EST TOUTE LA CORRECTION DE B-3 : sans lui, cette
+        # ligne puise dans le réservoir que les endpoints `def` — donc les
+        # requêtes qui attendent un permis de la borne torch — occupent
+        # jusqu'à 40. Voir le bloc `_reservoir_des_sondes` ci-dessus.
         return await to_thread.run_sync(
-            _executer_sonde, nom, sonde, demarre, abandon_on_cancel=True
+            _executer_sonde,
+            nom,
+            sonde,
+            demarre,
+            abandon_on_cancel=True,
+            limiter=_reservoir_des_sondes(),
         )
     except BaseException:
         # `BaseException` parce que `CancelledError` est le cas VISÉ, et qu'elle
@@ -705,15 +774,52 @@ async def health() -> HealthResponse:
     # Une concordance REFUSÉE dégrade à elle seule, quatre sondes vertes ou non :
     # l'agent répond, les stores répondent, et pourtant toute recherche rend 503.
     # Un statut « ok » décrirait alors un service qui ne sert rien.
+    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
+    concordance_refusee = embedding.status in {"mismatch", "missing"}
+    # UN PÉRIPHÉRIQUE HORS D'ATTEINTE DÉGRADE À LUI SEUL, pour le MÊME motif que
+    # la concordance juste au-dessus : les stores répondent, l'agent répond, et
+    # pourtant toute recherche rend **500** — les deux modèles reçoivent
+    # `device=settings.torch_device` sans aucun repli, donc ils lèvent au lieu de
+    # retomber sur CPU. Un statut « ok » y décrirait un service qui ne sert rien,
+    # et le healthcheck `curl -sf` du compose resterait vert pour toujours
+    # puisqu'il ne lit que le code HTTP. `mesuré` en grandeur réelle le
+    # 14 septembre 2026 : `POST /search` 500, `GET /health` 200 `status: ok`.
+    # Site canonique : `documentation/audits/2026-09-14-audit-lot-11.md` §1.
+    #
+    # LE VERDICT SE LIT SUR LE RÉSULTAT DE LA SONDE, JAMAIS SUR SON REPLI, et
+    # c'est la même distinction que `unknown` ci-dessous. `_peripherique_inconnu`
+    # publie `requested` tel quel — donc `cuda` par défaut — avec
+    # `cuda_available: false` : une lecture naïve du corps y verrait un
+    # périphérique hors d'atteinte et dégraderait un service dont on ne sait
+    # RIEN. Le `or` de repli est donc APRÈS ce calcul, pas avant.
+    peripherique = _relever("peripherique_torch", tache_peripherique, si_levee=None)
+    peripherique_refuse = peripherique is not None and peripherique.hors_d_atteinte is not None
+    # ET L'IGNORANCE SE DIT, sinon `ok` sur une sonde muette est indiscernable
+    # de `ok` sur un service sain — NB-1 de l'audit du 14 septembre 2026. Ne pas
+    # dégrader est la bonne décision (ci-dessus) ; ne rien publier en était une
+    # autre, jamais prise. Le geste que `pour_le_pipeline_ingestion.md` rend au
+    # voisin imprimait `ok None` dans les deux cas, et seul `torch_version: ""`
+    # les distinguait — un détail que ce geste ne lisait pas.
+    #
+    # `services_unknown` et non un champ neuf : les cinq autres sondes disent
+    # déjà leur ignorance par cette liste, `_embedding_inconnu()` par
+    # `status="unknown"`, et un troisième dialecte pour le même non-savoir serait
+    # une divergence sans fait pour la porter. `peripherique_torch` n'est pas
+    # dans `taches` — il n'est pas un `bool` — donc la boucle ci-dessus ne l'y
+    # met pas : il faut le dire ici.
+    if peripherique is None:
+        inconnues.append("peripherique_torch")
     #
     # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
     # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier
     # « degraded » sur une sonde qui n'est pas revenue reviendrait aussi à faire
     # dire à l'agent « ça diverge » quand il n'en sait rien — la distinction que
     # `services_unknown` tient déjà par ailleurs.
-    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
-    concordance_refusee = embedding.status in {"mismatch", "missing"}
-    status = "ok" if all(essentiels.values()) and not concordance_refusee else "degraded"
+    status = (
+        "ok"
+        if all(essentiels.values()) and not concordance_refusee and not peripherique_refuse
+        else "degraded"
+    )
     # Hors du plafond, et borné : `sessions.stats()` et `sessions.durable()` ne
     # lisent que des compteurs en mémoire et un réglage — aucune entrée-sortie,
     # donc rien qui puisse attendre. `stats` absorbe ses propres échecs et rend
@@ -735,10 +841,7 @@ async def health() -> HealthResponse:
             failures=echecs,
         ),
         embedding_model=embedding,
-        torch_device=(
-            _relever("peripherique_torch", tache_peripherique, si_levee=None)
-            or _peripherique_inconnu()
-        ),
+        torch_device=peripherique or _peripherique_inconnu(),
     )
 
 

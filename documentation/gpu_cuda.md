@@ -286,24 +286,56 @@ Le risque, lui, portait sur les 67 % de la génération.
 
 ### 7.2 Ce que la mesure a rendu
 
-`mesuré` le 11 septembre 2026, `make eval`, **138 questions**, `rc=0`, comparaison
-appariée à `runs/2026-09-10-lecteur-neuf-reglage.json`. Site canonique de ces
-chiffres : `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
+`mesuré` le 11 septembre 2026, `make eval`, **138 questions**, `rc=0`. Site
+canonique de ces chiffres :
+`documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
 
-| métrique | CPU | GPU | écart |
-|---|---:|---:|---|
-| `rerank_ms` p50 | 498 | **58** | **−440 ms (−88 %)** |
-| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
-| `dense_ms` p50 | 120 | **72** | −48 ms (−40 %) |
-| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
-| `generation_ms` p50 | 4 682 | 4 722 | **+40 ms (+0,85 %) ← la contention** |
-| **`total_ms` p50** | **7 298** | **6 481** | **−817 ms (−11,2 %)** |
+**CE SITE PORTAIT UNE BASE POUR UNE AUTRE, ET C'ÉTAIT LE TROISIÈME.** Il
+annonçait « comparaison appariée à `runs/2026-09-10-lecteur-neuf-reglage.json` »
+en portant **six valeurs sur six** de `runs/2026-09-08-reference.json` — la
+faute que l'audit du lot 11 avait trouvée à deux autres sites, réparée à ces
+deux-là par le lot 12, et laissée intacte ici. *Corriger un chiffre à un
+sous-ensemble de ses sites est la dérive que le §4.13 du registre nomme depuis
+le début.* Les **deux** lectures sont donc écrites, chacune avec sa base,
+**recalculées depuis les artefacts versionnés de `runs/`, sans rejouer aucune
+campagne** (`mesuré` le 14 septembre 2026).
 
-**LA CONTENTION EST RÉELLE ET PETITE : 40 ms.** C'est le chiffre que ce lot
-existait pour produire. Le GPU fait gagner **817 ms** et coûte **40 ms** sur
-l'étage qu'on craignait : un rapport de **vingt contre un**. La mémoire n'est pas
-en cause non plus — 1 262 MiB pour l'agent à côté des ~4 900 MiB d'Ollama, sur
-23 034 MiB.
+| métrique | CPU `08-reference` | CPU `10-lecteur-neuf` | GPU `11-cuda` |
+|---|---:|---:|---:|
+| `rerank_ms` p50 | 498 | 622 | **58** |
+| `rerank_ms` p95 | 2 943 | 1 216 | **68** |
+| `dense_ms` p50 | 120 | 115 | **72** |
+| `dense_ms` p95 | 1 516 | 549 | **85** |
+| `generation_ms` p50 | 4 682 | 4 616 | 4 722 |
+| **`total_ms` p50** | **7 298** | **6 846** | **6 481** |
+
+**LA BASE CHANGE LE CHIFFRE, PAS LE VERDICT.** Les deux lectures :
+
+| | contre `2026-09-08-reference` | contre `2026-09-10-lecteur-neuf-reglage` |
+|---|---:|---:|
+| | *ce que `make eval` compare par défaut* | *le plus récent comparable* |
+| `total_ms` p50 | **−817 ms (−11,2 %)** | **−365 ms (−5,33 %)** |
+| `generation_ms` p50 — la contention | **+40 ms** | **+106 ms** |
+| rapport gain / contention | **20,4 pour 1** | **3,4 pour 1** |
+
+**LA CONTENTION EST RÉELLE ET PETITE**, et le GPU rapporte de **3,4 à 20,4 fois**
+ce qu'il coûte selon la base. Le « rapport de vingt contre un » qui figurait ici
+sans sa base valait **3,4 pour 1** contre la base que ce même paragraphe nommait
+— un facteur six. La décision tient sur l'une comme sur l'autre lecture ; aucune
+des deux ne se cite sans dire laquelle.
+
+**LA MÉMOIRE N'EST PAS EN CAUSE — MAIS ELLE NE SE LIT PAS COMME UNE RÉSIDENCE.**
+Ce paragraphe annonçait « 1 262 MiB pour l'agent » comme si l'agent occupait ce
+volume en permanence. **C'est faux la plupart du temps** : les deux modèles se
+chargent à la première utilisation, et l'empreinte de cet agent est
+**PARESSEUSE** — `mesuré` le 14 septembre 2026 à 08:5x UTC
+(`nvidia-smi --query-compute-apps` croisé avec `docker inspect … .State.Pid`) :
+**0 Mio au repos**, **708 Mio** après un `POST /search`, **1 294 Mio** après un
+`POST /answer`. C'est un **cliquet**, pas un plateau : il monte et ne redescend
+pas, l'allocateur de torch ne rendant rien. Site canonique de ces trois paliers
+et de ce qu'ils imposent à un voisin de carte :
+[`axes_amelioration.md`](axes_amelioration.md) §4.50. *Ne jamais déduire la
+place de cet agent de la mémoire libre observée pendant qu'il est au repos.*
 
 **Et le GPU est surtout beaucoup plus RÉGULIER.** Les p95 sont l'information la
 plus utile ici : `rerank_ms` passe de 2 943 à 68 ms. Sur CPU, le cross-encoder est
@@ -368,10 +400,28 @@ docker exec rag-agent-api python -c "import torch; print(torch.__version__)"
 docker build -f Dockerfile.agent --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu -t rag-agent-chat-agent-api:latest .
 ```
 
-**Retirer la réservation** : commentez le bloc `deploy:` du service `agent-api`
-dans `docker-compose.yml`, puis `docker compose up -d agent-api`. Vérifiez par
-`docker inspect rag-agent-api --format '{{json .HostConfig.DeviceRequests}}'`,
-qui doit rendre `null`.
+**Retirer la réservation** — ⚠ **EN DEUX LIGNES, JAMAIS UNE.** Retirer la
+réservation SANS toucher `TORCH_DEVICE` laisse le défaut à `cuda` sur une
+machine où torch ne voit plus de carte : le conteneur démarre, le healthcheck est
+vert, et **chaque recherche rend 500**. `mesuré` le 14 septembre 2026 sur un
+jumeau branché aux vrais stores, `docker run` sans `--gpus` :
+`POST /search` → **500**, `GET /health` → **200**. Les deux lignes vont ensemble :
+
+```bash
+# 1. dans le .env — SANS CETTE LIGNE le service démarre cassé
+TORCH_DEVICE=cpu
+```
+```bash
+# 2. commenter le bloc `deploy:` du service `agent-api` dans docker-compose.yml
+docker compose up -d agent-api
+docker inspect rag-agent-api --format '{{json .HostConfig.DeviceRequests}}'   # → null
+curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status'], d['torch_device']['hors_d_atteinte'])"
+```
+
+La dernière commande est celle qui tranche, et elle est le garde-fou posé par le
+lot 12 : elle doit rendre **`ok None`**. Si elle rend **`degraded`** suivi d'un
+motif, la première ligne a été oubliée — `/health` le dit désormais au lieu de
+laisser la panne au seul journal.
 
 ---
 
@@ -401,9 +451,102 @@ curl -s http://localhost:8011/health | python3 -c "import json,sys; print(json.l
 | `/health` : `cuda_build: null` | **(a)** — l'image est en CPU | `docker exec rag-agent-api python -c "import torch; print(torch.version.cuda)"` |
 | `cuda_build: "13.0"` mais `cuda_available: false` | **(b)** — la carte n'entre pas | `docker exec rag-agent-api sh -c 'ls /dev/nvidia*'` |
 | `cuda_available: true` mais `embedding: "cpu"` | **(c)** — le réglage. Depuis le 11 septembre 2026 le défaut est `cuda`, donc un `cpu` ici vient d'un `.env` qui le pose | `docker exec rag-agent-api python -c "from src.agent.settings import settings; print(settings.torch_device)"` |
-| `embedding: null` après une requête | le modèle n'a pas été chargé : la recherche n'est pas allée jusque-là (voir les 503 de concordance) | `curl -s localhost:8011/health \| grep embedding_model` |
-| une recherche rend 500, `/health` reste `200` | `TORCH_DEVICE` nomme un périphérique que le build ou la machine ne sert pas | `docker logs rag-agent-api --tail 50` |
+| `embedding: null` après une requête, `status: ok` | le modèle n'a pas été chargé : la recherche n'est pas allée jusque-là (voir les 503 de concordance) | `curl -s localhost:8011/health \| grep embedding_model` |
+| `embedding: null` après une requête, **`status: degraded`** | **le chargement LÈVE** — c'est la panne du périphérique, pas la concordance. Le champ `hors_d_atteinte` en donne la cause exacte | `curl -s localhost:8011/health \| python3 -c "import json,sys; print(json.load(sys.stdin)['torch_device']['hors_d_atteinte'])"` |
+| une recherche rend 500, `/health` reste `200` **et `status: degraded`** | `TORCH_DEVICE` nomme un périphérique que le build ou la machine ne sert pas, ou le chargement a levé (mémoire, cache HF) | `docker logs rag-agent-api --tail 50` |
+| une recherche rend 500 et `/health` dit **`status: ok`** | la levée ne tient PAS au périphérique — `/health` ne la voit qu'après le premier échec de chargement, et seulement pour ces deux modèles | `docker logs rag-agent-api --tail 50` |
 | tout est vert, rien n'est plus rapide | la **contention** — §7 | `nvidia-smi` pendant une recherche |
+
+---
+
+## 10bis. Ce que cet agent PREND sur la carte, et ce qui le plafonne
+
+**À lire si vous partagez cette carte avec autre chose** — vLLM, Ollama, un autre
+agent. `--gpu-memory-utilization` est une option de **lancement** de vLLM : le
+chiffre doit être bon **avant**.
+
+**Deux champs de `/health` répondent, et ils vont ensemble :**
+
+```bash
+curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin)['torch_device']; print('borne =', d['concurrence_max'], '| pic réservé =', d['pic_memoire_reservee_mio'], 'Mio')"
+```
+
+- `concurrence_max` — la borne `TORCH_MAX_CONCURRENCY` (défaut **4**). C'est le
+  nombre maximal de requêtes admises **en même temps** dans un étage torch.
+  Au-delà, elles s'attendent au lieu de faire croître la carte ;
+- `pic_memoire_reservee_mio` — `torch.cuda.max_memory_reserved()`.
+
+**TROIS PIÈGES SUR CE SECOND CHIFFRE, et chacun a coûté quelque chose :**
+
+1. **c'est un MAXIMUM HISTORIQUE, pas une consommation courante.** L'allocateur
+   de torch ne rend rien : la valeur monte et ne redescend jamais. `mesuré` le
+   14 septembre 2026 sur le service : **1 294 Mio** à 09:08 UTC, **1 984** à
+   09:28, même PID, aucun redémarrage entre les deux ;
+2. **`null` ne veut pas dire zéro.** Tant qu'aucun modèle n'est chargé — au repos,
+   après un redémarrage, la nuit — le champ vaut `null`, c'est-à-dire *« on ne
+   sait pas encore »*. **Ne dimensionnez jamais une réservation sur ce moment-là** :
+   vous verriez 1,3 Go de libre en trop, vous les prendriez, et cet agent
+   tomberait **plus tard**, sans rapport apparent avec la cause ;
+3. **il SOUS-ESTIME ce que `nvidia-smi` attribue au processus**, de la taille du
+   contexte CUDA. `mesuré` le 14 septembre 2026 à 09:34 UTC : le champ rend
+   **1 036,0 Mio** quand `nvidia-smi` attribue **1 262 MiB** au même PID —
+   **226 MiB d'écart**. Ce champ sert à **vérifier que la borne tient**, pas à
+   dimensionner.
+
+**Et il n'est lisible QUE par cette route.** `docker exec rag-agent-api python -c
+"import torch; print(torch.cuda.max_memory_reserved())"` rend **0** : `docker
+exec` démarre un **autre** processus, avec un contexte CUDA neuf. `mesuré` à
+09:29 UTC, 0,0 Mio contre 1 984 MiB vus par `nvidia-smi` pour le même conteneur.
+
+**Le chiffre de réservation à rendre à un voisin de carte**, `calculé` le
+14 septembre 2026 depuis les paliers mesurés par le banc du pilote :
+
+    réservation(N) = 1 362 Mio + (N - 1) x 68,0 Mio
+
+**À la borne par défaut N = 4 : 1 566 Mio, arrondis à 2 048 Mio (2,00 Gio).**
+Il ne vaut **qu'une fois la borne en service et l'agent redémarré** : un processus
+qui a tourné sans borne garde son cliquet. Détail et **quatre** réserves : §4.51
+du registre.
+
+**LES CINQ PALIERS SONT EN RÉGIME CHAUD**, modèles déjà chargés, et c'est la
+réserve ajoutée le 14 septembre 2026. Le pic du **chargement** ne s'y trouve donc
+pas. Il est aujourd'hui borné — **une seule construction par modèle**, et elle
+tient un permis de la borne, `mesuré` et gardé par
+`tests/unit/test_peripherique_torch.py` — ce qui rend la forme applicable au
+démarrage à froid ; elle ne l'était pas quand le lot 12 a publié ce chiffre.
+
+**« PAR MODÈLE » N'EST PAS « À LA FOIS », et la nuance porte sur le chiffre qu'un
+voisin de carte réserve.** Les deux modèles ont chacun leur verrou
+(`_SingletonVerrouille` en instancie un par singleton) : rien n'interdit à
+l'embedder et au cross-encoder de se désérialiser ensemble. `mesuré` le
+14 septembre 2026 — doubles inertes, 4 `/search` + 4 `/sources` à froid, pic
+**tous modèles confondus**, sonde dont le contrôle positif sait voir 4, 5 et 8 :
+
+| `TORCH_MAX_CONCURRENCY` | pic mesuré | constructions au total |
+|---:|---:|---:|
+| 1 | 1 | 2 |
+| **4** — le défaut | **1** | 2 |
+| **5** | **2** | 2 |
+| 8 | 2 | 2 |
+
+La colonne de droite est la **propriété** : **2 constructions au total** aux
+quatre bornes, soit **une par modèle**, jamais deux du même. La colonne du milieu
+est une **scène** : le pic 1 à la borne 4 tient à ce que les quatre permis sont
+consommés par des fils qui attendent le verrou de l'embedder, si bien qu'aucun
+n'atteint le cross-encoder ; à 5, un fil passe. **Le majorant qu'aucun réglage ne
+franchit est donc 2**, et c'est celui qu'on rend au voisin de carte.
+
+**CE TABLEAU EST LE SITE CANONIQUE DE CE CHIFFRE.** Il est repris à
+[`pour_le_pipeline_ingestion.md`](pour_le_pipeline_ingestion.md) — délibérément,
+ce document devant se lire sans accès à celui-ci — et nulle part ailleurs ; le
+registre le cite en renvoyant ici. Dérivation et banc : §4.53 du registre.
+
+Ce qui reste **non mesuré** : le surcoût transitoire d'une désérialisation, donc
+a fortiori de deux. Re-dérivation complète au §4.51.
+
+**Ce que la borne coûte quand elle mord** — `mesuré`, étage à 70 ms : **rien**
+jusqu'à 4 requêtes simultanées, **+625 ms** sur la dernière servie à 40, qui est
+le plafond du fil d'exécution de FastAPI.
 
 ---
 

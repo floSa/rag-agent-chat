@@ -1,8 +1,10 @@
 import logging
 import math
 import threading
-from functools import lru_cache
-from typing import Any, Literal
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from functools import lru_cache, update_wrapper
+from typing import Any, Literal, NamedTuple, cast
 
 import chromadb
 import torch
@@ -23,18 +25,261 @@ _LEXICAL_PAGE = 2000
 _MAX_OVERLAP = 400
 
 
-# ─── Singletons chargés une seule fois au démarrage ──────────────────────────
+# ─── LA BORNE DE CONCURRENCE DES DEUX ÉTAGES TORCH ───────────────────────────
+#
+# Le motif complet est à `settings.torch_max_concurrency`. En deux phrases : sans
+# borne, l'empreinte de cet agent sur la carte croît avec la concurrence et
+# **ne redescend jamais** (l'allocateur de torch ne rend rien), donc le chiffre
+# de réservation rendu au voisin de carte ne vaut rien.
+#
+# UN SÉMAPHORE ET NON UNE BORNE AU NIVEAU DU SERVEUR, et c'est un choix pesé.
+# `uvicorn --limit-concurrency` bornerait TOUTES les requêtes, y compris celles
+# qui ne touchent pas torch — `/health`, `/context`, `/feedback` — et rendrait
+# **503** au-delà, ce qui ferait passer le conteneur pour saturé alors que seule
+# la carte l'est. Le sémaphore borne ce qui coûte, là où ça coûte.
+#
+# CE QUE CE MOTIF AFFIRMAIT ET QUI ÉTAIT FAUX, jusqu'à B-3 de l'audit du
+# 14 septembre 2026 : « et laisse la sonde de santé répondre ». Il ne la laissait
+# pas répondre. Bloquer ici bloque un fil du réservoir d'AnyIO — celui que
+# Starlette emploie pour les endpoints `def`, ET celui où `_sonder` lançait ses
+# sondes. Une requête qui attend son permis ne rend pas son fil : la borne
+# convertissait une saturation de carte en saturation du réservoir des sondes, et
+# `/health` publiait alors `degraded` avec trois stores SAINS déclarés `false`.
+# `mesuré` par l'audit sur l'application réelle : 13 appels sur 197 à 3,00 s
+# pile ; borne désarmée, 1 sur 29.
+#
+# CE QUI REND LA PHRASE VRAIE AUJOURD'HUI, et ce n'est pas ce sémaphore : les
+# sondes de `/health` ont leur PROPRE limiteur de fils
+# (`src/api/main.py`, `_reservoir_des_sondes`), indépendant de celui des
+# endpoints. La propriété est gardée, aux deux niveaux, par
+# `tests/unit/test_health_parallele.py::…_quand_le_reservoir_des_recherches_est_plein`
+# — et elle rougit si ce limiteur disparaît. Une phrase ne rougit pas ; ces deux
+# tests-là, si.
+#
+# UN SEUL SÉMAPHORE POUR LES DEUX ÉTAGES : la mémoire est un seul pool. Une
+# requête traverse l'encodage puis le reclassement l'un APRÈS l'autre, donc un
+# sémaphore partagé borne bien le nombre de requêtes présentes dans un étage
+# torch à un instant donné, qui est la grandeur dont l'empreinte dépend.
+_borne_verrou = threading.Lock()
+_borne: threading.Semaphore | None = None
+_borne_taille: int | None = None
 
-@lru_cache(maxsize=1)
+
+def rearmer_la_borne_des_etages_torch() -> None:
+    """Reconstruit le sémaphore sur la valeur COURANTE du réglage.
+
+    Existe pour les tests, et pour eux seuls : en service le réglage ne bouge pas
+    après le démarrage. Un réarmement en vol perdrait les permis détenus, et
+    c'est pourquoi il n'est pas fait automatiquement à chaque lecture.
+    """
+    global _borne, _borne_taille
+    with _borne_verrou:
+        _borne = threading.Semaphore(settings.torch_max_concurrency)
+        _borne_taille = settings.torch_max_concurrency
+
+
+def _semaphore() -> threading.Semaphore:
+    global _borne, _borne_taille
+    with _borne_verrou:
+        if _borne is None or _borne_taille != settings.torch_max_concurrency:
+            _borne = threading.Semaphore(settings.torch_max_concurrency)
+            _borne_taille = settings.torch_max_concurrency
+        return _borne
+
+
+@contextmanager
+def borne_des_etages_torch() -> Iterator[None]:
+    """Ne laisse entrer que `TORCH_MAX_CONCURRENCY` requêtes dans un étage torch.
+
+    Les deux endpoints qui appellent sont des `def` et non des `async def` :
+    FastAPI les exécute dans le threadpool d'AnyIO, donc bloquer ici bloque un
+    fil de ce réservoir et **jamais la boucle d'événements**.
+
+    CE QUE CELA NE SUFFIT PAS À GARANTIR, et c'est B-3 : que `/health` réponde.
+    La boucle reste libre, mais les SONDES de `/health` sont synchrones et
+    passaient par le même réservoir — 40 jetons. Des requêtes qui attendent ici
+    l'affamaient, et la route publiait `false` sur des dépendances saines. Ce
+    sont les sondes qui ont été déplacées, pas cette attente : voir
+    `_reservoir_des_sondes` dans `src/api/main.py`.
+    """
+    borne = _semaphore()
+    borne.acquire()
+    try:
+        yield
+    finally:
+        borne.release()
+
+
+# ─── LA MÉMOIRE DES LEVÉES AU CHARGEMENT ─────────────────────────────────────
+#
+# CE QU'ELLE FERME, ET LE CONTRÔLE STATIQUE NE LE PEUT PAS.
+# `peripherique_hors_d_atteinte` répond à « le périphérique demandé existe-t-il
+# d'ici », sans rien charger. Elle ne répond pas à « le chargement va-t-il
+# aboutir », et `/health` ne peut pas le lui demander : une route de santé qui
+# construit deux modèles n'est plus une sonde.
+#
+# Or la panne qui VIENT n'est pas celle d'un périphérique absent. `mesuré` le
+# 14 septembre 2026 à 09:08 UTC, `nvidia-smi --query-compute-apps` croisé avec
+# `docker inspect -f '{{.State.Pid}}' rag-agent-api` : **vLLM tient déjà
+# 14 264 Mio** sur la L4, Ollama 4 584, cet agent 1 294, sur 23 034 — il reste
+# **2 892 Mio**. Un agent qui redémarrerait et redemanderait ses 1,29 Go
+# trouverait `cuda_available: true`, un ordinal valide, et lèverait quand même,
+# sur la mémoire. Le contrôle statique ne verrait rien.
+#
+# UNE LEVÉE EST UN FAIT DÉJÀ PRODUIT : la relire ne charge rien et ne coûte rien.
+# Elle arrive APRÈS la première recherche là où le contrôle statique arrive
+# avant, et elle couvre TOUTE cause — mémoire, modèle absent du cache, droits
+# refusés. Les deux moitiés sont complémentaires ; aucune ne rend l'autre
+# inutile. C'est la seconde forme que l'audit du 14 septembre 2026 nommait :
+# *« ou une levée mémorisée au dernier chargement »*.
+#
+# UN DICTIONNAIRE ET NON UNE CHAÎNE, et le motif est une erreur évitée : avec une
+# chaîne unique, un rechargement RÉUSSI de l'embedder effacerait la levée encore
+# vraie du reranker. Chaque modèle porte la sienne, et ne l'efface que pour lui.
+_levees_au_chargement: dict[str, str] = {}
+
+
+def _memoriser_la_levee(modele: str, exc: BaseException) -> None:
+    """Retient POURQUOI le chargement de `modele` a échoué, pour `/health`."""
+    _levees_au_chargement[modele] = f"{type(exc).__name__}: {exc}"
+
+
+def _oublier_la_levee(modele: str) -> None:
+    """Un chargement RÉUSSI efface la sienne, et c'est la seconde direction.
+
+    Sans elle, un exploitant qui corrige la cause — il libère la carte, il rend
+    les droits — verrait `degraded` pour toujours, sans redémarrage possible :
+    le mensonge symétrique de celui que ce garde ferme.
+    """
+    _levees_au_chargement.pop(modele, None)
+
+
+def levees_au_chargement() -> dict[str, str]:
+    """Les levées retenues, copiées — l'appelant ne mute pas l'état du module."""
+    return dict(_levees_au_chargement)
+
+
+def oublier_les_levees_au_chargement() -> None:
+    """Repart de zéro. Existe pour les tests, et pour eux seuls."""
+    _levees_au_chargement.clear()
+
+
+# ─── Singletons chargés une seule fois au démarrage ──────────────────────────
+#
+# POURQUOI PAS `lru_cache(maxsize=1)` SUR LES DEUX MODÈLES, et c'est B-1 de
+# l'audit du 14 septembre 2026. **`lru_cache` ne sérialise pas les appels
+# concurrents qui manquent le cache** : en CPython son verrou n'est tenu que
+# pour la mise à jour du dictionnaire, jamais pendant l'exécution de la fonction
+# enveloppée. `K` fils qui manquent le cache ensemble entrent donc TOUS dans le
+# corps et construisent `K` modèles EN MÊME TEMPS, chacun plaçant sa copie des
+# poids sur la carte. `mesuré` sur le module réel : **8** constructions
+# simultanées pour 8 fils à froid.
+#
+# ET LES `K−1` COPIES PERDANTES NE RENDENT RIEN. Elles sont bien collectées par
+# Python, mais **l'allocateur de torch ne rend pas la mémoire au pilote** — ce
+# que ce module écrit lui-même à `_pic_memoire_reservee_mio`. Le pic est acquis
+# pour la vie du processus, et c'est lui que le voisin de carte doit réserver.
+#
+# CE QUE CE REMPLACEMENT GARDE DE `lru_cache`, parce que le module et les tests
+# le lisent : `cache_clear()` et `cache_info().currsize`. Le reste de la forme
+# (`hits`/`misses`/`maxsize`) est tenu pour que la substitution soit complète et
+# qu'un lecteur n'ait pas à vérifier laquelle des deux il a sous les yeux.
+
+
+class _InfoDuSingleton(NamedTuple):
+    """La forme de `lru_cache.cache_info()`, à l'identique."""
+
+    hits: int
+    misses: int
+    maxsize: int | None
+    currsize: int
+
+
+class _SingletonVerrouille[T]:
+    """Un chargement coûteux mémoïsé, dont les manques concurrents sont SÉRIALISÉS.
+
+    LA DOUBLE VÉRIFICATION EST LE CŒUR, et elle n'est pas décorative : sans la
+    seconde lecture sous verrou, les `K` fils qui ont manqué le cache
+    construiraient chacun leur tour — sérialisés, mais `K` constructions quand
+    même, donc `K` empreintes sur une carte qui ne rend rien. Ce qu'il faut
+    fermer n'est pas « deux constructions en même temps », c'est « plus d'une
+    construction ».
+
+    La première lecture est faite HORS verrou, et c'est ce qui rend le cas
+    passant gratuit : une fois chargé, servir le modèle ne prend aucun verrou.
+    L'affectation d'un attribut est atomique sous le GIL, et l'ordre choisi
+    (`_valeur` puis `_charge`) fait qu'un lecteur qui voit `_charge` vrai voit
+    forcément la valeur.
+    """
+
+    def __init__(self, charger: Callable[[], T]) -> None:
+        self._charger = charger
+        self._verrou = threading.Lock()
+        self._valeur: T | None = None
+        self._charge = False
+        self._hits = 0
+        self._misses = 0
+        update_wrapper(self, charger)
+
+    def __call__(self) -> T:
+        if self._charge:
+            self._hits += 1
+            return cast("T", self._valeur)
+        with self._verrou:
+            # SECONDE LECTURE : un autre fil a pu charger pendant qu'on attendait
+            # le verrou. Sans elle, on reconstruirait — voir le docstring.
+            if self._charge:
+                self._hits += 1
+                return cast("T", self._valeur)
+            self._misses += 1
+            valeur = self._charger()
+            self._valeur = valeur
+            self._charge = True
+            return valeur
+
+    def cache_clear(self) -> None:
+        """Repart de zéro. Même nom que `lru_cache` : les tests l'appellent ainsi."""
+        with self._verrou:
+            self._valeur = None
+            self._charge = False
+            self._hits = 0
+            self._misses = 0
+
+    def cache_info(self) -> _InfoDuSingleton:
+        """`currsize` dit « un modèle est chargé » SANS rien déclencher.
+
+        C'est ce que lisent `_peripherique_si_charge` et
+        `_pic_memoire_reservee_mio` : `/health` est appelé toutes les 20 s et ne
+        doit jamais payer un chargement pour répondre.
+        """
+        return _InfoDuSingleton(self._hits, self._misses, 1, 1 if self._charge else 0)
+
+
+@_SingletonVerrouille
 def _get_embedding_model() -> SentenceTransformer:
     logger.info(
         "Chargement du modèle d'embedding : %s, périphérique demandé « %s »",
         settings.embedding_model_name,
         settings.torch_device,
     )
-    model: SentenceTransformer = SentenceTransformer(
-        settings.embedding_model_name, device=settings.torch_device
-    )
+    try:
+        model: SentenceTransformer = SentenceTransformer(
+            settings.embedding_model_name, device=settings.torch_device
+        )
+    except Exception as exc:
+        # ABSORPTION NULLE — la levée est RELANCÉE à la ligne suivante. Ce `except`
+        # ne rattrape rien : il RETIENT, pour que `/health` sache dire pourquoi
+        # chaque recherche rend 500. Le comportement du site d'appel est inchangé,
+        # et c'est délibéré : il n'y a AUCUN repli vers CPU dans ce module, et en
+        # introduire un ici changerait silencieusement le périphérique — c'est
+        # exactement ce que le lot 12 existe pour rendre visible.
+        # `Exception` et non une liste : torch lève `RuntimeError`,
+        # `AcceleratorError`, `OSError` et `PermissionError` selon la cause, sans
+        # ancêtre commun, et toutes disent ici la même chose — le modèle n'est pas
+        # chargé. Une liste close périmerait à la prochaine version de torch.
+        _memoriser_la_levee("embedding", exc)
+        raise
+    _oublier_la_levee("embedding")
     # APRÈS le chargement, et ce n'est pas la répétition de la ligne du dessus :
     # celle-là dit ce qu'on a DEMANDÉ, celle-ci ce que torch a réellement posé.
     # Les deux diffèrent dès que le réglage nomme un périphérique que le build
@@ -339,14 +584,19 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
         return None
 
 
-@lru_cache(maxsize=1)
+@_SingletonVerrouille
 def _get_rerank_model() -> CrossEncoder:
     logger.info(
         "Chargement du modèle de reranking : %s, périphérique demandé « %s »",
         settings.rerank_model,
         settings.torch_device,
     )
-    model: CrossEncoder = CrossEncoder(settings.rerank_model, device=settings.torch_device)
+    try:
+        model: CrossEncoder = CrossEncoder(settings.rerank_model, device=settings.torch_device)
+    except Exception as exc:  # relancée ci-dessous — voir `_get_embedding_model`
+        _memoriser_la_levee("rerank", exc)
+        raise
+    _oublier_la_levee("rerank")
     logger.info(
         "Modèle de reranking chargé sur le périphérique « %s »",
         getattr(model, "device", "inconnu"),
@@ -355,7 +605,7 @@ def _get_rerank_model() -> CrossEncoder:
     # garde passe AVANT, parce qu'il REFUSE et qu'il ne faut pas payer le
     # téléchargement d'un modèle qu'on va rejeter. Ici on signale et on se sert
     # du modèle de toute façon : le charger d'abord donne accès à sa propriété
-    # sans aucune lecture supplémentaire. Une fois par processus, `lru_cache`
+    # sans aucune lecture supplémentaire. Une fois par processus, le singleton
     # s'en assurant — c'est la bonne cadence pour un fait de configuration.
     verdict = verdict_langue_du_reranker(
         settings.rerank_model, _vocabulaire_du_reranker(model)
@@ -402,15 +652,51 @@ def _get_rerank_model() -> CrossEncoder:
 # healthcheck, et lire le périphérique en construisant le modèle ferait payer au
 # premier healthcheck un téléchargement de modèle. Un `None` se lit « personne
 # n'a encore eu besoin de ce modèle » — vrai, et différent de « il est sur CPU ».
-# Le `currsize` du `lru_cache` est ce qui le dit sans rien déclencher.
+# Le `currsize` du singleton est ce qui le dit sans rien déclencher.
 
 
 def _peripherique_si_charge(accesseur: Any) -> str | None:
     """Le périphérique d'un modèle SI ET SEULEMENT SI il est déjà chargé.
 
-    `accesseur` est l'un des deux singletons `lru_cache`és de ce module. On lit
+    `accesseur` est l'un des deux `_SingletonVerrouille` de ce module. On lit
     son `currsize` plutôt que d'appeler : appeler CHARGERAIT, et cette fonction
     sert une route de santé qui ne doit rien déclencher.
+
+    CE SITE EST LE SEUL APPELANT DU SINGLETON QUI NE SOIT PAS SOUS LA BORNE, et
+    c'est R-2 de l'audit du 14 septembre 2026. Les deux autres — `_dense_search`
+    et `rerank` — prennent `borne_des_etages_torch()` avant d'appeler ; celui-ci
+    est sur la route de `/health`, qui ne doit jamais attendre un permis pour
+    répondre.
+
+    POURQUOI CE N'EST PAS UNE BRÈCHE, ET LA RAISON N'EST PAS CELLE QU'ON CROIT.
+    Ce n'est pas qu'aucun chemin hors borne n'existe : c'en est un. C'est que le
+    `currsize == 0` ci-dessous le referme, et que rien en production ne peut
+    faire échouer ce test entre sa lecture et l'appel. La fenêtre existe —
+    `currsize > 0` lu, puis un `cache_clear()` concurrent, puis `accesseur()`
+    qui CHARGERAIT hors borne en tenant le verrou — mais `cache_clear()` n'a
+    **aucun appelant en production**. `mesuré` le 14 septembre 2026 :
+
+        grep -rnE '_get_(embedding|rerank)_model[.]cache_clear[(]' src/ scripts/
+        #   -> rien, rc(grep)=1
+        grep -rcE '_get_(embedding|rerank)_model[.]cache_clear[(]' tests/
+        #   -> 24 sites     <- CONTROLE POSITIF : la recette SAIT les trouver
+
+    La parenthèse ouvrante est dans le motif à dessein : sans elle, la recette
+    s'attrape elle-même dans cette docstring et rend un faux appelant — ce qui
+    s'est produit, et ce que le contrôle positif a fait voir.
+
+    CE QUI LA RENDRAIT ATTEIGNABLE, et c'est ce qu'il faut surveiller : un
+    `cache_clear()` appelé depuis `src/` ou `scripts/` — un endpoint de
+    rechargement à chaud, une bascule de périphérique en service, une purge
+    déclenchée par un signal. Le jour où l'un de ces trois apparaît, ce chemin
+    doit passer sous la borne, ou lire le périphérique sans passer par
+    `accesseur()`.
+
+    ET IL N'Y A PAS D'INTERBLOCAGE POSSIBLE, borne comprise : un fil qui tient le
+    verrou de chargement l'a pris APRÈS la borne, et il ne la redemande jamais.
+    Corollaire vérifié : `/health` ne peut pas non plus ATTENDRE ce verrou — si
+    `currsize == 0` il rend `None` sans rien prendre, et si `currsize > 0` la
+    première lecture de `__call__` sort hors verrou.
 
     `getattr` plutôt qu'un accès direct, et sans `try` : `SentenceTransformer` et
     `CrossEncoder` exposent tous deux `device` en `property` (`mesuré` le
@@ -424,6 +710,126 @@ def _peripherique_si_charge(accesseur: Any) -> str | None:
     return None if peripherique is None else str(peripherique)
 
 
+def peripherique_hors_d_atteinte(demande: str, cuda_disponible: bool) -> str | None:
+    """Le motif pour lequel `demande` ne peut PAS servir ici, ou `None`.
+
+    CE QUE CETTE FONCTION EXISTE POUR FERMER. Le lot 11 a créé un mode de panne
+    qui n'existait pas avant lui : `SentenceTransformer(nom)` laissait
+    sentence-transformers choisir un périphérique QUI EXISTE, et le chargement ne
+    pouvait pas lever pour cette raison ; `SentenceTransformer(nom, device=...)`
+    passe la chaîne telle quelle à torch. Il n'y a **aucun repli vers CPU** dans
+    ce module — pas de `try`, pas de garde sur `is_available()` — donc les
+    modèles ne « retombent » pas : **ils lèvent**, au chargement, donc à la
+    PREMIÈRE recherche, donc en production. `mesuré` le 14 septembre 2026 par
+    l'audit du lot 11, quatre scénarios dans l'image étiquetée :
+
+        `cuda` sans carte        -> RuntimeError: Found no NVIDIA driver
+        `cuda:7` avec une carte  -> AcceleratorError: invalid device ordinal
+        `banane`                 -> RuntimeError: Expected one of cpu, cuda, …
+        `cpu` ou `cuda` servis   -> charge, rc=0
+
+    ET LA ROUTE DE SANTÉ NE CHARGE RIEN, délibérément — un `/health` qui
+    construit deux modèles n'est plus une sonde, c'est un téléchargement toutes
+    les 20 s. `status` ne peut donc PAS savoir « le chargement va lever » avant
+    qu'il ait levé. Ce qui EST connaissable sans rien charger, c'est que le
+    périphérique demandé n'existe pas d'ici — et les trois levées ci-dessus sont
+    exactement celles-là. C'est la borne de ce garde, elle est écrite au champ
+    `TorchDeviceHealth.hors_d_atteinte` et rappelée ici : une levée qui ne tient
+    pas à l'EXISTENCE du périphérique (mémoire insuffisante, modèle absent du
+    cache, droits refusés) n'est pas vue.
+
+    POURQUOI `cuda_disponible` EST UN PARAMÈTRE ET NON UNE LECTURE. L'appelant
+    vient de lire `torch.cuda.is_available()` pour le publier ; le relire ici en
+    ferait deux lectures pouvant diverger, et le corps publié ne correspondrait
+    plus au verdict qui l'accompagne. Un seul relevé, un seul fait.
+
+    RENDRE LE MOTIF ET NON UN BOOLÉEN, et c'est la décision déjà prise au site
+    pour `EmbeddingModelHealth.status` : les trois causes ne se soignent pas
+    pareil — corriger le `.env`, rendre la carte au conteneur, corriger la
+    faute de frappe — et un booléen ne dirait laquelle.
+
+    Gardé dans les DEUX directions : `tests/unit/test_peripherique_torch.py`,
+    section (6), contrôle positif inclus.
+    """
+    try:
+        cible = torch.device(demande)
+    except (RuntimeError, ValueError) as exc:
+        # La MÊME levée que celle que le constructeur produirait, obtenue au
+        # parsing — donc sans carte, sans modèle et sans entrée-sortie.
+        return f"torch refuse le périphérique demandé « {demande} » : {exc}"
+    if cible.type != "cuda":
+        return None
+    if not cuda_disponible:
+        return (
+            f"« {demande} » demande une carte CUDA et torch n'en voit aucune depuis ce "
+            "processus : le chargement du premier modèle lèvera, donc toute recherche "
+            "rendra 500. Voir documentation/gpu_cuda.md §1, conditions (a) et (b)"
+        )
+    cartes = torch.cuda.device_count()
+    if cible.index is not None and cible.index >= cartes:
+        return (
+            f"« {demande} » nomme la carte n° {cible.index} et torch n'en voit que "
+            f"{cartes} (indices 0 à {cartes - 1}) : le chargement lèvera sur "
+            "« invalid device ordinal ». Voir documentation/gpu_cuda.md §4"
+        )
+    return None
+
+
+def _pic_memoire_reservee_mio() -> float | None:
+    """Le plus haut niveau de mémoire GPU jamais RÉSERVÉ par ce processus, en Mio.
+
+    C'EST UN MAXIMUM HISTORIQUE, PAS UNE CONSOMMATION COURANTE, et le champ le
+    dit à son site : l'allocateur de torch ne rend rien, donc cette valeur est un
+    **cliquet** — elle monte et ne redescend pas. Lue comme une mesure
+    instantanée, elle surestimerait ce que l'agent tient à cet instant ; lue comme
+    ce qu'elle est, elle dit ce que le voisin de carte doit RÉSERVER.
+
+    `None` TANT QU'AUCUN MODÈLE N'EST CHARGÉ, et c'est la même décision que pour
+    `embedding` et `rerank` juste au-dessus. La route ne charge rien ; un `0.0`
+    publié au repos se lirait *« mesuré, et cet agent ne prend rien »*, quand il
+    veut dire *« on ne sait pas encore »*. La différence est opérationnelle et
+    elle est écrite au §4.50 du registre : un voisin qui dimensionne sa
+    réservation pendant que cet agent est au repos voit 1,3 Go de libre en trop,
+    les prend, et fait tomber l'agent **plus tard**, sans rapport apparent avec
+    la cause.
+
+    `None` AUSSI sur un build sans CUDA : `max_memory_reserved` n'y décrit rien.
+
+    ET IL FAUT LIRE CE CHAMP DEPUIS LE PROCESSUS QUI SERT. `mesuré` le
+    14 septembre 2026 à 09:29 UTC : `docker exec rag-agent-api python -c
+    "torch.cuda.max_memory_reserved()"` rend **0,0 Mio** pendant que `nvidia-smi`
+    attribue **1 984 Mio** au même conteneur — `docker exec` démarre un AUTRE
+    processus, avec un contexte CUDA neuf. *C'est la raison d'être de ce champ :
+    de l'extérieur, ce chiffre n'est pas lisible autrement que par cette route.*
+    """
+    chargé = (
+        _get_embedding_model.cache_info().currsize > 0
+        or _get_rerank_model.cache_info().currsize > 0
+    )
+    if not chargé or not torch.cuda.is_available():
+        return None
+    return round(torch.cuda.max_memory_reserved() / 2**20, 1)
+
+
+def _verdict_du_peripherique(demande: str, cuda_disponible: bool) -> str | None:
+    """Les DEUX moitiés en un seul champ : le contrôle statique et les levées.
+
+    L'ORDRE PORTE. Une levée mémorisée est un fait OBSERVÉ ; le contrôle statique
+    est une prédiction. Quand les deux parlent, on rend l'observation — elle dit
+    ce qui s'est réellement passé, avec le message que torch a produit.
+    """
+    levees = levees_au_chargement()
+    if levees:
+        detail = " ; ".join(f"{modele} -> {motif}" for modele, motif in sorted(levees.items()))
+        return (
+            f"le dernier chargement a LEVÉ sur « {demande} » : {detail}. Toute "
+            "recherche rendra 500 tant que la cause tient. Un chargement qui "
+            "lève ne met RIEN en cache, donc `embedding`/`rerank` resteront "
+            "`null` et chaque requête retentera"
+        )
+    return peripherique_hors_d_atteinte(demande, cuda_disponible)
+
+
 def etat_du_peripherique() -> TorchDeviceHealth:
     """Les trois conditions du GPU, lues à la source, sans rien charger.
 
@@ -435,13 +841,20 @@ def etat_du_peripherique() -> TorchDeviceHealth:
     `/health` — un pilote qui ne rend pas la main est une panne comme une autre,
     et elle ne doit pas coûter le healthcheck.
     """
+    disponible = torch.cuda.is_available()
     return TorchDeviceHealth(
         requested=settings.torch_device,
         torch_version=torch.__version__,
         cuda_build=torch.version.cuda,
-        cuda_available=torch.cuda.is_available(),
+        cuda_available=disponible,
         embedding=_peripherique_si_charge(_get_embedding_model),
         rerank=_peripherique_si_charge(_get_rerank_model),
+        # LU UNE SEULE FOIS, et passé : `cuda_available` ci-dessus et le verdict
+        # ci-dessous doivent décrire le MÊME relevé, sinon le corps publié
+        # contredirait le statut qui l'accompagne.
+        hors_d_atteinte=_verdict_du_peripherique(settings.torch_device, disponible),
+        concurrence_max=settings.torch_max_concurrency,
+        pic_memoire_reservee_mio=_pic_memoire_reservee_mio(),
     )
 
 
@@ -1050,10 +1463,58 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
     démarrage ; il passe par celui-ci.
     """
     verifier_modele_embedding()
-    embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
-    query_embedding: list[float] = embedding_model.encode(question).tolist()
+    # LE CHARGEMENT EST SOUS LA BORNE, ET PAS SEULEMENT LE CALCUL — B-1 de
+    # l'audit du 14 septembre 2026. Construire un modèle est le moment où la
+    # carte alloue le PLUS, et un chargement laissé hors de la borne se déroule
+    # pendant que `TORCH_MAX_CONCURRENCY` calculs occupent déjà la carte : le
+    # chiffre de réservation rendu au voisin cesse alors de majorer la scène.
+    # La sérialisation des manques, elle, est dans `_SingletonVerrouille` — la
+    # borne seule ramènerait le pic de K copies à `TORCH_MAX_CONCURRENCY`
+    # copies, ce qui est une atténuation et non une fermeture.
+    #
+    # CE QUE CE PLACEMENT COÛTE, ET IL EST ASSUMÉ — mais le chiffre publié ici
+    # était FAUX, et c'est NB-B de l'audit du 14 septembre 2026. La phrase
+    # retirée disait « à la borne par défaut, trois autres requêtes passent
+    # quand même ». `mesuré` le 14 septembre 2026, 8 requêtes à froid, borne 4,
+    # chargement de 3,0 s : **ZÉRO** requête progresse pendant le chargement.
+    # Les trois autres PRENNENT un permis, puis se bloquent sur le verrou de
+    # chargement — elles consomment la borne sans avancer. Contrôle positif de
+    # la même sonde, modèle déjà chaud : **8 sur 8** progressent.
+    #
+    # CE QUI SE PASSE RÉELLEMENT AU DÉMARRAGE À FROID, et c'est la partie qui
+    # compte pour l'exploitation : **le chargement d'un étage gèle l'autre**.
+    # `mesuré`, quatre `/search` à froid (ils épuisent les quatre permis) pendant
+    # qu'une requête `/sources` arrive, cross-encoder DÉJÀ chaud :
+    #
+    #     borne 4                      -> /sources attend  2,9 s
+    #     borne désarmée (200)         -> /sources attend  0,0 s   (contrôle)
+    #
+    # ET SOUS UNE LEVÉE AU CHARGEMENT, LES ÉCHECS SONT SÉRIALISÉS — NB-C du même
+    # audit. Le module décrit lui-même cette panne (`_memoriser_la_levee`) : dans
+    # cette scène chaque requête prend un permis, prend le verrou, tente, lève.
+    # `mesuré`, chargement qui lève après 0,5 s, 8 requêtes concurrentes,
+    # borne 4 : **4,0 s** au total, soit 0,5 s × 8 — la latence du 500 croît
+    # linéairement avec la file. La propriété utile est intacte et elle aussi
+    # mesurée : le singleton **ne se peuple pas** sur une levée (`currsize` = 0
+    # après), donc chaque appel retente et la levée mémorisée s'efface dès que la
+    # cause est réparée.
+    #
+    # L'ARBITRAGE RESTE LE MÊME, et il est défendable : la mémoire qu'on refuse
+    # de plafonner ne se récupère jamais, la latence d'un démarrage à froid se
+    # rattrape, et un 500 sérialisé reste un 500. Ce qui n'était pas défendable,
+    # c'est de chiffrer ce coût à l'envers.
+    #
+    # L'ORDRE DES DEUX VERROUS EST TOTAL SUR LES CHEMINS DE RECHERCHE : borne
+    # d'abord, verrou de chargement ensuite, ici comme dans `rerank`. Aucune
+    # inversion n'est donc possible **entre ces deux chemins-là**. Il existe un
+    # TROISIÈME appelant du singleton, hors borne — `_peripherique_si_charge`,
+    # sur la route de `/health` — et pourquoi il ne rouvre rien est écrit à son
+    # site, avec ce qui le rendrait atteignable. R-2 de l'audit.
+    with borne_des_etages_torch():
+        embedding_model = _get_embedding_model()
+        query_embedding: list[float] = embedding_model.encode(question).tolist()
 
     def _query(coll: chromadb.Collection) -> dict[str, Any]:
         return dict(coll.query(
@@ -1171,11 +1632,16 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
     if not chunks:
         return []
 
-    rerank_model = _get_rerank_model()
     pairs = [[question, c.document] for c in chunks]
     # Les stubs du cross-encoder décrivent un type d'entrée multimodal très
     # large ; une liste de paires texte est ce qu'il accepte en pratique.
-    scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
+    # Sous la borne, CHARGEMENT COMPRIS, et c'est L'ÉTAGE QUI COÛTE : il traite
+    # `FETCH_K=50` passages par requête là où l'encodage n'en traite qu'un, et
+    # son modèle est le plus lourd des deux. Le motif complet du placement est
+    # à `_dense_search`, qui porte le même geste.
+    with borne_des_etages_torch():
+        rerank_model = _get_rerank_model()
+        scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
 
     for chunk, score in zip(chunks, scores, strict=False):
         chunk.rerank_score = score

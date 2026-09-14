@@ -349,6 +349,13 @@ def _brancher_health(monkeypatch) -> None:
         return lambda **_kwargs: Client()
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
@@ -494,6 +501,17 @@ def test_une_recherche_sur_index_divergent_rend_503_et_non_500(monkeypatch) -> N
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     monkeypatch.setattr(retriever, "SentenceTransformer", lambda *_a, **_k: None)
     _brancher_collection(monkeypatch, _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE}))
@@ -838,6 +856,17 @@ def test_chat_resume_refuse_en_503_avant_d_ouvrir_le_flux(monkeypatch, caplog) -
     graphe = _GrapheQuiRebouclleVersRetrieve()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     _brancher_collection(
         monkeypatch, _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE})
@@ -888,6 +917,17 @@ def test_une_divergence_apparue_en_vol_laisse_une_ligne_error(monkeypatch, caplo
     )
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
     _brancher_collection(monkeypatch, concordante)
 
@@ -1092,6 +1132,17 @@ def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
     graphe = _GrapheQuiNeCherchePas()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
     _brancher_collection(monkeypatch, pend)
@@ -1340,12 +1391,21 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
     porte : le réservoir est ramené à une seule place et cette place est
     occupée, donc `tasks_waiting == 1` — le fil ne peut PAS démarrer. Retournée
     contre la suppression du retrait, elle rougit : le drapeau reste posé.
+
+    LE RÉSERVOIR SATURÉ EST CELUI DES SONDES, et c'est une correction de
+    REPAR-13 (14 septembre 2026). Ce test saturait le limiteur PAR DÉFAUT
+    d'AnyIO, qui était alors celui de `_sonder` ; depuis la fermeture de B-3, les
+    sondes ont le leur (`main._reservoir_des_sondes`) et le défaut ne les borne
+    plus. La propriété gardée n'a pas bougé d'un mot — seule la place où il faut
+    la mettre sous pression a changé. *Et c'est la précondition ci-dessous qui
+    l'a dit : elle a rougi la première, avec le motif exact. Un test qui vérifie
+    qu'il atteint son cas se répare au lieu de mentir.*
     """
     from anyio import to_thread
 
     from src.api import main
 
-    limiteur = to_thread.current_default_thread_limiter()
+    limiteur = main._reservoir_des_sondes()
     jetons_initiaux = limiteur.total_tokens
     occupe = threading.Event()
     dedans = threading.Event()
@@ -1359,7 +1419,7 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
         # pas, quoi qu'il arrive.
         limiteur.total_tokens = 1
         squat = asyncio.create_task(
-            to_thread.run_sync(_squatteur, abandon_on_cancel=True)
+            to_thread.run_sync(_squatteur, abandon_on_cancel=True, limiter=limiteur)
         )
         for _ in range(400):
             if dedans.is_set():
