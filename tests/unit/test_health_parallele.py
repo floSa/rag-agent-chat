@@ -194,6 +194,179 @@ def _sans_sonde_en_vol():
     main._sondes_en_vol.clear()
 
 
+# ─── Le RÉSERVOIR DE FILS, et la sonde qu'il affamait ────────────────────────
+#
+# CE QUE CES DEUX GARDES FERMENT — B-3 de l'audit du 14 septembre 2026, et c'est
+# un mensonge NOUVEAU, dans l'autre sens que celui que le lot 12 existait pour
+# fermer. `/search` et `/sources` sont des `def` : Starlette les exécute dans le
+# threadpool d'AnyIO. `_sonder` passe par `to_thread.run_sync`, c'est-à-dire LE
+# MÊME réservoir, dont le limiteur par défaut vaut **40** (`mesuré`, anyio
+# 4.15.1). Et `borne_des_etages_torch()` fait un `.acquire()` BLOQUANT DANS LE
+# FIL : une requête qui attend son permis ne rend pas son fil. Le sémaphore
+# convertissait donc une saturation de carte en saturation du réservoir que les
+# sondes de `/health` utilisent.
+#
+# CE QUE `/health` PUBLIAIT ALORS, et c'est pire qu'un 503 honnête : `degraded`
+# avec `chromadb`, `nebulagraph` et `index_lexical` à **false** — trois stores
+# parfaitement sains, déclarés en panne parce qu'aucun fil n'était libre pour
+# les interroger. `mesuré` par l'audit sur l'application réelle : 13 appels sur
+# 197 à 3,00 s pile (le plafond des sondes) ; borne désarmée, 1 sur 29.
+#
+# LE GESTE : les sondes ont leur PROPRE limiteur de capacité, indépendant de
+# celui des endpoints. Les deux gardes ci-dessous éprouvent les deux moitiés —
+# le mécanisme (une sonde revient) et le corps publié (les stores sont vrais).
+#
+# LES DEUX SATURENT LE RÉSERVOIR À SA VALEUR RÉELLE, lue sur le limiteur et non
+# recopiée : un test qui fixerait lui-même 2 jetons resterait vert le jour où le
+# défaut d'AnyIO change, et c'est la forme de garde que ce chantier a payée.
+
+
+async def _saturer_le_reservoir_par_defaut(tg, liberer: threading.Event) -> int:
+    """Occupe TOUS les jetons du limiteur de fils par défaut, et rend leur nombre.
+
+    C'est la scène de `/search` sous une borne pleine : des fils du réservoir
+    partagé, pris et non rendus, pour une raison qui n'a rien à voir avec la
+    santé du service.
+
+    L'ATTENTE EST ASYNCHRONE, ET C'EST UNE CORRECTION CONTRE MOI-MÊME. La
+    première version de ce banc attendait les fils par un `Semaphore.acquire()`
+    synchrone : il bloquait la boucle d'événements, donc les tâches posées par
+    `start_soon` ne DÉMARRAIENT jamais, et le réservoir n'était jamais saturé.
+    Les deux gardes rougissaient — mais sur le banc, pas sur le défaut. Un rouge
+    dont on n'a pas vérifié la RAISON ne vaut pas mieux qu'un vert.
+    """
+    from functools import partial
+
+    import anyio
+    import anyio.to_thread
+
+    jetons = int(anyio.to_thread.current_default_thread_limiter().total_tokens)
+    compte = {"entres": 0}
+    verrou = threading.Lock()
+
+    def _occuper() -> None:
+        with verrou:
+            compte["entres"] += 1
+        liberer.wait(_CAP_SECURITE_S)
+
+    for _ in range(jetons):
+        tg.start_soon(partial(anyio.to_thread.run_sync, _occuper, abandon_on_cancel=True))
+
+    limite = time.monotonic() + _CAP_SECURITE_S
+    while True:
+        with verrou:
+            if compte["entres"] >= jetons:
+                return jetons
+        assert time.monotonic() < limite, (
+            f"le réservoir n'a pas été saturé — {compte['entres']} fils entrés sur "
+            f"{jetons}. Le banc ne mesure pas sa scène"
+        )
+        await anyio.sleep(0.005)
+
+
+def test_une_sonde_de_health_revient_quand_le_reservoir_des_recherches_est_plein() -> None:
+    """LE MÉCANISME : `_sonder` ne fait pas la queue derrière les requêtes torch.
+
+    Éprouvé sur `_sonder` lui-même et non sur un double : c'est le site qui
+    choisit le réservoir, et c'est donc le seul endroit où la propriété existe.
+
+    La sonde employée est INERTE — elle rend `True` sans rien toucher. Si elle
+    ne revient pas, ce n'est pas parce qu'elle est lente : c'est parce qu'aucun
+    fil ne lui a été accordé.
+    """
+    import anyio
+
+    from src.api import main
+
+    resultat: dict[str, object] = {}
+
+    async def scenario() -> None:
+        liberer = threading.Event()
+        async with anyio.create_task_group() as tg:
+            resultat["jetons"] = await _saturer_le_reservoir_par_defaut(tg, liberer)
+            debut = time.monotonic()
+            # Plafond de banc, très en deçà des 3,00 s du plafond des sondes :
+            # une sonde inerte qui met plus d'une seconde n'attend pas son
+            # verdict, elle attend un FIL.
+            with anyio.move_on_after(1.0):
+                resultat["rendu"] = await main._sonder(
+                    "essai", lambda: True, appelant="/health"
+                )
+            resultat["duree"] = round(time.monotonic() - debut, 3)
+            liberer.set()
+
+    anyio.run(scenario)
+
+    assert resultat.get("rendu") is True, (
+        f"la sonde n'est pas revenue en 1,0 s avec {resultat.get('jetons')} fils du "
+        f"réservoir par défaut occupés (durée {resultat.get('duree')} s). Les sondes "
+        "de `/health` font la queue derrière les requêtes de recherche : sous une "
+        "borne torch pleine, la route de santé publie `false` sur des dépendances "
+        "saines. Il leur faut leur propre limiteur"
+    )
+
+
+def test_health_publie_ses_stores_vrais_quand_le_reservoir_des_recherches_est_plein(
+    monkeypatch,
+) -> None:
+    """LE CORPS PUBLIÉ, qui est ce que l'exploitant lit.
+
+    Le jumeau du précédent, un cran plus haut : celui-là prouve qu'une sonde
+    revient, celui-ci que `/health` ne dit plus « trois stores en panne » quand
+    les trois vont bien. C'est l'affirmation exacte que l'audit a mesurée fausse
+    — `degraded`, `chromadb`/`nebulagraph`/`index_lexical` à `false`.
+
+    `health()` est appelée directement et non par `TestClient` : le limiteur de
+    fils est un `RunVar`, donc propre à la boucle, et le portal du client en
+    ouvrirait une AUTRE — le banc ne saturerait alors pas le réservoir que les
+    sondes utilisent, et resterait vert sans rien mesurer.
+    """
+    import anyio
+
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
+    # Les trois stores vont BIEN et répondent instantanément. Tout `false`
+    # publié ci-dessous vient donc du réservoir, et de rien d'autre.
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+
+    corps: dict[str, object] = {}
+
+    async def scenario() -> None:
+        liberer = threading.Event()
+        async with anyio.create_task_group() as tg:
+            await _saturer_le_reservoir_par_defaut(tg, liberer)
+            debut = time.monotonic()
+            reponse = await main.health()
+            corps["duree"] = round(time.monotonic() - debut, 3)
+            corps["status"] = reponse.status
+            corps["services"] = dict(reponse.services)
+            liberer.set()
+
+    anyio.run(scenario)
+
+    assert corps["services"] == {
+        "chromadb": True,
+        "nebulagraph": True,
+        "index_lexical": True,
+        "ollama": True,
+    }, (
+        f"/health publie {corps['services']} alors que les quatre dépendances "
+        f"répondent en microsecondes (rendu en {corps['duree']} s). Un `false` ici "
+        "dit « ce service est tombé » à un exploitant, alors que le fait est « je "
+        "n'avais pas de fil pour regarder » — strictement plus difficile à "
+        "diagnostiquer qu'un 503 honnête"
+    )
+    assert corps["status"] == "ok", (
+        f"/health rend « {corps['status']} » sur un service intégralement sain, du "
+        "seul fait que les endpoints de recherche occupent le réservoir de fils"
+    )
+
+
 # ─── Le défaut ────────────────────────────────────────────────────────────────
 
 def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monkeypatch) -> None:
