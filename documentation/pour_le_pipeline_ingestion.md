@@ -120,11 +120,40 @@ Constaté, pas supposé :
   æquo. Rien de ce que vous produisez n'a besoin d'être différent, et **vous
   n'avez pas besoin d'un GPU pour le pipeline**.
 
-  **Le geste, si votre machine n'a pas de carte** : commenter le bloc `deploy:`
-  du service `agent-api` dans `docker-compose.yml`, puis
-  `docker compose up -d agent-api`. Le service repart à l'identique. Le mode
-  d'emploi complet — les trois conditions qui décident du GPU, comment vérifier
-  chacune, le coût et le retour en arrière — est à
+  **Le geste, si votre machine n'a pas de carte — ⚠ IL EST EN DEUX LIGNES, ET
+  LA PREMIÈRE MANQUAIT.** Ce document ne donnait que la seconde, et nous vous la
+  rendons corrigée : *ce dépôt ne change pas une déclaration faite à une autre
+  équipe en silence*, et le corriger relève de la même règle.
+
+  ```bash
+  # 1. dans le .env de l'agent — SANS CETTE LIGNE le service démarre CASSÉ
+  TORCH_DEVICE=cpu
+  ```
+  ```bash
+  # 2. commenter le bloc `deploy:` du service `agent-api` dans docker-compose.yml
+  docker compose up -d agent-api
+  ```
+
+  **Pourquoi la première ligne n'est pas optionnelle.** `TORCH_DEVICE` vaut
+  `cuda` **par défaut** depuis le 11 septembre 2026. Retirer la réservation sans
+  la changer donne un conteneur qui démarre, un healthcheck **vert**, et **500
+  sur chaque recherche** — le modèle d'embedding lève au chargement, il ne
+  retombe pas sur processeur. `mesuré` le 14 septembre 2026 sur un jumeau branché
+  aux vrais stores : `POST /search` → **500**, `GET /health` → **200**.
+
+  **La commande qui vérifie que le geste a marché** :
+
+  ```bash
+  curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status'], d['torch_device']['hors_d_atteinte'])"
+  ```
+
+  Elle doit rendre **`ok None`**. Si elle rend `degraded` suivi d'un motif, la
+  première ligne a été oubliée — depuis le lot 12, `/health` le **dit** au lieu
+  de laisser la panne au seul journal, et c'est précisément ce qui manquait quand
+  cette page vous a été rendue le 11 septembre.
+
+  Le mode d'emploi complet — les trois conditions qui décident du GPU, comment
+  vérifier chacune, le coût et le retour en arrière — est à
   [`gpu_cuda.md`](gpu_cuda.md).
 
   **Ce que nous ne tranchons pas** : si votre registre porte une exigence de

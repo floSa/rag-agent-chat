@@ -546,6 +546,32 @@ class TorchDeviceHealth(BaseModel):
     # encore chargé.
     embedding: str | None = None
     rerank: str | None = None
+    # POURQUOI CE CHAMP EXISTE : `null` sur `embedding` et `rerank` couvre DEUX
+    # états qu'un exploitant ne pouvait pas distinguer — « personne n'a encore eu
+    # besoin de ce modèle » et « chaque chargement LÈVE depuis le démarrage, donc
+    # le cache ne se peuplera jamais ». `mesuré` le 14 septembre 2026 par l'audit
+    # du lot 11 : sur un service dont toute recherche rendait **500**, `/health`
+    # publiait EXACTEMENT le même corps au repos et après trois chargements qui
+    # avaient levé, et rendait `status: ok`.
+    #
+    # Ce champ porte le MOTIF, en clair, ou `null` quand aucun motif n'a été
+    # trouvé. Il est ce qui fait dégrader `status` — voir `main.health` — et il
+    # est ce qu'un exploitant lit pour savoir quoi réparer.
+    #
+    # `null` NE VEUT PAS DIRE « tout va bien » DANS TOUS LES CAS. Il veut dire
+    # « la sonde n'a trouvé aucun motif », et le repli `main._peripherique_inconnu`
+    # le porte aussi alors qu'il n'a rien sondé : c'est `torch_version: ""` qui
+    # sépare les deux, et c'est pourquoi le statut se lit sur le RÉSULTAT de la
+    # sonde et jamais sur le repli.
+    #
+    # CE QUE CE CHAMP NE COUVRE PAS, et la borne est celle de la route : `/health`
+    # NE CHARGE RIEN, donc il ne peut pas voir venir une levée qui ne tient pas à
+    # l'EXISTENCE du périphérique — mémoire insuffisante sur la carte, modèle
+    # absent du cache HuggingFace, droits refusés dessus. Ces pannes-là rendent
+    # toujours 500 sous un `status: ok`. Ce qui est connaissable sans charger,
+    # c'est que le périphérique demandé n'existe pas d'ici, et c'est exactement
+    # ce que ce champ dit.
+    hors_d_atteinte: str | None = None
 
 
 class HealthResponse(BaseModel):

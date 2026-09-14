@@ -561,7 +561,22 @@ _ANSWER = {
 }
 # Index lexical CHAUD : ces tests mesurent les codes de la comparaison, pas la
 # chauffe. Le faux le dit explicitement plutôt que de le laisser deviner.
-_HEALTH = {"status": "ok", "services": {"index_lexical": True}}
+# `torch_device` est publié PAR `/health` depuis le lot 11, et c'est là que la
+# campagne va le lire. Le faux le porte donc, sans quoi le test de bout en bout
+# ne pourrait pas distinguer « la clé n'est pas écrite » de « il n'y avait rien
+# à écrire ».
+_HEALTH = {
+    "status": "ok",
+    "services": {"index_lexical": True},
+    "torch_device": {
+        "requested": "cuda",
+        "torch_version": "2.14.0+cu130",
+        "cuda_build": "13.0",
+        "cuda_available": True,
+        "embedding": "cuda:0",
+        "rerank": "cuda:0",
+    },
+}
 
 
 def get(url, timeout=None):
@@ -756,3 +771,224 @@ def test_une_comparaison_qui_aboutit_sort_en_zero(tmp_path) -> None:
     assert resultat.returncode == 0
     assert "REFUSÉE" not in resultat.stdout
     assert "1 questions communes" in resultat.stdout
+
+
+# ─── LE PÉRIPHÉRIQUE D'UNE CAMPAGNE ──────────────────────────────────────────
+#
+# LA PANNE QUE CETTE BATTERIE FERME, et elle est un COROLLAIRE MESURÉ du lot 11 :
+# le classement du cross-encoder n'est pas invariant par périphérique — `G-006`
+# bascule du rang 1 au rang 2 entre CPU et L4, **contre deux bases
+# indépendantes** — et **aucun artefact de `runs/` ne consignait le
+# périphérique**. `runs/2026-09-11-gpu-cuda-reglage.json` ne se distinguait de
+# son antécédent CPU que par SON NOM DE FICHIER.
+#
+# ÉTAT MESURÉ AVANT CE LOT, le 14 septembre 2026 : `comparer_apparie` confrontant
+# la campagne GPU du 11 septembre à la campagne CPU du 10 imprimait ses 138
+# paires, rendait `True`, et **ne prononçait pas une fois le mot
+# « périphérique »**. La bascule vers vLLM est exactement cette bascule-là.
+#
+# CE GARDE SIGNALE, IL NE REFUSE PAS, et le motif est écrit à
+# `evaluate.confronter_les_peripheriques` : refuser interdirait la comparaison
+# CPU/GPU qui a tranché la décision du 11 septembre 2026.
+
+
+def _campagne_avec_peripherique(
+    chemin: pathlib.Path, *ids: str, peripherique: dict | None, ancrage: str = "aaaaaaaaa1"
+) -> pathlib.Path:
+    """Une campagne de référence qui PORTE (ou non) la clé `peripherique`."""
+    _campagne_fichier(chemin, *ids, ancrage=ancrage)
+    document = json.loads(chemin.read_text(encoding="utf-8"))
+    if peripherique is not None:
+        document["peripherique"] = peripherique
+    chemin.write_text(json.dumps(document), encoding="utf-8")
+    return chemin
+
+
+_CPU = {"requested": "cpu", "cuda_available": False, "embedding": "cpu", "rerank": "cpu"}
+_GPU = {
+    "requested": "cuda",
+    "cuda_available": True,
+    "embedding": "cuda:0",
+    "rerank": "cuda:0",
+}
+
+
+def test_la_campagne_ecrit_bien_le_peripherique_dans_son_artefact(tmp_path) -> None:
+    """LE CÂBLAGE — sans lui tout le reste de cette batterie éprouverait du vide.
+
+    La clé doit arriver jusqu'au JSON, et elle doit porter le FAIT (`embedding`,
+    `rerank`) et non le seul réglage : une campagne lancée en
+    `TORCH_DEVICE=cuda` sur une machine qui ne sert pas la carte n'a tourné nulle
+    part, et son `requested` est celui d'une campagne qui a réussi.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    sortie = tmp_path / "campagne.json"
+
+    resultat = _lancer("--golden", str(dore), "--out", str(sortie), pythonpath=pythonpath)
+
+    assert resultat.returncode == 0, resultat.stderr
+    ecrite = json.loads(sortie.read_text(encoding="utf-8"))
+    assert "peripherique" in ecrite, (
+        f"l'artefact ne consigne pas le périphérique : clés = {sorted(ecrite)}. "
+        "Deux campagnes séparées par une bascule se compareront sans que rien ne "
+        "dise qu'elles ne mesurent pas le même régime"
+    )
+    assert ecrite["peripherique"]["embedding"] == "cuda:0", (
+        f"la clé porte autre chose que le fait : {ecrite['peripherique']}"
+    )
+    assert ecrite["peripherique"]["rerank"] == "cuda:0"
+    # ET L'EMPREINTE EST TOUJOURS LÀ : la clé neuve s'AJOUTE à la discipline du
+    # lot 5, elle ne la remplace pas.
+    assert ecrite["empreinte_des_ancrages"], (
+        f"l'empreinte des ancrages a disparu de l'artefact : {sorted(ecrite)}"
+    )
+
+
+def test_deux_peripheriques_differents_sont_signales(tmp_path) -> None:
+    """LA PROPRIÉTÉ VISÉE. Aujourd'hui elle passait sans un mot.
+
+    L'agent simulé calcule sur `cuda:0` ; la référence porte `cpu`. La sortie
+    doit le dire, et elle doit dire AUSSI que ce n'est pas un refus — sans quoi
+    un lecteur croirait sa comparaison invalide.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    reference = _campagne_avec_peripherique(
+        tmp_path / "reference.json", "G-001", peripherique=_CPU
+    )
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), pythonpath=pythonpath
+    )
+
+    assert "PÉRIPHÉRIQUE DIFFÉRENT" in resultat.stdout, (
+        "une comparaison entre deux périphériques différents ne dit rien :\n"
+        f"{resultat.stdout}"
+    )
+    assert "embedding=cpu" in resultat.stdout and "embedding=cuda:0" in resultat.stdout, (
+        f"la sortie ne nomme pas les deux périphériques : {resultat.stdout}"
+    )
+    # IL SIGNALE, IL NE REFUSE PAS — et les deux moitiés sont assertées.
+    assert "REFUSÉE" not in resultat.stdout, (
+        f"le garde refuse là où il devait signaler : {resultat.stdout}"
+    )
+    assert resultat.returncode == 0, (
+        f"le code de sortie refuse la campagne (rc={resultat.returncode}) : la "
+        "comparaison CPU/GPU est celle qui a tranché la décision du 11 septembre "
+        "2026, un garde qui l'interdirait serait mal posé"
+    )
+    assert "1 questions communes" in resultat.stdout, (
+        "la comparaison n'a pas eu lieu : le signalement a remplacé la mesure"
+    )
+
+
+def test_deux_peripheriques_identiques_le_disent_aussi(tmp_path) -> None:
+    """LE CONTRÔLE POSITIF, et il est la moitié qu'on oublie.
+
+    Un garde qui ne parlerait que lorsqu'il mord ne distingue pas « les deux
+    campagnes ont tourné au même endroit » de « la version qui a produit cette
+    sortie n'a pas ce garde ». C'est la forme exacte du faux vert que ce chantier
+    a trouvée neuf fois — ici retournée contre le garde lui-même.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    reference = _campagne_avec_peripherique(
+        tmp_path / "reference.json", "G-001", peripherique=_GPU
+    )
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), pythonpath=pythonpath
+    )
+
+    assert resultat.returncode == 0
+    assert "IDENTIQUE des deux côtés" in resultat.stdout, (
+        "la comparaison ne dit RIEN quand les périphériques concordent : un "
+        f"lecteur ne peut pas distinguer ce silence d'un garde absent — {resultat.stdout}"
+    )
+    assert "PÉRIPHÉRIQUE DIFFÉRENT" not in resultat.stdout, (
+        f"le garde crie sur deux périphériques identiques : {resultat.stdout}"
+    )
+
+
+def test_un_antecedent_muet_n_est_pas_un_antecedent_different(tmp_path) -> None:
+    """LES ARTEFACTS DÉJÀ VERSIONNÉS, et ils sont tous muets.
+
+    Les onze campagnes de `runs/` sont antérieures à cette clé. Une campagne
+    d'aujourd'hui comparée à `runs/2026-09-10-lecteur-neuf-reglage.json` fait
+    face à un antécédent qui ne dit RIEN — et *muet* n'est pas *différent* : on
+    ne peut ni affirmer ni exclure une bascule. Affirmer « différent » sur une
+    ignorance serait inventer un fait ; se taire serait la panne d'origine.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    reference = _campagne_avec_peripherique(
+        tmp_path / "reference.json", "G-001", peripherique=None
+    )
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), pythonpath=pythonpath
+    )
+
+    assert resultat.returncode == 0
+    assert "PÉRIPHÉRIQUE INCONNU" in resultat.stdout, (
+        f"un antécédent muet passe sans un mot : {resultat.stdout}"
+    )
+    assert "PÉRIPHÉRIQUE DIFFÉRENT" not in resultat.stdout, (
+        "un antécédent MUET est annoncé DIFFÉRENT : le garde invente un fait "
+        f"qu'aucun artefact ne porte — {resultat.stdout}"
+    )
+    assert "MUETTE" in resultat.stdout
+
+
+def test_temoin_le_refus_sur_empreinte_prime_sur_le_peripherique(tmp_path) -> None:
+    """LE TÉMOIN INERTE de cette batterie, et il garde une PRIORITÉ.
+
+    Le champ neuf s'ajoute à la discipline du lot 5, il ne la remplace pas : deux
+    corpus sous une numérotation identique rendent des chiffres plausibles et
+    faux, et ça reste un REFUS — périphériques concordants ou non. Ce test doit
+    rester vert sous toute mutation du périphérique, et ne rougir que si le garde
+    de l'empreinte est cassé.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001", ancrage="aaaaaaaaa1")
+    # Même périphérique des deux côtés, ancrages DIVERGENTS.
+    reference = _campagne_avec_peripherique(
+        tmp_path / "reference.json", "G-001", peripherique=_GPU, ancrage="bbbbbbbbb2"
+    )
+
+    resultat = _lancer(
+        "--golden", str(dore), "--compare", str(reference), pythonpath=pythonpath
+    )
+
+    assert resultat.returncode == 2, (
+        f"le refus sur empreinte ne sort plus en 2 : rc={resultat.returncode}"
+    )
+    assert "REFUSÉE" in resultat.stdout
+    assert "IDENTIQUE des deux côtés" not in resultat.stdout, (
+        "le bloc du périphérique est imprimé sur une comparaison REFUSÉE : il "
+        f"donnerait à lire une comparaison qui n'a pas eu lieu — {resultat.stdout}"
+    )
+
+
+def test_un_agent_muet_ecrit_une_campagne_muette_et_non_fausse() -> None:
+    """`None` SE LIT « JE N'AI PAS PU LIRE », JAMAIS « CPU ».
+
+    C'est la règle que tout ce module tient déjà — `etat_index_lexical` en fait
+    son objet. Un repli sur une valeur plausible serait la panne que le §4.3
+    nomme : un instrument qui ne mesure pas et ne le dit pas.
+    """
+    evaluate = _evaluate()
+
+    assert evaluate.peripherique_de_la_campagne("http://127.0.0.1:1") is None, (
+        "un agent injoignable rend autre chose que `None`"
+    )
+    assert evaluate.signature_du_peripherique(None) is None
+    assert evaluate.signature_du_peripherique({"embedding": None, "rerank": None}) is None, (
+        "deux modèles jamais chargés produisent une signature : la campagne "
+        "affirmerait un périphérique que personne n'a mesuré"
+    )
+    assert evaluate.signature_du_peripherique(
+        {"embedding": "cpu", "rerank": "cpu"}
+    ) == "embedding=cpu, rerank=cpu"
+

@@ -40,7 +40,7 @@ from fastapi.testclient import TestClient
 
 from src.agent import retriever
 from src.agent.settings import Settings
-from src.api.schemas import TorchDeviceHealth
+from src.api.schemas import EmbeddingModelHealth, TorchDeviceHealth
 
 # ─── Outillage : deux doubles qui reproduisent la SIGNATURE réelle ────────────
 #
@@ -441,6 +441,366 @@ def test_le_repli_de_la_sonde_n_invente_pas_un_gpu() -> None:
     )
     assert repli.embedding is None and repli.rerank is None, (
         f"le repli annonce un modèle posé quelque part : {repli}"
+    )
+
+
+# ─── (6) LE STATUT — un périphérique hors d'atteinte doit DÉGRADER ───────────
+#
+# LA PANNE QUE CETTE SECTION FERME, et elle a été mesurée en grandeur réelle par
+# l'audit du 14 septembre 2026 (`documentation/audits/2026-09-14-audit-lot-11.md`
+# §1) : sur un service dont CHAQUE recherche rend **500**, `/health` rendait
+# **200 `status: ok`**, et le healthcheck `curl -sf` du compose restait vert pour
+# toujours — il ne lit que le code HTTP, jamais `status`.
+#
+# Le mode de panne est NÉ AVEC le lot 11 : `device=None` laissait
+# sentence-transformers choisir un périphérique qui existe, et le chargement ne
+# pouvait pas lever pour cette raison. `device=settings.torch_device` passe la
+# chaîne telle quelle à torch, sans validation — c'est écrit et assumé dans
+# `settings.py` (« ce qui remplace la validation est l'OBSERVABILITÉ »). Le lot a
+# donc produit l'observabilité et n'a pas branché le statut dessus.
+#
+# CE QUE CETTE SECTION PEUT ÉPROUVER, ET CE QU'ELLE NE PEUT PAS. La route de
+# santé NE CHARGE RIEN, délibérément — un `/health` qui construit deux modèles
+# n'est plus une sonde. `status` ne peut donc pas savoir « le chargement va
+# lever » avant qu'il ait levé. Ce qui EST connaissable sans rien charger, c'est
+# que le périphérique demandé n'existe pas d'ici : torch refuse la chaîne, ou
+# torch ne voit aucune carte, ou l'ordinal dépasse le nombre de cartes. Les trois
+# scénarios de levée mesurés par l'audit (B, C, D) sont exactement ceux-là.
+#
+# LES DEUX DIRECTIONS SONT GARDÉES, et c'est la moitié qu'on oublie : un statut
+# qui dégraderait toujours aurait remplacé un mensonge par un autre.
+
+
+def _ollama_vert() -> Any:
+    """La sonde Ollama, branchée au vert — et elle est `async` au site réel."""
+
+    async def _sonde() -> bool:
+        return True
+
+    return _sonde()
+
+
+def _corps_de_health(monkeypatch: pytest.MonkeyPatch, peripherique: str) -> dict[str, Any]:
+    """Le corps de `/health` avec les QUATRE sondes au vert et le réglage donné.
+
+    LES QUATRE, ET C'EST LE PIÈGE QUE CETTE FONCTION EXISTE POUR FERMER. L'audit
+    a écrit sa première sonde sans brancher Ollama : `services["ollama"]` était
+    faux, le statut dégradait POUR CETTE RAISON-LÀ, et la sonde était verte en
+    mesurant une voisine. *Le `rc` juste, la raison fausse — huitième fois dans
+    ce chantier.* Tout ce qui peut dégrader pour une autre raison est donc
+    neutralisé ici, et le contrôle positif ci-dessous le vérifie AVANT que quoi
+    que ce soit d'autre ne soit mesuré.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    # `unknown` ne dégrade pas — c'est la décision écrite au site pour la sonde
+    # de concordance. Le témoin ci-dessous éprouve la position qui dégrade.
+    monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
+    monkeypatch.setattr(retriever.settings, "torch_device", peripherique, raising=False)
+    reponse = TestClient(main.app).get("/health")
+    assert reponse.status_code == 200, (
+        f"/health ne rend plus 200 mais {reponse.status_code} : le motif écrit au "
+        "site est qu'un code d'erreur passerait le conteneur `unhealthy` et "
+        "empêcherait le frontend de démarrer à froid"
+    )
+    return dict(reponse.json())
+
+
+def test_controle_positif_le_service_sain_reste_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LE CONTRÔLE POSITIF, et il passe AVANT tout le reste.
+
+    Il asserte que, sur cette scène, `status` vaut `ok` et que les quatre sondes
+    sont vertes. Sans lui, un `degraded` mesuré plus bas ne distinguerait pas
+    « le périphérique dégrade » de « une voisine dégrade » — la confusion exacte
+    qui a rendu la première sonde de l'audit verte pour une mauvaise raison.
+
+    `cpu` est un périphérique que torch sert TOUJOURS, build CUDA ou non
+    (scénario **E** de l'audit : charge, `rc=0`). Cette scène est donc celle d'un
+    service parfaitement sain.
+    """
+    corps = _corps_de_health(monkeypatch, "cpu")
+
+    assert corps["services"] == {
+        "chromadb": True,
+        "nebulagraph": True,
+        "index_lexical": True,
+        "ollama": True,
+    }, f"une sonde voisine n'est pas verte, la scène ne mesure pas ce qu'on croit : {corps}"
+    assert corps["services_unknown"] == [], (
+        f"une sonde n'est pas revenue, la scène est instable : {corps}"
+    )
+    assert corps["status"] == "ok", (
+        f"le contrôle positif est ROUGE : `status` vaut {corps['status']!r} sur un "
+        f"service sain. Le garde du périphérique a remplacé un mensonge par un "
+        f"autre — corps : {corps}"
+    )
+
+
+def test_preuve_d_atteinte_le_peripherique_demande_leve_vraiment_ici(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LA PREUVE D'ATTEINTE : la scène mesurée plus bas est RÉELLE dans ce venv.
+
+    Un test qui asserterait `degraded` sans celui-ci ne dirait pas si la scène
+    qu'il décrit est atteignable. Ici elle l'est, et c'est mesurable sans rien
+    charger : `torch.cuda.is_available()` vaut faux dans l'environnement du §2.2
+    (torch CPU), donc `SentenceTransformer(nom, device="cuda")` LÈVE — scénario
+    **B** de l'audit, `RuntimeError: Found no NVIDIA driver on your system`.
+
+    La levée est éprouvée sur `torch` lui-même et non sur sentence-transformers :
+    c'est torch qui lève, au premier `.to(device)`, et le prouver ici n'exige
+    aucun téléchargement de modèle. Le double de la section (1) ne saurait pas
+    lever — c'est un double.
+    """
+    assert not torch.cuda.is_available(), (
+        "ce venv VOIT une carte : la scène du scénario B n'est pas atteignable ici, "
+        "et le test ci-dessous serait vert sans rien avoir éprouvé. Monter "
+        "l'environnement par le §2.2 du mandat (torch CPU)"
+    )
+    with pytest.raises(Exception) as leve:
+        torch.zeros(1).to("cuda")
+    assert "cuda" in str(leve.value).lower() or "driver" in str(leve.value).lower(), (
+        f"la levée obtenue ne parle pas du périphérique : {leve.value}"
+    )
+    # Et la chaîne refusée par torch — scénario **D**, `banane` — lève au
+    # PARSING, donc encore plus tôt, et sans aucune carte en jeu.
+    with pytest.raises(RuntimeError):
+        torch.device("banane")
+
+
+@pytest.mark.parametrize(
+    ("reglage", "motif"),
+    [
+        ("cuda", "carte absente"),
+        ("cuda:7", "carte absente"),
+        ("banane", "chaîne que torch ne connaît pas"),
+    ],
+)
+def test_un_peripherique_hors_d_atteinte_degrade_le_statut(
+    monkeypatch: pytest.MonkeyPatch, reglage: str, motif: str
+) -> None:
+    """LA PROPRIÉTÉ VISÉE — et c'est elle qui était ABSENTE avant ce lot.
+
+    Sur ces trois réglages, le chargement du premier modèle LÈVE (scénarios B, C
+    et D de l'audit) : toute recherche rend 500, et `embedding`/`rerank` restent
+    `null` pour toujours puisque le `lru_cache` ne se peuple jamais. Un statut
+    `ok` y décrirait un service qui ne sert rien — c'est mot pour mot le motif
+    écrit trois lignes plus haut au site, pour la concordance d'embedding.
+
+    `cuda:7` est ici indiscernable de `cuda` faute de carte ; sur une machine qui
+    en porte une, c'est l'ordinal qui le condamne. Les deux chemins sont écrits,
+    un seul est atteignable dans ce venv, et c'est dit plutôt que tu.
+    """
+    corps = _corps_de_health(monkeypatch, reglage)
+
+    assert corps["status"] == "degraded", (
+        f"/health rend `status={corps['status']!r}` alors que le périphérique "
+        f"demandé ({reglage!r}) est hors d'atteinte — {motif}. Toute recherche "
+        f"lèvera, et le healthcheck `curl -sf` du compose restera vert pour "
+        f"toujours puisqu'il ne lit que le code HTTP. Corps publié : {corps}"
+    )
+    assert corps["torch_device"]["hors_d_atteinte"], (
+        "le statut dégrade mais le corps ne dit pas POURQUOI : un exploitant qui "
+        f"lit `degraded` doit trouver le motif dans la réponse — {corps['torch_device']}"
+    )
+
+
+def test_le_corps_distingue_le_repos_de_la_panne_totale(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """L'INDISCERNABILITÉ, qui est la moitié qui rendait la panne invisible.
+
+    `mesuré` par l'audit : `/health` publiait EXACTEMENT le même corps au repos et
+    après trois chargements qui avaient levé — `embedding` et `rerank` valant
+    `null` dans les deux cas, le cache ne se peuplant jamais. Un exploitant ne
+    pouvait donc pas distinguer « pas encore chargé » de « toute recherche échoue
+    depuis le démarrage », qui est le cas coûteux.
+
+    Ce test compare les deux corps et exige qu'ils diffèrent. Il ne prescrit pas
+    COMMENT : il exige seulement que la différence existe et qu'elle soit lisible.
+    """
+    sain = _corps_de_health(monkeypatch, "cpu")
+    casse = _corps_de_health(monkeypatch, "cuda")
+
+    assert sain["torch_device"] != casse["torch_device"], (
+        "le corps publié est IDENTIQUE pour un service au repos et pour un "
+        "service dont chaque recherche lève : "
+        f"{sain['torch_device']}. L'exploitant ne peut pas les distinguer"
+    )
+    assert (sain["status"], casse["status"]) == ("ok", "degraded"), (
+        f"les deux positions ne sont pas gardées : sain={sain['status']!r}, "
+        f"cassé={casse['status']!r}"
+    )
+
+
+def test_temoin_la_concordance_refusee_degrade_toujours(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE TÉMOIN QUI DONNE SON SENS AUX TROIS PRÉCÉDENTS.
+
+    La dégradation par une sonde EXISTE dans cette route et fonctionnait déjà —
+    c'est le geste du lot 3, et le lot 11 ne s'en est pas servi. Sans ce témoin,
+    un `degraded` mesuré plus haut ne distinguerait pas « la propriété a été
+    ajoutée » de « la route dégrade tout, maintenant ».
+
+    Il est joué sur un périphérique SAIN (`cpu`) : seule la concordance dégrade.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+    monkeypatch.setattr(
+        main,
+        "etat_modele_embedding",
+        lambda: EmbeddingModelHealth(
+            status="mismatch", expected="attendu", collection="autre-chose"
+        ),
+    )
+
+    corps = TestClient(main.app).get("/health").json()
+
+    assert corps["status"] == "degraded", (
+        f"la dégradation par concordance refusée ne mord plus : {corps}"
+    )
+
+
+def test_une_sonde_qui_n_est_pas_revenue_ne_degrade_pas_le_statut(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """« JE N'AI PAS PU LIRE » N'EST PAS « C'EST CASSÉ », et le repli en est un.
+
+    `_peripherique_inconnu()` publie le PIRE CAS — pas de build CUDA, pas de
+    carte — parce que « je n'ai pas pu lire » et « pas de GPU » se soignent par le
+    même geste. Mais ce pire cas porte `requested` tel quel, donc `cuda` par
+    défaut : une lecture naïve du corps y verrait « cuda demandé, aucune carte »
+    et dégraderait un service dont on ne sait RIEN.
+
+    C'est la décision déjà écrite au site pour `unknown` de la concordance :
+    *« publier degraded sur une sonde qui n'est pas revenue reviendrait à faire
+    dire à l'agent “ça diverge” quand il n'en sait rien »*. Le verdict doit donc
+    se lire sur le RÉSULTAT de la sonde, jamais sur le repli.
+    """
+    from src.api import main
+
+    repli = main._peripherique_inconnu()
+    assert repli.requested == main.settings.torch_device
+    assert repli.cuda_available is False
+    assert repli.hors_d_atteinte is None, (
+        "le repli AFFIRME un périphérique hors d'atteinte alors qu'aucune sonde "
+        f"n'a rendu : {repli}. Le statut dégraderait sur une ignorance"
+    )
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
+    monkeypatch.setattr(retriever.settings, "torch_device", "cuda", raising=False)
+
+    def _sonde_muette() -> Any:
+        raise TimeoutError("la sonde n'a pas rendu la main")
+
+    monkeypatch.setattr(main, "etat_du_peripherique", _sonde_muette)
+
+    corps = TestClient(main.app).get("/health").json()
+
+    assert corps["torch_device"]["torch_version"] == "", (
+        f"la scène n'est pas atteinte : la route sert la sonde, pas son repli — {corps}"
+    )
+    assert corps["status"] == "ok", (
+        f"une sonde qui n'a pas rendu dégrade le service : {corps}. Le repli porte "
+        "`requested=cuda` et `cuda_available=false` parce qu'il ne sait pas, pas "
+        "parce qu'il a mesuré"
+    )
+
+
+def test_une_levee_au_chargement_degrade_le_statut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LA MOITIÉ QUE LE CONTRÔLE STATIQUE NE PEUT PAS COUVRIR, et elle est VIVANTE.
+
+    Le verdict statique ci-dessus répond à « le périphérique demandé existe-t-il
+    d'ici ». Il ne répond pas à « le chargement va-t-il aboutir » — et il ne le
+    peut pas : `/health` ne charge rien. Or `mesuré` le 14 septembre 2026 à
+    09:08 UTC, `nvidia-smi --query-compute-apps` croisé avec
+    `docker inspect -f '{{.State.Pid}}' rag-agent-api` : **vLLM tient déjà
+    14 264 Mio** sur la L4, Ollama **4 584**, l'agent **1 294**, sur **23 034**.
+    Il reste **2 892 Mio**. La panne qui vient n'est plus « la carte est absente »
+    — `cuda_available` restera `true` et l'ordinal valide — c'est **la mémoire**,
+    au chargement.
+
+    D'OÙ LA SECONDE MOITIÉ, ET ELLE EST NOMMÉE PAR L'AUDIT LUI-MÊME : *« ou une
+    levée mémorisée au dernier chargement »*. Une levée est un FAIT déjà produit ;
+    la relire ne coûte rien et ne charge rien. Elle couvre toute cause — mémoire
+    insuffisante, modèle absent du cache, droits refusés — au prix d'arriver
+    APRÈS la première recherche, là où le contrôle statique arrive avant.
+
+    Les deux sont donc complémentaires, et aucun ne rend l'autre inutile.
+    """
+    retriever.oublier_les_levees_au_chargement()
+
+    def _leve(nom: str, **kwargs: Any) -> Any:
+        raise RuntimeError("CUDA out of memory. Tried to allocate 1.20 GiB")
+
+    monkeypatch.setattr(retriever, "SentenceTransformer", _leve)
+    retriever._get_embedding_model.cache_clear()
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+
+    # PREUVE D'ATTEINTE : le chargement lève réellement, et le cache reste vide.
+    with pytest.raises(RuntimeError, match="out of memory"):
+        retriever._get_embedding_model()
+    assert retriever._get_embedding_model.cache_info().currsize == 0, (
+        "le modèle a été mis en cache malgré la levée : la scène n'est pas celle "
+        "d'un service dont chaque recherche échoue"
+    )
+
+    corps = _corps_de_health(monkeypatch, "cpu")
+    try:
+        assert corps["status"] == "degraded", (
+            "un chargement qui LÈVE laisse `/health` en "
+            f"{corps['status']!r} : le périphérique demandé existe (`cpu`), donc le "
+            "contrôle statique ne voit rien, et toute recherche rend pourtant 500. "
+            f"Corps : {corps['torch_device']}"
+        )
+        assert "out of memory" in (corps["torch_device"]["hors_d_atteinte"] or ""), (
+            "le corps ne rend pas la levée qui s'est produite : "
+            f"{corps['torch_device']}"
+        )
+    finally:
+        retriever.oublier_les_levees_au_chargement()
+        retriever._get_embedding_model.cache_clear()
+
+
+def test_un_chargement_reussi_efface_la_levee_memorisee(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LA SECONDE DIRECTION — sans elle le garde ne se relâcherait JAMAIS.
+
+    Un exploitant qui corrige la cause (il libère la carte, il rend les droits)
+    doit voir le service redevenir `ok` sans redémarrage. Une levée mémorisée qui
+    survivrait au chargement réussi suivant serait un `degraded` définitif — le
+    mensonge symétrique de celui que ce lot ferme.
+    """
+    recu = _brancher_les_deux(monkeypatch)
+    retriever.oublier_les_levees_au_chargement()
+    retriever._memoriser_la_levee("embedding", RuntimeError("CUDA out of memory"))
+    assert retriever.levees_au_chargement(), "la scène n'est pas montée"
+
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+    retriever._get_embedding_model()
+
+    assert recu["embedding"], "le double n'a pas été appelé, rien n'a été rechargé"
+    assert not retriever.levees_au_chargement(), (
+        "la levée survit à un chargement RÉUSSI : le service resterait `degraded` "
+        f"pour toujours — {retriever.levees_au_chargement()}"
     )
 
 

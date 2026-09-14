@@ -140,6 +140,13 @@ def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", sondes.chromadb)
     monkeypatch.setattr(main, "nebula_ping", sondes.nebulagraph)
     monkeypatch.setattr(main, "lexical_ready", sondes.index_lexical)
@@ -271,6 +278,13 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
         return _sonde
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", sonde("chromadb"))
     monkeypatch.setattr(main, "nebula_ping", sonde("nebulagraph"))
     monkeypatch.setattr(main, "lexical_ready", sonde("index_lexical"))
@@ -345,6 +359,13 @@ def test_un_index_lexical_non_revenu_ne_degrade_pas_le_statut(monkeypatch) -> No
 
     monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
@@ -445,6 +466,13 @@ def test_une_sonde_qui_leve_ne_fait_pas_tomber_health(monkeypatch, caplog) -> No
         raise RuntimeError("le pilote Chroma a changé de signature")
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", sonde_cassee)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
@@ -490,6 +518,13 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
         httpx.URL(f"{host}/api/tags")
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
@@ -519,6 +554,13 @@ def test_la_lecture_de_la_base_de_capture_est_sous_le_plafond(monkeypatch) -> No
 
     monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)

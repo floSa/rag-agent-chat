@@ -23,6 +23,60 @@ _LEXICAL_PAGE = 2000
 _MAX_OVERLAP = 400
 
 
+# ─── LA MÉMOIRE DES LEVÉES AU CHARGEMENT ─────────────────────────────────────
+#
+# CE QU'ELLE FERME, ET LE CONTRÔLE STATIQUE NE LE PEUT PAS.
+# `peripherique_hors_d_atteinte` répond à « le périphérique demandé existe-t-il
+# d'ici », sans rien charger. Elle ne répond pas à « le chargement va-t-il
+# aboutir », et `/health` ne peut pas le lui demander : une route de santé qui
+# construit deux modèles n'est plus une sonde.
+#
+# Or la panne qui VIENT n'est pas celle d'un périphérique absent. `mesuré` le
+# 14 septembre 2026 à 09:08 UTC, `nvidia-smi --query-compute-apps` croisé avec
+# `docker inspect -f '{{.State.Pid}}' rag-agent-api` : **vLLM tient déjà
+# 14 264 Mio** sur la L4, Ollama 4 584, cet agent 1 294, sur 23 034 — il reste
+# **2 892 Mio**. Un agent qui redémarrerait et redemanderait ses 1,29 Go
+# trouverait `cuda_available: true`, un ordinal valide, et lèverait quand même,
+# sur la mémoire. Le contrôle statique ne verrait rien.
+#
+# UNE LEVÉE EST UN FAIT DÉJÀ PRODUIT : la relire ne charge rien et ne coûte rien.
+# Elle arrive APRÈS la première recherche là où le contrôle statique arrive
+# avant, et elle couvre TOUTE cause — mémoire, modèle absent du cache, droits
+# refusés. Les deux moitiés sont complémentaires ; aucune ne rend l'autre
+# inutile. C'est la seconde forme que l'audit du 14 septembre 2026 nommait :
+# *« ou une levée mémorisée au dernier chargement »*.
+#
+# UN DICTIONNAIRE ET NON UNE CHAÎNE, et le motif est une erreur évitée : avec une
+# chaîne unique, un rechargement RÉUSSI de l'embedder effacerait la levée encore
+# vraie du reranker. Chaque modèle porte la sienne, et ne l'efface que pour lui.
+_levees_au_chargement: dict[str, str] = {}
+
+
+def _memoriser_la_levee(modele: str, exc: BaseException) -> None:
+    """Retient POURQUOI le chargement de `modele` a échoué, pour `/health`."""
+    _levees_au_chargement[modele] = f"{type(exc).__name__}: {exc}"
+
+
+def _oublier_la_levee(modele: str) -> None:
+    """Un chargement RÉUSSI efface la sienne, et c'est la seconde direction.
+
+    Sans elle, un exploitant qui corrige la cause — il libère la carte, il rend
+    les droits — verrait `degraded` pour toujours, sans redémarrage possible :
+    le mensonge symétrique de celui que ce garde ferme.
+    """
+    _levees_au_chargement.pop(modele, None)
+
+
+def levees_au_chargement() -> dict[str, str]:
+    """Les levées retenues, copiées — l'appelant ne mute pas l'état du module."""
+    return dict(_levees_au_chargement)
+
+
+def oublier_les_levees_au_chargement() -> None:
+    """Repart de zéro. Existe pour les tests, et pour eux seuls."""
+    _levees_au_chargement.clear()
+
+
 # ─── Singletons chargés une seule fois au démarrage ──────────────────────────
 
 @lru_cache(maxsize=1)
@@ -32,9 +86,24 @@ def _get_embedding_model() -> SentenceTransformer:
         settings.embedding_model_name,
         settings.torch_device,
     )
-    model: SentenceTransformer = SentenceTransformer(
-        settings.embedding_model_name, device=settings.torch_device
-    )
+    try:
+        model: SentenceTransformer = SentenceTransformer(
+            settings.embedding_model_name, device=settings.torch_device
+        )
+    except Exception as exc:
+        # ABSORPTION NULLE — la levée est RELANCÉE à la ligne suivante. Ce `except`
+        # ne rattrape rien : il RETIENT, pour que `/health` sache dire pourquoi
+        # chaque recherche rend 500. Le comportement du site d'appel est inchangé,
+        # et c'est délibéré : il n'y a AUCUN repli vers CPU dans ce module, et en
+        # introduire un ici changerait silencieusement le périphérique — c'est
+        # exactement ce que le lot 12 existe pour rendre visible.
+        # `Exception` et non une liste : torch lève `RuntimeError`,
+        # `AcceleratorError`, `OSError` et `PermissionError` selon la cause, sans
+        # ancêtre commun, et toutes disent ici la même chose — le modèle n'est pas
+        # chargé. Une liste close périmerait à la prochaine version de torch.
+        _memoriser_la_levee("embedding", exc)
+        raise
+    _oublier_la_levee("embedding")
     # APRÈS le chargement, et ce n'est pas la répétition de la ligne du dessus :
     # celle-là dit ce qu'on a DEMANDÉ, celle-ci ce que torch a réellement posé.
     # Les deux diffèrent dès que le réglage nomme un périphérique que le build
@@ -346,7 +415,12 @@ def _get_rerank_model() -> CrossEncoder:
         settings.rerank_model,
         settings.torch_device,
     )
-    model: CrossEncoder = CrossEncoder(settings.rerank_model, device=settings.torch_device)
+    try:
+        model: CrossEncoder = CrossEncoder(settings.rerank_model, device=settings.torch_device)
+    except Exception as exc:  # relancée ci-dessous — voir `_get_embedding_model`
+        _memoriser_la_levee("rerank", exc)
+        raise
+    _oublier_la_levee("rerank")
     logger.info(
         "Modèle de reranking chargé sur le périphérique « %s »",
         getattr(model, "device", "inconnu"),
@@ -424,6 +498,89 @@ def _peripherique_si_charge(accesseur: Any) -> str | None:
     return None if peripherique is None else str(peripherique)
 
 
+def peripherique_hors_d_atteinte(demande: str, cuda_disponible: bool) -> str | None:
+    """Le motif pour lequel `demande` ne peut PAS servir ici, ou `None`.
+
+    CE QUE CETTE FONCTION EXISTE POUR FERMER. Le lot 11 a créé un mode de panne
+    qui n'existait pas avant lui : `SentenceTransformer(nom)` laissait
+    sentence-transformers choisir un périphérique QUI EXISTE, et le chargement ne
+    pouvait pas lever pour cette raison ; `SentenceTransformer(nom, device=...)`
+    passe la chaîne telle quelle à torch. Il n'y a **aucun repli vers CPU** dans
+    ce module — pas de `try`, pas de garde sur `is_available()` — donc les
+    modèles ne « retombent » pas : **ils lèvent**, au chargement, donc à la
+    PREMIÈRE recherche, donc en production. `mesuré` le 14 septembre 2026 par
+    l'audit du lot 11, quatre scénarios dans l'image étiquetée :
+
+        `cuda` sans carte        -> RuntimeError: Found no NVIDIA driver
+        `cuda:7` avec une carte  -> AcceleratorError: invalid device ordinal
+        `banane`                 -> RuntimeError: Expected one of cpu, cuda, …
+        `cpu` ou `cuda` servis   -> charge, rc=0
+
+    ET LA ROUTE DE SANTÉ NE CHARGE RIEN, délibérément — un `/health` qui
+    construit deux modèles n'est plus une sonde, c'est un téléchargement toutes
+    les 20 s. `status` ne peut donc PAS savoir « le chargement va lever » avant
+    qu'il ait levé. Ce qui EST connaissable sans rien charger, c'est que le
+    périphérique demandé n'existe pas d'ici — et les trois levées ci-dessus sont
+    exactement celles-là. C'est la borne de ce garde, elle est écrite au champ
+    `TorchDeviceHealth.hors_d_atteinte` et rappelée ici : une levée qui ne tient
+    pas à l'EXISTENCE du périphérique (mémoire insuffisante, modèle absent du
+    cache, droits refusés) n'est pas vue.
+
+    POURQUOI `cuda_disponible` EST UN PARAMÈTRE ET NON UNE LECTURE. L'appelant
+    vient de lire `torch.cuda.is_available()` pour le publier ; le relire ici en
+    ferait deux lectures pouvant diverger, et le corps publié ne correspondrait
+    plus au verdict qui l'accompagne. Un seul relevé, un seul fait.
+
+    RENDRE LE MOTIF ET NON UN BOOLÉEN, et c'est la décision déjà prise au site
+    pour `EmbeddingModelHealth.status` : les trois causes ne se soignent pas
+    pareil — corriger le `.env`, rendre la carte au conteneur, corriger la
+    faute de frappe — et un booléen ne dirait laquelle.
+
+    Gardé dans les DEUX directions : `tests/unit/test_peripherique_torch.py`,
+    section (6), contrôle positif inclus.
+    """
+    try:
+        cible = torch.device(demande)
+    except (RuntimeError, ValueError) as exc:
+        # La MÊME levée que celle que le constructeur produirait, obtenue au
+        # parsing — donc sans carte, sans modèle et sans entrée-sortie.
+        return f"torch refuse le périphérique demandé « {demande} » : {exc}"
+    if cible.type != "cuda":
+        return None
+    if not cuda_disponible:
+        return (
+            f"« {demande} » demande une carte CUDA et torch n'en voit aucune depuis ce "
+            "processus : le chargement du premier modèle lèvera, donc toute recherche "
+            "rendra 500. Voir documentation/gpu_cuda.md §1, conditions (a) et (b)"
+        )
+    cartes = torch.cuda.device_count()
+    if cible.index is not None and cible.index >= cartes:
+        return (
+            f"« {demande} » nomme la carte n° {cible.index} et torch n'en voit que "
+            f"{cartes} (indices 0 à {cartes - 1}) : le chargement lèvera sur "
+            "« invalid device ordinal ». Voir documentation/gpu_cuda.md §4"
+        )
+    return None
+
+
+def _verdict_du_peripherique(demande: str, cuda_disponible: bool) -> str | None:
+    """Les DEUX moitiés en un seul champ : le contrôle statique et les levées.
+
+    L'ORDRE PORTE. Une levée mémorisée est un fait OBSERVÉ ; le contrôle statique
+    est une prédiction. Quand les deux parlent, on rend l'observation — elle dit
+    ce qui s'est réellement passé, avec le message que torch a produit.
+    """
+    levees = levees_au_chargement()
+    if levees:
+        detail = " ; ".join(f"{modele} -> {motif}" for modele, motif in sorted(levees.items()))
+        return (
+            f"le dernier chargement a LEVÉ sur « {demande} » : {detail}. Toute "
+            "recherche rendra 500 tant que la cause tient. Le `lru_cache` ne se "
+            "peuple pas sur une levée, donc `embedding`/`rerank` resteront `null`"
+        )
+    return peripherique_hors_d_atteinte(demande, cuda_disponible)
+
+
 def etat_du_peripherique() -> TorchDeviceHealth:
     """Les trois conditions du GPU, lues à la source, sans rien charger.
 
@@ -435,13 +592,18 @@ def etat_du_peripherique() -> TorchDeviceHealth:
     `/health` — un pilote qui ne rend pas la main est une panne comme une autre,
     et elle ne doit pas coûter le healthcheck.
     """
+    disponible = torch.cuda.is_available()
     return TorchDeviceHealth(
         requested=settings.torch_device,
         torch_version=torch.__version__,
         cuda_build=torch.version.cuda,
-        cuda_available=torch.cuda.is_available(),
+        cuda_available=disponible,
         embedding=_peripherique_si_charge(_get_embedding_model),
         rerank=_peripherique_si_charge(_get_rerank_model),
+        # LU UNE SEULE FOIS, et passé : `cuda_available` ci-dessus et le verdict
+        # ci-dessous doivent décrire le MÊME relevé, sinon le corps publié
+        # contredirait le statut qui l'accompagne.
+        hors_d_atteinte=_verdict_du_peripherique(settings.torch_device, disponible),
     )
 
 

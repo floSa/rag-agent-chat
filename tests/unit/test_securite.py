@@ -71,6 +71,13 @@ def test_aucune_cle_configuree_laisse_passer(monkeypatch) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     # Le corps invalide suffit : on vérifie qu'on dépasse l'authentification.
     assert TestClient(main.app).post("/search", json={}).status_code == 422  # noqa: PLR2004
 
@@ -207,6 +214,13 @@ def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
 
     _concordance_ok(monkeypatch)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: False)
@@ -222,6 +236,13 @@ def test_dependance_absente_degrade_le_statut(monkeypatch) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: False)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)

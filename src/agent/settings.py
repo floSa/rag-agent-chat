@@ -106,20 +106,46 @@ class Settings(BaseSettings):
     # Ce réglage est né à `cpu` le matin même, délibérément : tant que la mesure
     # n'avait pas tranché, la seule reconstruction de l'image n'avait pas à
     # basculer la production. La campagne l'a tranché le jour même, sur les
-    # 138 questions du jeu de référence, `rc=0`, comparée à
-    # `runs/2026-09-10-lecteur-neuf-reglage.json` — site canonique des chiffres :
-    # `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md` :
+    # 138 questions du jeu de référence, `rc=0` — site canonique des chiffres :
+    # `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md`.
     #
-    #   rerank_ms   p50   498 → 58     (−88 %)      p95  2 943 → 68   (−98 %)
-    #   dense_ms    p50   120 → 72     (−40 %)      p95  1 516 → 85   (−94 %)
-    #   generation  p50 4 682 → 4 722  (+40 ms, +0,85 % — LA CONTENTION)
-    #   total_ms    p50 7 298 → 6 481  (−817 ms, −11,2 %)
+    # CHAQUE CHIFFRE PORTE SA BASE, ET C'EST UNE CORRECTION. Ce commentaire
+    # annonçait « comparée à `runs/2026-09-10-lecteur-neuf-reglage.json` » en
+    # portant **sept valeurs sur sept** venues de `runs/2026-09-08-reference.json`
+    # — trouvaille de l'audit du 14 septembre 2026, §2. Le registre avait été
+    # corrigé, pas ce site ni celui de la campagne : *corriger un chiffre à un
+    # seul de ses sites est la dérive que le §4.13 nomme depuis le début.*
+    # `mesuré` le 14 septembre 2026, recalcul depuis les artefacts versionnés de
+    # `runs/` (aucune campagne rejouée) :
     #
-    # LE RISQUE QUI JUSTIFIAIT LA PRUDENCE EST MESURÉ, ET IL EST PETIT. Partager
-    # la carte avec Ollama — qui porte 67 % du temps d'une réponse — coûte
-    # **40 ms** sur la génération, contre **817 ms** gagnés au total : un rapport
-    # de vingt contre un. La mémoire n'est pas en cause non plus (1 266 MiB pour
-    # l'agent à côté des 4 900 MiB d'Ollama, sur 23 034).
+    #                     CPU 08-reference   CPU 10-lecteur-neuf   GPU 11-cuda
+    #   rerank_ms  p50            498                622                58
+    #   rerank_ms  p95          2 943              1 216                68
+    #   dense_ms   p50            120                115                72
+    #   dense_ms   p95          1 516                549                85
+    #   generation p50          4 682              4 616             4 722
+    #   total_ms   p50          7 298              6 846             6 481
+    #
+    # LE GAIN ET LA CONTENTION DÉPENDENT DONC DE LA BASE, et les deux lectures
+    # sont écrites plutôt qu'une seule :
+    #
+    #   contre `2026-09-08-reference`      — CE QUE `make eval` COMPARE PAR DÉFAUT
+    #       total −817 ms (−11,2 %)   contention +40 ms    rapport 20,4 pour 1
+    #   contre `2026-09-10-lecteur-neuf-reglage` — le plus récent comparable
+    #       total −365 ms (−5,3 %)    contention +106 ms   rapport  3,4 pour 1
+    #
+    # LE RISQUE QUI JUSTIFIAIT LA PRUDENCE EST MESURÉ, ET IL EST PETIT SUR LES
+    # DEUX LECTURES. Partager la carte avec Ollama — qui porte 67 % du temps
+    # d'une réponse — coûte de 40 à 106 ms sur la génération, contre 365 à 817 ms
+    # gagnés au total : de 3,4 à 20,4 pour 1. La décision tient sur l'une comme
+    # sur l'autre base.
+    #
+    # LA MÉMOIRE N'EST PAS EN CAUSE, et le chiffre a été remesuré : `1 294 MiB`
+    # pour l'agent le 14 septembre 2026 à 09:08 UTC
+    # (`nvidia-smi --query-compute-apps` croisé avec le PID du conteneur), contre
+    # 1 266 écrits ici le 11. La carte fait 23 034 MiB — mais elle n'est plus
+    # partagée avec le seul Ollama : **vLLM y tient 14 264 MiB** à cette heure,
+    # Ollama 4 584, et il reste **2 892 MiB**. Voir le §4.50 du registre.
     #
     # ET LE RAPPEL NE BOUGE PAS — à une question près, écrite plutôt que tue :
     # sur les 138, `rang_reciproque` baisse sur **G-006** seule (1,0 → 0,5, le bon

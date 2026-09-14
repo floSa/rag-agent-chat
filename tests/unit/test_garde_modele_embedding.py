@@ -349,6 +349,13 @@ def _brancher_health(monkeypatch) -> None:
         return lambda **_kwargs: Client()
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
@@ -494,6 +501,13 @@ def test_une_recherche_sur_index_divergent_rend_503_et_non_500(monkeypatch) -> N
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     monkeypatch.setattr(retriever, "SentenceTransformer", lambda *_a, **_k: None)
     _brancher_collection(monkeypatch, _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE}))
@@ -838,6 +852,13 @@ def test_chat_resume_refuse_en_503_avant_d_ouvrir_le_flux(monkeypatch, caplog) -
     graphe = _GrapheQuiRebouclleVersRetrieve()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     _brancher_collection(
         monkeypatch, _FausseCollection({"embedding_model": _MODELE_QUI_A_INDEXE})
@@ -888,6 +909,13 @@ def test_une_divergence_apparue_en_vol_laisse_une_ligne_error(monkeypatch, caplo
     )
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
     _brancher_collection(monkeypatch, concordante)
 
@@ -1092,6 +1120,13 @@ def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
     graphe = _GrapheQuiNeCherchePas()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
+    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
+    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
+    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
+    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
+    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
+    # chantier a payée huit fois.
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
     _brancher_collection(monkeypatch, pend)

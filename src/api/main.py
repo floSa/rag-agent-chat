@@ -705,15 +705,37 @@ async def health() -> HealthResponse:
     # Une concordance REFUSÉE dégrade à elle seule, quatre sondes vertes ou non :
     # l'agent répond, les stores répondent, et pourtant toute recherche rend 503.
     # Un statut « ok » décrirait alors un service qui ne sert rien.
+    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
+    concordance_refusee = embedding.status in {"mismatch", "missing"}
+    # UN PÉRIPHÉRIQUE HORS D'ATTEINTE DÉGRADE À LUI SEUL, pour le MÊME motif que
+    # la concordance juste au-dessus : les stores répondent, l'agent répond, et
+    # pourtant toute recherche rend **500** — les deux modèles reçoivent
+    # `device=settings.torch_device` sans aucun repli, donc ils lèvent au lieu de
+    # retomber sur CPU. Un statut « ok » y décrirait un service qui ne sert rien,
+    # et le healthcheck `curl -sf` du compose resterait vert pour toujours
+    # puisqu'il ne lit que le code HTTP. `mesuré` en grandeur réelle le
+    # 14 septembre 2026 : `POST /search` 500, `GET /health` 200 `status: ok`.
+    # Site canonique : `documentation/audits/2026-09-14-audit-lot-11.md` §1.
+    #
+    # LE VERDICT SE LIT SUR LE RÉSULTAT DE LA SONDE, JAMAIS SUR SON REPLI, et
+    # c'est la même distinction que `unknown` ci-dessous. `_peripherique_inconnu`
+    # publie `requested` tel quel — donc `cuda` par défaut — avec
+    # `cuda_available: false` : une lecture naïve du corps y verrait un
+    # périphérique hors d'atteinte et dégraderait un service dont on ne sait
+    # RIEN. Le `or` de repli est donc APRÈS ce calcul, pas avant.
+    peripherique = _relever("peripherique_torch", tache_peripherique, si_levee=None)
+    peripherique_refuse = peripherique is not None and peripherique.hors_d_atteinte is not None
     #
     # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
     # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier
     # « degraded » sur une sonde qui n'est pas revenue reviendrait aussi à faire
     # dire à l'agent « ça diverge » quand il n'en sait rien — la distinction que
     # `services_unknown` tient déjà par ailleurs.
-    embedding = _relever("modele_embedding", tache_embedding, si_levee=None) or _embedding_inconnu()
-    concordance_refusee = embedding.status in {"mismatch", "missing"}
-    status = "ok" if all(essentiels.values()) and not concordance_refusee else "degraded"
+    status = (
+        "ok"
+        if all(essentiels.values()) and not concordance_refusee and not peripherique_refuse
+        else "degraded"
+    )
     # Hors du plafond, et borné : `sessions.stats()` et `sessions.durable()` ne
     # lisent que des compteurs en mémoire et un réglage — aucune entrée-sortie,
     # donc rien qui puisse attendre. `stats` absorbe ses propres échecs et rend
@@ -735,10 +757,7 @@ async def health() -> HealthResponse:
             failures=echecs,
         ),
         embedding_model=embedding,
-        torch_device=(
-            _relever("peripherique_torch", tache_peripherique, si_levee=None)
-            or _peripherique_inconnu()
-        ),
+        torch_device=peripherique or _peripherique_inconnu(),
     )
 
 

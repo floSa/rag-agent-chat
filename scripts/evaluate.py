@@ -988,6 +988,162 @@ def empreinte_des_ancrages(questions: list[dict]) -> str:
     return f"sha256:{hashlib.sha256(brut.encode('utf-8')).hexdigest()}"
 
 
+# ─── LE PÉRIPHÉRIQUE D'UNE CAMPAGNE ──────────────────────────────────────────
+#
+# POURQUOI CETTE CLÉ EXISTE, ET C'EST UN COROLLAIRE MESURÉ. Le lot 11 a établi
+# que **le classement du cross-encoder n'est PAS invariant par périphérique** :
+# sur les 138 questions du jeu de référence, `rang_reciproque` bascule sur
+# **G-006** (1,0 -> 0,5) quand la campagne passe du CPU à la L4, et elle bascule
+# **contre les deux bases indépendantes** — `runs/2026-09-08-reference.json` et
+# `runs/2026-09-10-lecteur-neuf-reglage.json`. Un aleas se serait deplace d'une
+# question a l'autre ; un effet systematique reste sur la meme. Site canonique :
+# `documentation/axes_amelioration.md` §4.48, et l'audit du 14 septembre 2026.
+#
+# ET AUCUN ARTEFACT DE `runs/` NE CONSIGNAIT LE PÉRIPHÉRIQUE. Les clés racine
+# étaient `jeu`, `empreinte_des_ancrages`, `resume`, `par_langue`, `questions` :
+# `runs/2026-09-11-gpu-cuda-reglage.json` ne se distinguait de son antécédent
+# CPU que par SON NOM DE FICHIER. Deux campagnes séparées par une bascule de
+# périphérique se comparaient donc sans que rien ne dise qu'elles ne mesurent pas
+# le même régime — et la migration vers vLLM est exactement cette bascule :
+# Ollama libère ses ~4,9 Go, vLLM les prend, et si sa réservation ne garde pas la
+# place de cet agent, le périphérique de cet agent change.
+#
+# LE FAIT, PAS LE RÉGLAGE. `requested` est ce que `TORCH_DEVICE` DEMANDE ;
+# `embedding` et `rerank` sont ce que torch a RÉELLEMENT posé. C'est la
+# distinction que le lot 11 a écrite et c'est celle qui compte ici : une campagne
+# lancée avec `TORCH_DEVICE=cuda` sur une machine sans carte n'a tourné nulle
+# part — elle a levé. Les deux sont consignés, le verdict se lit sur le fait.
+
+
+# Ce qu'on retient de `/health` pour la campagne. Le contrat de `TorchDeviceHealth`
+# est plus large ; ces six champs sont ceux qui disent où le calcul a eu lieu et
+# ce qui l'a décidé.
+_CHAMPS_DU_PERIPHERIQUE = (
+    "requested",
+    "torch_version",
+    "cuda_build",
+    "cuda_available",
+    "embedding",
+    "rerank",
+)
+
+
+def peripherique_de_la_campagne(
+    api: str, timeout: float = _SANTE_TIMEOUT_S
+) -> dict[str, Any] | None:
+    """Sur quoi l'agent a RÉELLEMENT calculé, lu à `/health`. `None` si illisible.
+
+    À APPELER APRÈS LES QUESTIONS, ET C'EST LA RAISON D'ÊTRE DE CETTE CONSIGNE.
+    `embedding` et `rerank` valent `null` tant que le modèle concerné n'est pas
+    chargé — la route de santé ne charge rien, délibérément. Lu AVANT la
+    campagne, ce champ dirait donc `null` sur un service fraîchement démarré, et
+    l'artefact ne porterait que le réglage : exactement la moitié qu'on ne veut
+    pas. Après 138 passages par `/answer`, les deux modèles sont chargés et le
+    champ porte un FAIT.
+
+    Ce qu'on y perd, et c'est borné : un service redémarré EN COURS de campagne
+    serait lu dans son état d'après. Le cas se voit — les latences décrochent —
+    et il n'est pas celui que cette clé existe pour attraper.
+
+    L'ABSORPTION EST LARGE ET LE FAIT EST RENDU : `httpx` lève des erreurs de
+    transport, de délai et de décodage sans ancêtre commun, et toutes disent la
+    même chose ici — je n'ai pas pu lire. `None` se lit « muet », jamais « CPU ».
+    """
+    try:
+        reponse = httpx.get(f"{api}/health", timeout=timeout)
+        reponse.raise_for_status()
+        charge = reponse.json()
+    except Exception:
+        return None
+    etat = charge.get("torch_device")
+    if not isinstance(etat, dict):
+        return None
+    return {champ: etat.get(champ) for champ in _CHAMPS_DU_PERIPHERIQUE}
+
+
+def signature_du_peripherique(peripherique: dict[str, Any] | None) -> str | None:
+    """Où les deux étages torch ont calculé, en une ligne. `None` si on l'ignore.
+
+    LA SIGNATURE PORTE LE FAIT ET NON LE RÉGLAGE — `embedding` et `rerank`, pas
+    `requested`. Deux campagnes lancées toutes deux en `TORCH_DEVICE=cuda`, l'une
+    sur une machine qui sert la carte et l'autre non, ne sont PAS comparables, et
+    leur `requested` est identique.
+
+    `None` QUAND ON NE SAIT PAS, et c'est la distinction que tout le reste de ce
+    module tient déjà : `muet` n'est pas `différent`. Une campagne antérieure au
+    14 septembre 2026 ne porte pas la clé ; une campagne dont les modèles
+    n'auraient jamais été chargés porte deux `null`. Dans les deux cas on ignore,
+    et l'ignorance ne s'affirme pas en « CPU ».
+    """
+    if not peripherique:
+        return None
+    embedding = peripherique.get("embedding")
+    rerank = peripherique.get("rerank")
+    if not embedding and not rerank:
+        return None
+    return f"embedding={embedding or 'inconnu'}, rerank={rerank or 'inconnu'}"
+
+
+def confronter_les_peripheriques(
+    actuel: dict[str, Any] | None, precedent: dict[str, Any] | None
+) -> list[str]:
+    """Les lignes à imprimer sur le périphérique des deux campagnes.
+
+    IL SIGNALE, IL NE REFUSE PAS — et le motif est pesé, non hérité. Le précédent
+    du dépôt est double :
+
+    - `empreinte_des_ancrages` REFUSE, parce qu'un corpus remplacé sous une
+      numérotation inchangée rend des chiffres *plausibles et faux* sur CHAQUE
+      question : la comparaison ne veut alors plus rien dire du tout ;
+    - le garde de langue du reranker (lot 6) SIGNALE, parce que le modèle sert
+      quand même et que le fait est une information, pas une impossibilité.
+
+    Le périphérique est du second genre, et la mesure le dit : sur 138 questions,
+    une bascule CPU -> GPU laisse les quatre rappels identiques et ne déplace
+    qu'un départage d'ex æquo (G-006, MRR 0,942 -> 0,938). **Et surtout :
+    REFUSER interdirait la comparaison la plus utile que ce dépôt ait produite**
+    — `runs/2026-09-11-gpu-cuda-reglage.json` contre son antécédent CPU est
+    précisément une comparaison inter-périphérique, et c'est elle qui a tranché
+    la décision du 11 septembre 2026. Un garde qui refuserait la mesure qui l'a
+    fait naître est un garde mal posé.
+
+    Ce qui change n'est donc pas la validité de la comparaison, c'est son
+    ATTRIBUTION : les écarts de latence sont ceux du périphérique autant que du
+    réglage, et le lecteur doit le savoir sans avoir à connaître l'histoire du
+    dépôt.
+
+    LA POSITION « IDENTIQUE » EST IMPRIMÉE ELLE AUSSI, et ce n'est pas du
+    bavardage : un garde qui ne parle que lorsqu'il mord ne distingue pas « les
+    deux campagnes ont tourné au même endroit » de « ce garde n'existe pas dans
+    la version qui a produit cette sortie ». C'est la forme exacte du faux vert
+    que ce chantier a trouvée neuf fois.
+    """
+    a = signature_du_peripherique(actuel)
+    p = signature_du_peripherique(precedent)
+    if a and p and a == p:
+        return [f"  périphérique : IDENTIQUE des deux côtés — {a}"]
+    if a and p:
+        return [
+            "  ⚠ PÉRIPHÉRIQUE DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS CALCULÉ AU MÊME ENDROIT",
+            f"      référence : {p}",
+            f"      campagne  : {a}",
+            "    Le classement du cross-encoder n'est PAS invariant par périphérique :",
+            "    une bascule CPU/GPU fait basculer G-006 du rang 1 au rang 2, contre DEUX",
+            "    bases indépendantes (§4.48). Les écarts de LATENCE ci-dessous sont ceux du",
+            "    périphérique autant que du réglage — ne les attribuez pas au seul réglage.",
+            "    Ce n'est PAS un refus : comparer deux périphériques est légitime, et c'est",
+            "    exactement ce qu'a fait la campagne du 11 septembre 2026.",
+        ]
+    return [
+        "  ⚠ PÉRIPHÉRIQUE INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
+        f"      référence : {p or 'MUETTE (pas de clé `peripherique`)'}",
+        f"      campagne  : {a or 'MUETTE (`/health` illisible, ou modèles jamais chargés)'}",
+        "    « Muet » n'est PAS « différent » : on ne peut ni affirmer ni exclure une",
+        "    bascule. Les campagnes de `runs/` antérieures au 14 septembre 2026 sont",
+        "    toutes muettes — la clé n'existait pas. Les rejouer leur en donnerait une.",
+    ]
+
+
 def desaccord_de_jeu(actuelles: list[dict], precedentes: list[dict]) -> str | None:
     """Message nommant l'écart entre deux jeux de questions, `None` s'ils coïncident.
 
@@ -1090,7 +1246,12 @@ def apparier(
     }
 
 
-def comparer_apparie(lignes: list[dict], chemin: Path, empreinte: str) -> bool:
+def comparer_apparie(
+    lignes: list[dict],
+    chemin: Path,
+    empreinte: str,
+    peripherique: dict[str, Any] | None = None,
+) -> bool:
     """Comparaison appariée avec une campagne précédente. Rend False si refusée.
 
     C'est le mode par défaut de `--compare`, et la raison est simple : une
@@ -1112,6 +1273,11 @@ def comparer_apparie(lignes: list[dict], chemin: Path, empreinte: str) -> bool:
             l'empreinte.
             Garde : `test_comparaison_appariee.py`,
             `test_l_empreinte_distingue_deux_corpus_a_numerotation_identique`.
+        peripherique: L'ÉTAT TORCH DE LA CAMPAGNE EN COURS, lu à `/health` après
+            les questions. Il SIGNALE, il ne refuse pas — le motif est pesé dans
+            `confronter_les_peripheriques`. Il s'AJOUTE à la discipline de
+            l'empreinte, il ne la remplace pas : un corpus remplacé reste un
+            refus, quel que soit le périphérique.
     """
     document = json.loads(chemin.read_text(encoding="utf-8"))
     precedentes = document.get("questions") or []
@@ -1175,6 +1341,11 @@ def comparer_apparie(lignes: list[dict], chemin: Path, empreinte: str) -> bool:
         return False
 
     print(entete(f" — {len(lignes)} questions communes"))
+    # AVANT LES CHIFFRES, ET C'EST DÉLIBÉRÉ : c'est une clé de lecture de tout ce
+    # qui suit, pas une note de bas de page. Un lecteur qui découvre la bascule
+    # après avoir lu les flèches a déjà attribué les écarts.
+    for ligne in confronter_les_peripheriques(peripherique, document.get("peripherique")):
+        print(ligne)
     print("  ▲ et ▼ se lisent dans le sens de CHAQUE métrique ; « ↓ » marque celles")
     print("  dont la valeur basse est la bonne. Δ et l'IC gardent leur signe brut.")
     print(f"  {'métrique':26s} {'n':>4} {'▲':>4} {'▼':>4} {'=':>4} "
@@ -1314,13 +1485,25 @@ def main() -> int:
     langues = par_langue(lignes)
     afficher(resume, langues, lignes)
 
+    # APRÈS LES QUESTIONS, jamais avant : `embedding` et `rerank` valent `null`
+    # tant que les modèles ne sont pas chargés, et `/health` ne charge rien. Lu
+    # trop tôt, ce champ ne porterait que le réglage — voir
+    # `peripherique_de_la_campagne`.
+    peripherique = peripherique_de_la_campagne(args.api)
+    if peripherique is None:
+        print(
+            "périphérique : `/health` illisible — la campagne sera écrite MUETTE sur "
+            "le périphérique, et toute comparaison future le dira",
+            file=sys.stderr,
+        )
+
     # L'appariement d'abord : c'est lui qui dit si un écart est un résultat. Le
     # diff des résumés reste affiché ensuite pour les grandeurs qui ne
     # s'apparient pas — latences, totaux, compteurs d'exclusion.
     empreinte = empreinte_des_ancrages(questions)
     appariement_possible = True
     if args.compare and args.compare.exists():
-        appariement_possible = comparer_apparie(lignes, args.compare, empreinte)
+        appariement_possible = comparer_apparie(lignes, args.compare, empreinte, peripherique)
         comparer(resume, args.compare)
     elif args.compare:
         # UN `--compare` QUI POINTE UN FICHIER ABSENT NE DOIT PAS SE TAIRE. La
@@ -1350,6 +1533,12 @@ def main() -> int:
                     # `empreinte_des_ancrages`.
                     "jeu": str(args.golden),
                     "empreinte_des_ancrages": empreinte,
+                    # OÙ le calcul a eu lieu, à côté de CE QU'il a mesuré. Le
+                    # lot 11 a démontré que le classement du cross-encoder n'est
+                    # pas invariant par périphérique ; sans cette clé, deux
+                    # campagnes séparées par une bascule se comparent en silence.
+                    # `null` se lit « je n'ai pas pu lire », jamais « CPU ».
+                    "peripherique": peripherique,
                     "resume": resume,
                     "par_langue": langues,
                     "questions": lignes,

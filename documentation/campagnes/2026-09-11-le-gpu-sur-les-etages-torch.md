@@ -109,22 +109,44 @@ machine ; sur la carte, il ne l'est qu'avec Ollama.
 14:34 à 14:58 UTC (**23 min 29 s**, `rc=0`) et `make eval-controle` de 14:29 à
 14:33 (**4 min 21 s**, `rc=0`).
 
-### Les 138 questions, contre `runs/2026-09-10-lecteur-neuf-reglage.json`
+### Les 138 questions — ET CHAQUE CHIFFRE PORTE SA BASE
 
-| métrique | CPU (antécédent) | GPU | écart |
-|---|---:|---:|---|
-| `rerank_ms` p50 | 498 | **58** | **−440 ms (−88 %)** |
-| `rerank_ms` p95 | 2 943 | **68** | **−2 875 ms (−98 %)** |
-| `dense_ms` p50 | 120 | **72** | −48 ms (−40 %) |
-| `dense_ms` p95 | 1 516 | **85** | −1 431 ms (−94 %) |
-| `retrieval_ms` p50 | 700 | **218** | −482 ms |
-| **`generation_ms` p50** | **4 682** | **4 722** | **+40 ms (+0,85 %)** |
-| **`total_ms` p50** | **7 298** | **6 481** | **−817 ms (−11,2 %)** |
+> **CORRECTION DU 14 SEPTEMBRE 2026.** Ce tableau était titré « contre
+> `runs/2026-09-10-lecteur-neuf-reglage.json` » et portait **sept valeurs sur
+> sept** venues de `runs/2026-09-08-reference.json` — trouvaille de l'audit du
+> lot 11, §2. Le registre avait été corrigé le 14 au matin, **ce site ne l'avait
+> pas été**, et c'est lui que le registre désigne comme « site canonique des
+> chiffres ». *Un chiffre sans sa base est un chiffre sans sa commande.*
+>
+> Les deux colonnes CPU sont désormais écrites. `mesuré` le 14 septembre 2026,
+> recalcul depuis les artefacts versionnés de `runs/` — **aucune campagne
+> rejouée**.
 
-**LA CONTENTION EST MESURÉE, ET ELLE EST PETITE : +40 ms.** C'est le chiffre que
-ce lot existait pour produire, et il renverse la crainte qui avait présidé au
-lot : partager la carte avec Ollama — qui porte 67 % du temps — coûte **40 ms**
-là où le GPU en fait gagner **817**. Rapport de **vingt contre un**.
+| métrique | CPU `2026-09-08-reference` | CPU `2026-09-10-lecteur-neuf-reglage` | GPU `2026-09-11-gpu-cuda` |
+|---|---:|---:|---:|
+| `rerank_ms` p50 | 498 | 622 | **58** |
+| `rerank_ms` p95 | 2 943 | 1 216 | **68** |
+| `dense_ms` p50 | 120 | 115 | **72** |
+| `dense_ms` p95 | 1 516 | 549 | **85** |
+| `retrieval_ms` p50 | 700 | 830 | **218** |
+| **`generation_ms` p50** | **4 682** | **4 616** | **4 722** |
+| **`total_ms` p50** | **7 298** | **6 846** | **6 481** |
+
+**LES DEUX LECTURES DU GAIN ET DE LA CONTENTION**, parce qu'elles ne donnent pas
+le même rapport et que les deux sont vraies :
+
+| base | `total_ms` p50 | contention `generation_ms` | rapport |
+|---|---:|---:|---:|
+| `2026-09-08-reference` — **ce que `make eval` compare par défaut** | **−817 ms (−11,2 %)** | **+40 ms** | **20,4 pour 1** |
+| `2026-09-10-lecteur-neuf-reglage` — le plus récent comparable | **−365 ms (−5,3 %)** | **+106 ms** | **3,4 pour 1** |
+
+**LA CONTENTION EST MESURÉE, ET ELLE EST PETITE SUR LES DEUX LECTURES.** C'est le
+chiffre que ce lot existait pour produire, et il renverse la crainte qui avait
+présidé au lot : partager la carte avec Ollama — qui porte 67 % du temps — coûte
+de **40 à 106 ms** là où le GPU en fait gagner de **365 à 817**. Le rapport va de
+**3,4 à 20,4 pour 1**, et **le verdict ne change pas** : la décision tient sur
+l'une comme sur l'autre base. *Le « rapport de vingt contre un » écrit ici
+jusqu'au 14 septembre 2026 était celui de la base que ce titre ne nommait pas.*
 
 **Les p95 sont l'information la plus utile pour un service multi-utilisateurs** :
 `rerank_ms` passe de 2 943 à **68 ms**. Sur CPU, le cross-encoder est en
@@ -253,7 +275,8 @@ couvre, et qu'il faut savoir avant de s'en servir.
    **en même temps** sur la même carte, ce que cette campagne ne reproduit pas.
    Le sens du résultat ne devrait pas s'inverser — les p95 s'améliorent
    massivement, ce qui est le contraire d'un signe de saturation — mais le
-   chiffre de +40 ms, lui, est propre à une charge séquentielle.
+   chiffre de +40 ms (base `2026-09-08-reference` ; +106 ms contre
+   `2026-09-10-lecteur-neuf-reglage`), lui, est propre à une charge séquentielle.
 
 2. **Le tiers du §5 tournait par intermittence.** Il était actif pendant le
    contrôle à 30 questions (dont le `generation_ms` est donc écarté) et absent ou
@@ -267,9 +290,12 @@ couvre, et qu'il faut savoir avant de s'en servir.
    l'instrument, pas de ce lot.
 
 **Ce que le résultat permet malgré tout d'affirmer** : sur cet usage et cette
-charge, le GPU retire 817 ms des 7 298 d'une réponse et en rend 40 à la
-génération. C'est le rapport prix/apport que le §P1 du registre demande, et il
-est favorable d'un facteur vingt.
+charge, le GPU retire **817 ms des 7 298** d'une réponse et en rend **40** à la
+génération **contre `runs/2026-09-08-reference.json`**, ou **365 ms des 6 846**
+et en rend **106** **contre `runs/2026-09-10-lecteur-neuf-reglage.json`**. C'est
+le rapport prix/apport que le §P1 du registre demande, et il est favorable d'un
+facteur **20,4** sur la première base, **3,4** sur la seconde. *Les deux sont
+vraies, et aucune ne se cite sans sa base.*
 
 ---
 
@@ -291,12 +317,14 @@ aucune tâche qui n'intègre pas ce remplacement.*
 
 **Ce qui est donc reporté, en une seule fois, après la migration :**
 
-1. rejouer le **+40 ms** de contention **sur vLLM**, et sous charge concurrente —
-   les deux réserves se ferment d'un même geste ;
+1. rejouer la contention — **+40 ms** contre `2026-09-08-reference`, **+106 ms**
+   contre `2026-09-10-lecteur-neuf-reglage` — **sur vLLM**, et sous charge
+   concurrente : les deux réserves se ferment d'un même geste ;
 2. profiter d'une fenêtre où `data-analyst-agent` ne tourne pas, pour que
    `generation_ms` ne porte pas un tiers (§5).
 
 **Ce qui n'a PAS à être rejoué** : le gain sur les étages torch. Les −817 ms
+(base `2026-09-08-reference` ; −365 ms contre `2026-09-10-lecteur-neuf-reglage`)
 viennent de l'embedder et du cross-encoder, qui ne dépendent pas du serveur LLM
 et ne changent pas avec lui. Seul le coût de partage de la carte est attaché à
 Ollama.

@@ -7734,3 +7734,166 @@ CDI régénérée à 08:18, un conteneur GPU redémarre en `rc=0`. **La commande
 compte est la troisième** — `nvidia-ctk cdi generate` —, la spécification CDI
 pointant encore sur les bibliothèques disparues. *Consigné ici parce que ce
 chantier en dépend et que la prochaine mise à jour de pilote se présentera pareil.*
+
+---
+
+### 4.50 → Le lot 12 : `/health` cesse de mentir, le périphérique entre dans les artefacts, et **vLLM a déjà pris la carte**
+
+`Conv' 52` (LOT-12) a livré le 14 septembre 2026. Les quatre fermetures de la
+recommandation de l'audit 11 sont posées, et **le lot rapporte un fait de poste
+qui déplace le cadrage : la bascule vLLM n'est plus à venir, elle a eu lieu
+pendant ce lot.**
+
+#### LE FAIT DE POSTE, ET IL EST LE PLUS IMPORTANT DE CETTE SECTION
+
+`mesuré` le 14 septembre 2026 à **09:08 UTC**, `nvidia-smi --query-compute-apps`
+croisé avec `docker inspect -f '{{.State.Pid}}' rag-agent-api` (PID **503779**) :
+
+| processus | mémoire sur la L4 |
+|---|---:|
+| `VLLM::EngineCore` | **14 264 MiB** |
+| `llama-server` (Ollama) | 4 584 MiB |
+| **cet agent** (PID 503779) | **1 294 MiB** |
+| **libre** | **2 892 MiB** sur 23 034 |
+
+**Trois lectures, et elles changent le plan :**
+
+1. **L'agent a gardé son périphérique.** Le dimensionnement de vLLM a laissé la
+   place — le risque nommé au §4.49 ne s'est pas réalisé ;
+2. **le chiffre du §4.48 était périmé** : `1 294 MiB` et non `1 266`, et
+   « ~4 900 MiB d'Ollama » vaut désormais **4 584**, Ollama ayant redémarré
+   (PID 506387 → 750410). *Un état de poste périme, celui-ci a périmé en trois
+   heures* ;
+3. **la marge est de 2 892 MiB.** Un agent qui redémarrerait et redemanderait ses
+   1,29 Go les trouverait — **aujourd'hui**. Si vLLM grandit, il ne les trouvera
+   plus, et il **lèvera** sur la mémoire, pas sur l'absence de carte.
+
+*La troisième lecture a directement changé la fermeture (1) : le contrôle
+statique seul n'aurait pas vu cette panne-là.*
+
+#### (1) LA BLOQUANTE — `status` entend enfin le périphérique, **en DEUX moitiés**
+
+`src/api/main.py`, calcul de `status` : un `peripherique_refuse` entre à côté de
+`concordance_refusee`, sur le modèle et le motif de la sonde d'à côté. Le verdict
+est lu sur le **résultat** de la sonde et jamais sur son repli — `_peripherique_inconnu`
+publie `requested=cuda, cuda_available=false` parce qu'il *ne sait pas*, et
+dégrader là-dessus ferait dire à l'agent « c'est cassé » sur une ignorance.
+
+**La difficulté était que la route NE CHARGE RIEN**, donc qu'elle ne peut pas
+savoir qu'un chargement va lever. Le lot répond en deux moitiés complémentaires :
+
+| moitié | ce qu'elle voit | quand | ce qu'elle ne voit pas |
+|---|---|---|---|
+| **contrôle statique** — `retriever.peripherique_hors_d_atteinte` | le périphérique demandé n'existe pas d'ici : chaîne refusée par torch, aucune carte visible, ordinal hors bornes | **avant toute recherche** | tout ce qui ne tient pas à l'EXISTENCE du périphérique |
+| **levée mémorisée** — `retriever.levees_au_chargement` | ce que le dernier chargement a réellement levé, quelle qu'en soit la cause : **mémoire**, modèle absent du cache HF, droits refusés | **après la première recherche** | une panne qui n'a pas encore été rencontrée |
+
+*Une levée est un fait DÉJÀ produit : la relire ne charge rien.* Le `except` des
+deux constructeurs **n'absorbe rien** — il retient et relance à la ligne suivante,
+et il n'introduit **aucun repli vers CPU**, ce qui changerait le périphérique en
+silence, exactement ce que ce lot existe pour rendre visible. La seconde
+direction est gardée : un chargement **réussi** efface la levée, sinon `degraded`
+serait définitif.
+
+**Mesuré en grandeur réelle**, jumeaux `docker run --rm` sur l'image étiquetée,
+branchés aux vrais stores, service de production **ni reconstruit ni redémarré** :
+
+| scénario | `/search` | `status` avant | `status` après |
+|---|---|---|---|
+| **B** sans carte, `cuda` | **500** | `ok` | **`degraded`** |
+| **C** avec la carte, `cuda:7` | **500** (`invalid device ordinal`) | `ok` | **`degraded`** |
+| **D** avec la carte, `banane` | **500** | `ok` | **`degraded`** |
+| **A** avec la carte, `cuda` — *contrôle positif* | **200**, `embedding: cuda:0` | `ok` | **`ok`** |
+| **E** sans carte, `cpu` — *contrôle positif* | — | `ok` | **`ok`** |
+
+**Le scénario C est celui que l'audit désignait comme le pire** — `cuda_available`
+reste `true` et le corps publié était *strictement identique* à celui d'un service
+sain au repos. Il est désormais attrapé **au repos**, avant tout chargement.
+
+**CE QUI RESTE OUVERT, ET IL FAUT LE LIRE.** Le healthcheck du compose est
+`curl -sf`, qui ne regarde que le code HTTP : **il reste VERT sur un service
+dégradé**, `mesuré` (`rc=0` sur le jumeau dégradé). C'est **délibéré** et le motif
+est écrit au site depuis le §1.27 — un code d'erreur passerait le conteneur
+`unhealthy` et empêcherait `frontend` de démarrer à froid, faisant perdre la seule
+route qui dit ce qui ne va pas. Ce que le lot change est que `status` et le champ
+`hors_d_atteinte` le **disent** ; ce qu'il ne change pas est que `curl -sf` ne les
+lit pas. *Un exploitant qui ne surveille que le healthcheck Docker ne verra
+toujours rien.* Trancher cela demande un arbitrage entre deux pannes et n'était
+pas dans ce mandat.
+
+#### (2) LE PÉRIPHÉRIQUE DANS `runs/` — et **la comparaison le voit**
+
+`scripts/evaluate.py` écrit une clé racine `peripherique`, lue à `/health`
+**après** les questions — `embedding` et `rerank` valent `null` tant que les
+modèles ne sont pas chargés, donc une lecture précoce n'aurait porté que le
+réglage. **Le fait, pas le réglage** : deux campagnes lancées toutes deux en
+`TORCH_DEVICE=cuda`, l'une sur une machine qui sert la carte et l'autre non, ont
+le même `requested` et ne sont pas comparables.
+
+**IL SIGNALE, IL NE REFUSE PAS — et le motif est pesé, non hérité.**
+`empreinte_des_ancrages` refuse parce qu'un corpus remplacé rend des chiffres
+*plausibles et faux sur chaque question* ; le garde de langue du lot 6 signale
+parce que le modèle sert quand même. Le périphérique est du second genre : une
+bascule CPU→GPU laisse les quatre rappels identiques et ne déplace qu'un
+départage d'ex æquo. **Et surtout : refuser interdirait la comparaison qui a
+tranché la décision du 11 septembre 2026**, qui est elle-même inter-périphérique.
+Un garde qui refuserait la mesure qui l'a fait naître est un garde mal posé. Ce
+qui change n'est pas la validité de la comparaison, c'est son **attribution**.
+
+**Trois positions, et la troisième est celle qui manquait partout ailleurs** :
+`identique` est imprimé **aussi** (sinon un silence ne se distingue pas d'un garde
+absent) ; `différent` est un bandeau en tête de comparaison, avant les flèches,
+parce que c'est une clé de lecture et non une note de bas de page ; **`muet` n'est
+PAS `différent`** — les onze campagnes de `runs/` sont antérieures à la clé, et
+affirmer « différent » sur une ignorance serait inventer un fait.
+
+**Rouge d'abord, sur données réelles** : `comparer_apparie` confrontant
+`runs/2026-09-11-gpu-cuda-reglage.json` (GPU) à
+`runs/2026-09-10-lecteur-neuf-reglage.json` (CPU) imprimait ses 138 paires,
+rendait `True`, et **ne prononçait pas une fois le mot « périphérique »**
+(`grep -ci` = **0**). Après, il l'annonce.
+
+#### (3) Les deux queues
+
+- **la base de chaque chiffre.** `src/agent/settings.py` **et**
+  `documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md` portaient
+  sept valeurs de `reference-08` sous un titre nommant `lecteur-neuf`. Les deux
+  lectures sont désormais écrites **aux deux sites**, chaque chiffre avec sa base,
+  **recalculées depuis `runs/` sans rejouer aucune campagne** : contre
+  `2026-09-08-reference` −817 ms (−11,2 %) / +40 ms / **20,4 pour 1** ; contre
+  `2026-09-10-lecteur-neuf-reglage` −365 ms (−5,3 %) / +106 ms / **3,4 pour 1**.
+  Le verdict ne change pas ; le « rapport de vingt contre un » écrit en gras était
+  celui de la base que le titre ne nommait pas ;
+- **le geste rendu au pipeline.** `TORCH_DEVICE=cpu` est désormais **joint** au
+  geste dans `pour_le_pipeline_ingestion.md` **et** `gpu_cuda.md` §8, avec la
+  commande qui tranche. **Éprouvé, pas seulement écrit** : le geste tel qu'il
+  était donné rend `degraded` + `/search` **500** ; le geste corrigé rend
+  **`ok None`** + `/search` **200**. La ligne de diagnostic du §10 qui renvoyait
+  un `embedding: null` vers la concordance est scindée : `status` distingue
+  désormais les deux causes.
+
+#### Ce que le lot a trouvé CONTRE LUI-MÊME
+
+- **huit tests verts qui mesuraient une voisine.** Le câblage du périphérique dans
+  `status` a fait rougir **8 tests** de `test_health_parallele.py`,
+  `test_garde_modele_embedding.py` et `test_securite.py` : ils assertaient
+  `status == "ok"` **sans rien dire du périphérique**, et le défaut `cuda` dans un
+  venv torch CPU décrit un service qui ne peut pas chercher. Ils mesuraient donc
+  leur propriété sur un service qu'ils *croyaient* sain. Le périphérique y est
+  désormais **épinglé**, avec le motif au site. *Le `rc` était juste, la scène
+  fausse* ;
+- **le chiffre de mémoire du §4.48 était périmé de trois heures** (1 266 → 1 294),
+  et la carte n'est plus partagée avec le seul Ollama.
+
+#### Ce que le lot n'a PAS fermé, et pourquoi
+
+- **`--compare` épinglé sur le 8 septembre** dans le `Makefile` : au plan du
+  pilote, non touché. La fermeture (2) **ne le rend pas absurde** — elle le rend
+  plus lisible : `make eval` annoncera désormais « antécédent MUET » tant que la
+  référence n'aura pas été rejouée avec cette version du script. *Le geste qui
+  referme cela est de rejouer une référence, et il coûte une campagne* ;
+- **`.github/workflows/ci.yml`** porte encore « tout tourne en CPU » : le jeton
+  n'a pas le scope `workflow` ;
+- **`src/agent/llm.py`** : non touché, la bascule vLLM est au banc go/no-go d'en
+  face ;
+- **le healthcheck du compose**, ci-dessus.
+

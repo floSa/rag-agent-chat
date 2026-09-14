@@ -368,10 +368,28 @@ docker exec rag-agent-api python -c "import torch; print(torch.__version__)"
 docker build -f Dockerfile.agent --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu -t rag-agent-chat-agent-api:latest .
 ```
 
-**Retirer la réservation** : commentez le bloc `deploy:` du service `agent-api`
-dans `docker-compose.yml`, puis `docker compose up -d agent-api`. Vérifiez par
-`docker inspect rag-agent-api --format '{{json .HostConfig.DeviceRequests}}'`,
-qui doit rendre `null`.
+**Retirer la réservation** — ⚠ **EN DEUX LIGNES, JAMAIS UNE.** Retirer la
+réservation SANS toucher `TORCH_DEVICE` laisse le défaut à `cuda` sur une
+machine où torch ne voit plus de carte : le conteneur démarre, le healthcheck est
+vert, et **chaque recherche rend 500**. `mesuré` le 14 septembre 2026 sur un
+jumeau branché aux vrais stores, `docker run` sans `--gpus` :
+`POST /search` → **500**, `GET /health` → **200**. Les deux lignes vont ensemble :
+
+```bash
+# 1. dans le .env — SANS CETTE LIGNE le service démarre cassé
+TORCH_DEVICE=cpu
+```
+```bash
+# 2. commenter le bloc `deploy:` du service `agent-api` dans docker-compose.yml
+docker compose up -d agent-api
+docker inspect rag-agent-api --format '{{json .HostConfig.DeviceRequests}}'   # → null
+curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['status'], d['torch_device']['hors_d_atteinte'])"
+```
+
+La dernière commande est celle qui tranche, et elle est le garde-fou posé par le
+lot 12 : elle doit rendre **`ok None`**. Si elle rend **`degraded`** suivi d'un
+motif, la première ligne a été oubliée — `/health` le dit désormais au lieu de
+laisser la panne au seul journal.
 
 ---
 
@@ -401,8 +419,10 @@ curl -s http://localhost:8011/health | python3 -c "import json,sys; print(json.l
 | `/health` : `cuda_build: null` | **(a)** — l'image est en CPU | `docker exec rag-agent-api python -c "import torch; print(torch.version.cuda)"` |
 | `cuda_build: "13.0"` mais `cuda_available: false` | **(b)** — la carte n'entre pas | `docker exec rag-agent-api sh -c 'ls /dev/nvidia*'` |
 | `cuda_available: true` mais `embedding: "cpu"` | **(c)** — le réglage. Depuis le 11 septembre 2026 le défaut est `cuda`, donc un `cpu` ici vient d'un `.env` qui le pose | `docker exec rag-agent-api python -c "from src.agent.settings import settings; print(settings.torch_device)"` |
-| `embedding: null` après une requête | le modèle n'a pas été chargé : la recherche n'est pas allée jusque-là (voir les 503 de concordance) | `curl -s localhost:8011/health \| grep embedding_model` |
-| une recherche rend 500, `/health` reste `200` | `TORCH_DEVICE` nomme un périphérique que le build ou la machine ne sert pas | `docker logs rag-agent-api --tail 50` |
+| `embedding: null` après une requête, `status: ok` | le modèle n'a pas été chargé : la recherche n'est pas allée jusque-là (voir les 503 de concordance) | `curl -s localhost:8011/health \| grep embedding_model` |
+| `embedding: null` après une requête, **`status: degraded`** | **le chargement LÈVE** — c'est la panne du périphérique, pas la concordance. Le champ `hors_d_atteinte` en donne la cause exacte | `curl -s localhost:8011/health \| python3 -c "import json,sys; print(json.load(sys.stdin)['torch_device']['hors_d_atteinte'])"` |
+| une recherche rend 500, `/health` reste `200` **et `status: degraded`** | `TORCH_DEVICE` nomme un périphérique que le build ou la machine ne sert pas, ou le chargement a levé (mémoire, cache HF) | `docker logs rag-agent-api --tail 50` |
+| une recherche rend 500 et `/health` dit **`status: ok`** | la levée ne tient PAS au périphérique — `/health` ne la voit qu'après le premier échec de chargement, et seulement pour ces deux modèles | `docker logs rag-agent-api --tail 50` |
 | tout est vert, rien n'est plus rapide | la **contention** — §7 | `nvidia-smi` pendant une recherche |
 
 ---
