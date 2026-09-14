@@ -152,6 +152,22 @@ Constaté, pas supposé :
   de laisser la panne au seul journal, et c'est précisément ce qui manquait quand
   cette page vous a été rendue le 11 septembre.
 
+  **Et un fait que nous vous rendons le 14 septembre 2026, si vous partagez cette
+  carte** : cet agent plafonne désormais la concurrence de ses deux étages torch
+  (`TORCH_MAX_CONCURRENCY`, défaut **4**) et **publie** ce qu'il prend, dans
+  `/health`. Vous n'avez pas à nous croire sur parole :
+
+  ```bash
+  curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin)['torch_device']; print('borne =', d['concurrence_max'], '| pic réservé =', d['pic_memoire_reservee_mio'], 'Mio')"
+  ```
+
+  **Réservation à prévoir pour cet agent : 2 048 Mio (2,00 Gio)**, `calculé` à la
+  borne par défaut. **Elle doit être inconditionnelle** : l'empreinte de cet agent
+  est *paresseuse* — **0 Mio** au repos, ses deux modèles ne se chargeant qu'à la
+  première question. Un dimensionnement pris pendant qu'il dort verrait 1,3 Go de
+  libre qui ne l'est pas. Les pièges de lecture du champ sont au §10bis de
+  [`gpu_cuda.md`](gpu_cuda.md).
+
   Le mode d'emploi complet — les trois conditions qui décident du GPU, comment
   vérifier chacune, le coût et le retour en arrière — est à
   [`gpu_cuda.md`](gpu_cuda.md).

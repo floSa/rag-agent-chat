@@ -7952,6 +7952,104 @@ rendait `True`, et **ne prononçait pas une fois le mot « périphérique »**
   un `embedding: null` vers la concordance est scindée : `status` distingue
   désormais les deux causes.
 
+#### (4) BORNER LA CONCURRENCE, ET PUBLIER LE CLIQUET — la fermeture qui débloque le voisin de carte
+
+**Le problème n'était pas la mesure, c'était l'absence de borne.** `mesuré` : pas
+de `--limit-concurrency` sur `uvicorn`, aucun sémaphore, aucun
+`PYTORCH_CUDA_ALLOC_CONF`, et `FETCH_K=50` passages reclassés par requête.
+*Réserver pour quelqu'un d'illimité, ce n'est pas réserver* — et
+`--gpu-memory-utilization` est une option de **lancement** de vLLM, donc le
+chiffre doit être bon **avant**.
+
+**La borne.** Un sémaphore `TORCH_MAX_CONCURRENCY` (défaut **4**) autour des
+**deux** étages torch — `encode` de la question et `predict` du cross-encoder.
+*Un sémaphore et non `uvicorn --limit-concurrency`* : celui-ci bornerait aussi
+`/health`, `/context`, `/feedback`, et rendrait **503** au-delà, faisant passer le
+conteneur pour saturé quand seule la carte l'est. Le sémaphore borne ce qui
+coûte, là où ça coûte, et **laisse la sonde de santé répondre sous charge** — les
+deux endpoints sont des `def`, donc ils bloquent un fil du pool et jamais la
+boucle d'événements.
+
+**CE QUE LA BORNE COÛTE QUAND ELLE MORD — `mesuré`, pas supposé**, le
+14 septembre 2026 à 09:33 UTC, étage simulé à 70 ms (p50 mesurées sur la carte :
+`dense_ms` 72, `rerank_ms` 58), borne à 4 :
+
+| N simultanées | mur sans borne | mur avec borne 4 | attente max ajoutée |
+|---:|---:|---:|---:|
+| 4 | 70,9 ms | 70,9 ms | **0,0 ms** |
+| 8 | 71,9 ms | 141,3 ms | 69,6 ms |
+| 16 | 73,9 ms | 281,8 ms | 208,8 ms |
+| **40** — le plafond du fil d'exécution de FastAPI | 78,8 ms | 705,0 ms | **624,7 ms** |
+
+**Sous la borne, elle est gratuite** — c'est la première direction, et elle est
+gardée. Au pire, à 40 requêtes simultanées, elle ajoute **625 ms** à la dernière
+servie. *C'est le prix, il est borné, et il vaut mieux qu'une carte qui croît sous
+le voisin.* Pas de délai d'attente : la file draine toujours, étant bornée par le
+fil d'exécution, et un délai ajouterait un mode de panne à une file qui n'en a
+pas.
+
+**LE CLIQUET EST PUBLIÉ.** `/health` porte `concurrence_max` et
+`pic_memoire_reservee_mio` (`torch.cuda.max_memory_reserved()`), à côté des
+champs du lot 11. **`null` tant qu'aucun modèle n'est chargé, jamais `0.0`** —
+c'est exactement le reproche que la bloquante (1) fait à `status`, et le refaire
+ici aurait été absurde : un voisin qui dimensionne sur un zéro prendrait 1,3 Go
+de trop et ferait tomber cet agent plus tard (§4.50). Éprouvé de bout en bout sur
+un jumeau `--gpus all`, `mesuré` le 14 septembre 2026 à 09:34 UTC :
+
+| moment | `embedding` / `rerank` | `pic_memoire_reservee_mio` |
+|---|---|---:|
+| au repos | `null` / `null` | **`null`** |
+| après `POST /search` | `cuda:0` / `null` | **482,0** |
+| après `POST /sources` | `cuda:0` / `cuda:0` | **1 036,0** |
+
+**ET LE LOT A TROUVÉ UNE RÉSERVE CONTRE SON PROPRE CHAMP.** Au même instant,
+`nvidia-smi` attribuait **1 262 MiB** à ce PID quand le champ rend **1 036,0** :
+**226 MiB d'écart**, qui sont le **contexte CUDA** — torch ne le compte pas.
+*Un voisin qui réserverait sur ce seul champ sous-réserverait d'autant.* Le champ
+sert à **vérifier de l'extérieur que la borne tient** ; il ne sert pas à
+dimensionner.
+
+**ET POURQUOI CE CHAMP DOIT PASSER PAR LA ROUTE**, ce qui n'était pas évident :
+`docker exec rag-agent-api python -c "torch.cuda.max_memory_reserved()"` rend
+**0,0 Mio** pendant que `nvidia-smi` attribue **1 984 MiB** au conteneur
+(`mesuré` à 09:29 UTC) — `docker exec` démarre un **autre** processus, avec un
+contexte CUDA neuf. *De l'extérieur, ce chiffre n'est lisible d'aucune autre
+façon.*
+
+#### LE CHIFFRE DE RÉSERVATION RENDU AU VOISIN DE CARTE
+
+`calculé` le 14 septembre 2026 à 09:33 UTC **à partir des paliers du banc du
+pilote** — `mesuré` par lui sur `/sources` et **CITÉS ici, non rejoués** : la
+carte n'avait que **2 183 MiB libres** (vLLM 14 264, Ollama 4 584, agent 1 984),
+et rejouer un palier à 16 concurrentes l'aurait fait tomber. *La réserve est
+écrite plutôt que tue.*
+
+    paliers mesurés :   1 -> 1 362 Mio    2 -> 1 370    4 -> 1 506
+                        8 -> 1 570       16 -> 1 984
+
+    pente marginale max entre paliers adjacents : 68,0 Mio/requête (entre 2 et 4)
+
+    réservation(N) = 1 362 + (N - 1) x 68,0
+
+Cette forme **majore chacun des cinq paliers mesurés** (1 362 / 1 430 / 1 566 /
+1 838 / 2 382 contre 1 362 / 1 370 / 1 506 / 1 570 / 1 984), ce qui est la
+propriété qu'on lui demande.
+
+> ### **À la borne par défaut N = 4 : 1 566 Mio. Réservation recommandée : 2 048 Mio (2,00 Gio), soit 8,89 % de la L4.**
+>
+> La marge est de **482 Mio (+30,8 %)** sur le calcul, et elle couvre les 226 MiB
+> de contexte CUDA mesurés ci-dessus plus la non-linéarité du cliquet.
+
+**TROIS RÉSERVES, ET ELLES CONDITIONNENT LE CHIFFRE :**
+
+1. **il ne vaut qu'une fois la borne EN SERVICE et l'agent REDÉMARRÉ.** Le
+   processus de production tourne encore sans borne et son cliquet est déjà à
+   **1 984 MiB** : il ne redescendra pas, l'allocateur de torch ne rendant rien ;
+2. **les paliers ont été mesurés sans trafic LLM concurrent sur la carte** ;
+3. **la réservation doit rester INCONDITIONNELLE** — §4.50 : l'empreinte de cet
+   agent est paresseuse, et un dimensionnement pris pendant qu'il est au repos
+   verrait de la place qui n'est pas libre.
+
 #### Ce que le lot a trouvé CONTRE LUI-MÊME
 
 - **huit tests verts qui mesuraient une voisine.** Le câblage du périphérique dans

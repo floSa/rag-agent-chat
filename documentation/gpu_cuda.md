@@ -427,6 +427,60 @@ curl -s http://localhost:8011/health | python3 -c "import json,sys; print(json.l
 
 ---
 
+## 10bis. Ce que cet agent PREND sur la carte, et ce qui le plafonne
+
+**À lire si vous partagez cette carte avec autre chose** — vLLM, Ollama, un autre
+agent. `--gpu-memory-utilization` est une option de **lancement** de vLLM : le
+chiffre doit être bon **avant**.
+
+**Deux champs de `/health` répondent, et ils vont ensemble :**
+
+```bash
+curl -s http://localhost:8011/health | python3 -c "import json,sys; d=json.load(sys.stdin)['torch_device']; print('borne =', d['concurrence_max'], '| pic réservé =', d['pic_memoire_reservee_mio'], 'Mio')"
+```
+
+- `concurrence_max` — la borne `TORCH_MAX_CONCURRENCY` (défaut **4**). C'est le
+  nombre maximal de requêtes admises **en même temps** dans un étage torch.
+  Au-delà, elles s'attendent au lieu de faire croître la carte ;
+- `pic_memoire_reservee_mio` — `torch.cuda.max_memory_reserved()`.
+
+**TROIS PIÈGES SUR CE SECOND CHIFFRE, et chacun a coûté quelque chose :**
+
+1. **c'est un MAXIMUM HISTORIQUE, pas une consommation courante.** L'allocateur
+   de torch ne rend rien : la valeur monte et ne redescend jamais. `mesuré` le
+   14 septembre 2026 sur le service : **1 294 Mio** à 09:08 UTC, **1 984** à
+   09:28, même PID, aucun redémarrage entre les deux ;
+2. **`null` ne veut pas dire zéro.** Tant qu'aucun modèle n'est chargé — au repos,
+   après un redémarrage, la nuit — le champ vaut `null`, c'est-à-dire *« on ne
+   sait pas encore »*. **Ne dimensionnez jamais une réservation sur ce moment-là** :
+   vous verriez 1,3 Go de libre en trop, vous les prendriez, et cet agent
+   tomberait **plus tard**, sans rapport apparent avec la cause ;
+3. **il SOUS-ESTIME ce que `nvidia-smi` attribue au processus**, de la taille du
+   contexte CUDA. `mesuré` le 14 septembre 2026 à 09:34 UTC : le champ rend
+   **1 036,0 Mio** quand `nvidia-smi` attribue **1 262 MiB** au même PID —
+   **226 MiB d'écart**. Ce champ sert à **vérifier que la borne tient**, pas à
+   dimensionner.
+
+**Et il n'est lisible QUE par cette route.** `docker exec rag-agent-api python -c
+"import torch; print(torch.cuda.max_memory_reserved())"` rend **0** : `docker
+exec` démarre un **autre** processus, avec un contexte CUDA neuf. `mesuré` à
+09:29 UTC, 0,0 Mio contre 1 984 MiB vus par `nvidia-smi` pour le même conteneur.
+
+**Le chiffre de réservation à rendre à un voisin de carte**, `calculé` le
+14 septembre 2026 depuis les paliers mesurés par le banc du pilote :
+
+    réservation(N) = 1 362 Mio + (N - 1) x 68,0 Mio
+
+**À la borne par défaut N = 4 : 1 566 Mio, arrondis à 2 048 Mio (2,00 Gio).**
+Il ne vaut **qu'une fois la borne en service et l'agent redémarré** : un processus
+qui a tourné sans borne garde son cliquet. Détail et réserves : §4.51 du registre.
+
+**Ce que la borne coûte quand elle mord** — `mesuré`, étage à 70 ms : **rien**
+jusqu'à 4 requêtes simultanées, **+625 ms** sur la dernière servie à 40, qui est
+le plafond du fil d'exécution de FastAPI.
+
+---
+
 ## 11. Prouver que le GPU est ATTEINT, pas seulement présent
 
 `/dev/nvidia*` et `cuda_available: true` disent que la carte est **là**. Ils ne

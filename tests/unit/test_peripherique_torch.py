@@ -32,15 +32,18 @@ recherche.
 """
 
 import logging
+import threading
+import time
 from typing import Any
 
 import pytest
 import torch
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from src.agent import retriever
 from src.agent.settings import Settings
-from src.api.schemas import EmbeddingModelHealth, TorchDeviceHealth
+from src.api.schemas import ChunkResult, EmbeddingModelHealth, TorchDeviceHealth
 
 # ─── Outillage : deux doubles qui reproduisent la SIGNATURE réelle ────────────
 #
@@ -801,6 +804,268 @@ def test_un_chargement_reussi_efface_la_levee_memorisee(
     assert not retriever.levees_au_chargement(), (
         "la levée survit à un chargement RÉUSSI : le service resterait `degraded` "
         f"pour toujours — {retriever.levees_au_chargement()}"
+    )
+
+
+# ─── (7) LA BORNE DE CONCURRENCE, ET LE CLIQUET PUBLIÉ ───────────────────────
+#
+# POURQUOI CETTE SECTION EXISTE, ET ELLE DÉBLOQUE UNE AUTRE ÉQUIPE.
+# `--gpu-memory-utilization` est une option de LANCEMENT de vLLM : elle ne se
+# change pas à chaud, donc le chiffre de réservation doit être bon AVANT. Or cet
+# agent ne pouvait pas en donner un honnête : **aucune borne de concurrence
+# n'existait** — `uvicorn` lancé sans `--limit-concurrency`, aucun sémaphore,
+# aucun `PYTORCH_CUDA_ALLOC_CONF` — et chaque requête reclasse `FETCH_K=50`
+# passages. *Réserver pour quelqu'un d'illimité, ce n'est pas réserver.*
+#
+# ET L'EMPREINTE EST UN CLIQUET : l'allocateur de torch ne rend rien, donc après
+# chaque rafale elle RESTE au sommet atteint. `mesuré` sur le service en
+# production, sans qu'aucune charge ne soit ajoutée par ce lot : **1 294 Mio** à
+# 09:08 UTC, **1 984 Mio** à 09:28 — même PID (503779), aucun redémarrage entre
+# les deux, et 1 984 est exactement le palier « 16 concurrentes » du banc du
+# pilote. Le cliquet est donc observé, pas supposé.
+
+
+def test_la_borne_de_concurrence_est_un_reglage_et_non_une_constante() -> None:
+    """Une borne enfouie dans le code ne se règle pas sur le poste qui en a besoin.
+
+    Le voisin de carte dimensionne sa réservation sur CETTE valeur : elle doit
+    être lisible, réglable sans reconstruire l'image, et publiée.
+    """
+    assert Settings().torch_max_concurrency == 4, (
+        "le défaut de la borne a changé sans que ce test le dise — le chiffre de "
+        "réservation rendu au voisin de carte en dépend"
+    )
+    assert Settings(TORCH_MAX_CONCURRENCY="7").torch_max_concurrency == 7, (
+        "la borne ne se règle pas par l'environnement"
+    )
+    with pytest.raises(ValidationError):
+        Settings(TORCH_MAX_CONCURRENCY="0")
+
+
+def test_la_borne_laisse_passer_sous_son_plafond(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PREMIÈRE DIRECTION : sous la borne, rien ne change.
+
+    Une borne qui sérialiserait tout serait une régression de latence déguisée en
+    garde. Trois entrées simultanées sous une borne de quatre doivent être
+    RÉELLEMENT simultanées.
+    """
+    monkeypatch.setattr(retriever.settings, "torch_max_concurrency", 4, raising=False)
+    retriever.rearmer_la_borne_des_etages_torch()
+
+    dedans = []
+    barriere = threading.Barrier(3, timeout=5)
+
+    def _entrer() -> None:
+        with retriever.borne_des_etages_torch():
+            dedans.append(1)
+            barriere.wait()
+
+    fils = [threading.Thread(target=_entrer) for _ in range(3)]
+    for f in fils:
+        f.start()
+    for f in fils:
+        f.join(timeout=5)
+
+    assert len(dedans) == 3, (
+        f"trois requêtes sous une borne de quatre ne sont pas entrées ensemble : "
+        f"{len(dedans)}. La barrière aurait levé si elles s'étaient attendues"
+    )
+
+
+def test_la_borne_fait_attendre_au_dessus_de_son_plafond(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """SECONDE DIRECTION, ET C'EST CELLE QUI PORTE LA PROPRIÉTÉ.
+
+    Au-dessus de la borne, les requêtes s'attendent **au lieu de faire croître la
+    carte**. C'est tout ce que ce garde existe pour obtenir : le cliquet ne monte
+    que jusqu'au palier de la borne.
+
+    PREUVE D'ATTEINTE INCLUSE : le test vérifie que le quatrième fil est
+    RÉELLEMENT bloqué — il ne se contente pas de compter, il constate qu'il
+    n'entre qu'une fois une place libérée.
+    """
+    monkeypatch.setattr(retriever.settings, "torch_max_concurrency", 3, raising=False)
+    retriever.rearmer_la_borne_des_etages_torch()
+
+    entres: list[int] = []
+    liberer = threading.Event()
+
+    def _occuper(n: int) -> None:
+        with retriever.borne_des_etages_torch():
+            entres.append(n)
+            liberer.wait(timeout=5)
+
+    trois = [threading.Thread(target=_occuper, args=(i,)) for i in range(3)]
+    for f in trois:
+        f.start()
+    for _ in range(200):
+        if len(entres) == 3:
+            break
+        time.sleep(0.01)
+    assert len(entres) == 3, f"les trois premières n'ont pas rempli la borne : {entres}"
+
+    quatrieme = threading.Thread(target=_occuper, args=(99,))
+    quatrieme.start()
+    time.sleep(0.15)
+    assert 99 not in entres, (
+        "la quatrième requête est entrée alors que la borne de TROIS est pleine : "
+        f"{entres}. Rien ne borne la concurrence des étages torch, et l'empreinte "
+        "de la carte croît avec elle — le chiffre de réservation rendu au voisin "
+        "ne vaut alors rien"
+    )
+
+    liberer.set()
+    for f in [*trois, quatrieme]:
+        f.join(timeout=5)
+    assert 99 in entres, f"la quatrième n'est jamais entrée après libération : {entres}"
+
+
+def test_les_deux_etages_torch_passent_par_la_borne(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LE CÂBLAGE, et sans lui la borne serait un objet que personne n'appelle.
+
+    C'est la moitié qui manquait à tous les gardes creux de ce chantier. Les deux
+    étages sont éprouvés SÉPARÉMENT et par leur VRAI chemin d'appel : borner
+    l'encodage sans le reclassement laisserait passer celui qui traite
+    `FETCH_K=50` passages par requête, donc celui dont l'empreinte croît.
+
+    Les doubles n'observent pas un appel au sémaphore — ils observent que le
+    permis est **réellement détenu** au moment où torch calcule. Un câblage qui
+    prendrait puis rendrait le permis avant d'appeler serait vert à un traceur
+    d'appels et faux en service.
+    """
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+    monkeypatch.setattr(retriever.settings, "torch_max_concurrency", 1, raising=False)
+    retriever.rearmer_la_borne_des_etages_torch()
+
+    tenu: dict[str, bool] = {}
+
+    def _permis_detenu() -> bool:
+        """Vrai si l'unique permis est pris. Rendu immédiatement s'il ne l'était pas."""
+        libre = retriever._semaphore().acquire(blocking=False)
+        if libre:
+            retriever._semaphore().release()
+        return not libre
+
+    class _Embedder:
+        def __init__(self, nom: str = "", *, device: str | None = None) -> None:
+            self.device = device
+
+        def encode(self, question: str) -> Any:
+            tenu["embedding"] = _permis_detenu()
+            import numpy
+
+            return numpy.zeros(3)
+
+    class _Cross:
+        def __init__(self, nom: str = "", *, device: str | None = None) -> None:
+            self.device = device
+            self.config = _Config()
+
+        def predict(self, pairs: Any) -> Any:
+            tenu["rerank"] = _permis_detenu()
+            import numpy
+
+            return numpy.zeros(len(pairs))
+
+    monkeypatch.setattr(retriever, "SentenceTransformer", _Embedder)
+    monkeypatch.setattr(retriever, "CrossEncoder", _Cross)
+    monkeypatch.setattr(retriever, "verifier_modele_embedding", lambda: None)
+
+    class _Collection:
+        def query(self, **kwargs: Any) -> dict[str, Any]:
+            return {"documents": [[]], "metadatas": [[]], "distances": [[]], "ids": [[]]}
+
+    monkeypatch.setattr(retriever, "_get_chroma_collection", lambda: _Collection())
+    retriever._get_embedding_model.cache_clear()
+    retriever._get_rerank_model.cache_clear()
+
+    try:
+        # Étage 1 — l'encodage de la question, par son vrai chemin.
+        retriever._dense_search("question", 5)
+        # Étage 2 — le reclassement, celui qui traite les 50 passages.
+        retriever.rerank(
+            "question",
+            [
+                ChunkResult(
+                    chunk_id=f"c{i}",
+                    element_id=f"{i:010x}",
+                    graph_node_id=f"n{i}",
+                    document="texte",
+                    filename="f.pdf",
+                    page_no=1,
+                    label="text",
+                    distance=0.1,
+                )
+                for i in range(3)
+            ],
+        )
+    finally:
+        retriever._get_embedding_model.cache_clear()
+        retriever._get_rerank_model.cache_clear()
+
+    assert tenu.get("embedding") is True, (
+        "l'ENCODAGE de la question ne tient pas le permis quand torch calcule : "
+        f"{tenu}. La borne ne borne pas cet étage"
+    )
+    assert tenu.get("rerank") is True, (
+        "le RECLASSEMENT ne tient pas le permis quand torch calcule : "
+        f"{tenu}. C'est l'étage qui traite `FETCH_K=50` passages par requête, "
+        "donc celui dont l'empreinte sur la carte croît avec la concurrence"
+    )
+
+
+def test_le_cliquet_est_publie_par_health(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LE VOISIN NE DOIT PAS AVOIR À CROIRE CE DÉPÔT SUR PAROLE.
+
+    `/health` publie le plus haut niveau de mémoire GPU jamais RÉSERVÉ par ce
+    processus, et la borne qui le plafonne. Les deux ensemble sont ce qui rend le
+    chiffre de réservation vérifiable de l'extérieur.
+
+    ET IL FAUT LIRE `pic_memoire_reservee_mio` DEPUIS LE PROCESSUS QUI SERT.
+    `mesuré` le 14 septembre 2026 à 09:29 UTC : `docker exec rag-agent-api python
+    -c "torch.cuda.max_memory_reserved()"` rend **0,0 Mio** pendant que
+    `nvidia-smi` attribue **1 984 Mio** au même conteneur — parce que `docker
+    exec` démarre un AUTRE processus, avec un contexte CUDA neuf. *C'est
+    précisément pour cela que ce champ doit passer par la route.*
+    """
+    corps = _corps_de_health(monkeypatch, "cpu")
+    publie = corps["torch_device"]
+
+    assert "concurrence_max" in publie, (
+        f"la borne n'est pas publiée : {publie}. Le voisin de carte ne peut pas "
+        "vérifier le chiffre de réservation qu'on lui a rendu"
+    )
+    assert publie["concurrence_max"] == retriever.settings.torch_max_concurrency
+    assert "pic_memoire_reservee_mio" in publie, (
+        f"le cliquet n'est pas publié : {publie}"
+    )
+
+
+def test_le_cliquet_vaut_null_tant_que_rien_n_est_charge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ZÉRO NE VEUT PAS DIRE « CET AGENT NE PREND RIEN ».
+
+    C'est exactement le reproche que la bloquante (1) de ce lot fait à `status`,
+    et il serait absurde de le refaire ici. La route ne charge rien ; tant
+    qu'aucun modèle n'est en mémoire, le cliquet vaut `null` — *« on ne sait pas
+    encore »* — et non `0.0`, qui se lirait *« mesuré, et c'est zéro »*.
+
+    Le danger est concret : un voisin qui dimensionne sa réservation pendant que
+    cet agent est au repos verrait 1,3 Go de libre en trop, les prendrait, et
+    ferait tomber l'agent plus tard — c'est le §4.50, rendu par le pilote.
+    """
+    retriever._get_embedding_model.cache_clear()
+    retriever._get_rerank_model.cache_clear()
+
+    corps = _corps_de_health(monkeypatch, "cpu")
+
+    assert corps["torch_device"]["embedding"] is None, "la scène n'est pas celle du repos"
+    assert corps["torch_device"]["pic_memoire_reservee_mio"] is None, (
+        "le cliquet publie une valeur alors qu'aucun modèle n'est chargé : "
+        f"{corps['torch_device']}. Un `0.0` ici se lit « cet agent ne prend rien », "
+        "et c'est la lecture qui fait tomber l'agent plus tard"
     )
 
 

@@ -174,6 +174,47 @@ class Settings(BaseSettings):
     #
     # Gardé dans les DEUX positions : `tests/unit/test_peripherique_torch.py`.
     torch_device: str = Field(default="cuda", alias="TORCH_DEVICE")
+    # ─── LA BORNE DE CONCURRENCE DES ÉTAGES TORCH ────────────────────────────
+    #
+    # POURQUOI ELLE EXISTE, ET ELLE DÉBLOQUE UNE AUTRE ÉQUIPE.
+    # `--gpu-memory-utilization` est une option de LANCEMENT de vLLM : elle ne se
+    # change pas à chaud, donc le chiffre de réservation que cet agent rend à son
+    # voisin de carte doit être bon AVANT la bascule. Or il n'y avait **aucune
+    # borne** : `uvicorn` est lancé sans `--limit-concurrency`, il n'y avait
+    # aucun sémaphore dans le code, aucun `PYTORCH_CUDA_ALLOC_CONF`, et chaque
+    # requête fait reclasser `FETCH_K=50` passages au cross-encoder.
+    # *Réserver pour quelqu'un d'illimité, ce n'est pas réserver.*
+    #
+    # ET L'EMPREINTE EST UN CLIQUET : l'allocateur de torch ne rend rien, donc
+    # elle RESTE au sommet atteint. `mesuré` sur le service en production, sans
+    # qu'aucune charge n'ait été ajoutée pour l'observer : **1 294 Mio** le
+    # 14 septembre 2026 à 09:08 UTC, **1 984 Mio** à 09:28 — même PID (503779),
+    # aucun redémarrage entre les deux.
+    #
+    # LE DÉFAUT EST 4, ET IL EST MOTIVÉ. Les paliers du banc du pilote — `mesuré`
+    # le 14 septembre 2026 sur `/sources`, CITÉS ici et non rejoués par ce lot —
+    # donnent 1 362 Mio à une requête, 1 506 à quatre, 1 570 à huit, 1 984 à
+    # seize. Quatre tient l'empreinte sous 1,5 Gio, et c'est aussi l'ordre de
+    # grandeur que le banc go/no-go de vLLM retient pour lui-même (4,58 requêtes
+    # concurrentes à 32768 de fenêtre) : borner les deux étages au même niveau
+    # évite qu'un côté attende l'autre.
+    #
+    # CE QUE LA BORNE COÛTE QUAND ELLE MORD, et c'est mesuré, pas supposé : au
+    # delà de la borne les requêtes s'attendent. Un étage torch dure ~60-70 ms
+    # sur la carte (`rerank_ms` p50 = 58, `dense_ms` p50 = 72, campagne du
+    # 11 septembre), et le fil d'exécution de FastAPI est lui-même borné à 40 :
+    # au pire 36 requêtes attendent 4 par 4, soit ~630 ms ajoutés à la dernière.
+    # C'est le prix, il est borné, et il est préférable à une carte qui croît
+    # sous le voisin.
+    #
+    # PAS DE DÉLAI D'ATTENTE, ET C'EST DÉLIBÉRÉ : la file draine toujours, étant
+    # bornée par le fil d'exécution, et un délai ajouterait un mode de panne à
+    # une file qui n'en a pas. Un étage torch qui pendrait bloquerait déjà tout
+    # sans ce sémaphore.
+    #
+    # Gardé dans les DEUX directions : `tests/unit/test_peripherique_torch.py`,
+    # section (7).
+    torch_max_concurrency: int = Field(default=4, ge=1, alias="TORCH_MAX_CONCURRENCY")
     embedding_model_name: str = Field(
         default="paraphrase-multilingual-MiniLM-L12-v2", alias="EMBEDDING_MODEL_NAME"
     )

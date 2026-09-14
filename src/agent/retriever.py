@@ -1,6 +1,8 @@
 import logging
 import math
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import lru_cache
 from typing import Any, Literal
 
@@ -21,6 +23,70 @@ _LEXICAL_PAGE = 2000
 # élément. L'ingestion utilise 150 caractères ; la marge couvre un réglage
 # différent sans rendre la recherche coûteuse.
 _MAX_OVERLAP = 400
+
+
+# ─── LA BORNE DE CONCURRENCE DES DEUX ÉTAGES TORCH ───────────────────────────
+#
+# Le motif complet est à `settings.torch_max_concurrency`. En deux phrases : sans
+# borne, l'empreinte de cet agent sur la carte croît avec la concurrence et
+# **ne redescend jamais** (l'allocateur de torch ne rend rien), donc le chiffre
+# de réservation rendu au voisin de carte ne vaut rien.
+#
+# UN SÉMAPHORE ET NON UNE BORNE AU NIVEAU DU SERVEUR, et c'est un choix pesé.
+# `uvicorn --limit-concurrency` bornerait TOUTES les requêtes, y compris celles
+# qui ne touchent pas torch — `/health`, `/context`, `/feedback` — et rendrait
+# **503** au-delà, ce qui ferait passer le conteneur pour saturé alors que seule
+# la carte l'est. Le sémaphore borne ce qui coûte, là où ça coûte, et laisse la
+# sonde de santé répondre : c'est la route qui doit continuer de parler quand le
+# service est sous pression.
+#
+# UN SEUL SÉMAPHORE POUR LES DEUX ÉTAGES : la mémoire est un seul pool. Une
+# requête traverse l'encodage puis le reclassement l'un APRÈS l'autre, donc un
+# sémaphore partagé borne bien le nombre de requêtes présentes dans un étage
+# torch à un instant donné, qui est la grandeur dont l'empreinte dépend.
+_borne_verrou = threading.Lock()
+_borne: threading.Semaphore | None = None
+_borne_taille: int | None = None
+
+
+def rearmer_la_borne_des_etages_torch() -> None:
+    """Reconstruit le sémaphore sur la valeur COURANTE du réglage.
+
+    Existe pour les tests, et pour eux seuls : en service le réglage ne bouge pas
+    après le démarrage. Un réarmement en vol perdrait les permis détenus, et
+    c'est pourquoi il n'est pas fait automatiquement à chaque lecture.
+    """
+    global _borne, _borne_taille
+    with _borne_verrou:
+        _borne = threading.Semaphore(settings.torch_max_concurrency)
+        _borne_taille = settings.torch_max_concurrency
+
+
+def _semaphore() -> threading.Semaphore:
+    global _borne, _borne_taille
+    with _borne_verrou:
+        if _borne is None or _borne_taille != settings.torch_max_concurrency:
+            _borne = threading.Semaphore(settings.torch_max_concurrency)
+            _borne_taille = settings.torch_max_concurrency
+        return _borne
+
+
+@contextmanager
+def borne_des_etages_torch() -> Iterator[None]:
+    """Ne laisse entrer que `TORCH_MAX_CONCURRENCY` requêtes dans un étage torch.
+
+    Les deux endpoints qui appellent sont des `def` et non des `async def` :
+    FastAPI les exécute dans son fil d'exécution, donc bloquer ici bloque un fil
+    de ce pool et **jamais la boucle d'événements**. `/health` continue de
+    répondre pendant que les requêtes s'attendent, ce qui est exactement ce qu'on
+    veut d'une sonde sous charge.
+    """
+    borne = _semaphore()
+    borne.acquire()
+    try:
+        yield
+    finally:
+        borne.release()
 
 
 # ─── LA MÉMOIRE DES LEVÉES AU CHARGEMENT ─────────────────────────────────────
@@ -563,6 +629,42 @@ def peripherique_hors_d_atteinte(demande: str, cuda_disponible: bool) -> str | N
     return None
 
 
+def _pic_memoire_reservee_mio() -> float | None:
+    """Le plus haut niveau de mémoire GPU jamais RÉSERVÉ par ce processus, en Mio.
+
+    C'EST UN MAXIMUM HISTORIQUE, PAS UNE CONSOMMATION COURANTE, et le champ le
+    dit à son site : l'allocateur de torch ne rend rien, donc cette valeur est un
+    **cliquet** — elle monte et ne redescend pas. Lue comme une mesure
+    instantanée, elle surestimerait ce que l'agent tient à cet instant ; lue comme
+    ce qu'elle est, elle dit ce que le voisin de carte doit RÉSERVER.
+
+    `None` TANT QU'AUCUN MODÈLE N'EST CHARGÉ, et c'est la même décision que pour
+    `embedding` et `rerank` juste au-dessus. La route ne charge rien ; un `0.0`
+    publié au repos se lirait *« mesuré, et cet agent ne prend rien »*, quand il
+    veut dire *« on ne sait pas encore »*. La différence est opérationnelle et
+    elle est écrite au §4.50 du registre : un voisin qui dimensionne sa
+    réservation pendant que cet agent est au repos voit 1,3 Go de libre en trop,
+    les prend, et fait tomber l'agent **plus tard**, sans rapport apparent avec
+    la cause.
+
+    `None` AUSSI sur un build sans CUDA : `max_memory_reserved` n'y décrit rien.
+
+    ET IL FAUT LIRE CE CHAMP DEPUIS LE PROCESSUS QUI SERT. `mesuré` le
+    14 septembre 2026 à 09:29 UTC : `docker exec rag-agent-api python -c
+    "torch.cuda.max_memory_reserved()"` rend **0,0 Mio** pendant que `nvidia-smi`
+    attribue **1 984 Mio** au même conteneur — `docker exec` démarre un AUTRE
+    processus, avec un contexte CUDA neuf. *C'est la raison d'être de ce champ :
+    de l'extérieur, ce chiffre n'est pas lisible autrement que par cette route.*
+    """
+    chargé = (
+        _get_embedding_model.cache_info().currsize > 0
+        or _get_rerank_model.cache_info().currsize > 0
+    )
+    if not chargé or not torch.cuda.is_available():
+        return None
+    return round(torch.cuda.max_memory_reserved() / 2**20, 1)
+
+
 def _verdict_du_peripherique(demande: str, cuda_disponible: bool) -> str | None:
     """Les DEUX moitiés en un seul champ : le contrôle statique et les levées.
 
@@ -604,6 +706,8 @@ def etat_du_peripherique() -> TorchDeviceHealth:
         # ci-dessous doivent décrire le MÊME relevé, sinon le corps publié
         # contredirait le statut qui l'accompagne.
         hors_d_atteinte=_verdict_du_peripherique(settings.torch_device, disponible),
+        concurrence_max=settings.torch_max_concurrency,
+        pic_memoire_reservee_mio=_pic_memoire_reservee_mio(),
     )
 
 
@@ -1215,7 +1319,11 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
     embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
-    query_embedding: list[float] = embedding_model.encode(question).tolist()
+    # Sous la borne : c'est ici que la carte alloue. Voir
+    # `settings.torch_max_concurrency` pour le motif et pour ce que la borne
+    # coûte quand elle mord.
+    with borne_des_etages_torch():
+        query_embedding: list[float] = embedding_model.encode(question).tolist()
 
     def _query(coll: chromadb.Collection) -> dict[str, Any]:
         return dict(coll.query(
@@ -1337,7 +1445,10 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
     pairs = [[question, c.document] for c in chunks]
     # Les stubs du cross-encoder décrivent un type d'entrée multimodal très
     # large ; une liste de paires texte est ce qu'il accepte en pratique.
-    scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
+    # Sous la borne, et c'est L'ÉTAGE QUI COÛTE : il traite `FETCH_K=50`
+    # passages par requête là où l'encodage n'en traite qu'un.
+    with borne_des_etages_torch():
+        scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
 
     for chunk, score in zip(chunks, scores, strict=False):
         chunk.rerank_score = score
