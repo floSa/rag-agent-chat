@@ -1,10 +1,10 @@
 import logging
 import math
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from functools import lru_cache
-from typing import Any, Literal
+from functools import lru_cache, update_wrapper
+from typing import Any, Literal, NamedTuple, cast
 
 import chromadb
 import torch
@@ -144,8 +144,97 @@ def oublier_les_levees_au_chargement() -> None:
 
 
 # ─── Singletons chargés une seule fois au démarrage ──────────────────────────
+#
+# POURQUOI PAS `lru_cache(maxsize=1)` SUR LES DEUX MODÈLES, et c'est B-1 de
+# l'audit du 14 septembre 2026. **`lru_cache` ne sérialise pas les appels
+# concurrents qui manquent le cache** : en CPython son verrou n'est tenu que
+# pour la mise à jour du dictionnaire, jamais pendant l'exécution de la fonction
+# enveloppée. `K` fils qui manquent le cache ensemble entrent donc TOUS dans le
+# corps et construisent `K` modèles EN MÊME TEMPS, chacun plaçant sa copie des
+# poids sur la carte. `mesuré` sur le module réel : **8** constructions
+# simultanées pour 8 fils à froid.
+#
+# ET LES `K−1` COPIES PERDANTES NE RENDENT RIEN. Elles sont bien collectées par
+# Python, mais **l'allocateur de torch ne rend pas la mémoire au pilote** — ce
+# que ce module écrit lui-même à `_pic_memoire_reservee_mio`. Le pic est acquis
+# pour la vie du processus, et c'est lui que le voisin de carte doit réserver.
+#
+# CE QUE CE REMPLACEMENT GARDE DE `lru_cache`, parce que le module et les tests
+# le lisent : `cache_clear()` et `cache_info().currsize`. Le reste de la forme
+# (`hits`/`misses`/`maxsize`) est tenu pour que la substitution soit complète et
+# qu'un lecteur n'ait pas à vérifier laquelle des deux il a sous les yeux.
 
-@lru_cache(maxsize=1)
+
+class _InfoDuSingleton(NamedTuple):
+    """La forme de `lru_cache.cache_info()`, à l'identique."""
+
+    hits: int
+    misses: int
+    maxsize: int | None
+    currsize: int
+
+
+class _SingletonVerrouille[T]:
+    """Un chargement coûteux mémoïsé, dont les manques concurrents sont SÉRIALISÉS.
+
+    LA DOUBLE VÉRIFICATION EST LE CŒUR, et elle n'est pas décorative : sans la
+    seconde lecture sous verrou, les `K` fils qui ont manqué le cache
+    construiraient chacun leur tour — sérialisés, mais `K` constructions quand
+    même, donc `K` empreintes sur une carte qui ne rend rien. Ce qu'il faut
+    fermer n'est pas « deux constructions en même temps », c'est « plus d'une
+    construction ».
+
+    La première lecture est faite HORS verrou, et c'est ce qui rend le cas
+    passant gratuit : une fois chargé, servir le modèle ne prend aucun verrou.
+    L'affectation d'un attribut est atomique sous le GIL, et l'ordre choisi
+    (`_valeur` puis `_charge`) fait qu'un lecteur qui voit `_charge` vrai voit
+    forcément la valeur.
+    """
+
+    def __init__(self, charger: Callable[[], T]) -> None:
+        self._charger = charger
+        self._verrou = threading.Lock()
+        self._valeur: T | None = None
+        self._charge = False
+        self._hits = 0
+        self._misses = 0
+        update_wrapper(self, charger)
+
+    def __call__(self) -> T:
+        if self._charge:
+            self._hits += 1
+            return cast("T", self._valeur)
+        with self._verrou:
+            # SECONDE LECTURE : un autre fil a pu charger pendant qu'on attendait
+            # le verrou. Sans elle, on reconstruirait — voir le docstring.
+            if self._charge:
+                self._hits += 1
+                return cast("T", self._valeur)
+            self._misses += 1
+            valeur = self._charger()
+            self._valeur = valeur
+            self._charge = True
+            return valeur
+
+    def cache_clear(self) -> None:
+        """Repart de zéro. Même nom que `lru_cache` : les tests l'appellent ainsi."""
+        with self._verrou:
+            self._valeur = None
+            self._charge = False
+            self._hits = 0
+            self._misses = 0
+
+    def cache_info(self) -> _InfoDuSingleton:
+        """`currsize` dit « un modèle est chargé » SANS rien déclencher.
+
+        C'est ce que lisent `_peripherique_si_charge` et
+        `_pic_memoire_reservee_mio` : `/health` est appelé toutes les 20 s et ne
+        doit jamais payer un chargement pour répondre.
+        """
+        return _InfoDuSingleton(self._hits, self._misses, 1, 1 if self._charge else 0)
+
+
+@_SingletonVerrouille
 def _get_embedding_model() -> SentenceTransformer:
     logger.info(
         "Chargement du modèle d'embedding : %s, périphérique demandé « %s »",
@@ -474,7 +563,7 @@ def _vocabulaire_du_reranker(model: CrossEncoder) -> int | None:
         return None
 
 
-@lru_cache(maxsize=1)
+@_SingletonVerrouille
 def _get_rerank_model() -> CrossEncoder:
     logger.info(
         "Chargement du modèle de reranking : %s, périphérique demandé « %s »",
@@ -1316,13 +1405,28 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
     démarrage ; il passe par celui-ci.
     """
     verifier_modele_embedding()
-    embedding_model = _get_embedding_model()
     collection = _get_chroma_collection()
 
-    # Sous la borne : c'est ici que la carte alloue. Voir
-    # `settings.torch_max_concurrency` pour le motif et pour ce que la borne
-    # coûte quand elle mord.
+    # LE CHARGEMENT EST SOUS LA BORNE, ET PAS SEULEMENT LE CALCUL — B-1 de
+    # l'audit du 14 septembre 2026. Construire un modèle est le moment où la
+    # carte alloue le PLUS, et un chargement laissé hors de la borne se déroule
+    # pendant que `TORCH_MAX_CONCURRENCY` calculs occupent déjà la carte : le
+    # chiffre de réservation rendu au voisin cesse alors de majorer la scène.
+    # La sérialisation des manques, elle, est dans `_SingletonVerrouille` — la
+    # borne seule ramènerait le pic de K copies à `TORCH_MAX_CONCURRENCY`
+    # copies, ce qui est une atténuation et non une fermeture.
+    #
+    # CE QUE CE PLACEMENT COÛTE, ET IL EST ASSUMÉ : le tout premier chargement
+    # tient un permis pendant qu'il télécharge. À la borne par défaut, trois
+    # autres requêtes passent quand même ; les suivantes attendent. C'est le
+    # bon sens du compromis — la mémoire qu'on refuse de plafonner ne se
+    # récupère jamais, la latence d'un démarrage à froid se rattrape.
+    #
+    # L'ORDRE DES DEUX VERROUS EST TOTAL : borne d'abord, verrou de chargement
+    # ensuite, ici comme dans `rerank`. Rien ne prend le verrou de chargement
+    # avant la borne, donc aucune inversion n'est possible.
     with borne_des_etages_torch():
+        embedding_model = _get_embedding_model()
         query_embedding: list[float] = embedding_model.encode(question).tolist()
 
     def _query(coll: chromadb.Collection) -> dict[str, Any]:
@@ -1441,13 +1545,15 @@ def rerank(question: str, chunks: list[ChunkResult]) -> list[ChunkResult]:
     if not chunks:
         return []
 
-    rerank_model = _get_rerank_model()
     pairs = [[question, c.document] for c in chunks]
     # Les stubs du cross-encoder décrivent un type d'entrée multimodal très
     # large ; une liste de paires texte est ce qu'il accepte en pratique.
-    # Sous la borne, et c'est L'ÉTAGE QUI COÛTE : il traite `FETCH_K=50`
-    # passages par requête là où l'encodage n'en traite qu'un.
+    # Sous la borne, CHARGEMENT COMPRIS, et c'est L'ÉTAGE QUI COÛTE : il traite
+    # `FETCH_K=50` passages par requête là où l'encodage n'en traite qu'un, et
+    # son modèle est le plus lourd des deux. Le motif complet du placement est
+    # à `_dense_search`, qui porte le même geste.
     with borne_des_etages_torch():
+        rerank_model = _get_rerank_model()
         scores: list[float] = rerank_model.predict(pairs).tolist()  # type: ignore[arg-type]
 
     for chunk, score in zip(chunks, scores, strict=False):

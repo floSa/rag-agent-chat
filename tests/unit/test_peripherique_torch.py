@@ -31,6 +31,7 @@ réellement atteint se mesure sur la carte, pas dans un test unitaire — c'est
 recherche.
 """
 
+import contextlib
 import logging
 import threading
 import time
@@ -1186,10 +1187,11 @@ def test_un_manque_de_cache_concurrent_ne_construit_qu_un_seul_modele(
             presents["courant"] += 1
             presents["total"] += 1
             presents["pic"] = max(presents["pic"], presents["courant"])
-        try:
+        # `suppress` et non un `except: pass` : la barrière CASSE quand un seul
+        # constructeur s'y présente, et c'est le cas VERT — celui où la
+        # sérialisation a fait son travail. Le garde ne doit pas pendre dessus.
+        with contextlib.suppress(threading.BrokenBarrierError):
             rendez_vous.wait(timeout=1.0)
-        except threading.BrokenBarrierError:
-            pass  # un seul constructeur : c'est le cas VERT, et il ne doit pas pendre
         with compte:
             presents["courant"] -= 1
         return _FauxEmbedder(device)
