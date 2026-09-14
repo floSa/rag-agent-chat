@@ -8166,3 +8166,184 @@ et ce qui reste une scène est dit comme tel.*
   face ;
 - **le healthcheck du compose**, ci-dessus.
 
+---
+
+### 4.52 → REPAR-13 : la borne borne enfin le CHARGEMENT, `/health` cesse d'accuser trois stores sains, et le troisième site des chiffres est réparé
+
+**Objet** : les trois bloquantes et les trois non bloquantes de
+[`audits/2026-09-14-audit-lot-12.md`](audits/2026-09-14-audit-lot-12.md).
+`mesuré` le 14 septembre 2026 entre 12:03 et 12:39 UTC (`date -u` relevé avant
+la première commande et avant l'écriture). Environnement monté par le §2.2,
+torch **2.14.0+cpu**, `torch.cuda.is_available()` **faux**. **Aucune campagne
+rejouée, aucun démon touché, la carte n'a pas été approchée.**
+
+**Porte, sur le résultat de la fusion de `main` dans la branche du lot** —
+`main` avait avancé d'un commit de documentation et n'était plus ancêtre :
+`rc(make lint) = 0`, `rc(make test) = 0`, **798 passés** sur **45** fichiers
+(793 au départ ; les 5 de plus sont les gardes ci-dessous).
+
+#### B-1 — le chargement était hors de la borne, et `lru_cache` ne sérialisait rien
+
+**Le défaut avait DEUX moitiés, et aucune ne se fermait seule.** `lru_cache` ne
+sérialise pas les manques concurrents : en CPython son verrou n'est tenu que
+pour la mise à jour du dictionnaire, jamais pendant l'exécution de la fonction
+enveloppée. **8 constructions simultanées pour 8 fils à froid**, `mesuré` — le
+chiffre de l'audit, reproduit par le garde. Et les deux constructeurs étaient
+appelés **avant** le `with borne_des_etages_torch()`.
+
+- `_SingletonVerrouille` remplace `lru_cache(maxsize=1)` sur les deux modèles
+  torch, avec **double vérification sous verrou**. *Sérialiser sans dédupliquer
+  n'aurait rien fermé* : `K` copies construites l'une après l'autre allouent
+  toujours `K` fois, l'allocateur de torch ne rendant rien. `cache_clear()` et
+  `cache_info().currsize` sont tenus à l'identique — le module et les tests les
+  lisent ;
+- les deux constructeurs passent **sous la borne**. L'ordre des deux verrous est
+  total (borne, puis verrou de chargement) aux deux sites : aucune inversion
+  possible. *Ce que ce placement coûte est écrit au site* — le premier
+  chargement tient un permis pendant qu'il télécharge.
+
+**Table de mutations**, `pytest` sur `test_peripherique_torch.py`, restauration
+vérifiée par SHA-256 et `git status --porcelain` vide après chaque :
+
+| mutation | attendu | `rc(pytest)` | mesuré | garde qui rougit |
+|---|---|:--:|---|---|
+| **M-A** — constructeur d'embedding hors du `with` | rouge | 1 | 1 failed, 32 passed | `…_chargement_des_deux_modeles_se_fait_sous_la_borne` |
+| **M-A'** — idem sur le reranker | rouge | 1 | 1 failed, 32 passed | le même |
+| **M-B** — seconde lecture sous verrou retirée | rouge | 1 | 1 failed, 32 passed | `…_manque_de_cache_concurrent…` (**8 modèles** construits, pic 1) |
+| **M-C** — verrou de chargement neutralisé | rouge | 1 | 1 failed, 32 passed | le même (**pic 8**) |
+| **témoin inerte** — `cache_info` réécrite sans changer sa valeur | VERT | 0 | 33 passed | — |
+
+*M-B est celle qui compte* : elle sépare « sérialisé » de « dédupliqué », et
+elle rougit sur `total = 8` avec un pic de 1.
+
+#### B-3 — la borne affamait les sondes de `/health`, et deux commentaires affirmaient le contraire
+
+`_sonder` passait par `to_thread.run_sync` **sans limiteur**, donc dans le
+réservoir par défaut d'AnyIO — **40 jetons**, `mesuré` — celui-là même où
+Starlette exécute `/search` et `/sources`, qui sont des `def`. Et
+`borne_des_etages_torch()` bloque **dans** le fil sans le rendre.
+
+Reproduit sur `health()` avec les quatre dépendances **saines et
+instantanées** : `{chromadb: false, nebulagraph: false, index_lexical: false}`
+rendu en **3,004 s** — `_PLAFOND_SONDES_S` pile. C'est la mesure de l'audit
+(13/197 à 3,00 s), en version déterministe.
+
+**Le geste** : `_reservoir_des_sondes()`, un `CapacityLimiter` de **8** jetons
+porté par un `RunVar`. 8 et non 40 parce que `_sondes_en_vol` borne déjà à un
+fil par nom de sonde et que les noms sont cinq ; un `RunVar` parce qu'un
+limiteur appartient à sa boucle.
+
+**LES DEUX PHRASES FAUSSES SONT TRAITÉES, PAS LAISSÉES DEBOUT.** Le motif du
+sémaphore affirmait « et laisse la sonde de santé répondre » ; le docstring de
+`borne_des_etages_torch` affirmait « `/health` continue de répondre pendant que
+les requêtes s'attendent ». Elles sont désormais **vraies** — mais par le
+limiteur dédié, pas par le sémaphore — et chacune renvoie au garde qui rougit si
+ce limiteur disparaît. *Une phrase ne rougit pas ; ces deux tests-là, si.*
+
+| mutation | attendu | `rc(pytest)` | mesuré |
+|---|---|:--:|---|
+| **M-D** — `limiter=` retiré (l'état du lot 12) | rouge | 1 | 2 failed, 10 passed |
+| **M-E** — limiteur présent mais = celui par défaut | rouge | 1 | 2 failed, 10 passed |
+| **témoin inerte** — variable locale renommée | VERT | 0 | 12 passed |
+
+*M-E est celle qui compte* : elle prouve que le garde éprouve la **distinction**
+des réservoirs, et pas la simple présence d'un argument.
+
+#### B-2 — l'inventaire des sites, et le troisième réparé
+
+**L'inventaire a été établi par commande, et il est rendu en entier dans le
+rapport de REPAR-13.** La commande :
+
+```bash
+git grep -n -E "runs/[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z-]+\.json" -- ':!runs/' ':!documentation/audits/'
+```
+
+Elle rend **42 lignes dans 11 fichiers**, regroupées en **22 sites** ; puis,
+pour chaque site, un attributeur compte combien des nombres portés appartiennent
+au `resume` de chaque campagne versionnée. **Un seul site fautif** —
+`gpu_cuda.md` §7.2, dont les **6 métriques sur 6** du tableau viennent de
+`08-reference` quand le titre nomme `10-lecteur-neuf` (l'attributeur y voyait
+8 valeurs contre 1, en comptant aussi la prose de la section) — et **un titre
+trompeur** que l'audit n'avait pas relevé : `axes_amelioration.md` §4.48
+annonçait `lecteur-neuf` là où sa propre note, quinze lignes plus bas, nommait
+`reference-08`. Les deux sont corrigés ; **tous les autres sites sont exacts**,
+et le rapport de REPAR-13 les liste un par un, y compris ceux trouvés corrects.
+
+Le §7.2 porte désormais les **deux** colonnes CPU nommées et les deux lectures,
+**recalculées depuis `runs/`** : −817 ms (−11,19 %) / +40 ms / **20,4 pour 1**
+contre `reference-08` ; −365 ms (−5,33 %) / +106 ms / **3,4 pour 1** contre
+`lecteur-neuf`. Le « vingt contre un » sans base est remplacé. Et le
+« 1 262 MiB pour l'agent », publié comme une **résidence**, est remplacé par les
+trois paliers du §4.50 — 0 au repos, 708 après `/search`, 1 294 après `/answer`
+— et nommé pour ce qu'il est : un **cliquet**.
+
+#### La re-dérivation du chiffre rendu au voisin
+
+Elle est au **§4.51**, où le chiffre vit. En une phrase : les cinq paliers sont
+en régime **chaud**, le chargement n'était borné par rien, donc **2 048 Mio ne
+majorait pas le démarrage à froid** — la seule scène où ce chiffre doit valoir.
+B-1 rend la forme applicable ; le chiffre **ne bouge pas**, faute de mesure qui
+le justifierait, mais sa condition est devenue vraie et une **quatrième réserve**
+nomme ce qui reste non mesuré. Il voyage désormais avec sa base, sa réserve
+conditionnante et sa date à ses **quatre** sites, celui du pipeline compris.
+
+#### Les trois non bloquantes
+
+- **NB-1** — `peripherique_torch` rejoint `services_unknown` quand sa sonde
+  n'est pas revenue, et le geste rendu au pipeline le **lit** : trois cas
+  distincts là où il imprimait `ok None` sur deux scènes opposées. Gardé dans
+  les deux directions (M-G : retirer → rouge ; M-H : déclarer toujours → rouge
+  sur le témoin) ;
+- **NB-2** — M-B remesurée : **15 sites**, 2 dans les aides, **8 qui mordent**,
+  **8 inertes**. Le motif qui déclarait ces 8 derniers gardiens a été retiré ;
+  les lignes restent, sans la déclaration fausse. Le « huit tests » publié est
+  requalifié avec sa recette ;
+- **NB-3** — couvert par la re-dérivation ci-dessus ; aucune autre copie du
+  chiffre ne subsiste (`git grep` cité au rapport).
+
+#### Ce que REPAR-13 a trouvé CONTRE LUI-MÊME
+
+- **son premier banc de B-3 rougissait pour la mauvaise raison.** Il attendait
+  les fils par un `Semaphore.acquire()` **synchrone**, qui bloquait la boucle
+  d'événements : les tâches `start_soon` ne démarraient jamais et le réservoir
+  n'était **jamais saturé**. Les deux gardes étaient rouges — sur le banc, pas
+  sur le défaut. *Un rouge dont on n'a pas vérifié la raison ne vaut pas mieux
+  qu'un vert* ;
+- **une correction perdue par une mutation non commitée.** `git checkout --`
+  après M-B a restauré `test_garde_modele_embedding.py` à `HEAD`, effaçant une
+  correction non encore commitée. **C'est le contrôle par SHA-256 qui l'a
+  attrapé** — l'empreinte prise après la correction ne correspondait plus. La
+  règle « commite AVANT de muter » n'est pas une formalité ;
+- **un garde du dépôt a refusé ma mise en forme, et il avait raison.**
+  `TestLaNoteDuCompteEstLueAuBonEndroit` exige la note du compte sur **une seule
+  ligne** pour ne pas lire un récit ; je l'avais coupée en deux.
+
+#### Ce que REPAR-13 n'a PAS pu mesurer, et le dit comme tel
+
+1. **aucun Mio réel sur la carte.** Poste partagé, vLLM y tient ~14 Go, consigne
+   de ne rien démarrer ni arrêter. Tous les chiffres mémoire au-delà du **nombre
+   de constructions simultanées** (`mesuré`) restent `calculé` depuis les
+   paliers publiés. *Le geste qui les rendrait `mesuré`* : sur un jumeau
+   `--gpus all`, N requêtes concurrentes **à froid**, `max_memory_reserved()`
+   relevé à `/health` ;
+2. **le surcoût transitoire de désérialisation d'un modèle n'est pas mesuré.**
+   C'est le seul terme du démarrage à froid qui reste hors de la borne, et c'est
+   la quatrième réserve du §4.51 ;
+3. **B-3 est mesurée sur l'application réelle mais avec des sondes inertes**, et
+   le réservoir est saturé par des fils qui attendent un `Event`, non par la
+   borne torch elle-même. La propriété — les deux réservoirs sont distincts —
+   ne dépend pas de ce que fait torch ; l'ampleur en grandeur réelle, si ;
+4. **`make test-integration`, `make eval`, `make eval-controle` et
+   `make verifier-les-ancrages` n'ont pas été lancés** : ils exigent la pile
+   démarrée et aucune réingestion n'était permise. La porte est bien
+   `make lint && make test` ; il n'y a pas de cible `make all`.
+
+#### Ce que REPAR-13 n'a PAS fermé, et pourquoi
+
+- **R-1 et R-2 de l'audit** — deux réserves, hors mandat de cette réparation ;
+- **le healthcheck `curl -sf` vert sur `degraded`** — délibéré, §1.27 ;
+- **`--compare` épinglé sur la référence du 8 septembre** — coûte une campagne,
+  c'est au pilote ;
+- **`.github/workflows/ci.yml`** — le jeton n'a pas le scope `workflow` ;
+- **`src/agent/llm.py` et la bascule vLLM** — c'est un chantier, pas un lot.
+
