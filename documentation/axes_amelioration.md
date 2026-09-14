@@ -8117,24 +8117,56 @@ et ce qui reste une scène est dit comme tel.*
   > montré que **la moitié n'épingle rien**. Le compte remesuré, sa recette
   > étant sa preuve :
   >
+  > **SITE CANONIQUE DE CE COMPTE.** Il n'est publié nulle part ailleurs : le
+  > §4.52 le citait une seconde fois plus bas, et les deux versions ne
+  > s'accordaient pas. **Recomptés le 14 septembre 2026 par REPAR-14**, ligne par
+  > ligne, `rc` relevé de `pytest` via `PIPESTATUS[0]`, restauration vérifiée par
+  > SHA-256 et `git status --porcelain` vide après chacune des quinze.
+  >
   > ```bash
-  > # les sites qui portent la ligne, dans les trois fichiers
-  > grep -c 'torch_device", "cpu"' tests/unit/test_health_parallele.py \
-  >   tests/unit/test_garde_modele_embedding.py tests/unit/test_securite.py
-  > # mutation M-B : les retirer toutes, et compter les rouges
-  > sed -i '/torch_device", "cpu")/d' <les trois fichiers> && pytest <les trois>
+  > # 1. LES SITES. Par MOTIF et jamais par numéro de ligne : un numéro se périme
+  > #    dès qu'un commentaire s'ajoute au-dessus — REPAR-14 s'y est fait prendre.
+  > grep -n 'setattr(main.settings, "torch_device", "cpu")' \
+  >   tests/unit/test_securite.py tests/unit/test_health_parallele.py \
+  >   tests/unit/test_garde_modele_embedding.py | wc -l          # -> 15
+  >
+  > # 2. LES TESTS. Les quinze neutralisées d'un coup, sur les trois fichiers.
+  > sed -i '/setattr(main.settings, "torch_device", "cpu")/s/.*/    pass/' <les 3>
+  > pytest <les 3> -q -p no:randomly ; echo "rc(pytest)=${PIPESTATUS[0]}"
+  > #   -> rc=1, 8 failed, 50 passed  (58 tests)
+  >
+  > # 3. LES LIGNES. Une seule neutralisée à la fois, restaurée, quinze fois.
+  > #    Le banc REFUSE de mesurer si la ligne visée ne porte pas le motif.
+  > #   -> 6 rendent rc=1, 9 laissent rc=0
   > ```
   >
-  > **15 sites** (14 du lot 12, plus un posé par le garde de B-3), dont **2**
-  > dans les aides `_brancher()` / `_brancher_health()` et **13** dans des
-  > tests. M-B en fait rougir **8 sur 58** ; les **8 autres sites sont
-  > INERTES** — leur scène asserte `degraded` de toute façon, ou ne passe pas
-  > par `/health`. Les lignes inertes sont conservées (elles protégeront le jour
-  > où ces scènes liront `/health`) mais **le motif qui les déclarait gardiennes
-  > a été retiré de ces 8 sites** : il y affirmait un fait faux. *Un épinglage
-  > qui passe aussi sous le défaut n'épingle rien, et un commentaire qui dit le
-  > contraire est exactement la forme que ce registre poursuit — une phrase qui
-  > ne rougit pas.*
+  > **15 lignes** du motif (14 du lot 12, plus une posée par le garde de B-3)
+  > dans **3** fichiers, dont **2** dans des aides partagées — `_brancher()` de
+  > `test_health_parallele.py` et celle de `test_garde_modele_embedding.py` — et
+  > **13** dans des tests.
+  >
+  > | unité | mesuré |
+  > |---|---:|
+  > | lignes du motif | **15** |
+  > | lignes qui **MORDENT** (retrait → `rc(pytest)=1`) | **6** |
+  > | lignes **INERTES** (retrait → `rc(pytest)=0`) | **9** |
+  > | **tests** rouges quand les 15 partent d'un coup | **8** sur **58** |
+  >
+  > **LIGNES ET TESTS NE S'ADDITIONNENT PAS, et c'est ce que la ligne d'avant
+  > confondait** : elle écrivait « 8 qui mordent, 8 inertes » pour 15 sites —
+  > 16. Six lignes mordent, et elles font rougir huit tests parce que l'une
+  > d'elles est une **aide** : neutraliser celle de
+  > `test_garde_modele_embedding.py` fait rougir **3** tests à elle seule, les
+  > cinq autres **1** chacune (3 + 5 = 8). *Le commentaire posé dans le code,
+  > lui, était juste — il comptait des tests et le disait.*
+  >
+  > Les 9 lignes inertes sont conservées : elles protégeront le jour où ces
+  > scènes liront `/health`. **Aucune ne porte plus de motif gardien** — il en
+  > restait un sur `_brancher`, retiré le 14 septembre 2026 (NB-D). **Mesuré à
+  > la même date : 5 motifs gardiens subsistent, tous sur une ligne qui mord.**
+  > *Un épinglage qui passe aussi sous le défaut n'épingle rien, et un
+  > commentaire qui dit le contraire est exactement la forme que ce registre
+  > poursuit — une phrase qui ne rougit pas.*
 - **le chiffre de mémoire du §4.48 était périmé** (1 266 → 1 294), et la carte
   n'est plus partagée avec le seul Ollama ;
 - **DEUX de ses propres gardes étaient CREUX, et sa table de mutations les a
@@ -8294,10 +8326,10 @@ conditionnante et sa date à ses **quatre** sites, celui du pipeline compris.
   distincts là où il imprimait `ok None` sur deux scènes opposées. Gardé dans
   les deux directions (M-G : retirer → rouge ; M-H : déclarer toujours → rouge
   sur le témoin) ;
-- **NB-2** — M-B remesurée : **15 sites**, 2 dans les aides, **8 qui mordent**,
-  **8 inertes**. Le motif qui déclarait ces 8 derniers gardiens a été retiré ;
-  les lignes restent, sans la déclaration fausse. Le « huit tests » publié est
-  requalifié avec sa recette ;
+- **NB-2** — M-B remesurée, le motif qui déclarait gardiennes des lignes inertes
+  a été retiré, les lignes restent. **Le compte et sa recette sont plus haut dans
+  ce même §4.52, et c'est leur seul site** : la version qui figurait ici ne
+  s'accordait pas avec lui, et c'est ce que l'audit a relevé (NB-E) ;
 - **NB-3** — couvert par la re-dérivation ci-dessus ; aucune autre copie du
   chiffre ne subsiste (`git grep` cité au rapport).
 
@@ -8347,3 +8379,174 @@ conditionnante et sa date à ses **quatre** sites, celui du pipeline compris.
 - **`.github/workflows/ci.yml`** — le jeton n'a pas le scope `workflow` ;
 - **`src/agent/llm.py` et la bascule vLLM** — c'est un chantier, pas un lot.
 
+
+---
+
+### 4.53 → REPAR-14 : les six phrases qui ne rougissaient pas, et la dépendance dont tout dépendait sans être déclarée
+
+**Livré le 14 septembre 2026.** Ferme les **six non bloquantes** et les **deux
+réserves** de [l'audit de REPAR-13](audits/2026-09-14-audit-repar-13.md). Cet
+audit n'avait trouvé **aucune bloquante** et **aucune régression** : les trois
+bloquantes du lot 12 étaient réellement fermées, établies par mutation.
+
+**CE LOT NE CHANGE AUCUN COMPORTEMENT, et c'est sa contrainte de fond.** Tout ce
+qu'il touche est du commentaire, de la docstring, de la documentation, du
+registre — plus **une déclaration de dépendance**. Un changement de comportement
+rouvrirait un audit indépendant, et ce lot existe pour ne pas en rouvrir un. Le
+diff de `src/` est intégralement en commentaires et docstrings, à une chaîne
+près — celle que `/health` publie, dont c'est précisément le **contenu** qui
+était faux.
+
+**Porte, mesurée sur le RÉSULTAT DE LA FUSION de `main`** dans la branche du lot
+(`main` avait avancé du rapport d'audit et n'en était plus ancêtre ;
+`git merge --no-ff`, aucun rebase) : `make lint` et `make test` en **`rc=0`**,
+**798 passés** sur **45** fichiers — le compte ne bouge pas, aucun test n'ayant
+été ajouté ni retiré.
+
+#### Les six non bloquantes
+
+- **NB-A — « une seule construction à la fois » devient « par modèle », et la
+  borne voyage avec.** La phrase était vraie à `TORCH_MAX_CONCURRENCY=4` et
+  fausse dès 5. Remesurée le 14 septembre 2026, doubles inertes, 4 `/search` +
+  4 `/sources` à froid, pic **tous modèles confondus** : bornes **1 / 4 / 5 / 8**
+  → pic **1 / 1 / 2 / 2**, et **2 constructions au total** aux quatre. La
+  colonne de droite est la propriété — une par modèle, jamais deux du même ; la
+  gauche est une scène. *Contrôle positif de la sonde* : la même, sans le
+  singleton, voit **4, 5 et 8** — elle sait donc compter au-delà de 1. Corrigée
+  aux **deux** sites qui la publient, dont celui rendu au pipeline, qui porte
+  désormais le majorant qu'aucun réglage ne franchit (**2**) et dit que la borne
+  dont il dépend est un réglage qu'un exploitant peut desserrer sans prévenir ;
+- **NB-B — « trois autres requêtes passent quand même » : mesuré ZÉRO.** 8
+  requêtes à froid, borne 4, chargement de 3,0 s → **0** progresse ; *contrôle
+  positif*, modèle déjà chaud → **8 sur 8**. Ce qui se passe réellement est
+  écrit au site : **le chargement d'un étage gèle l'autre** — `/sources`,
+  cross-encoder déjà chaud, passe de **0,0 s** (borne désarmée, contrôle) à
+  **2,9 s** (borne 4, quatre `/search` à froid) ;
+- **NB-C — sous une levée, les échecs sont sérialisés**, et ce n'était dit nulle
+  part. Chargement qui lève après 0,5 s, 8 requêtes, borne 4 → **4,0 s**, soit
+  0,5 × 8. La propriété utile est intacte et mesurée : `currsize` = **0** après
+  levée, donc chaque appel retente ;
+- **NB-D — NB-2 refermée à son dernier site.** `_brancher`, aide partagée par
+  quatre tests, portait encore le motif gardien sur une ligne **mesurée
+  inerte**. La ligne reste — elle protégera le jour où ces scènes liront
+  `/health` —, la phrase fausse part. **Mesuré après correction : 5 motifs
+  gardiens subsistent, tous sur une ligne qui mord** ;
+- **NB-E — le §4.52 se contredisait, il est recompté.** Il publiait « 15 sites,
+  2 dans les aides, 8 qui mordent, 8 inertes » : **8 + 8 = 16 pour 15**. Mesuré
+  ligne par ligne : **15 lignes, 6 qui MORDENT, 9 INERTES, 8 tests rouges sur
+  58**. Lignes et tests ne s'additionnent pas — une des six est une **aide** qui
+  fait rougir **3** tests à elle seule (3 + 5 × 1 = 8). Le compte a désormais
+  **un seul site canonique**, dans le §4.52, avec sa recette ;
+- **NB-F — `/health` ne publie plus le nom d'un mécanisme retiré.** Le message
+  disait « le `lru_cache` ne se peuple pas sur une levée », or REPAR-13 a retiré
+  `lru_cache` de ces deux modèles. **Le NOM DU CHAMP n'a pas bougé, et c'était la
+  décision** : `torch_device.hors_d_atteinte` est lu **de l'extérieur** — le
+  geste publié à `pour_le_pipeline_ingestion.md:147` le lit par son nom. Établi
+  avant de décider : **aucun lecteur n'attrape le CONTENU** de la chaîne (le seul
+  test qui le lit asserte `"out of memory"`, la part interpolée). C'est donc ce
+  que la chaîne **dit** qui est corrigé. Trois commentaires internes périmés le
+  sont aussi.
+
+#### Les deux réserves
+
+- **R-1 — `anyio` est déclarée, et le plancher porte sa mesure.** `src/api/main.py`
+  importe `CapacityLimiter`, `to_thread` et `anyio.lowlevel.RunVar` **en
+  direct**, et toute la fermeture de B-3 repose sur une propriété de son
+  implémentation — un limiteur distinct fait **naître** des fils au lieu d'en
+  emprunter à un pool global borné. La dépendance n'était déclarée **ni** dans
+  `requirements.txt`, **ni** dans `requirements-dev.txt`, **ni** dans
+  `pyproject.toml` ; `uv.lock` disait **4.14.2**, l'environnement du §2.2
+  installait **4.15.1**, et la CI n'utilise pas le lock.
+
+  **Le plancher est MESURÉ, et non lu dans des notes de version** — c'était
+  l'exigence, un plancher qu'aucune mesure ne soutient ne valant pas mieux que
+  l'absence. **20 versions** jouées une par une dans des venvs jetables hors du
+  projet, banc à **deux directions** (40 tâches saturent le réservoir par défaut,
+  puis 5 sondes partent) :
+
+  | sens | sondes revenues | attente | fils créés |
+  |---|---:|---:|---:|
+  | **avec** `limiter=` dédié | **5 / 5** | **0,00 s** | **+5** |
+  | **sans** — contrôle négatif | 0 / 5 | 3,00 s | +0 |
+
+  La **propriété** tient de **3.6.2 à 4.15.1**, les 20. Ce qui fixe le plancher
+  est l'**API** : l'appel exact de `main.py` rend `TypeError: run_sync() got an
+  unexpected keyword argument 'abandon_on_cancel'` en **4.0.0** et en dessous, et
+  passe à partir de **4.1.0**. Déclaré **`anyio>=4.1.0,<5`** — les **17**
+  versions de cet intervalle passent les deux contrôles. *Pas d'épinglage `==`*,
+  contrairement au reste du fichier : aucune mesure ne soutiendrait une version
+  plutôt que les dix-sept, et figer un transitif de `fastapi`/`starlette`
+  rendrait la résolution cassante sans rien garder de plus. La borne haute `<5`
+  est celle que `starlette` impose déjà, et elle marque **où s'arrête la
+  mesure** ;
+- **R-2 — le chemin hors borne est écrit à son site, borné.** Il n'est pas
+  changé : `_peripherique_si_charge` est le **seul** appelant du singleton qui ne
+  soit pas sous la borne, parce qu'il sert `/health`, qui ne doit jamais attendre
+  un permis. Sa docstring dit désormais que la fenêtre **existe** (`currsize > 0`
+  lu, `cache_clear()` concurrent, puis un chargement hors borne), **ce qui la
+  rend inatteignable** — `cache_clear()` n'a aucun appelant en production,
+  `mesuré`, les **24** sites vivant tous dans `tests/` — et **ce qui la rendrait
+  atteignable** : un rechargement à chaud, une bascule de périphérique en
+  service, une purge sur signal.
+
+#### Ce que REPAR-14 a trouvé CONTRE LUI-MÊME
+
+Trois, et chacun aurait produit une ligne fausse.
+
+1. **Une sonde qui n'atteignait pas son cas, et son vert ne valait rien.** Ma
+   première scène du gel lançait **un** `/search` à froid contre une borne de
+   **4** : trois permis restaient libres, `/sources` passait, et je mesurais
+   **0,0 s** là où l'audit lit 3,2 s. J'ai failli écrire que l'audit se trompait.
+   Il faut **quatre** `/search` pour épuiser la borne — c'est le mécanisme que
+   l'audit décrit lui-même. Refaite : **2,9 s**, et le contrôle borne désarmée
+   rend **0,0 s** ;
+2. **Des numéros de ligne périmés par ma propre correction.** Après avoir ajouté
+   treize lignes de commentaire dans `_brancher`, j'ai rejoué le comptage sur les
+   numéros d'**avant** : quatre lignes mordantes sont ressorties `rc=0` — je
+   neutralisais des lignes quelconques. Le banc **vérifie désormais que la ligne
+   visée porte le motif** et refuse de mesurer sinon ; le contrôle du contrôle
+   (lui donner un numéro périmé) rend bien « AUCUN RESULTAT ». *Un site se relève
+   par motif, jamais par numéro* — c'est aussi pourquoi la recette du §4.52 est
+   écrite ainsi ;
+3. **Une recette qui s'attrapait elle-même.** Mon `grep` d'appelants de
+   `cache_clear()` en production rendait **un** site : sa propre citation dans la
+   docstring que j'écrivais. Motif resserré sur la parenthèse ouvrante → **zéro**
+   en production, et le **contrôle positif** sur `tests/` en trouve **24**. Sans
+   ce contrôle, un « zéro » n'aurait rien prouvé.
+
+Un quatrième, sans conséquence sur une mesure : mon premier `python` de mutation
+a échoué en `command not found` (`PATH` sans `.venv`), et les deux commandes
+suivantes ont rejoué le banc **non muté**. Attrapé par l'empreinte SHA-256 du
+fichier, inchangée — pas par le résultat, qui était plausible.
+
+#### Ce que REPAR-14 n'a PAS pu mesurer, et le dit comme tel
+
+1. **Aucun Mio réel sur la carte, et aucun palier rejoué.** Poste partagé, vLLM y
+   tient ~14 Go, consigne de ne rien démarrer ni arrêter. Le **nombre** de
+   désérialisations simultanées est `mesuré` ; ce que **chacune coûte** en
+   mémoire reste non mesuré, et c'est la quatrième réserve du §4.51 — qui n'était
+   écrite qu'au **singulier**, et que ce lot corrige à **2** ;
+2. **Les durées sont celles de doubles inertes**, pas des vrais poids : le modèle
+   d'embedding n'est pas au cache local du poste. La **propriété** (le nombre de
+   constructions) n'en dépend pas ; les **durées** si — 3,0 s et 0,5 s sont des
+   `sleep`, choisis pour reproduire les scènes de l'audit ;
+3. **La mesure d'AnyIO porte sur le mécanisme, pas sur l'application réelle.** Le
+   réservoir y est saturé par des fils qui attendent un `Event`, non par la borne
+   torch. C'est la même borne que l'audit déclarait sur sa propre scène en
+   grandeur réelle, restée **aveugle** ;
+4. **Rien ne garde les phrases corrigées.** Ce sont des commentaires et de la
+   documentation : aucune mutation ne les fait rougir, par construction. Ce qui
+   est gardé est ce qu'elles décrivent. *Le geste qui fermerait ce reste* : un
+   test qui mesure la latence de `/sources` pendant un chargement, et un autre
+   qui asserte le pic tous modèles confondus à une borne ≥ 5 — deux **ajouts de
+   test**, donc hors du mandat « aucun changement de comportement » de ce lot.
+
+#### Ce que REPAR-14 n'a PAS fermé, et pourquoi
+
+- **le healthcheck `curl -sf` vert sur `degraded`** — délibéré, §1.27 ;
+- **`--compare` épinglé sur la référence du 8 septembre** — coûte une campagne ;
+- **`.github/workflows/ci.yml`** — le jeton n'a pas le scope `workflow`. *La CI
+  installe donc toujours depuis les `requirements` et non depuis `uv.lock` ; la
+  déclaration d'`anyio` ci-dessus est ce qui rend cette installation sûre sans y
+  toucher* ;
+- **`src/agent/llm.py` et la bascule vLLM** — c'est un chantier, pas un lot.

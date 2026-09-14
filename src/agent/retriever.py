@@ -674,9 +674,16 @@ def _peripherique_si_charge(accesseur: Any) -> str | None:
     faire échouer ce test entre sa lecture et l'appel. La fenêtre existe —
     `currsize > 0` lu, puis un `cache_clear()` concurrent, puis `accesseur()`
     qui CHARGERAIT hors borne en tenant le verrou — mais `cache_clear()` n'a
-    **aucun appelant en production** : `mesuré` le 14 septembre 2026,
-    `grep -rn "_get_embedding_model.cache_clear\|_get_rerank_model.cache_clear"
-    src/ scripts/` ne rend rien, et les 24 sites vivent tous dans `tests/`.
+    **aucun appelant en production**. `mesuré` le 14 septembre 2026 :
+
+        grep -rnE '_get_(embedding|rerank)_model[.]cache_clear[(]' src/ scripts/
+        #   -> rien, rc(grep)=1
+        grep -rcE '_get_(embedding|rerank)_model[.]cache_clear[(]' tests/
+        #   -> 24 sites     <- CONTROLE POSITIF : la recette SAIT les trouver
+
+    La parenthèse ouvrante est dans le motif à dessein : sans elle, la recette
+    s'attrape elle-même dans cette docstring et rend un faux appelant — ce qui
+    s'est produit, et ce que le contrôle positif a fait voir.
 
     CE QUI LA RENDRAIT ATTEIGNABLE, et c'est ce qu'il faut surveiller : un
     `cache_clear()` appelé depuis `src/` ou `scripts/` — un endpoint de
