@@ -439,6 +439,15 @@ _PLAFOND_SONDES_S = 3.0
 # d'événements qui l'a créé. C'est exactement la forme qu'AnyIO emploie pour son
 # propre limiteur par défaut, et elle garde les bancs de test — qui ouvrent une
 # boucle par scénario — indépendants les uns des autres.
+#
+# SUR QUELLES VERSIONS D'ANYIO CECI TIENT, et c'est R-1 de l'audit du
+# 14 septembre 2026. Tout ce bloc repose sur une propriété de l'implémentation
+# d'AnyIO — un limiteur distinct fait NAÎTRE des fils supplémentaires au lieu
+# d'en emprunter à un pool global borné — et cette dépendance arrivait ici en
+# TRANSITIF, déclarée nulle part. Elle l'est désormais : `anyio>=4.1.0,<5` dans
+# `requirements.txt`, et le plancher y porte la mesure qui le soutient (20
+# versions jouées une par une, banc à deux directions). Sans plancher mesuré, la
+# ligne ne vaudrait pas mieux que l'absence de ligne.
 _JETONS_DES_SONDES = 8
 
 _limiteur_des_sondes: RunVar[CapacityLimiter] = RunVar("_limiteur_des_sondes")

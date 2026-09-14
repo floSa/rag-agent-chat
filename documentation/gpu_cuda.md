@@ -510,12 +510,34 @@ du registre.
 
 **LES CINQ PALIERS SONT EN RÉGIME CHAUD**, modèles déjà chargés, et c'est la
 réserve ajoutée le 14 septembre 2026. Le pic du **chargement** ne s'y trouve donc
-pas. Il est aujourd'hui borné — une seule construction à la fois, et elle tient
-un permis de la borne, `mesuré` et gardé par
+pas. Il est aujourd'hui borné — **une seule construction par modèle**, et elle
+tient un permis de la borne, `mesuré` et gardé par
 `tests/unit/test_peripherique_torch.py` — ce qui rend la forme applicable au
-démarrage à froid ; elle ne l'était pas quand le lot 12 a publié ce chiffre. Ce
-qui reste **non mesuré** : un éventuel surcoût transitoire pendant la
-désérialisation. Re-dérivation complète au §4.51.
+démarrage à froid ; elle ne l'était pas quand le lot 12 a publié ce chiffre.
+
+**« PAR MODÈLE » N'EST PAS « À LA FOIS », et la nuance porte sur le chiffre qu'un
+voisin de carte réserve.** Les deux modèles ont chacun leur verrou
+(`_SingletonVerrouille` en instancie un par singleton) : rien n'interdit à
+l'embedder et au cross-encoder de se désérialiser ensemble. `mesuré` le
+14 septembre 2026 — doubles inertes, 4 `/search` + 4 `/sources` à froid, pic
+**tous modèles confondus**, sonde dont le contrôle positif sait voir 4, 5 et 8 :
+
+| `TORCH_MAX_CONCURRENCY` | pic mesuré | constructions au total |
+|---:|---:|---:|
+| 1 | 1 | 2 |
+| **4** — le défaut | **1** | 2 |
+| **5** | **2** | 2 |
+| 8 | 2 | 2 |
+
+La colonne de droite est la **propriété** : **2 constructions au total** aux
+quatre bornes, soit **une par modèle**, jamais deux du même. La colonne du milieu
+est une **scène** : le pic 1 à la borne 4 tient à ce que les quatre permis sont
+consommés par des fils qui attendent le verrou de l'embedder, si bien qu'aucun
+n'atteint le cross-encoder ; à 5, un fil passe. **Le majorant qu'aucun réglage ne
+franchit est donc 2**, et c'est celui qu'on rend au voisin de carte — §4.52.
+
+Ce qui reste **non mesuré** : le surcoût transitoire d'une désérialisation, donc
+a fortiori de deux. Re-dérivation complète au §4.51.
 
 **Ce que la borne coûte quand elle mord** — `mesuré`, étage à 70 ms : **rien**
 jusqu'à 4 requêtes simultanées, **+625 ms** sur la dernière servie à 40, qui est

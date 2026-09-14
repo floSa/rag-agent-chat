@@ -140,12 +140,20 @@ def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # CETTE LIGNE EST INERTE AUJOURD'HUI, et le motif gardien qu'elle portait a
+    # été retiré le 14 septembre 2026 — NB-D de l'audit de REPAR-13. Il disait
+    # « sans cette ligne, cette scène mesurerait la propriété qu'elle vise SUR UN
+    # SERVICE DÉGRADÉ », et c'est faux ici : `mesuré` par retrait de cette seule
+    # ligne, `rc(pytest)=0` sur les trois fichiers du motif. Les quatre tests qui
+    # passent par cette aide (`:381`, `:510`, `:574`, `:606`) n'asserent rien qui
+    # dépende du périphérique.
+    #
+    # ELLE EST CONSERVÉE QUAND MÊME, comme les huit autres lignes inertes du
+    # motif : le jour où une scène branchée par `_brancher` lira `/health`, le
+    # défaut `cuda` dans un venv torch CPU la dégraderait à lui seul. Elle
+    # protège une scène à venir, pas celle-ci — et c'est tout ce qu'elle
+    # prétend. Le compte complet (15 lignes, 6 qui mordent, 9 inertes, 8 tests)
+    # et sa recette sont au §4.52 du registre, son seul site canonique.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", sondes.chromadb)
     monkeypatch.setattr(main, "nebula_ping", sondes.nebulagraph)

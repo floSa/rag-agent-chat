@@ -605,7 +605,7 @@ def _get_rerank_model() -> CrossEncoder:
     # garde passe AVANT, parce qu'il REFUSE et qu'il ne faut pas payer le
     # téléchargement d'un modèle qu'on va rejeter. Ici on signale et on se sert
     # du modèle de toute façon : le charger d'abord donne accès à sa propriété
-    # sans aucune lecture supplémentaire. Une fois par processus, `lru_cache`
+    # sans aucune lecture supplémentaire. Une fois par processus, le singleton
     # s'en assurant — c'est la bonne cadence pour un fait de configuration.
     verdict = verdict_langue_du_reranker(
         settings.rerank_model, _vocabulaire_du_reranker(model)
@@ -652,15 +652,44 @@ def _get_rerank_model() -> CrossEncoder:
 # healthcheck, et lire le périphérique en construisant le modèle ferait payer au
 # premier healthcheck un téléchargement de modèle. Un `None` se lit « personne
 # n'a encore eu besoin de ce modèle » — vrai, et différent de « il est sur CPU ».
-# Le `currsize` du `lru_cache` est ce qui le dit sans rien déclencher.
+# Le `currsize` du singleton est ce qui le dit sans rien déclencher.
 
 
 def _peripherique_si_charge(accesseur: Any) -> str | None:
     """Le périphérique d'un modèle SI ET SEULEMENT SI il est déjà chargé.
 
-    `accesseur` est l'un des deux singletons `lru_cache`és de ce module. On lit
+    `accesseur` est l'un des deux `_SingletonVerrouille` de ce module. On lit
     son `currsize` plutôt que d'appeler : appeler CHARGERAIT, et cette fonction
     sert une route de santé qui ne doit rien déclencher.
+
+    CE SITE EST LE SEUL APPELANT DU SINGLETON QUI NE SOIT PAS SOUS LA BORNE, et
+    c'est R-2 de l'audit du 14 septembre 2026. Les deux autres — `_dense_search`
+    et `rerank` — prennent `borne_des_etages_torch()` avant d'appeler ; celui-ci
+    est sur la route de `/health`, qui ne doit jamais attendre un permis pour
+    répondre.
+
+    POURQUOI CE N'EST PAS UNE BRÈCHE, ET LA RAISON N'EST PAS CELLE QU'ON CROIT.
+    Ce n'est pas qu'aucun chemin hors borne n'existe : c'en est un. C'est que le
+    `currsize == 0` ci-dessous le referme, et que rien en production ne peut
+    faire échouer ce test entre sa lecture et l'appel. La fenêtre existe —
+    `currsize > 0` lu, puis un `cache_clear()` concurrent, puis `accesseur()`
+    qui CHARGERAIT hors borne en tenant le verrou — mais `cache_clear()` n'a
+    **aucun appelant en production** : `mesuré` le 14 septembre 2026,
+    `grep -rn "_get_embedding_model.cache_clear\|_get_rerank_model.cache_clear"
+    src/ scripts/` ne rend rien, et les 24 sites vivent tous dans `tests/`.
+
+    CE QUI LA RENDRAIT ATTEIGNABLE, et c'est ce qu'il faut surveiller : un
+    `cache_clear()` appelé depuis `src/` ou `scripts/` — un endpoint de
+    rechargement à chaud, une bascule de périphérique en service, une purge
+    déclenchée par un signal. Le jour où l'un de ces trois apparaît, ce chemin
+    doit passer sous la borne, ou lire le périphérique sans passer par
+    `accesseur()`.
+
+    ET IL N'Y A PAS D'INTERBLOCAGE POSSIBLE, borne comprise : un fil qui tient le
+    verrou de chargement l'a pris APRÈS la borne, et il ne la redemande jamais.
+    Corollaire vérifié : `/health` ne peut pas non plus ATTENDRE ce verrou — si
+    `currsize == 0` il rend `None` sans rien prendre, et si `currsize > 0` la
+    première lecture de `__call__` sort hors verrou.
 
     `getattr` plutôt qu'un accès direct, et sans `try` : `SentenceTransformer` et
     `CrossEncoder` exposent tous deux `device` en `property` (`mesuré` le
@@ -787,8 +816,9 @@ def _verdict_du_peripherique(demande: str, cuda_disponible: bool) -> str | None:
         detail = " ; ".join(f"{modele} -> {motif}" for modele, motif in sorted(levees.items()))
         return (
             f"le dernier chargement a LEVÉ sur « {demande} » : {detail}. Toute "
-            "recherche rendra 500 tant que la cause tient. Le `lru_cache` ne se "
-            "peuple pas sur une levée, donc `embedding`/`rerank` resteront `null`"
+            "recherche rendra 500 tant que la cause tient. Un chargement qui "
+            "lève ne met RIEN en cache, donc `embedding`/`rerank` resteront "
+            "`null` et chaque requête retentera"
         )
     return peripherique_hors_d_atteinte(demande, cuda_disponible)
 
@@ -1437,15 +1467,44 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
     # borne seule ramènerait le pic de K copies à `TORCH_MAX_CONCURRENCY`
     # copies, ce qui est une atténuation et non une fermeture.
     #
-    # CE QUE CE PLACEMENT COÛTE, ET IL EST ASSUMÉ : le tout premier chargement
-    # tient un permis pendant qu'il télécharge. À la borne par défaut, trois
-    # autres requêtes passent quand même ; les suivantes attendent. C'est le
-    # bon sens du compromis — la mémoire qu'on refuse de plafonner ne se
-    # récupère jamais, la latence d'un démarrage à froid se rattrape.
+    # CE QUE CE PLACEMENT COÛTE, ET IL EST ASSUMÉ — mais le chiffre publié ici
+    # était FAUX, et c'est NB-B de l'audit du 14 septembre 2026. La phrase
+    # retirée disait « à la borne par défaut, trois autres requêtes passent
+    # quand même ». `mesuré` le 14 septembre 2026, 8 requêtes à froid, borne 4,
+    # chargement de 3,0 s : **ZÉRO** requête progresse pendant le chargement.
+    # Les trois autres PRENNENT un permis, puis se bloquent sur le verrou de
+    # chargement — elles consomment la borne sans avancer. Contrôle positif de
+    # la même sonde, modèle déjà chaud : **8 sur 8** progressent.
     #
-    # L'ORDRE DES DEUX VERROUS EST TOTAL : borne d'abord, verrou de chargement
-    # ensuite, ici comme dans `rerank`. Rien ne prend le verrou de chargement
-    # avant la borne, donc aucune inversion n'est possible.
+    # CE QUI SE PASSE RÉELLEMENT AU DÉMARRAGE À FROID, et c'est la partie qui
+    # compte pour l'exploitation : **le chargement d'un étage gèle l'autre**.
+    # `mesuré`, quatre `/search` à froid (ils épuisent les quatre permis) pendant
+    # qu'une requête `/sources` arrive, cross-encoder DÉJÀ chaud :
+    #
+    #     borne 4                      -> /sources attend  2,9 s
+    #     borne désarmée (200)         -> /sources attend  0,0 s   (contrôle)
+    #
+    # ET SOUS UNE LEVÉE AU CHARGEMENT, LES ÉCHECS SONT SÉRIALISÉS — NB-C du même
+    # audit. Le module décrit lui-même cette panne (`_memoriser_la_levee`) : dans
+    # cette scène chaque requête prend un permis, prend le verrou, tente, lève.
+    # `mesuré`, chargement qui lève après 0,5 s, 8 requêtes concurrentes,
+    # borne 4 : **4,0 s** au total, soit 0,5 s × 8 — la latence du 500 croît
+    # linéairement avec la file. La propriété utile est intacte et elle aussi
+    # mesurée : le singleton **ne se peuple pas** sur une levée (`currsize` = 0
+    # après), donc chaque appel retente et la levée mémorisée s'efface dès que la
+    # cause est réparée.
+    #
+    # L'ARBITRAGE RESTE LE MÊME, et il est défendable : la mémoire qu'on refuse
+    # de plafonner ne se récupère jamais, la latence d'un démarrage à froid se
+    # rattrape, et un 500 sérialisé reste un 500. Ce qui n'était pas défendable,
+    # c'est de chiffrer ce coût à l'envers.
+    #
+    # L'ORDRE DES DEUX VERROUS EST TOTAL SUR LES CHEMINS DE RECHERCHE : borne
+    # d'abord, verrou de chargement ensuite, ici comme dans `rerank`. Aucune
+    # inversion n'est donc possible **entre ces deux chemins-là**. Il existe un
+    # TROISIÈME appelant du singleton, hors borne — `_peripherique_si_charge`,
+    # sur la route de `/health` — et pourquoi il ne rouvre rien est écrit à son
+    # site, avec ce qui le rendrait atteignable. R-2 de l'audit.
     with borne_des_etages_torch():
         embedding_model = _get_embedding_model()
         query_embedding: list[float] = embedding_model.encode(question).tolist()

@@ -34,5 +34,38 @@ jinja2==3.1.6
 pydantic==2.13.4
 pydantic-settings==2.14.2
 
+# --- Concurrence ---
+# DÉCLARÉE PARCE QUE `src/api/main.py` L'IMPORTE, et c'est R-1 de l'audit du
+# 14 septembre 2026. `anyio` arrivait ici en TRANSITIF par fastapi/starlette/httpx
+# alors que `src/api/main.py` importe `CapacityLimiter`, `to_thread` et
+# `anyio.lowlevel.RunVar` en direct, et que toute la fermeture de B-3 repose sur
+# une propriété de son implémentation : un `CapacityLimiter` distinct passé en
+# `limiter=` fait NAÎTRE des fils supplémentaires au lieu d'en emprunter à un
+# pool global borné. Une dépendance sur laquelle une propriété repose se déclare.
+#
+# LE PLANCHER EST MESURÉ, ET NON LU DANS DES NOTES DE VERSION. `mesuré` le
+# 14 septembre 2026, 20 versions jouées une par une dans des venvs jetables, sur
+# un banc à DEUX directions (40 tâches saturent le réservoir par défaut, puis
+# 5 sondes partent) :
+#
+#   avec `limiter=` dédié   -> 5/5 sondes, 0,00 s, +5 fils créés     TIENT
+#   sans (contrôle négatif) -> 0/5 sondes, 3,00 s, +0 fil            ne tient pas
+#
+# La propriété tient de **3.6.2 à 4.15.1** — les 20 versions. Ce qui fixe le
+# plancher à **4.1.0** est l'API, pas la propriété : l'appel exact de
+# `main.py:591-598` rend `TypeError: run_sync() got an unexpected keyword
+# argument 'abandon_on_cancel'` en **4.0.0** et en dessous, et passe à partir de
+# **4.1.0** (`abandon_on_cancel` y remplace `cancellable`). Les **17** versions
+# de 4.1.0 à 4.15.1 passent les deux contrôles. Recette complète et banc : §4.53
+# du registre.
+#
+# PAS D'ÉPINGLAGE `==` ici, contrairement au reste du fichier : aucune mesure ne
+# soutiendrait UNE version plutôt que les 17 qui tiennent, et figer un transitif
+# de fastapi/starlette rendrait la résolution cassante sans rien garder de plus.
+# La borne haute `<5` est celle que starlette impose déjà (`anyio<5,>=3.6.2`) ;
+# elle marque aussi où s'arrête la mesure — 4.15.1 est la dernière publiée au
+# 14 septembre 2026, et rien ici ne dit ce que fera une 5.x.
+anyio>=4.1.0,<5
+
 # --- Utilities ---
 httpx==0.28.1

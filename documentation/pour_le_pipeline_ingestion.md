@@ -208,10 +208,42 @@ Constaté, pas supposé :
 
   **Et ce que nous ne pouvons pas vous dire**, plutôt que de le taire : les cinq
   paliers ci-dessus ont été mesurés **en régime chaud**, modèles déjà chargés. Le
-  pic du **chargement** lui-même est désormais borné — une seule construction à
-  la fois, sous la borne, `mesuré` et gardé — mais un éventuel surcoût transitoire
-  pendant la désérialisation d'un modèle **n'est pas mesuré** : notre carte n'a
-  pas la place de le mesurer, et la faire tomber vous ferait tomber avec.
+  pic du **chargement** lui-même est désormais borné — **une seule construction
+  par modèle**, et elle tient un permis de la borne. C'est une **propriété** :
+  elle ne dépend d'aucun réglage, `mesuré` le 14 septembre 2026 aux bornes
+  `TORCH_MAX_CONCURRENCY` **1, 4, 5 et 8** — **2 constructions au total** aux
+  quatre, soit une par modèle, jamais deux du même. Gardée par
+  `tests/unit/test_peripherique_torch.py`.
+
+  **CE QUI DÉPEND DE LA BORNE, ET C'EST CE QUI VOUS CONCERNE.** Les deux modèles
+  ont **chacun leur verrou** : rien n'interdit à l'embedder et au cross-encoder
+  de se désérialiser **en même temps**. Le nombre de désérialisations simultanées
+  vaut donc, `mesuré` le 14 septembre 2026 (doubles inertes, 4 `/search` + 4
+  `/sources` à froid, pic tous modèles confondus) :
+
+  | `TORCH_MAX_CONCURRENCY` | désérialisations simultanées |
+  |---:|---:|
+  | 1 | **1** |
+  | **4** — le défaut | **1** |
+  | 5 | **2** |
+  | 8 | **2** |
+
+  **À la borne par défaut le pic est 1, et ce n'est PAS parce que quelque chose
+  l'interdit** : les quatre permis sont consommés par des fils qui attendent le
+  verrou de l'embedder, si bien qu'aucun ne parvient jusqu'au cross-encoder. Dès
+  **5**, un fil passe, et vous avez deux désérialisations simultanées. Le majorant
+  sûr, quelle que soit la borne, est donc **2** — le nombre de modèles.
+
+  **`TORCH_MAX_CONCURRENCY` est un réglage documenté** (publié dans `/health` et
+  au `README`), qu'un exploitant de notre côté peut desserrer sans vous prévenir.
+  Si vous dimensionnez `--gpu-memory-utilization` — **option de LANCEMENT, non
+  modifiable à chaud** — comptez sur **2** désérialisations simultanées et non
+  sur 1 : c'est la seule borne qu'aucun réglage ne peut franchir.
+
+  Le surcoût transitoire d'**une** désérialisation **n'est toujours pas mesuré** :
+  notre carte n'a pas la place de le mesurer, et la faire tomber vous ferait
+  tomber avec. Celui de **deux** ne l'est donc pas davantage — c'est la quatrième
+  réserve du §4.51 de notre registre, et elle était écrite au **singulier**.
 
   Le mode d'emploi complet — les trois conditions qui décident du GPU, comment
   vérifier chacune, le coût et le retour en arrière — est à
