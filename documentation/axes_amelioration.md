@@ -8110,6 +8110,31 @@ et ce qui reste une scène est dit comme tel.*
   leur propriété sur un service qu'ils *croyaient* sain. Le périphérique y est
   désormais **épinglé**, avec le motif au site. *Le `rc` était juste, la scène
   fausse* ;
+
+  > **CORRECTION DU COMPTE — REPAR-13, `mesuré` le 14 septembre 2026.** « Huit
+  > tests » était le nombre de tests que le câblage avait fait *rougir* ; le lot
+  > a ensuite posé la ligne d'épinglage à **14 sites**, et NB-2 de l'audit a
+  > montré que **la moitié n'épingle rien**. Le compte remesuré, sa recette
+  > étant sa preuve :
+  >
+  > ```bash
+  > # les sites qui portent la ligne, dans les trois fichiers
+  > grep -c 'torch_device", "cpu"' tests/unit/test_health_parallele.py \
+  >   tests/unit/test_garde_modele_embedding.py tests/unit/test_securite.py
+  > # mutation M-B : les retirer toutes, et compter les rouges
+  > sed -i '/torch_device", "cpu")/d' <les trois fichiers> && pytest <les trois>
+  > ```
+  >
+  > **15 sites** (14 du lot 12, plus un posé par le garde de B-3), dont **2**
+  > dans les aides `_brancher()` / `_brancher_health()` et **13** dans des
+  > tests. M-B en fait rougir **8 sur 58** ; les **8 autres sites sont
+  > INERTES** — leur scène asserte `degraded` de toute façon, ou ne passe pas
+  > par `/health`. Les lignes inertes sont conservées (elles protégeront le jour
+  > où ces scènes liront `/health`) mais **le motif qui les déclarait gardiennes
+  > a été retiré de ces 8 sites** : il y affirmait un fait faux. *Un épinglage
+  > qui passe aussi sous le défaut n'épingle rien, et un commentaire qui dit le
+  > contraire est exactement la forme que ce registre poursuit — une phrase qui
+  > ne rougit pas.*
 - **le chiffre de mémoire du §4.48 était périmé** (1 266 → 1 294), et la carte
   n'est plus partagée avec le seul Ollama ;
 - **DEUX de ses propres gardes étaient CREUX, et sa table de mutations les a

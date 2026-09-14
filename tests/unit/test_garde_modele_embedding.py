@@ -501,12 +501,16 @@ def test_une_recherche_sur_index_divergent_rend_503_et_non_500(monkeypatch) -> N
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     monkeypatch.setattr(retriever, "SentenceTransformer", lambda *_a, **_k: None)
@@ -852,12 +856,16 @@ def test_chat_resume_refuse_en_503_avant_d_ouvrir_le_flux(monkeypatch, caplog) -
     graphe = _GrapheQuiRebouclleVersRetrieve()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _AUTRE_CANDIDAT)
     _brancher_collection(
@@ -909,12 +917,16 @@ def test_une_divergence_apparue_en_vol_laisse_une_ligne_error(monkeypatch, caplo
     )
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)
     _brancher_collection(monkeypatch, concordante)
@@ -1120,12 +1132,16 @@ def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
     graphe = _GrapheQuiNeCherchePas()
     monkeypatch.setattr(main, "_interactive", graphe)
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "_PLAFOND_SONDES_S", 0.2)
     monkeypatch.setattr(settings, "embedding_model_name", _MODELE_QUI_A_INDEXE)

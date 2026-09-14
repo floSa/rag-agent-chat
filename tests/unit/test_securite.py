@@ -71,12 +71,16 @@ def test_aucune_cle_configuree_laisse_passer(monkeypatch) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     # Le corps invalide suffit : on vérifie qu'on dépasse l'authentification.
     assert TestClient(main.app).post("/search", json={}).status_code == 422  # noqa: PLR2004
@@ -236,12 +240,16 @@ def test_dependance_absente_degrade_le_statut(monkeypatch) -> None:
     from src.api import main
 
     monkeypatch.setattr(main.settings, "api_key", "")
-    # Le périphérique est ÉPINGLÉ, et ce n'est pas une commodité : depuis le
-    # lot 12, un périphérique hors d'atteinte dégrade à lui seul, et le défaut
-    # `cuda` dans un venv torch CPU en est un. Sans cette ligne, cette scène
-    # mesurerait la propriété qu'elle vise SUR UN SERVICE DÉGRADÉ pour une
-    # autre raison — un `rc` juste pour une raison fausse, la forme que ce
-    # chantier a payée huit fois.
+    # Le périphérique est épinglé PAR PRÉCAUTION, et cette ligne n'est PAS un
+    # épinglage : cette scène-ci n'atteint jamais le verdict du périphérique —
+    # elle asserte `degraded` de toute façon, ou ne passe pas par `/health`.
+    # `mesuré` le 14 septembre 2026 (REPAR-13, mutation M-B : les 15 lignes de ce
+    # motif retirées des trois fichiers → 8 tests rouges sur 58, celui-ci n'en
+    # est pas). Le motif qui figurait ici — « sans cette ligne, cette scène
+    # mesurerait sa propriété SUR UN SERVICE DÉGRADÉ » — était donc FAUX à ce
+    # site précis : c'est NB-2 de l'audit du lot 12. La ligne RESTE, parce
+    # qu'elle protégera le jour où cette scène lira `/health` ; ce qui part est
+    # la déclaration qu'elle garde quelque chose aujourd'hui.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: False)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)

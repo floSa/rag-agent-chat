@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 793 tests, aucune dépendance
+## Unitaire — 798 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,12 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 14 septembre 2026 à 09:37 UTC par LOT-12 : **793** tests sur **45** fichiers,
-> et les deux comptes de la recette — la somme par fichier et le total
-> que `pytest` annonce — concordent.
+> `mesuré` le 14 septembre 2026 à 12:36 UTC par REPAR-13 : **798** tests sur **45** fichiers,
+> et les deux comptes de la recette — la somme par fichier et le
+> total que `pytest` annonce — concordent. *(LOT-12 avait relevé **793** sur les
+> mêmes 45 fichiers à 09:37 UTC ; les cinq de plus sont les gardes de REPAR-13 —
+> deux sur le chargement des modèles, deux sur le réservoir de fils des sondes,
+> un témoin sur `services_unknown`.)*
 >
 > **Les vingt-deux de plus** viennent du lot 12, et ils tiennent trois
 > propriétés qui n'existaient pas. Les deux premières : **`/health` cesse de dire `ok` sur un service qui ne sert
