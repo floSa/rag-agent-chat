@@ -275,12 +275,28 @@ est favorable d'un facteur vingt.
 
 ## 7. Ce qu'il faudrait pour aller plus loin
 
-1. **une mesure sous charge concurrente** — plusieurs requêtes simultanées, qui
-   est le régime du service à venir. C'est la seule réserve qui pourrait encore
-   renverser la décision ;
-2. **une mesure sur un poste où seul cet agent parle au service LLM** — ou une
-   fenêtre où le projet `data-analyst-agent` ne tourne pas — pour resserrer
-   l'intervalle sur `generation_ms` ;
-3. **une reprise après le passage à vLLM**, annoncé par le propriétaire : il
-   change le serveur qui partage la carte, donc il change la contention, donc ce
-   chiffre de +40 ms devra être rejoué.
+**UNE SEULE MESURE, ET APRÈS LA MIGRATION — décision du propriétaire du
+14 septembre 2026.**
+
+La réserve qui reste est la charge **concurrente** : plusieurs requêtes en même
+temps, le régime du service à venir, où torch et le serveur LLM calculent
+*vraiment* ensemble au lieu de se relayer. C'est la seule qui pourrait encore
+renverser la décision.
+
+**Elle ne sera PAS mesurée contre Ollama.** Le propriétaire a tranché : Ollama
+est remplacé par **vLLM**. Mesurer la contention avec le serveur qu'on quitte
+produirait un chiffre périmé le jour où il sort, et un injecteur de charge écrit
+pour une pile qu'on abandonne. *La consigne vaut pour la suite du chantier :
+aucune tâche qui n'intègre pas ce remplacement.*
+
+**Ce qui est donc reporté, en une seule fois, après la migration :**
+
+1. rejouer le **+40 ms** de contention **sur vLLM**, et sous charge concurrente —
+   les deux réserves se ferment d'un même geste ;
+2. profiter d'une fenêtre où `data-analyst-agent` ne tourne pas, pour que
+   `generation_ms` ne porte pas un tiers (§5).
+
+**Ce qui n'a PAS à être rejoué** : le gain sur les étages torch. Les −817 ms
+viennent de l'embedder et du cross-encoder, qui ne dépendent pas du serveur LLM
+et ne changent pas avec lui. Seul le coût de partage de la carte est attaché à
+Ollama.
