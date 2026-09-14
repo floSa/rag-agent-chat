@@ -8060,8 +8060,23 @@ propriété qu'on lui demande.
   leur propriété sur un service qu'ils *croyaient* sain. Le périphérique y est
   désormais **épinglé**, avec le motif au site. *Le `rc` était juste, la scène
   fausse* ;
-- **le chiffre de mémoire du §4.48 était périmé de trois heures** (1 266 → 1 294),
-  et la carte n'est plus partagée avec le seul Ollama.
+- **le chiffre de mémoire du §4.48 était périmé** (1 266 → 1 294), et la carte
+  n'est plus partagée avec le seul Ollama ;
+- **DEUX de ses propres gardes étaient CREUX, et sa table de mutations les a
+  attrapés.** `M9` — un sémaphore illimité dans la construction paresseuse —
+  laissait le test de la borne **VERT**, parce que ce test appelait
+  `rearmer_la_borne_des_etages_torch()`, *qui n'est pas le chemin du service* :
+  en production le sémaphore naît dans `_semaphore()`, à la première requête. Le
+  test remet désormais le module à l'état où il l'y construira. `M10` — le
+  cliquet publiant `0.0` au repos — restait **VERT** parce que, dans le venv
+  torch CPU du §2.2, `torch.cuda.is_available()` est faux et rendait `None` par
+  l'autre condition ; le test feint donc une carte. *Dixième et onzième
+  occurrences de la forme dominante, trouvées par le lot contre lui-même* ;
+- **une mutation VERTE assumée et écrite** : `M4`, qui sert le repli avant le
+  verdict dans la route, ne fait rougir aucun test. Elle est inoffensive tant que
+  `_peripherique_inconnu()` ne calcule pas de motif — ce que `M4b` éprouve et qui
+  rougit. La propriété est donc gardée sur le CONTENU du repli, l'ordre dans la
+  route n'étant qu'une défense en profondeur. *Écrit plutôt que tu.*
 
 #### Ce que le lot n'a PAS fermé, et pourquoi
 

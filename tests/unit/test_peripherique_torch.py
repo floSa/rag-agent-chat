@@ -885,8 +885,16 @@ def test_la_borne_fait_attendre_au_dessus_de_son_plafond(
     RÉELLEMENT bloqué — il ne se contente pas de compter, il constate qu'il
     n'entre qu'une fois une place libérée.
     """
+    # LE CHEMIN DU SERVICE EST LA CONSTRUCTION PARESSEUSE, PAS `rearmer`, et
+    # c'est une correction : la première écriture de ce test appelait
+    # `rearmer_la_borne_des_etages_torch()`, qui construit le sémaphore à part.
+    # La mutation M9 — `_semaphore()` construisant un sémaphore illimité — le
+    # laissait donc **VERT**, le chemin muté n'étant jamais emprunté. En service,
+    # personne n'appelle `rearmer` : le sémaphore naît dans `_semaphore()`, à la
+    # première requête. On remet donc le module à l'état où il l'y construira.
     monkeypatch.setattr(retriever.settings, "torch_max_concurrency", 3, raising=False)
-    retriever.rearmer_la_borne_des_etages_torch()
+    monkeypatch.setattr(retriever, "_borne", None, raising=False)
+    monkeypatch.setattr(retriever, "_borne_taille", None, raising=False)
 
     entres: list[int] = []
     liberer = threading.Event()
@@ -1058,6 +1066,16 @@ def test_le_cliquet_vaut_null_tant_que_rien_n_est_charge(
     """
     retriever._get_embedding_model.cache_clear()
     retriever._get_rerank_model.cache_clear()
+    # CETTE LIGNE EST CE QUI REND LE TEST DISCRIMINANT, et son absence l'a rendu
+    # creux. Dans le venv du §2.2 — torch CPU — `torch.cuda.is_available()` est
+    # FAUX, donc `_pic_memoire_reservee_mio` rendait `None` par sa seconde
+    # condition quoi qu'il arrive : la mutation M10, qui retire le garde « aucun
+    # modèle chargé », laissait ce test **VERT**. En feignant une carte, c'est
+    # bien le garde visé qui décide.
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(
+        torch.cuda, "max_memory_reserved", lambda *a, **k: 1_036 * 2**20, raising=False
+    )
 
     corps = _corps_de_health(monkeypatch, "cpu")
 
