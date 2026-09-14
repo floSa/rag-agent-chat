@@ -226,6 +226,27 @@ class Settings(BaseSettings):
     # soit **1 Mio** sur 3 199 — et il est retenu à **27** parce qu'une marge
     # de 1 Mio n'est pas une marge.
     #
+    # LE 27 REPOSE SUR UNE ABSTENTION, PAS SUR UNE LOI DE LA CARTE, et qui lit
+    # ce seuil doit le savoir. Le 14 septembre 2026, le lot 15 a rendu 434 MiB
+    # au voisin (1 984 → 1 550 MiB `mesuré`). Ces 434 MiB lui rendaient `0.78`
+    # tenable ; **il a refusé de les prendre**, et son motif est que le domaine
+    # ci-dessus se paie exactement sur cette marge. Son calcul, `calculé` par
+    # lui et REJOUÉ par le pilote le 14 septembre 2026 (place = 23 034 −
+    # utilisation × 23 034 × 1,133, le facteur ×1,133 étant l'écart mesuré chez
+    # lui entre budget annoncé et occupation réelle) :
+    #
+    #     0.76 -> 3 200 Mio pour nous -> N <= 28, retenu 27
+    #     0.78 -> 2 678 Mio            -> N <= 20
+    #     0.80 -> 2 156 Mio            -> N <= 12
+    #
+    # Monter de 0,76 à 0,78 rétrécirait donc notre borne utilisable de 27 à 20
+    # SANS QUE RIEN NE LE DISE ICI. Le 27 n'est pas une propriété du matériel :
+    # c'est un accord, et il cesse de valoir le jour où le voisin relance son
+    # moteur sur une autre valeur — ce qu'il a le droit de faire. Avant de
+    # s'appuyer sur ce seuil, on RELIT sa valeur courante, on ne la suppose pas.
+    # (Une seule correction au tableau du voisin, sans effet sur sa décision :
+    # à 0,80 le seuil est **12** et non 13 — `f(13) = 2 178 > 2 156` de 22 Mio.)
+    #
     # POURQUOI « PRÉVENIR AVANT » N'EST PAS UNE POLITESSE, et c'est le motif
     # pour lequel ce paragraphe est ici plutôt que dans un journal :
     # `--gpu-memory-utilization` est une option de LANCEMENT de vLLM. Le voisin
