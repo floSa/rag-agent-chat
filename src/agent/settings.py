@@ -212,6 +212,46 @@ class Settings(BaseSettings):
     # une file qui n'en a pas. Un étage torch qui pendrait bloquerait déjà tout
     # sans ce sémaphore.
     #
+    # LE DOMAINE QUE LE VOISIN A RENDU, ET CE RÉGLAGE A UN LECTEUR EXTERNE.
+    # `data-analyst-agent` a inversé la formule de réservation de cet agent et
+    # rendu le domaine dans lequel cette valeur peut bouger. Sa base, `calculé`
+    # par lui et recopiée ici sans être rejouée : `réservation(N) = 1 362 +
+    # (N − 1) × 68,0 Mio`, contre **3 199 Mio** libres à
+    # `--gpu-memory-utilization 0.76`, **Ollama retiré**.
+    #
+    # CE QUE LE DOMAINE DIT :
+    #   — au-delà de **16**, le PRÉVENIR AVANT de changer la valeur ;
+    #   — au-delà de **27**, on entame SA marge.
+    # Le seuil arithmétique exact est **28** — `1 362 + 27 × 68,0 = 3 198 Mio`,
+    # soit **1 Mio** sur 3 199 — et il est retenu à **27** parce qu'une marge
+    # de 1 Mio n'est pas une marge.
+    #
+    # POURQUOI « PRÉVENIR AVANT » N'EST PAS UNE POLITESSE, et c'est le motif
+    # pour lequel ce paragraphe est ici plutôt que dans un journal :
+    # `--gpu-memory-utilization` est une option de LANCEMENT de vLLM. Le voisin
+    # ne peut PAS y réagir à chaud — il lui faudrait redémarrer son moteur, donc
+    # interrompre son service. Monter cette valeur sans l'avoir prévenu ne lui
+    # laisse aucun geste. Les autres réglages de ce fichier n'ont que des
+    # lecteurs internes ; celui-ci a un lecteur qu'un `docker compose up` ne
+    # rattrape pas.
+    #
+    # LA CONDITION N'EST PAS TENUE AUJOURD'HUI, et les deux seuils ne valent
+    # donc encore RIEN comme autorisation : les 3 199 Mio supposent **Ollama
+    # retiré**, or `llama-server` occupait toujours **3 598 MiB** — `mesuré` le
+    # 14 septembre 2026 à 15:13:30 UTC par
+    # `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`.
+    # Tant qu'il est là, le domaine ci-dessus décrit un poste qui n'existe pas
+    # encore. Il dit ce qui vaudra quand la condition sera tenue, pas ce qui est
+    # permis ce matin.
+    #
+    # ⚠ LA FORMULE DU VOISIN MAJORE LE BANC DU PILOTE, et l'écart n'est PAS
+    # tranché ici. À N=16 elle rend **2 382 Mio** (`calculé`) là où le banc cité
+    # plus haut a `mesuré` **1 984 Mio** ; sa pente de 68,0 Mio par unité est
+    # plus raide que celle des paliers mesurés (~41,5 Mio de 1 à 16, `calculé`
+    # sur (1 984 − 1 362) / 15). Elle est donc PRUDENTE de son point de vue, et
+    # les deux seuils qu'elle donne le sont aussi. Ne pas la remplacer par le
+    # banc sans le lui dire : c'est sa marge qu'elle protège, pas la nôtre.
+    #
     # Gardé dans les DEUX directions : `tests/unit/test_peripherique_torch.py`,
     # section (7).
     torch_max_concurrency: int = Field(default=4, ge=1, alias="TORCH_MAX_CONCURRENCY")
