@@ -7637,3 +7637,100 @@ chaque tour, le travail étant commité d'abord.
   environnements ;
 - **aucun des deux jeux ne note la réponse GÉNÉRÉE.** Réserve permanente de
   l'instrument, pas de ce lot.
+
+---
+
+### 4.49 → L'audit du lot 11 : une bloquante sur du code DÉJÀ EN PRODUCTION, et le périphérique devient un prérequis de la bascule vLLM
+
+`Conv' 51` (AUDIT-11) a rendu son rapport le 14 septembre 2026 —
+**onzième audit du chantier, et le premier sur du code déjà servi**. Une
+bloquante, deux non bloquantes, recommandation **« corriger par un lot, pas de
+retour arrière »**. Rapport à `documentation/audits/2026-09-14-audit-lot-11.md`.
+
+#### La bloquante, et elle est du même genre que celle du lot 6
+
+`src/api/main.py` — **`torch_device` n'entre pas dans le calcul de `status`**,
+alors que la concordance d'embedding y entre **trois lignes plus haut**, avec son
+motif écrit : *« toute recherche rend 503, un statut ok décrirait un service qui
+ne sert rien »*.
+
+**Le lot 11 a créé un mode de panne qui n'existait pas.** `device=None` ne pouvait
+pas lever ; `device=settings.torch_device` lève **au chargement du modèle**, donc
+**à la première recherche**. `mesuré` par l'auditeur en grandeur réelle, sur un
+jumeau sans GPU branché aux vrais stores :
+
+| | |
+|---|---|
+| `POST /search` | **500** |
+| `GET /health` | **200, `status: ok`** |
+| healthcheck `curl -sf` | **vert, pour toujours** |
+| corps publié au repos / après trois chargements qui ont levé | **identique** — `embedding` et `rerank` restent `null`, le cache ne se peuplant jamais |
+
+**Un exploitant ne peut donc distinguer ni « sain » de « en panne totale », ni
+même « au repos » de « en panne ».** Dixième occurrence de la forme dominante de
+ce chantier.
+
+*Et l'auditeur a trouvé un faux résultat contre lui-même en chemin : sa première
+sonde était **verte** faute d'avoir branché Ollama — le statut dégradait pour une
+autre raison. Le `rc` juste, la raison fausse, **huitième fois**. Il a ajouté un
+contrôle positif.*
+
+#### CE QUI FAIT DE CE LOT UN PRÉREQUIS DE LA BASCULE vLLM, et ce n'est pas le pilote qui l'a vu
+
+Le pilote de `data-analyst-agent` l'a soulevé et il a raison : Ollama libérera ses
+**4,9 Go**, vLLM les prendra, et si `--gpu-memory-utilization` est dimensionné
+sans réserver la place de cet agent — **~1,26 Go mesurés** —, le périphérique de
+cet agent change. Or le **§4.48** a établi que **le classement du cross-encoder
+n'est pas invariant par périphérique** (G-006), et **aucun artefact de `runs/` ne
+consigne le périphérique**. *La bascule pourrait donc déplacer les résultats en
+silence, et rien ne le montrerait.*
+
+**Un maillon de ce raisonnement est à corriger, et la correction le renforce.**
+`mesuré` par le pilote le 14 septembre 2026 : il n'y a **aucun repli vers CPU**
+dans le code — `device=settings.torch_device` part droit aux deux constructeurs,
+sans `try`, sans garde sur `is_available()`. Les modèles ne « retombent » donc
+pas sur CPU : **ils lèvent**, et on retrouve la bloquante ci-dessus.
+
+**Mais le chemin silencieux existe, et c'est une CONSIGNE qui l'emprunte.** Avec
+`TORCH_DEVICE=cpu` — l'assurance que le pilote envisageait, et **exactement le
+geste que `gpu_cuda.md` rend au pipeline** — les modèles chargent parfaitement,
+le service est sain, toutes les recherches aboutissent, **et le classement change
+sans que rien ne l'écrive nulle part**. *Ce n'est pas une panne qui dégrade en
+silence, c'est une procédure.*
+
+#### Les deux non bloquantes, et la première est du pilote
+
+- **la correction du pilote au §4.48 était INCOMPLÈTE.** Il avait écrit que les
+  chiffres dépendent de la base ; il n'avait corrigé **que le registre**.
+  `src/agent/settings.py` et le site canonique des campagnes annoncent toujours
+  « contre `lecteur-neuf` » en portant **sept valeurs sur sept** venues de
+  `reference-08`. *Corriger un chiffre à un seul de ses sites est la dérive que
+  le §4.13 nomme depuis le début* ;
+- **le geste rendu au pipeline reproduit la bloquante chez le lecteur** :
+  commenter `deploy:` sans toucher `TORCH_DEVICE` laisse le défaut à `cuda`, donc
+  produit exactement la scène du 500 muet. Le document **connaît le remède deux
+  paragraphes plus haut** mais ne le joint pas au geste.
+
+#### G-006 : signal, et l'auditeur tranche
+
+**La même question bascule contre deux bases indépendantes** — effet systématique
+reproductible, pas un aléa. L'amplitude reste celle d'un départage d'ex æquo, les
+quatre rappels valant 1,0 des deux côtés. *Le véritable enseignement n'est pas la
+bascule : c'est que le classement du cross-encoder n'est pas invariant par
+périphérique, et qu'aucun `runs/*.json` ne consigne le périphérique — ce qui rend
+toute comparaison future ambiguë.*
+
+#### Le fait de poste, ouvert par l'audit et CLOS par le pilote d'en face
+
+Le pilote NVIDIA a été mis à jour **pendant** l'audit — 595.91.07 installé à
+07:29 UTC, module noyau resté à 595.71.05, `nvidia-smi` en `rc=18`, plus aucun
+conteneur GPU ne démarrant. Le service tenait la carte mais **ne l'aurait pas
+survécu à un redémarrage**, avec `restart: unless-stopped` et une réservation
+qu'on ne pouvait plus satisfaire.
+
+**Réparé à chaud par le pilote de `data-analyst-agent`**, et vérifié par celui-ci
+le 14 septembre à 08:28 UTC : `nvidia-smi` `rc=0`, module **595.91.07** aligné,
+CDI régénérée à 08:18, un conteneur GPU redémarre en `rc=0`. **La commande qui
+compte est la troisième** — `nvidia-ctk cdi generate` —, la spécification CDI
+pointant encore sur les bibliothèques disparues. *Consigné ici parce que ce
+chantier en dépend et que la prochaine mise à jour de pilote se présentera pareil.*
