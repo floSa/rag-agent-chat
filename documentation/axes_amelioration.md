@@ -7737,7 +7737,86 @@ chantier en dépend et que la prochaine mise à jour de pilote se présentera pa
 
 ---
 
-### 4.50 → Le lot 12 : `/health` cesse de mentir, le périphérique entre dans les artefacts, et **vLLM a déjà pris la carte**
+### 4.50 → Ce que la bascule vLLM impose à cet agent, et deux chiffres que les deux pilotes avaient faux
+
+Entrée ouverte le 14 septembre 2026, **avant** la migration, parce que deux
+chiffres échangés entre pilotes se sont révélés faux **dans le même sens** — un
+plafond pris pour une borne dure — et que la leçon vaut au-delà de ce chantier.
+
+#### L'empreinte GPU de cet agent est PARESSEUSE, et le pilote l'avait publiée comme résidente
+
+Le pilote a communiqué **1,26 Go** au pilote de `data-analyst-agent` pour qu'il
+réserve la place de cet agent dans le `--gpu-memory-utilization` de vLLM.
+`mesuré` le 14 septembre 2026 à 08:5x UTC sur le service en marche, par
+`nvidia-smi --query-compute-apps` croisé avec `docker inspect … .State.Pid` :
+
+| moment | empreinte de l'agent |
+|---|---|
+| au repos, après redémarrage | **0 Mio** — aucun modèle chargé |
+| après une recherche (`POST /search`) | **708 Mio** — embedder seul, `rerank` encore `null` |
+| après une réponse complète (`POST /answer`) | **1 294 Mio** — les deux modèles sur `cuda:0` |
+
+**Les deux modèles sont derrière `lru_cache` et se chargent à la première
+utilisation, pas au démarrage.** Donc *« l'agent occupe 1,3 Go »* est faux la
+plupart du temps : il occupe **zéro** la nuit, après chaque redémarrage, et tant
+que personne n'a posé de question.
+
+**La conséquence est opérationnelle et elle a été rendue** : *ne jamais déduire
+sa place de la mémoire libre observée au démarrage de vLLM.* Un dimensionnement
+pris pendant que cet agent est au repos verrait **1,3 Go de libre en trop**, les
+prendrait, et ferait tomber l'agent **plus tard** — sans rapport apparent avec la
+cause. **La réservation doit être inconditionnelle.**
+
+**Et 1 294 Mio reste un plafond SÉRIEL.** Il est mesuré sur des requêtes une par
+une ; le cross-encoder traite une cinquantaine de passages par requête et
+l'allocateur de torch croît avec la taille des lots. *Sous concurrence il
+montera, et ce chiffre-là n'est pas mesuré.* Marge de **1,5 Gio** suggérée, et la
+réserve est écrite.
+
+#### La faute symétrique, chez l'autre pilote, et c'est elle qui a mis sur la piste
+
+Le pilote de `data-analyst-agent` avait donné `--gpu-memory-utilization = 0,90`.
+Son banc a mesuré que **ce n'est pas une borne dure** : **13,66 Gio annoncés pour
+15,48 réellement occupés**, soit **×1,133**. À 0,90 le réel atteindrait ~22,9 Gio
+sur 22,49 — **OOM avant même la place de cet agent**. Valeur retenue : **0,78**.
+*Son modèle prédit exactement l'OOM que son banc a subi à 0,75 avec Ollama
+résident, ce qui le valide.*
+
+**Deux pilotes, deux chiffres, la même erreur de nature : un plafond observé pris
+pour une borne garantie.** C'est la forme que ce chantier nomme depuis le §4.5 —
+*une phrase ne rougit pas* — appliquée à une ressource partagée.
+
+#### Le piège du mauvais analyseur d'outils, et c'est la famille dominante de ce chantier
+
+Le banc de l'autre pilote a mesuré que, **avec le mauvais `--tool-call-parser`,
+il n'y a AUCUNE erreur** : le serveur répond **200**, aucun log, et l'appel
+d'outil **fuit dans le texte de la réponse** sous une forme de balises.
+
+`SEARCH_TOOL` de cet agent passe par ce chemin. **Donc, à la migration, la preuve
+ne sera pas que la requête aboutit : ce sera que l'outil a été APPELÉ**, vérifié
+sur l'objet d'appels d'outils de la réponse, **avec une contre-épreuve analyseur
+retiré** pour montrer que la sonde sait distinguer les deux cas. *Dixième
+occurrence de la forme dominante — un vert sous une scène que le défaut ne
+rencontre jamais — et la première qui arrive d'un autre dépôt.*
+
+#### L'ordre de bascule, arrêté par l'autre pilote, et cet agent n'a aucune urgence
+
+vLLM monte **à côté** d'Ollama, à `0,55` pendant la transition ; Ollama n'est
+retiré **qu'après** que cet agent a migré et l'a dit. `/api/chat` continue donc
+de servir pendant le lot 12 et pendant la migration.
+
+**Et une contrainte tombe** : `nomic-embed-text` ne concerne pas cet agent —
+`mesuré` par l'autre pilote, **zéro appel** à l'API d'embeddings d'Ollama dans
+les quatre dépôts, cet agent calculant ses vecteurs en interne avec
+sentence-transformers. Rien à faire cohabiter.
+
+**Verdict du banc, pour mémoire** : GO sur le modèle retenu, servi avec
+`--tool-call-parser gemma4` et `--enable-auto-tool-choice`, fenêtre **32768** —
+la native, 131072, ne laissant que 1,43 requête concurrente contre 4,58.
+
+---
+
+### 4.51 → Le lot 12 : `/health` cesse de mentir, le périphérique entre dans les artefacts, et **vLLM a déjà pris la carte**
 
 `Conv' 52` (LOT-12) a livré le 14 septembre 2026. Les quatre fermetures de la
 recommandation de l'audit 11 sont posées, et **le lot rapporte un fait de poste
@@ -7760,7 +7839,9 @@ croisé avec `docker inspect -f '{{.State.Pid}}' rag-agent-api` (PID **503779**)
 
 1. **L'agent a gardé son périphérique.** Le dimensionnement de vLLM a laissé la
    place — le risque nommé au §4.49 ne s'est pas réalisé ;
-2. **le chiffre du §4.48 était périmé** : `1 294 MiB` et non `1 266`, et
+2. **le chiffre du §4.48 était périmé** : `1 294 MiB` et non `1 266` — et le
+   §4.50 ajoute que cette empreinte est **PARESSEUSE** (0 Mio au repos, 708 après
+   une recherche), donc que `1 294` est un plafond atteint et non une résidence —
    « ~4 900 MiB d'Ollama » vaut désormais **4 584**, Ollama ayant redémarré
    (PID 506387 → 750410). *Un état de poste périme, celui-ci a périmé en trois
    heures* ;
