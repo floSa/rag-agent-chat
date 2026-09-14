@@ -1125,3 +1125,204 @@ def test_temoin_inerte_le_peripherique_ne_touche_ni_aux_noms_ni_au_verdict(
         retriever.verdict_langue_du_reranker(retriever.settings.rerank_model, _Config.vocab_size)
         is None
     ), "le garde de langue du reranker parle sur le réglage en service"
+
+
+# ─── (9) LE CHARGEMENT LUI-MÊME, QUI EST LE MOMENT OÙ LA CARTE ALLOUE ────────
+#
+# CE QUE CES DEUX GARDES FERMENT — B-1 de l'audit du 14 septembre 2026. La borne
+# était prise autour du CALCUL et pas autour du CHARGEMENT, et `lru_cache` ne
+# sérialise pas les manques concurrents : en CPython son verrou n'est tenu que
+# pour la mise à jour du dictionnaire, jamais pendant l'exécution de la fonction
+# enveloppée. `K` fils qui manquent le cache ensemble construisaient donc `K`
+# modèles EN MÊME TEMPS, chacun plaçant sa copie des poids sur la carte — et
+# l'allocateur de torch ne rend rien, ce que `_pic_memoire_reservee_mio` écrit
+# lui-même. `mesuré` par l'audit sur le module réel : **8** constructions
+# simultanées sous une borne de 4, contre 4 avec le constructeur sous le `with`.
+#
+# DEUX GARDES ET NON UN, PARCE QUE LES DEUX PROPRIÉTÉS SONT DISTINCTES ET QUE
+# NI L'UNE NI L'AUTRE NE SUFFIT :
+#   — la SÉRIALISATION rend une seule construction pour K manques simultanés.
+#     Sans elle, les placer sous la borne ramènerait le pic de K à la borne — 4
+#     copies au lieu de 8 — ce qui est une atténuation, pas une fermeture ;
+#   — le PLACEMENT sous la borne fait que le chargement compte dans la grandeur
+#     que la borne plafonne. Sans lui, une construction peut se dérouler pendant
+#     que `TORCH_MAX_CONCURRENCY` calculs occupent déjà la carte, et le chiffre
+#     de réservation rendu au voisin ne majore plus la scène.
+#
+# LES DEUX SONT ÉPROUVÉS SUR LE MODULE RÉEL, avec des doubles INERTES qui ne
+# font que compter : ils ne chargent rien, ne touchent pas la carte, et ne
+# savent rien de la borne.
+
+_FILS_A_FROID = 8
+
+
+def test_un_manque_de_cache_concurrent_ne_construit_qu_un_seul_modele(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LA PROPRIÉTÉ : K manques simultanés → UNE construction. Pas K, pas la borne.
+
+    C'est la moitié qui ferme la mémoire. Le pic de la carte est pris au
+    CHARGEMENT, et il n'est jamais rendu ; deux copies des poids construites en
+    même temps coûtent deux fois, définitivement.
+
+    LA BARRIÈRE EST DANS LE CONSTRUCTEUR, ET C'EST CE QUI REND LE ROUGE
+    DÉTERMINISTE plutôt que dépendant de l'ordonnanceur : sous le défaut les
+    `_FILS_A_FROID` constructeurs s'y retrouvent et la franchissent d'un coup,
+    donc le pic mesuré est bien `_FILS_A_FROID` et non « ce que le hasard a
+    laissé passer ». Sous la correction un seul constructeur y arrive, la
+    barrière expire, il passe — le test coûte alors son délai UNE fois.
+
+    On asserte la PROPRIÉTÉ (`<= 1`), pas l'instantané : un jour où la machine
+    sérialiserait pour une autre raison, le garde doit rester juste.
+    """
+    presents = {"courant": 0, "pic": 0, "total": 0}
+    compte = threading.Lock()
+    # Participants = le nombre de fils : elle ne s'ouvre que si TOUS les
+    # constructeurs y sont ensemble, ce qui est exactement le défaut.
+    rendez_vous = threading.Barrier(_FILS_A_FROID)
+
+    def _faux_st(nom: str, device: str | None = None) -> _FauxEmbedder:
+        with compte:
+            presents["courant"] += 1
+            presents["total"] += 1
+            presents["pic"] = max(presents["pic"], presents["courant"])
+        try:
+            rendez_vous.wait(timeout=1.0)
+        except threading.BrokenBarrierError:
+            pass  # un seul constructeur : c'est le cas VERT, et il ne doit pas pendre
+        with compte:
+            presents["courant"] -= 1
+        return _FauxEmbedder(device)
+
+    monkeypatch.setattr(retriever, "SentenceTransformer", _faux_st)
+    retriever._get_embedding_model.cache_clear()
+
+    depart = threading.Barrier(_FILS_A_FROID)
+    obtenus: list[Any] = []
+
+    def _un_fil() -> None:
+        depart.wait(timeout=5.0)
+        obtenus.append(retriever._get_embedding_model())
+
+    fils = [threading.Thread(target=_un_fil) for _ in range(_FILS_A_FROID)]
+    for f in fils:
+        f.start()
+    for f in fils:
+        f.join(timeout=15.0)
+
+    assert not [f for f in fils if f.is_alive()], (
+        "un fil n'est jamais revenu du chargement : la sérialisation pend au lieu "
+        "de sérialiser"
+    )
+    assert len(obtenus) == _FILS_A_FROID, (
+        f"tous les fils n'ont pas obtenu de modèle : {len(obtenus)}"
+    )
+    assert presents["pic"] <= 1, (
+        f"{presents['pic']} constructions du modèle d'embedding étaient en cours EN "
+        f"MÊME TEMPS (pour {_FILS_A_FROID} fils à froid). Chacune place sa copie des "
+        "poids sur la carte, et l'allocateur de torch ne rend rien : le pic reste "
+        "acquis. `lru_cache` ne sérialise pas les manques concurrents — il faut un "
+        "verrou de chargement"
+    )
+    assert presents["total"] == 1, (
+        f"{presents['total']} modèles construits pour {_FILS_A_FROID} manques "
+        "simultanés. Sérialiser sans dédupliquer ne ferme rien : les copies "
+        "surnuméraires sont bien construites l'une après l'autre, et chacune alloue"
+    )
+    assert len({id(m) for m in obtenus}) == 1, (
+        "les fils n'ont pas tous reçu le MÊME modèle : le singleton n'en est plus un"
+    )
+
+
+def test_le_chargement_des_deux_modeles_se_fait_sous_la_borne(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE PLACEMENT, par le VRAI chemin d'appel des deux étages.
+
+    Le jumeau de `test_les_deux_etages_torch_passent_par_la_borne`, un cran plus
+    tôt : celui-là observe le permis pendant `encode`/`predict`, celui-ci pendant
+    la CONSTRUCTION. Les deux sont nécessaires — le lot 12 tenait le premier et
+    la mutation qui déplaçait le constructeur hors de la borne laissait la suite
+    entièrement verte (mutation M-A de l'audit).
+
+    Le permis est observé DEPUIS le constructeur, et non par un traceur d'appels :
+    un câblage qui prendrait puis rendrait le permis avant de charger serait vert
+    à un traceur et faux en service.
+    """
+    monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
+    monkeypatch.setattr(retriever.settings, "torch_max_concurrency", 1, raising=False)
+    retriever.rearmer_la_borne_des_etages_torch()
+
+    tenu: dict[str, bool] = {}
+
+    def _permis_detenu() -> bool:
+        """Vrai si l'unique permis est pris. Rendu immédiatement s'il ne l'était pas."""
+        libre = retriever._semaphore().acquire(blocking=False)
+        if libre:
+            retriever._semaphore().release()
+        return not libre
+
+    class _Embedder:
+        def __init__(self, nom: str = "", *, device: str | None = None) -> None:
+            tenu["embedding"] = _permis_detenu()
+            self.device = device
+
+        def encode(self, question: str) -> Any:
+            import numpy
+
+            return numpy.zeros(3)
+
+    class _Cross:
+        def __init__(self, nom: str = "", *, device: str | None = None) -> None:
+            tenu["rerank"] = _permis_detenu()
+            self.device = device
+            self.config = _Config()
+
+        def predict(self, pairs: Any) -> Any:
+            import numpy
+
+            return numpy.zeros(len(pairs))
+
+    class _Collection:
+        def query(self, **kwargs: Any) -> dict[str, Any]:
+            return {"documents": [[]], "metadatas": [[]], "distances": [[]], "ids": [[]]}
+
+    monkeypatch.setattr(retriever, "SentenceTransformer", _Embedder)
+    monkeypatch.setattr(retriever, "CrossEncoder", _Cross)
+    monkeypatch.setattr(retriever, "verifier_modele_embedding", lambda: None)
+    monkeypatch.setattr(retriever, "_get_chroma_collection", lambda: _Collection())
+    retriever._get_embedding_model.cache_clear()
+    retriever._get_rerank_model.cache_clear()
+
+    try:
+        retriever._dense_search("question", 5)
+        retriever.rerank(
+            "question",
+            [
+                ChunkResult(
+                    chunk_id=f"c{i}",
+                    element_id=f"{i:010x}",
+                    graph_node_id=f"n{i}",
+                    document="texte",
+                    filename="f.pdf",
+                    page_no=1,
+                    label="text",
+                    distance=0.1,
+                )
+                for i in range(3)
+            ],
+        )
+    finally:
+        retriever._get_embedding_model.cache_clear()
+        retriever._get_rerank_model.cache_clear()
+
+    assert tenu.get("embedding") is True, (
+        "le CHARGEMENT du modèle d'embedding ne tient pas le permis de la borne : "
+        f"{tenu}. C'est le moment où la carte alloue le plus, et il n'est compté "
+        "dans aucune borne — le chiffre de réservation rendu au voisin ne majore "
+        "alors plus la scène du démarrage à froid"
+    )
+    assert tenu.get("rerank") is True, (
+        "le CHARGEMENT du reranker ne tient pas le permis de la borne : "
+        f"{tenu}. Même panne que pour l'embedder, sur le modèle le plus lourd des deux"
+    )
