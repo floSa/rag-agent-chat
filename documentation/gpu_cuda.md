@@ -534,7 +534,12 @@ quatre bornes, soit **une par modèle**, jamais deux du même. La colonne du mil
 est une **scène** : le pic 1 à la borne 4 tient à ce que les quatre permis sont
 consommés par des fils qui attendent le verrou de l'embedder, si bien qu'aucun
 n'atteint le cross-encoder ; à 5, un fil passe. **Le majorant qu'aucun réglage ne
-franchit est donc 2**, et c'est celui qu'on rend au voisin de carte — §4.52.
+franchit est donc 2**, et c'est celui qu'on rend au voisin de carte.
+
+**CE TABLEAU EST LE SITE CANONIQUE DE CE CHIFFRE.** Il est repris à
+[`pour_le_pipeline_ingestion.md`](pour_le_pipeline_ingestion.md) — délibérément,
+ce document devant se lire sans accès à celui-ci — et nulle part ailleurs ; le
+registre le cite en renvoyant ici. Dérivation et banc : §4.53 du registre.
 
 Ce qui reste **non mesuré** : le surcoût transitoire d'une désérialisation, donc
 a fortiori de deux. Re-dérivation complète au §4.51.

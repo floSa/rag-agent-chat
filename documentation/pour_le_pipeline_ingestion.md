@@ -234,6 +234,9 @@ Constaté, pas supposé :
   **5**, un fil passe, et vous avez deux désérialisations simultanées. Le majorant
   sûr, quelle que soit la borne, est donc **2** — le nombre de modèles.
 
+  *Ce tableau est repris de `gpu_cuda.md` §10bis, qui en est le site canonique ;
+  il est recopié ici pour que ce document se lise sans accès au nôtre.*
+
   **`TORCH_MAX_CONCURRENCY` est un réglage documenté** (publié dans `/health` et
   au `README`), qu'un exploitant de notre côté peut desserrer sans vous prévenir.
   Si vous dimensionnez `--gpu-memory-utilization` — **option de LANCEMENT, non

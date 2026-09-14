@@ -8431,12 +8431,13 @@ près — celle que `/health` publie, dont c'est précisément le **contenu** qu
   inerte**. La ligne reste — elle protégera le jour où ces scènes liront
   `/health` —, la phrase fausse part. **Mesuré après correction : 5 motifs
   gardiens subsistent, tous sur une ligne qui mord** ;
-- **NB-E — le §4.52 se contredisait, il est recompté.** Il publiait « 15 sites,
-  2 dans les aides, 8 qui mordent, 8 inertes » : **8 + 8 = 16 pour 15**. Mesuré
-  ligne par ligne : **15 lignes, 6 qui MORDENT, 9 INERTES, 8 tests rouges sur
-  58**. Lignes et tests ne s'additionnent pas — une des six est une **aide** qui
-  fait rougir **3** tests à elle seule (3 + 5 × 1 = 8). Le compte a désormais
-  **un seul site canonique**, dans le §4.52, avec sa recette ;
+- **NB-E — le §4.52 se contredisait, il est recompté.** Il additionnait des
+  **sites** et des **tests** dans la même phrase, et la somme ne tombait pas :
+  « 8 qui mordent, 8 inertes » pour **15** sites. Recompté ligne par ligne,
+  `rc` relevé de `pytest`, restauration vérifiée par SHA-256 aux quinze. **Le
+  compte corrigé et sa recette ne sont PAS recopiés ici** — ils ont désormais un
+  seul site, le §4.52, et ce lot-ci n'existerait pas si un chiffre à deux sites
+  était sans conséquence ;
 - **NB-F — `/health` ne publie plus le nom d'un mécanisme retiré.** Le message
   disait « le `lru_cache` ne se peuple pas sur une levée », or REPAR-13 a retiré
   `lru_cache` de ces deux modèles. **Le NOM DU CHAMP n'a pas bougé, et c'était la

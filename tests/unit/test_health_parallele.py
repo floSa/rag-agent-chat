@@ -152,8 +152,9 @@ def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
     # motif : le jour où une scène branchée par `_brancher` lira `/health`, le
     # défaut `cuda` dans un venv torch CPU la dégraderait à lui seul. Elle
     # protège une scène à venir, pas celle-ci — et c'est tout ce qu'elle
-    # prétend. Le compte complet (15 lignes, 6 qui mordent, 9 inertes, 8 tests)
-    # et sa recette sont au §4.52 du registre, son seul site canonique.
+    # prétend. Le compte des lignes de ce motif — combien mordent, combien sont
+    # inertes, combien de tests elles tiennent — et la recette qui le reproduit
+    # ont UN SEUL SITE : le §4.52 du registre. Il n'est pas recopié ici.
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", sondes.chromadb)
     monkeypatch.setattr(main, "nebula_ping", sondes.nebulagraph)
