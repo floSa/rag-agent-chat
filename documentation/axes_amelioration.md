@@ -7582,14 +7582,25 @@ chaque tour, le travail étant commité d'abord.
 
 #### Ce que le lot n'a PAS fermé, et qui reste ouvert
 
-- **la contention sous charge CONCURRENTE.** Les 138 questions ont été posées en
-  série. Le service à venir répondra à plusieurs personnes à la fois, donc fera
-  tourner l'embedder, le cross-encoder et le serveur LLM **simultanément** sur la
-  même carte. Les p95 qui s'effondrent (2 943 → 68 ms) sont le contraire d'un
-  signe de saturation, mais le chiffre de +40 ms est propre à une charge
-  séquentielle ;
-- **le passage à vLLM**, annoncé par le propriétaire : il change le serveur qui
-  partage la carte, donc la contention, donc ce +40 ms devra être rejoué ;
+- **la contention sous charge CONCURRENTE — NON MESURÉE, ET C'EST UNE DÉCISION
+  DU PROPRIÉTAIRE, PAS UN OUBLI.** Les 138 questions ont été posées en série ; le
+  service à venir répondra à plusieurs personnes à la fois, donc fera tourner
+  l'embedder, le cross-encoder et le serveur LLM **simultanément** sur la même
+  carte, et le chiffre de +40 ms est propre à une charge séquentielle. Le lot
+  proposait de la mesurer (~1 h, un injecteur parallèle à écrire).
+
+  **Le propriétaire l'a refusée le 14 septembre 2026, et le motif est bon :
+  Ollama va être remplacé par vLLM.** Cette mesure porterait sur la contention
+  avec un serveur qui ne sera plus là — *un chiffre périmé le jour où il est
+  produit*, et un instrument écrit pour une pile qu'on quitte. La consigne est
+  générale et vaut pour la suite : **aucune tâche de ce chantier qui n'intègre
+  pas le remplacement Ollama → vLLM.**
+
+  Ce qui reste vrai en attendant : le gain sur les étages torch (−817 ms,
+  −11,2 % sur `total_ms` p50) ne dépend **pas** du serveur LLM — il vient de
+  l'embedder et du cross-encoder, qui ne changent pas. Seul le **+40 ms** de
+  contention est attaché à Ollama, et il est à rejouer **sur vLLM**, sous charge
+  concurrente, en une seule fois plutôt qu'en deux ;
 - **`.github/workflows/ci.yml` porte encore « tout tourne en CPU dans ce
   projet »**, ce qui est désormais imprécis. **Délibérément non corrigé** :
   modifier un workflow exige un jeton avec le scope `workflow`, que le jeton de
