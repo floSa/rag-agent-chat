@@ -7501,6 +7501,32 @@ trompe, le coût mesuré (**2,92 Go → 10,5 Go**) et le retour en arrière.
 | `generation_ms` p50 | 4 682 | 4 722 | **+40 ms — LA CONTENTION** |
 | `total_ms` p50 | 7 298 | **6 481** | **−817 ms (−11,2 %)** |
 
+> **CORRECTION DU PILOTE, `mesuré` le 11 septembre 2026 — CES CHIFFRES DÉPENDENT
+> DE LA BASE, ET LA RECETTE CHOISIT LA BASE.** La colonne « CPU » ci-dessus est
+> `runs/2026-09-08-reference.json`, parce que **`make eval` code en dur
+> `--compare runs/2026-09-08-reference.json`** : le lot a rapporté ce que
+> l'outil lui donnait. Contre l'antécédent **le plus récent comparable** —
+> `runs/2026-09-10-lecteur-neuf-reglage.json`, celui que le cadrage demandait —
+> les mêmes trois métriques donnent :
+>
+> | | 8 septembre (défaut de `make eval`) | 10 septembre (le plus récent) |
+> |---|---|---|
+> | `total_ms` p50 | **−817 ms (−11,2 %)** | **−365 ms (−5,3 %)** |
+> | `generation_ms` p50 | **+40 ms** | **+106 ms** |
+> | rapport gain / contention | **20,4 pour 1** | **3,4 pour 1** |
+>
+> **Les deux lectures sont exactes et le verdict ne change pas** — le GPU
+> rapporte bien plus qu'il ne coûte. Mais le gain est **deux fois moindre** et la
+> contention **2,6 fois plus forte** que ce que le titre annonce. *Cinquième
+> occurrence de « deux écritures justes sous des définitions différentes » dans
+> ce chantier, et la première où c'est l'OUTIL qui choisit la définition sans le
+> dire.*
+>
+> **Ce que ça ouvre, et qui monte au plan** : `--compare` est épinglé sur une
+> référence du 8 septembre que deux reconstructions de l'image ont déjà rendue
+> moins comparable. Tant qu'il y est, toute campagne future se compare à un
+> antécédent qui vieillit — et le rapportera sans le savoir.
+
 **Le risque qui justifiait la prudence est mesuré, et il est petit.** La crainte
 écrite en distribuant le lot était d'« optimiser 11 % en risquant de ralentir
 67 % ». Partager la carte avec Ollama coûte **40 ms** sur la génération contre
