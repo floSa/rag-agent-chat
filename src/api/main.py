@@ -10,7 +10,8 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
-from anyio import to_thread
+from anyio import CapacityLimiter, to_thread
+from anyio.lowlevel import RunVar
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -403,6 +404,56 @@ async def _refus_modele_embedding(
 # dehors est du calcul en mémoire, énuméré dans `health()`.
 _PLAFOND_SONDES_S = 3.0
 
+# ─── LE RÉSERVOIR DE FILS DES SONDES, ET POURQUOI IL EST À ELLES SEULES ──────
+#
+# LA PANNE QUE CECI FERME — B-3 de l'audit du 14 septembre 2026, et elle est
+# NOUVELLE, dans l'autre sens que celle que le lot 12 existait pour fermer.
+# `/search` et `/sources` sont des `def` : Starlette les exécute dans le
+# threadpool d'AnyIO. `_sonder` passait par `to_thread.run_sync` SANS limiteur,
+# c'est-à-dire dans le MÊME réservoir, dont le limiteur par défaut vaut **40**
+# (`mesuré` le 14 septembre 2026, anyio 4.15.1,
+# `current_default_thread_limiter().total_tokens`).
+#
+# Et `borne_des_etages_torch()` fait un `.acquire()` BLOQUANT DANS LE FIL : une
+# requête qui attend son permis ne rend pas son fil. La borne de concurrence
+# torch convertissait donc une saturation de CARTE en saturation du réservoir
+# que les sondes de santé utilisent pour interroger les stores.
+#
+# CE QUE `/health` PUBLIAIT ALORS : `degraded`, avec `chromadb`, `nebulagraph`
+# et `index_lexical` à **false** — trois dépendances parfaitement saines,
+# déclarées en panne parce qu'aucun fil n'était libre pour les interroger.
+# `mesuré` par l'audit sur l'application réelle : 13 appels sur 197 à 3,00 s
+# pile (`_PLAFOND_SONDES_S`) ; borne désarmée, 1 sur 29. C'est strictement plus
+# difficile à diagnostiquer qu'un 503 honnête : l'exploitant part chercher une
+# panne de store qui n'existe pas.
+#
+# LA TAILLE, ET POURQUOI ELLE N'EST PAS 40. Le nombre de fils de sonde
+# simultanés est déjà borné par `_sondes_en_vol`, qui n'en laisse partir qu'UN
+# par nom de sonde ; les noms sont au nombre de cinq (`chromadb`,
+# `nebulagraph`, `index_lexical`, `modele_embedding`, `peripherique_torch`).
+# Huit laisse donc une marge de trois noms sans que ce limiteur devienne à son
+# tour le goulot — et reste assez petit pour que les sondes ne puissent pas, à
+# leur tour, affamer les recherches.
+#
+# UN `RunVar` ET NON UNE GLOBALE : un `CapacityLimiter` appartient à la boucle
+# d'événements qui l'a créé. C'est exactement la forme qu'AnyIO emploie pour son
+# propre limiteur par défaut, et elle garde les bancs de test — qui ouvrent une
+# boucle par scénario — indépendants les uns des autres.
+_JETONS_DES_SONDES = 8
+
+_limiteur_des_sondes: RunVar[CapacityLimiter] = RunVar("_limiteur_des_sondes")
+
+
+def _reservoir_des_sondes() -> CapacityLimiter:
+    """Le limiteur de fils RÉSERVÉ aux sondes, créé à la première demande."""
+    try:
+        return _limiteur_des_sondes.get()
+    except LookupError:
+        limiteur = CapacityLimiter(_JETONS_DES_SONDES)
+        _limiteur_des_sondes.set(limiteur)
+        return limiteur
+
+
 # Sondes lancées et pas encore revenues.
 #
 # Une sonde SYNCHRONE ne s'interrompt pas : rien ne peut tuer un fil bloqué dans
@@ -533,8 +584,17 @@ async def _sonder[T](
     _sondes_en_vol.add(nom)
     demarre = threading.Event()
     try:
+        # `limiter=` ET C'EST TOUTE LA CORRECTION DE B-3 : sans lui, cette
+        # ligne puise dans le réservoir que les endpoints `def` — donc les
+        # requêtes qui attendent un permis de la borne torch — occupent
+        # jusqu'à 40. Voir le bloc `_reservoir_des_sondes` ci-dessus.
         return await to_thread.run_sync(
-            _executer_sonde, nom, sonde, demarre, abandon_on_cancel=True
+            _executer_sonde,
+            nom,
+            sonde,
+            demarre,
+            abandon_on_cancel=True,
+            limiter=_reservoir_des_sondes(),
         )
     except BaseException:
         # `BaseException` parce que `CancelledError` est le cas VISÉ, et qu'elle

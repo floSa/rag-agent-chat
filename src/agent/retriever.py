@@ -36,9 +36,25 @@ _MAX_OVERLAP = 400
 # `uvicorn --limit-concurrency` bornerait TOUTES les requêtes, y compris celles
 # qui ne touchent pas torch — `/health`, `/context`, `/feedback` — et rendrait
 # **503** au-delà, ce qui ferait passer le conteneur pour saturé alors que seule
-# la carte l'est. Le sémaphore borne ce qui coûte, là où ça coûte, et laisse la
-# sonde de santé répondre : c'est la route qui doit continuer de parler quand le
-# service est sous pression.
+# la carte l'est. Le sémaphore borne ce qui coûte, là où ça coûte.
+#
+# CE QUE CE MOTIF AFFIRMAIT ET QUI ÉTAIT FAUX, jusqu'à B-3 de l'audit du
+# 14 septembre 2026 : « et laisse la sonde de santé répondre ». Il ne la laissait
+# pas répondre. Bloquer ici bloque un fil du réservoir d'AnyIO — celui que
+# Starlette emploie pour les endpoints `def`, ET celui où `_sonder` lançait ses
+# sondes. Une requête qui attend son permis ne rend pas son fil : la borne
+# convertissait une saturation de carte en saturation du réservoir des sondes, et
+# `/health` publiait alors `degraded` avec trois stores SAINS déclarés `false`.
+# `mesuré` par l'audit sur l'application réelle : 13 appels sur 197 à 3,00 s
+# pile ; borne désarmée, 1 sur 29.
+#
+# CE QUI REND LA PHRASE VRAIE AUJOURD'HUI, et ce n'est pas ce sémaphore : les
+# sondes de `/health` ont leur PROPRE limiteur de fils
+# (`src/api/main.py`, `_reservoir_des_sondes`), indépendant de celui des
+# endpoints. La propriété est gardée, aux deux niveaux, par
+# `tests/unit/test_health_parallele.py::…_quand_le_reservoir_des_recherches_est_plein`
+# — et elle rougit si ce limiteur disparaît. Une phrase ne rougit pas ; ces deux
+# tests-là, si.
 #
 # UN SEUL SÉMAPHORE POUR LES DEUX ÉTAGES : la mémoire est un seul pool. Une
 # requête traverse l'encodage puis le reclassement l'un APRÈS l'autre, donc un
@@ -76,10 +92,15 @@ def borne_des_etages_torch() -> Iterator[None]:
     """Ne laisse entrer que `TORCH_MAX_CONCURRENCY` requêtes dans un étage torch.
 
     Les deux endpoints qui appellent sont des `def` et non des `async def` :
-    FastAPI les exécute dans son fil d'exécution, donc bloquer ici bloque un fil
-    de ce pool et **jamais la boucle d'événements**. `/health` continue de
-    répondre pendant que les requêtes s'attendent, ce qui est exactement ce qu'on
-    veut d'une sonde sous charge.
+    FastAPI les exécute dans le threadpool d'AnyIO, donc bloquer ici bloque un
+    fil de ce réservoir et **jamais la boucle d'événements**.
+
+    CE QUE CELA NE SUFFIT PAS À GARANTIR, et c'est B-3 : que `/health` réponde.
+    La boucle reste libre, mais les SONDES de `/health` sont synchrones et
+    passaient par le même réservoir — 40 jetons. Des requêtes qui attendent ici
+    l'affamaient, et la route publiait `false` sur des dépendances saines. Ce
+    sont les sondes qui ont été déplacées, pas cette attente : voir
+    `_reservoir_des_sondes` dans `src/api/main.py`.
     """
     borne = _semaphore()
     borne.acquire()
