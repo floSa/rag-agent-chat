@@ -576,6 +576,21 @@ _HEALTH = {
         "embedding": "cuda:0",
         "rerank": "cuda:0",
     },
+    # `moteur_llm` est publié PAR `/health` depuis le lot 1 du chantier vLLM, au
+    # MÊME titre et pour la même raison que `torch_device` ci-dessus : sans lui
+    # dans le faux, un test de bout en bout ne pourrait pas distinguer « la clé
+    # n'est pas écrite » de « il n'y avait rien à écrire ».
+    "moteur_llm": {
+        "serveur": "ollama",
+        "endpoint": "http://ollama:11434",
+        "version": "0.30.10",
+        "modele_demande": "gemma4:e4b",
+        "modele_servi": "gemma4:e4b",
+        "empreinte_du_modele": "c6eb396dbd5992bb",
+        "quantification": "Q4_K_M",
+        "fenetre_servie": None,
+        "options": {"thinking": False, "outils_natifs": True},
+    },
 }
 
 
@@ -842,6 +857,39 @@ def test_la_campagne_ecrit_bien_le_peripherique_dans_son_artefact(tmp_path) -> N
     # lot 5, elle ne la remplace pas.
     assert ecrite["empreinte_des_ancrages"], (
         f"l'empreinte des ancrages a disparu de l'artefact : {sorted(ecrite)}"
+    )
+
+
+def test_la_campagne_ecrit_bien_le_moteur_llm_dans_son_artefact(tmp_path) -> None:
+    """LE CÂBLAGE DE LA CLÉ DU LOT 1 DU CHANTIER vLLM, de bout en bout.
+
+    Le banc go/no-go du 15 septembre 2026 a conclu qu'on ne pouvait pas trancher
+    la qualité d'une bascule de moteur (§7) : **rien dans `runs/` ne disait quel
+    moteur avait produit une campagne**. Ce test tient le câblage qui referme ce
+    trou — et il tient le FAIT (`modele_servi`, `empreinte_du_modele`) plutôt que
+    le réglage, pour la même raison que le périphérique ci-dessus : un tag Ollama
+    est mutable, et deux poids peuvent être servis sous le même nom.
+    """
+    pythonpath = _agent_simule(tmp_path)
+    dore = _jeu_dore(tmp_path / "dore.json", "G-001")
+    sortie = tmp_path / "campagne.json"
+
+    resultat = _lancer("--golden", str(dore), "--out", str(sortie), pythonpath=pythonpath)
+
+    assert resultat.returncode == 0, resultat.stderr
+    ecrite = json.loads(sortie.read_text(encoding="utf-8"))
+    assert "moteur_llm" in ecrite, (
+        f"l'artefact ne consigne pas le moteur : clés = {sorted(ecrite)}. Deux "
+        "campagnes séparées par une bascule Ollama/vLLM se compareront sans que "
+        "rien ne dise qu'elles n'ont pas été générées par le même moteur"
+    )
+    assert ecrite["moteur_llm"]["serveur"] == "ollama"
+    assert ecrite["moteur_llm"]["empreinte_du_modele"] == "c6eb396dbd5992bb", (
+        f"la clé porte autre chose que le fait : {ecrite['moteur_llm']}"
+    )
+    # LES DEUX CLÉS COEXISTENT : la neuve s'AJOUTE, elle ne remplace pas.
+    assert ecrite["peripherique"] and ecrite["empreinte_des_ancrages"], (
+        f"une clé antérieure a été perdue en chemin : {sorted(ecrite)}"
     )
 
 

@@ -85,7 +85,7 @@ docker compose up -d --build
 
 | Méthode | Route | Rôle |
 | :--- | :--- | :--- |
-| `GET` | `/health` | Statut du service + modèle Ollama chargé. |
+| `GET` | `/health` | Statut du service, modèle Ollama **demandé**, et — sous `moteur_llm` — le moteur **réellement servi** : serveur, version, poids et son empreinte. Le premier est un réglage, le second un fait, et ils ont divergé — [moteur_llm.md](documentation/moteur_llm.md). |
 | `POST` | `/search` | Retrieval brut ChromaDB, sans reranking. |
 | `POST` | `/sources` | Retrieval + reranking + groupement par document. |
 | `GET` | `/context/{element_id}` | Reconstruction du contexte enrichi d'un élément. |
@@ -198,6 +198,7 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
 | [capture_usage.md](documentation/capture_usage.md) | Ce que le service enregistre de son usage, et les requêtes qui l'exploitent |
 | [tests.md](documentation/tests.md) | Les trois niveaux de test, et ce que rien ne couvre |
+| [moteur_llm.md](documentation/moteur_llm.md) | Quel moteur LLM a généré une campagne, et pourquoi `ollama_model` ne suffisait pas : un tag est mutable, et deux campagnes séparées par une bascule Ollama/vLLM se comparaient sans que rien ne le dise |
 | [gpu_cuda.md](documentation/gpu_cuda.md) | Installer et activer CUDA : les trois conditions, comment vérifier chacune, ce que ça coûte, et le retour en arrière |
 | [axes_amelioration.md](documentation/axes_amelioration.md) | Ce qui est corrigé, ce qui reste ouvert |
 | [SECURITY.md](documentation/SECURITY.md) | Surface exposée, défenses, et ce qui n'est pas protégé |

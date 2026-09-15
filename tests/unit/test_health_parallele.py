@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 # ─── Outillage ────────────────────────────────────────────────────────────────
@@ -44,17 +45,182 @@ _RACINE = Path(__file__).resolve().parents[2]
 _CAP_SECURITE_S = 8.0
 
 
-def _delai_du_healthcheck() -> float:
-    """Le délai que docker-compose accorde à /health, LU dans le fichier.
+# Les unités de durée que docker accepte, et leur valeur en secondes. `ms` doit
+# précéder `m` et `s` dans l'alternance : sans cela `500ms` serait lu `500m`.
+_UNITES_DE_DUREE = {"h": 3600.0, "ms": 0.001, "us": 1e-6, "ns": 1e-9, "m": 60.0, "s": 1.0}
+_UNE_DUREE = r"(\d+(?:\.\d+)?)(h|ms|us|ns|m|s)"
+
+
+def _secondes_docker(duree: object) -> float:
+    """Une durée du compose en secondes. `1m30s` vaut 90,0, et l'illisible ROUGIT.
+
+    L'ANCIENNE LECTURE NE CONNAISSAIT QUE `<entier>s`, et c'est la moitié du
+    défaut de la non bloquante §3 : sur `interval: 1m`, parfaitement valide pour
+    docker, elle ne trouvait rien. Un lecteur qui n'en lirait qu'une partie
+    serait pire encore — `1m30s` rendrait 1 ou 30 au lieu de 90, donc un verdict
+    faux au lieu d'un rouge. La chaîne entière doit donc être consommée, sans
+    quoi on rougit en nommant ce qu'on n'a pas su lire.
+    """
+    texte = str(duree).strip()
+    assert re.fullmatch(f"(?:{_UNE_DUREE})+", texte), (
+        f"durée `{texte}` illisible dans docker-compose.yml : attendu un format docker "
+        "comme `20s`, `1m` ou `1m30s`, unité comprise"
+    )
+    return sum(
+        float(valeur) * _UNITES_DE_DUREE[unite] for valeur, unite in re.findall(_UNE_DUREE, texte)
+    )
+
+
+# Les fichiers que docker Compose fusionne AUTOMATIQUEMENT par-dessus
+# `docker-compose.yml`, sans qu'aucun `-f` soit écrit sur la ligne de commande.
+#
+# NON BLOQUANTE §4 DE L'AUDIT DU 15 SEPTEMBRE 2026 — LE GARDE PROMETTAIT ET NE
+# TENAIT PAS. Il ne lisait que `docker-compose.yml` ; docker lit celui-là **et**
+# son override. L'audit a posé un override de quatre lignes portant
+# `interval: 8s` : docker appliquait 8 s, le garde lisait 20,0 s, et les 870
+# tests restaient **verts** — alors que la docstring de
+# `test_le_budget_de_la_sonde_du_moteur_tient_entre_deux_battements` promet
+# explicitement que « ramener l'intervalle du compose à 8 s rougirait ici ».
+# **Un garde qui promet et ne tient pas est pire qu'un garde absent**, parce
+# qu'on cesse de regarder : c'est le faux vert S4 du cahier des charges,
+# réintroduit par un autre chemin, et par une modification anodine prise seule.
+#
+# LES DEUX NOMS, ET PAS QUATRE. Avec `docker-compose.yml` pour fichier de base,
+# docker cherche `docker-compose.override.yml` puis `.yaml` — et **pas**
+# `compose.override.yml`, qui n'est l'override que de `compose.yaml`. Le chemin
+# par lequel `compose.yaml` prendrait la main est fermé séparément, ci-dessous.
+_OVERRIDES_AUTOMATIQUES = ("docker-compose.override.yml", "docker-compose.override.yaml")
+
+# Les noms qui, s'ils apparaissaient, feraient que docker ne lirait PLUS
+# `docker-compose.yml` du tout : il les prend dans cet ordre et s'arrête au
+# premier trouvé. Ce garde lit `docker-compose.yml` ; si l'un de ceux-là
+# existait, il lirait un fichier que docker a cessé d'ouvrir.
+_BASES_PRIORITAIRES = ("compose.yaml", "compose.yml", "docker-compose.yaml")
+
+
+def _fusion_docker(base: object, dessus: object) -> object:
+    """La fusion que docker Compose applique entre le fichier de base et son override.
+
+    LES MAPPINGS FUSIONNENT EN PROFONDEUR, LE RESTE REMPLACE. C'est exactement la
+    règle de docker pour un healthcheck : `interval`, `timeout` et `retries` sont
+    des scalaires qu'un override écrase, et `test` est une séquence qu'il
+    remplace entière.
+
+    CE QUE CETTE FUSION NE REPRODUIT PAS, ÉCRIT COMME BORNE. Docker CONCATÈNE
+    certaines séquences — `ports`, `volumes`, `dns` — au lieu de les remplacer.
+    Aucune ne vit sous `healthcheck`, qui est tout ce que ce garde lit, et
+    étendre la fusion à ces clés-là sans les lire serait de la complexité sans
+    mesure. La borne est écrite, pas franchie.
+    """
+    if isinstance(base, dict) and isinstance(dessus, dict):
+        fusionne = dict(base)
+        for cle, valeur in dessus.items():
+            fusionne[cle] = _fusion_docker(fusionne.get(cle), valeur)
+        return fusionne
+    return dessus
+
+
+def _compose_tel_que_docker_le_lit(
+    texte: str | None = None, texte_override: str | None = None
+) -> dict[str, object]:
+    """Le compose fusionné, lu comme docker le lit : le fichier de base ET son override.
+
+    `texte` et `texte_override` N'EXISTENT QUE POUR LES TESTS DE CE LECTEUR, et
+    c'est assumé pour la même raison qu'avant : sans eux, éprouver les scènes
+    exigerait de muter les vrais fichiers pendant que la porte tourne. Le défaut
+    est ce que le DÉPÔT porte, et un contrôle positif épingle que c'est bien lui.
+    """
+    if texte is None:
+        for prioritaire in _BASES_PRIORITAIRES:
+            assert not (_RACINE / prioritaire).exists(), (
+                f"`{prioritaire}` est apparu à la racine : docker le lit AVANT "
+                "`docker-compose.yml` et cesse alors d'ouvrir celui-ci. Ce garde lirait "
+                "un fichier que docker n'applique plus — le faux vert exact que la non "
+                "bloquante §4 de l'audit du 15 septembre 2026 a mesuré sur l'override"
+            )
+        texte = (_RACINE / "docker-compose.yml").read_text(encoding="utf-8")
+        if texte_override is None:
+            for nom in _OVERRIDES_AUTOMATIQUES:
+                if (_RACINE / nom).exists():
+                    texte_override = (_RACINE / nom).read_text(encoding="utf-8")
+                    break
+    fusionne = yaml.safe_load(texte) or {}
+    if texte_override is not None:
+        fusionne = _fusion_docker(fusionne, yaml.safe_load(texte_override) or {})
+    assert isinstance(fusionne, dict)
+    return fusionne
+
+
+def _reglage_du_healthcheck(
+    cle: str,
+    texte: str | None = None,
+    service: str = "agent-api",
+    texte_override: str | None = None,
+) -> float:
+    """Un réglage du healthcheck D'UN SERVICE NOMMÉ, lu dans le compose.
+
+    NON BLOQUANTE §3 DE L'AUDIT DU 15 SEPTEMBRE 2026 — LE GARDE ÉTAIT CREUX.
+    Les deux lecteurs qui vivaient ici cherchaient `interval:` et `timeout:` dans
+    **tout** le fichier par expression rationnelle et exigeaient un unique
+    résultat. Ils ne rattachaient la valeur à **aucun service** : l'audit a
+    mesuré que deux modifications parfaitement anodines du compose — un
+    commentaire de fin de ligne, un healthcheck sur un second service —
+    suffisaient à leur faire rendre l'intervalle **d'un autre service**, sans
+    rougir. Le garde du budget comparait alors le pire cas de 9,0 s de la sonde
+    du moteur à 20 s quand l'agent battait toutes les 8 s, et se taisait pendant
+    que les sondes s'empilaient sur un serveur d'inférence partagé avec deux
+    autres équipes.
+
+    LE FICHIER EST DONC PARSÉ COMME DOCKER LE PARSE, et la valeur est cherchée
+    là où docker la cherche : sous `services.<service>.healthcheck`. Une
+    expression rationnelle sur un fichier structuré lit une ressemblance ; un
+    parseur lit la valeur.
+
+    IL ROUGIT EN NOMMANT CE QUI MANQUE — réserve R-2 du même audit. L'ancien
+    message disait « plusieurs intervals » **aussi quand il y en avait zéro**,
+    envoyant chercher le contraire du problème. Les trois échecs possibles sont
+    ici distincts : le service absent, le healthcheck absent, la clé absente.
+
+    `texte` N'EXISTE QUE POUR LES TESTS DE CE LECTEUR, et c'est assumé : sans
+    lui, éprouver les scènes de l'audit exigerait de muter le vrai compose
+    pendant que la porte tourne. Le défaut par défaut est le fichier du dépôt,
+    et un contrôle positif épingle que c'est bien lui qui est lu.
+    """
+    services = _compose_tel_que_docker_le_lit(texte, texte_override).get("services") or {}
+    assert service in services, (
+        f"le service `{service}` est absent de docker-compose.yml : ce garde lit la "
+        "valeur d'un service NOMMÉ, et ne se rabat sur aucun autre"
+    )
+    healthcheck = (services[service] or {}).get("healthcheck") or {}
+    assert cle in healthcheck, (
+        f"`{cle}` absent du healthcheck de `{service}` dans docker-compose.yml : "
+        "cette valeur est le contrat de déploiement dont ce garde tire son sens"
+    )
+    return _secondes_docker(healthcheck[cle])
+
+
+def _intervalle_du_healthcheck(
+    texte: str | None = None, service: str = "agent-api", texte_override: str | None = None
+) -> float:
+    """L'intervalle entre deux battements DE L'AGENT, LU dans le fichier.
+
+    C'est le budget dont dépend la sonde du moteur LLM : elle survit au plafond
+    de la route et poursuit en fond, donc ce qui la borne utilement n'est pas le
+    délai de `curl` mais l'écart au battement suivant.
+    """
+    return _reglage_du_healthcheck("interval", texte, service, texte_override)
+
+
+def _delai_du_healthcheck(
+    texte: str | None = None, service: str = "agent-api", texte_override: str | None = None
+) -> float:
+    """Le délai que docker-compose accorde à /health DE L'AGENT, LU dans le fichier.
 
     Recopié en dur ici, le lien entre le plafond du code et le contrat de
     déploiement serait invisible : c'est ce contrat qui donne au plafond sa
     valeur, et il vit dans un autre fichier que celui qu'on corrige.
     """
-    texte = (_RACINE / "docker-compose.yml").read_text(encoding="utf-8")
-    delais = re.findall(r"^\s+timeout:\s*(\d+)s\s*$", texte, re.MULTILINE)
-    assert len(delais) == 1, "plusieurs timeouts dans docker-compose.yml : préciser lequel"
-    return float(delais[0])
+    return _reglage_du_healthcheck("timeout", texte, service, texte_override)
 
 
 class _SondeMuette:
@@ -431,6 +597,318 @@ def test_le_plafond_laisse_une_marge_au_delai_du_healthcheck() -> None:
     assert _delai_du_healthcheck() > main._PLAFOND_SONDES_S
 
 
+def test_le_budget_de_la_sonde_du_moteur_tient_entre_deux_battements() -> None:
+    """RÉSERVE R1 DE L'AUDIT DU 15 SEPTEMBRE 2026, et elle n'était épinglée nulle part.
+
+    `_MOTEUR_TIMEOUT_S` vaut 3,0 s **par requête**, et la sonde en enchaîne
+    jusqu'à `_MOTEUR_REQUETES_MAX` en SÉQUENCE. Son pire cas n'est donc pas 3,0 s
+    mais **9,0 s** — et l'audit lui-même l'a sous-estimé à 6,0 s en ne comptant
+    que les deux lectures de version, alors que la lecture du catalogue suit la
+    seconde d'entre elles.
+
+    CE QUE CE TEST TIENT, ET CE QU'IL NE TIENT PAS. Il ne prétend pas que ce
+    délai protège `/health` : il ne le protège pas, et le commentaire du site le
+    disait mal — c'est `_PLAFOND_SONDES_S` qui coupe la route à 3 s, mesuré à
+    3,01 s sous quatre dépendances pendantes. Mais la TÂCHE de sonde, elle,
+    survit à ce plafond et poursuit en fond ; si son pire cas dépassait
+    l'intervalle du healthcheck, chaque battement en lancerait une nouvelle
+    par-dessus la précédente, sur un serveur d'inférence PARTAGÉ avec une autre
+    équipe. C'est cette relation-là qui compte, et c'est elle qui est épinglée.
+
+    Les deux valeurs sont tenues ENSEMBLE : porter le délai par requête à 7 s, ou
+    ramener l'intervalle du compose à 8 s, rougirait ici et nulle part ailleurs.
+
+    ET CETTE PROMESSE EST DÉSORMAIS TENUE PAR LE CHEMIN QUE DOCKER EMPRUNTE —
+    non bloquante §4 de l'audit du 15 septembre 2026. Elle ne l'était pas : le
+    lecteur n'ouvrait que `docker-compose.yml`, quand docker fusionne
+    automatiquement `docker-compose.override.yml` par-dessus. L'audit a mesuré un
+    override de quatre lignes portant `interval: 8s` — docker appliquait 8 s, ce
+    test lisait 20,0 s et restait VERT. « Rougirait ici » était faux par le seul
+    chemin qui compte, et un garde qui promet sans tenir est pire qu'un garde
+    absent : on cesse de regarder. `_compose_tel_que_docker_le_lit` ouvre
+    maintenant les deux fichiers et les fusionne comme docker les fusionne.
+    """
+    from src.api import main
+
+    pire_cas = main._MOTEUR_TIMEOUT_S * main._MOTEUR_REQUETES_MAX
+    assert pire_cas > main._PLAFOND_SONDES_S, (
+        "contrôle de cohérence de ce test : si le pire cas de la sonde passait "
+        "sous le plafond, c'est le plafond qui deviendrait la borne et cette "
+        "assertion cesserait de décrire quoi que ce soit"
+    )
+    assert pire_cas < _intervalle_du_healthcheck(), (
+        "une sonde de moteur peut encore tourner quand le battement suivant en "
+        "lance une autre : les requêtes s'empileraient sur un serveur partagé"
+    )
+
+
+# ─── Le garde du budget lit la valeur DU BON SERVICE ─────────────────────────
+
+
+def _compose_simule(agent: str | None, voisin: str | None = None, commentaire: str = "") -> str:
+    """Un `docker-compose.yml` construit, pour éprouver le LECTEUR et non le fichier.
+
+    Les scènes jouées ici sont celles que l'audit du 15 septembre 2026 a mesurées
+    sur l'ancien lecteur (§3, S1 à S4), et elles sont toutes **anodines prises
+    une par une** : un commentaire de fin de ligne, un healthcheck sur un second
+    service, un intervalle écrit `1m` au lieu de `60s`.
+    """
+    texte = "services:\n  agent-api:\n    healthcheck:\n      test: [\"CMD\", \"true\"]\n"
+    if agent is not None:
+        texte += f"      interval: {agent}{commentaire}\n"
+    texte += "      timeout: 5s\n      retries: 5\n"
+    if voisin is not None:
+        texte += f"  voisin:\n    healthcheck:\n      interval: {voisin}\n      timeout: 3s\n"
+    return texte
+
+
+class TestLeGardeDuBudgetLitLaValeurDuBonService:
+    """NON BLOQUANTE §3 DE L'AUDIT DU 15 SEPTEMBRE 2026 — le garde était CREUX.
+
+    `_intervalle_du_healthcheck` cherchait `^\\s+interval:\\s*(\\d+)s\\s*$` dans
+    **tout** le fichier et exigeait un seul résultat. Il ne rattachait cet
+    `interval:` à **aucun service**. Un garde qui lit un fichier de configuration
+    doit lire la valeur du BON service, et rougir quand il ne peut plus le faire.
+
+    CE QUE ÇA COÛTAIT, ET POURQUOI C'EST PIRE QUE L'AUTRE LECTEUR DE CE FICHIER.
+    `_delai_du_healthcheck`, préexistant, portait la même faiblesse et la
+    réparation l'avait imitée par symétrie — c'est défendable. Mais la valeur
+    neuve garde une propriété de **charge sur un serveur d'inférence partagé
+    avec deux autres équipes** : si le pire cas de la sonde dépassait
+    l'intervalle, chaque battement empilerait une sonde sur la précédente. Là où
+    l'ancien lecteur ne gardait qu'une marge locale, celui-ci garde le voisin.
+
+    LES DEUX FAUX VERTS SONT REPRODUITS ICI, contre l'ancienne lecture elle-même
+    (`test_l_ancienne_lecture_rendait_deux_verdicts_faux`) : sans cette
+    contre-épreuve, rien ne distinguerait « le lecteur neuf est juste » de « la
+    scène ne mordait déjà pas ».
+    """
+
+    _ANCIENNE_LECTURE = r"^\s+interval:\s*(\d+)s\s*$"
+
+    def test_l_intervalle_lu_est_celui_de_l_agent_et_non_celui_d_un_voisin(self) -> None:
+        """S2 ET S4 DE L'AUDIT — les deux scènes où l'ancien lecteur se taisait à faux.
+
+        S4 est la plus chère : l'agent bat réellement toutes les **8 s** et
+        l'ancien lecteur comparait le pire cas de 9,0 s à **20 s**, celui d'un
+        autre service. Le garde du budget se taisait pendant que les sondes
+        s'empilaient.
+        """
+        # S4 — l'agent à 8 s avec un commentaire de fin de ligne, un voisin à 20 s
+        assert _intervalle_du_healthcheck(_compose_simule("8s", "20s", "  # resserré")) == 8.0
+        # S2 — l'agent à `1m` (format docker valide), un voisin à 20 s
+        assert _intervalle_du_healthcheck(_compose_simule("1m", "20s")) == 60.0
+
+    def test_l_ancienne_lecture_rendait_deux_verdicts_faux(self) -> None:
+        """LA CONTRE-ÉPREUVE, et sans elle le test ci-dessus ne prouve rien.
+
+        Elle applique l'ANCIENNE expression aux MÊMES textes et montre qu'elle
+        rendait `20` là où la vérité était 8 puis 60. C'est la mesure qui établit
+        que la correction en est une, et non un test écrit autour d'un
+        comportement qui n'avait jamais posé problème.
+        """
+        import re as _re
+
+        for texte, vrai in (
+            (_compose_simule("8s", "20s", "  # resserré"), 8.0),
+            (_compose_simule("1m", "20s"), 60.0),
+        ):
+            trouves = _re.findall(self._ANCIENNE_LECTURE, texte, _re.MULTILINE)
+            assert trouves == ["20"], "la scène du faux vert n'est plus celle que l'audit a mesurée"
+            assert float(trouves[0]) != vrai, (
+                "l'ancienne lecture rendait la BONNE valeur : il n'y avait pas de défaut"
+            )
+            assert _intervalle_du_healthcheck(texte) == vrai, "la lecture neuve n'est pas juste"
+
+    def test_un_second_service_a_healthcheck_ne_fait_plus_rougir_a_tort(self) -> None:
+        """S1 — le garde rougissait, et c'était déjà trop.
+
+        « Plusieurs intervals : préciser lequel » demandait une intervention
+        humaine pour un fichier parfaitement valide. Un healthcheck sur un second
+        service est une modification banale ; elle ne doit ni faire rougir la
+        porte ni la faire mentir.
+        """
+        assert _intervalle_du_healthcheck(_compose_simule("20s", "30s")) == 20.0
+
+    def test_un_healthcheck_sans_intervalle_rougit_en_nommant_la_bonne_chose(self) -> None:
+        """RÉSERVE R-2 DE L'AUDIT — le message mentait sur le sens de son échec.
+
+        « plusieurs intervals dans docker-compose.yml » s'imprimait aussi quand
+        il y en avait **zéro** (S3 : l'agent seul à `1m`, que l'ancienne
+        expression ne savait pas lire). Le garde rougissait — l'essentiel — mais
+        il envoyait chercher le contraire du problème.
+        """
+        with pytest.raises(AssertionError, match=r"interval.*agent-api"):
+            _intervalle_du_healthcheck(_compose_simule(None))
+
+    def test_un_service_absent_rougit_et_ne_se_rabat_sur_personne(self) -> None:
+        """Renommer le service ne doit pas faire lire l'intervalle d'un autre."""
+        with pytest.raises(AssertionError, match=r"agent-api"):
+            _intervalle_du_healthcheck(_compose_simule("20s", "30s"), service="un-autre-nom")
+
+    def test_les_formats_de_duree_de_docker_sont_lus_et_les_autres_rougissent(self) -> None:
+        """`1m30s` N'EST PAS `1` NI `30`, et un format inconnu ne vaut pas zéro.
+
+        L'ancienne expression ne lisait que `<entier>s`. Docker accepte les
+        durées composées, et un lecteur qui n'en lirait qu'une partie
+        produirait un verdict faux au lieu de rougir.
+        """
+        assert _intervalle_du_healthcheck(_compose_simule("1m30s")) == 90.0
+        assert _intervalle_du_healthcheck(_compose_simule("1h")) == 3600.0
+        assert _intervalle_du_healthcheck(_compose_simule("500ms")) == 0.5
+        with pytest.raises(AssertionError, match="durée"):
+            _intervalle_du_healthcheck(_compose_simule("20"))
+        with pytest.raises(AssertionError, match="durée"):
+            _intervalle_du_healthcheck(_compose_simule("bientot"))
+
+    def test_le_controle_positif_le_vrai_fichier_est_bien_lu(self) -> None:
+        """SANS LUI, TOUT CE QUI PRÉCÈDE PASSERAIT SUR UN LECTEUR QUI NE LIT QUE MES TEXTES.
+
+        Les deux valeurs du `docker-compose.yml` du dépôt, lues par défaut, sans
+        texte fourni — c'est cette lecture-là que les tests du budget et du
+        plafond utilisent réellement.
+        """
+        assert _intervalle_du_healthcheck() == 20.0
+        assert _delai_du_healthcheck() == 5.0
+
+
+# ─── Le garde lit ce que DOCKER lit, override compris ────────────────────────
+
+
+class TestLeGardeLitLOverrideCommeDockerLeLit:
+    """NON BLOQUANTE §4 DE L'AUDIT DU 15 SEPTEMBRE 2026 — le cinquième scénario.
+
+    Les quatre formes que le mandat précédent nommait — ancres YAML, alias, clé
+    de fusion `<<:`, fragments `x-` — sont **toutes correctement traitées**, et
+    l'audit l'a vérifié une par une : `yaml.safe_load` les résout, et le lecteur
+    cherche sous `services.<service>.healthcheck` comme docker le fait. Il n'y
+    avait rien là.
+
+    LE CINQUIÈME EST AILLEURS, ET IL EST MESURÉ. Docker Compose charge
+    **automatiquement** `docker-compose.override.yml` et le fusionne par-dessus
+    le fichier de base ; le lecteur n'ouvrait que le fichier de base. Mesuré par
+    l'audit, et remesuré ici avec son contrôle positif : sous un override de
+    quatre lignes portant `interval: 8s`, `docker compose config` rend **8s**,
+    sans override il rend **20s**, et le lecteur rendait **20,0** dans les deux
+    cas — 870 tests verts, pendant que le budget de la sonde (pire cas 9,0 s)
+    dépassait l'intervalle réel.
+
+    LE SENS DE L'ÉCHEC EST LE BON, et c'est pour ça que la première voie a été
+    prise plutôt que la seconde : entre « le garde lit ce que docker lit » et
+    « la docstring cesse de promettre », la seconde aurait laissé le faux vert en
+    place et se serait contentée de ne plus mentir dessus. Ici, chaque battement
+    empilerait une sonde sur la précédente, sur un serveur d'inférence partagé
+    avec deux autres équipes — le dommage exact que ce garde existe pour
+    empêcher.
+
+    AUCUN OVERRIDE N'EXISTE DANS LE DÉPÔT AUJOURD'HUI, et ces scènes sont donc
+    prospectives, comme S4 l'était. Elles jouent le fichier par le paramètre de
+    texte, sans jamais en écrire un à la racine pendant que la porte tourne.
+    """
+
+    _BASE = (
+        "services:\n"
+        "  agent-api:\n"
+        "    healthcheck:\n"
+        '      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]\n'
+        "      interval: 20s\n"
+        "      timeout: 5s\n"
+    )
+
+    def test_le_temoin_sans_override_la_valeur_du_fichier_de_base_est_rendue(self) -> None:
+        """LE TÉMOIN INERTE DE CETTE CLASSE : sans override, rien ne bouge.
+
+        Il établit que les scènes suivantes mesurent bien la FUSION et non un
+        lecteur qui se serait mis à rendre n'importe quoi.
+        """
+        assert _intervalle_du_healthcheck(self._BASE) == 20.0
+        assert _delai_du_healthcheck(self._BASE) == 5.0
+
+    def test_un_override_qui_ramene_l_intervalle_a_8s_est_bien_lu(self) -> None:
+        """LA SCÈNE EXACTE DE L'AUDIT, et c'est elle qui rougissait nulle part.
+
+        Quatre lignes, un geste anodin pris seul, et docker applique 8 s.
+        """
+        override = "services:\n  agent-api:\n    healthcheck:\n      interval: 8s\n"
+        assert _intervalle_du_healthcheck(self._BASE, texte_override=override) == 8.0, (
+            "docker fusionne cet override et applique 8 s ; un garde qui lit encore 20 s "
+            "reste vert pendant que les sondes s'empilent sur un serveur partagé"
+        )
+
+    def test_l_override_ne_touche_que_ce_qu_il_nomme(self) -> None:
+        """LA FUSION EST PROFONDE, ET C'EST LA MOITIÉ QUI SE CASSE EN SILENCE.
+
+        Un override qui ne nomme que `interval` ne doit pas emporter `timeout`
+        avec lui. Une fusion qui REMPLACERAIT le healthcheck entier ferait rougir
+        le garde du plafond (`_delai_du_healthcheck`) sur un compose sain — un
+        faux ROUGE, moins grave que le faux vert, mais un faux tout de même.
+        """
+        override = "services:\n  agent-api:\n    healthcheck:\n      interval: 8s\n"
+        assert _delai_du_healthcheck(self._BASE, texte_override=override) == 5.0, (
+            "l'override a emporté une clé qu'il ne nomme pas : la fusion n'est pas profonde"
+        )
+
+    def test_un_override_sur_un_autre_service_ne_deplace_pas_notre_valeur(self) -> None:
+        """Le lecteur lit toujours la valeur d'un service NOMMÉ, override compris.
+
+        C'est la non bloquante §3 du cahier des charges précédent, rejouée par le
+        chemin neuf : un healthcheck posé sur un voisin ne doit pas devenir le
+        nôtre.
+        """
+        override = "services:\n  frontend:\n    healthcheck:\n      interval: 3s\n"
+        assert _intervalle_du_healthcheck(self._BASE, texte_override=override) == 20.0
+        assert _intervalle_du_healthcheck(self._BASE, "frontend", override) == 3.0
+
+    def test_un_override_qui_ajoute_le_healthcheck_absent_de_la_base_est_lu(self) -> None:
+        """L'override peut CRÉER ce que la base n'a pas, et docker l'applique.
+
+        Sans la fusion, ce cas-là rougirait en disant « healthcheck absent » sur
+        un service que docker surveille parfaitement.
+        """
+        base = "services:\n  agent-api:\n    image: rien\n"
+        override = "services:\n  agent-api:\n    healthcheck:\n      interval: 8s\n"
+        assert _intervalle_du_healthcheck(base, texte_override=override) == 8.0
+
+    def test_un_override_vide_ou_muet_ne_change_rien(self) -> None:
+        """Un fichier d'override vide est légal, et il ne doit pas faire lever le lecteur."""
+        assert _intervalle_du_healthcheck(self._BASE, texte_override="") == 20.0
+        assert _intervalle_du_healthcheck(self._BASE, texte_override="# rien\n") == 20.0
+
+    def test_le_controle_positif_le_depot_n_a_pas_d_override_et_c_est_verifie(self) -> None:
+        """SANS LUI, LA LECTURE PAR DÉFAUT POURRAIT ÊTRE CELLE D'UN FICHIER FANTÔME.
+
+        Deux choses ensemble, et il faut les deux : aucun override n'existe
+        aujourd'hui à la racine — la trouvaille est prospective, l'audit l'avait
+        vérifié et ce test le maintient —, et la lecture par défaut rend bien les
+        valeurs du fichier du dépôt.
+
+        SI CE TEST ROUGIT PARCE QU'UN OVERRIDE EST APPARU, il ne faut pas le
+        supprimer : il faut lire la valeur que docker applique alors, et vérifier
+        que le budget de la sonde tient encore devant elle.
+        """
+        for nom in _OVERRIDES_AUTOMATIQUES:
+            assert not (_RACINE / nom).exists(), (
+                f"`{nom}` est apparu : docker le fusionne, et l'intervalle réel du "
+                "healthcheck n'est plus celui de `docker-compose.yml`"
+            )
+        assert _intervalle_du_healthcheck() == 20.0
+
+    def test_un_fichier_compose_prioritaire_ferait_ignorer_celui_que_ce_garde_lit(self) -> None:
+        """LE CHEMIN VOISIN, FERMÉ AVEC L'AUTRE PARCE QU'IL A LA MÊME FORME.
+
+        Docker prend le premier de `compose.yaml`, `compose.yml`,
+        `docker-compose.yaml`, `docker-compose.yml` et **s'arrête là**. Si l'un
+        des trois premiers apparaissait, docker cesserait d'ouvrir
+        `docker-compose.yml` — et ce garde lirait un fichier que docker
+        n'applique plus. Même faux vert, autre porte.
+        """
+        for nom in _BASES_PRIORITAIRES:
+            assert not (_RACINE / nom).exists(), (
+                f"`{nom}` prend la main sur `docker-compose.yml` : ce garde lit un "
+                "fichier que docker n'ouvre plus"
+            )
+
+
 # ─── Le parallélisme, et non la seule borne ───────────────────────────────────
 
 def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
@@ -470,6 +948,17 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
     monkeypatch.setattr(main, "chroma_ping", sonde("chromadb"))
     monkeypatch.setattr(main, "nebula_ping", sonde("nebulagraph"))
     monkeypatch.setattr(main, "lexical_ready", sonde("index_lexical"))
+    # LE RELEVÉ DU MOTEUR EST ÉPINGLÉ CHAUD, et il faut dire pourquoi. Il passe
+    # par le MÊME `httpx.AsyncClient` que la sonde `ollama` ci-dessous — c'est
+    # lui que le faux client remplace — donc il arriverait EN CINQUIÈME sur une
+    # barrière de quatre et la casserait. Ce que ce test mesure est la
+    # simultanéité des QUATRE sondes de `services` ; le moteur n'en fait pas
+    # partie, il ne publie rien dans `services` et ne dégrade pas `status`.
+    #
+    # Épinglé chaud plutôt que neutralisé : c'est l'état RÉEL du service dès le
+    # second appel à `/health`, le relevé étant mémorisé pour la vie du
+    # processus. La scène reste donc celle d'un agent en marche.
+    monkeypatch.setattr(main, "_moteur_releve", main.MoteurLlmHealth(modele_demande="épinglé"))
 
     sonde_ollama = sonde("ollama")
 

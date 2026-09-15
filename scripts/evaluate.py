@@ -1144,6 +1144,229 @@ def confronter_les_peripheriques(
     ]
 
 
+# Les champs du moteur repris de `/health` dans l'artefact. ÉNUMÉRÉS, jamais
+# recopiés en bloc : `/health` peut gagner des champs, et une campagne ne doit
+# pas se mettre à porter ce que personne n'a décidé d'y mettre. C'est la même
+# décision que `_CHAMPS_DU_PERIPHERIQUE`, prise pour la même raison.
+_CHAMPS_DU_MOTEUR = (
+    "serveur",
+    "endpoint",
+    "version",
+    "modele_demande",
+    "modele_servi",
+    "empreinte_du_modele",
+    "quantification",
+    "fenetre_servie",
+    "options",
+    # QUAND l'agent a relevé ce moteur, et non quand la campagne s'est terminée.
+    # Le relevé est mémorisé pour la vie du processus de l'agent : il peut donc
+    # décrire un serveur tel qu'il était des heures avant que les questions ne
+    # partent. Sans cette date, une campagne ne permet pas de faire la
+    # différence, et c'est l'artefact qui est lu des mois plus tard.
+    "releve_le",
+)
+
+
+def moteur_de_la_campagne(api: str, timeout: float = _SANTE_TIMEOUT_S) -> dict[str, Any] | None:
+    """Quel moteur a RÉELLEMENT généré, lu à `/health`. `None` si illisible.
+
+    POURQUOI PAR L'AGENT ET NON EN DIRECT. Ce script tourne sur l'hôte et
+    l'agent joint son serveur LLM par un NOM DE SERVICE DOCKER — `mesuré` le
+    15 septembre 2026 à 15:26 UTC : un nom qui ne se résout pas depuis l'hôte.
+    Un relevé fait ici pointerait donc, au mieux, un serveur qui *ressemble* à
+    celui que l'agent utilise. Seul l'agent peut dire qui il appelle, et c'est
+    pourquoi la lecture passe par `/health`.
+
+    APRÈS LES QUESTIONS, comme `peripherique_de_la_campagne`, mais le motif
+    diffère et il faut le dire : le moteur ne se « charge » pas, donc le relevé
+    ne changerait pas d'être fait avant. Ce qui change, c'est que lu après, il
+    décrit le serveur qui a RÉPONDU aux 138 questions et non celui qui était là
+    avant qu'elles partent. La borne est la même et elle est nommée : un serveur
+    LLM remplacé EN COURS de campagne serait lu dans son état d'après.
+
+    `None` SE LIT « MUET », JAMAIS « OLLAMA ». Trois causes le produisent et
+    elles disent toutes la même chose ici : `/health` illisible, un agent
+    ANTÉRIEUR à ce lot qui ne publie pas la clé, et un serveur LLM qui n'a pas
+    dit son nom. Le message de `main` nomme la deuxième, qui est la seule qui se
+    répare d'un geste — redémarrer l'agent sur le code de `main`.
+    """
+    try:
+        reponse = httpx.get(f"{api}/health", timeout=timeout)
+        reponse.raise_for_status()
+        charge = reponse.json()
+    except Exception:
+        return None
+    etat = charge.get("moteur_llm")
+    if not isinstance(etat, dict):
+        return None
+    return {champ: etat.get(champ) for champ in _CHAMPS_DU_MOTEUR}
+
+
+def signature_du_moteur(moteur: dict[str, Any] | None) -> str | None:
+    """Qui a généré, en une ligne. `None` quand on l'ignore.
+
+    ELLE PORTE LE FAIT ET NON LE RÉGLAGE — `modele_servi` et non
+    `modele_demande`, et c'est exactement la leçon de `signature_du_peripherique`.
+    Deux campagnes lancées toutes deux sur `gemma4:e4b` contre deux serveurs qui
+    portent DEUX POIDS sous ce tag ne sont pas comparables, et leur
+    `modele_demande` est identique. C'est `empreinte_du_modele` qui les sépare,
+    et c'est pour cela qu'elle est dans la signature — **côté Ollama seulement :
+    elle est structurellement NULLE côté vLLM**, réserve R-1 de l'audit du
+    15 septembre 2026, et cette phrase l'affirmait sans le dire. Rien de ce que
+    les sept routes GET de l'instance exposent ne distingue deux poids servis
+    sous un même `id` (§6 de `documentation/moteur_llm.md`). Côté vLLM, ce qui
+    sépare deux moteurs est donc le NOM servi et la FENÊTRE servie, et la
+    position `DIFFÉRENT` sur deux POIDS y reste inatteignable.
+
+    LE CRITÈRE D'APPARTENANCE À LA SIGNATURE, ET IL TRANCHE DANS LES DEUX SENS.
+    **Un champ entre si et seulement s'il est invariant pour un moteur donné et
+    varie quand le moteur change.** Les deux moitiés sont nécessaires, et elles
+    tirent en sens opposé :
+
+    - `releve_le` en est SORTI par la seconde moitié — il varie à chaque relevé
+      **sans que le moteur change**, donc il ferait conclure « MOTEUR DIFFÉRENT »
+      à deux campagnes tournées sur le même serveur ;
+    - `fenetre_servie` y ENTRE par la première — non bloquante §4 de l'audit du
+      15 septembre 2026, où **32 768 contre 8 192 signaient `IDENTIQUE`**.
+
+    Et le critère est MESURÉ, pas supposé : deux lectures de `/v1/models` contre
+    l'instance de ce poste à 449 s d'écart (18:45:28 et 18:52:57 UTC le
+    15 septembre 2026, en lecture seule) rendent `max_model_len` **STABLE** à
+    32 768 quand `created` **CHANGE** — ce dernier étant le contrôle positif qui
+    établit que la comparaison sait voir un changement. La fenêtre ne bouge qu'au
+    relancement du serveur avec un autre `--max-model-len`, c'est-à-dire quand le
+    moteur change ; c'est aussi l'occasion que le §6 nomme, le voisin qui change
+    son réglage de mémoire GPU.
+
+    POURQUOI ELLE PÈSE PLUS QU'UN CHAMP DE PLUS. Côté vLLM, où l'empreinte est
+    nulle, elle est **le seul autre fait relevé du serveur**, et c'est exactement
+    la grandeur qui sépare les deux moteurs aujourd'hui. La comparaison appariée
+    est l'instrument avec lequel se jugera la bascule (lot 6) : la laisser dehors
+    ferait signer `IDENTIQUE` aux deux campagnes dont l'écart est le sujet même
+    du jugement.
+
+    UNE FENÊTRE INCONNUE RESTE MUETTE, ici comme partout. Côté Ollama elle est
+    **toujours** nulle — rien dans `/api/tags` ne la porte — et elle n'est alors
+    pas imprimée : une campagne Ollama ne doit pas signer comme une campagne
+    vLLM, mais pas non plus porter un `None` qu'on lirait comme une valeur.
+
+    LE SERVEUR SUFFIT À NE PAS ÊTRE MUET. Un `modele_servi` inconnu — le tag
+    demandé absent du catalogue — laisse quand même savoir qu'Ollama 0.30.10
+    répondait, ce qui est déjà comparable. L'inconnu est alors NOMMÉ dans la
+    ligne au lieu d'effacer ce qu'on sait.
+
+    `None` QUAND LE SERVEUR EST INCONNU, et rien d'autre ne vaut `None` : « muet »
+    n'est pas « différent », ici comme partout ailleurs dans ce module.
+    """
+    if not moteur:
+        return None
+    serveur = moteur.get("serveur")
+    if not serveur:
+        return None
+    version = moteur.get("version") or "version inconnue"
+    modele = moteur.get("modele_servi")
+    if modele:
+        empreinte = moteur.get("empreinte_du_modele")
+        modele = f"{modele}@{empreinte}" if empreinte else modele
+    else:
+        modele = f"modèle ABSENT DU SERVEUR (demandé : {moteur.get('modele_demande') or 'inconnu'})"
+    fenetre = moteur.get("fenetre_servie")
+    servie = f" — fenêtre servie {fenetre}" if isinstance(fenetre, int) else ""
+    return f"{serveur} {version} — {modele}{servie}"
+
+
+def _options_du_moteur(moteur: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Nos drapeaux d'appel, ou `None` si la campagne ne les porte pas."""
+    if not moteur:
+        return None
+    options = moteur.get("options")
+    return options if isinstance(options, dict) and options else None
+
+
+def _confronter_les_options(
+    actuel: dict[str, Any] | None, precedent: dict[str, Any] | None
+) -> list[str]:
+    """La ligne sur NOS drapeaux d'appel. Trois positions, comme tout le reste.
+
+    ILS SONT DU RÉGLAGE ET C'EST ASSUMÉ. Rien au monde ne les relève d'un
+    serveur : `thinking`, `outils_natifs`, `temperature`, `num_ctx` et
+    `max_tokens` sont ce que NOUS envoyons. Ils sont ici parce qu'ils changent le
+    SENS de la réponse et non sa vitesse — deux campagnes contre le même serveur
+    avec `outils_natifs` dans deux positions ne mesurent pas la même chose — et
+    parce que les taire ferait lire « même moteur » comme « même mesure ».
+    """
+    a, p = _options_du_moteur(actuel), _options_du_moteur(precedent)
+    if a and p and a == p:
+        detail = ", ".join(f"{cle}={a[cle]}" for cle in sorted(a))
+        return [f"    options d'appel : IDENTIQUES — {detail}"]
+    if a and p:
+        bougees = sorted(set(a) | set(p))
+        ecarts = [f"{cle} : {p.get(cle, '—')} -> {a.get(cle, '—')}"
+                  for cle in bougees if a.get(cle) != p.get(cle)]
+        return [
+            "    ⚠ OPTIONS D'APPEL DIFFÉRENTES — " + " ; ".join(ecarts),
+            "      Elles changent le SENS de la réponse, pas sa vitesse.",
+        ]
+    return ["    options d'appel : inconnues d'un côté au moins — muet, pas identique"]
+
+
+def confronter_les_moteurs(
+    actuel: dict[str, Any] | None, precedent: dict[str, Any] | None
+) -> list[str]:
+    """Les lignes à imprimer sur le moteur LLM des deux campagnes.
+
+    IL SIGNALE, IL NE REFUSE PAS, et le motif n'est pas hérité de la clé voisine :
+    il est plus fort ici. `confronter_les_peripheriques` signale parce que
+    comparer deux périphériques reste légitime. Le moteur va plus loin — LA
+    COMPARAISON ENTRE MOTEURS EST EXACTEMENT CE QUE CETTE CLÉ EXISTE POUR
+    PERMETTRE. Le banc go/no-go du 15 septembre 2026 a conclu qu'on ne peut pas
+    trancher la bascule vers vLLM sans une campagne Ollama et une campagne vLLM
+    confrontées l'une à l'autre (§7). Un garde qui refuserait de les comparer
+    interdirait le seul geste pour lequel il a été demandé.
+
+    TROIS POSITIONS, ET « IDENTIQUE » EST IMPRIMÉ AUSSI. Un garde qui ne parle
+    que lorsqu'il mord ne distingue pas « les deux campagnes ont tourné sur le
+    même moteur » de « ce garde n'existe pas dans la version qui a produit cette
+    sortie ». C'est la forme exacte du faux vert que ce chantier a trouvée neuf
+    fois, et la raison pour laquelle la position muette est, elle aussi, écrite.
+
+    « MUET » N'EST PAS « DIFFÉRENT ». Les 19 campagnes de `runs/` au 15 septembre
+    2026 sont TOUTES muettes sur le moteur — la clé n'existait pas — et 19 sur 19
+    le sont aussi sur le périphérique. Les rejouer leur en donnerait une ; d'ici
+    là, on ne peut ni affirmer ni exclure une bascule, et c'est ce que la
+    troisième position dit.
+    """
+    a = signature_du_moteur(actuel)
+    p = signature_du_moteur(precedent)
+    if a and p and a == p:
+        lignes = [f"  moteur LLM : IDENTIQUE des deux côtés — {a}"]
+    elif a and p:
+        lignes = [
+            "  ⚠ MOTEUR LLM DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS ÉTÉ GÉNÉRÉES PAR LE MÊME",
+            f"      référence : {p}",
+            f"      campagne  : {a}",
+            "    Tout ce qui suit mesure DEUX moteurs autant qu'un réglage : la complétude,",
+            "    les citations et la longueur des réponses sortent du modèle, pas du",
+            "    retrieval. Ne les attribuez pas au seul réglage.",
+            "    Ce n'est PAS un refus : confronter deux moteurs est précisément ce que",
+            "    cette clé a été posée pour permettre (banc go/no-go du 15 septembre 2026).",
+        ]
+    else:
+        lignes = [
+            "  ⚠ MOTEUR LLM INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
+            f"      référence : {p or 'MUETTE (pas de clé `moteur_llm`)'}",
+            "      campagne  : " + (
+                a or "MUETTE (`/health` illisible, agent antérieur au lot, "
+                     "ou serveur sans nom)"
+            ),
+            "    « Muet » n'est PAS « différent » : on ne peut ni affirmer ni exclure une",
+            "    bascule de moteur. Les campagnes de `runs/` antérieures au 15 septembre",
+            "    2026 sont toutes muettes — la clé n'existait pas. Les rejouer leur en",
+            "    donnerait une.",
+        ]
+    return lignes + _confronter_les_options(actuel, precedent)
+
+
 def desaccord_de_jeu(actuelles: list[dict], precedentes: list[dict]) -> str | None:
     """Message nommant l'écart entre deux jeux de questions, `None` s'ils coïncident.
 
@@ -1251,6 +1474,7 @@ def comparer_apparie(
     chemin: Path,
     empreinte: str,
     peripherique: dict[str, Any] | None = None,
+    moteur: dict[str, Any] | None = None,
 ) -> bool:
     """Comparaison appariée avec une campagne précédente. Rend False si refusée.
 
@@ -1271,6 +1495,10 @@ def comparer_apparie(
             exactement le cas qu'il existe pour attraper. Seul le JEU porte les
             ancrages, donc seul l'appelant qui l'a chargé peut fournir
             l'empreinte.
+        moteur: LE MOTEUR LLM DE LA CAMPAGNE EN COURS, lu à `/health` après les
+            questions. Il SIGNALE, il ne refuse pas, et plus fermement encore que
+            le périphérique : confronter deux moteurs est ce pour quoi cette clé
+            existe — voir `confronter_les_moteurs`.
             Garde : `test_comparaison_appariee.py`,
             `test_l_empreinte_distingue_deux_corpus_a_numerotation_identique`.
         peripherique: L'ÉTAT TORCH DE LA CAMPAGNE EN COURS, lu à `/health` après
@@ -1345,6 +1573,11 @@ def comparer_apparie(
     # qui suit, pas une note de bas de page. Un lecteur qui découvre la bascule
     # après avoir lu les flèches a déjà attribué les écarts.
     for ligne in confronter_les_peripheriques(peripherique, document.get("peripherique")):
+        print(ligne)
+    # JUSTE APRÈS LE PÉRIPHÉRIQUE, ET POUR LA MÊME RAISON : c'est une clé de
+    # lecture de tout ce qui suit. Un lecteur qui apprend la bascule de moteur
+    # après avoir lu les flèches a déjà attribué les écarts au réglage.
+    for ligne in confronter_les_moteurs(moteur, document.get("moteur_llm")):
         print(ligne)
     print("  ▲ et ▼ se lisent dans le sens de CHAQUE métrique ; « ↓ » marque celles")
     print("  dont la valeur basse est la bonne. Δ et l'IC gardent leur signe brut.")
@@ -1497,13 +1730,29 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    # LE MOTEUR, AU MÊME ENDROIT ET POUR LA MÊME RAISON. Le message nomme la
+    # cause RÉPARABLE plutôt que de lister les trois : un agent qui tourne du
+    # code antérieur à ce lot ne publie pas la clé, et c'est le cas qu'on
+    # rencontrera tant que le service en production n'aura pas redémarré sur
+    # `main`. Le dire ici évite qu'on lise « muet » comme « pas de bascule ».
+    moteur = moteur_de_la_campagne(args.api)
+    if moteur is None:
+        print(
+            "moteur LLM : non publié par `/health` — la campagne sera écrite MUETTE sur "
+            "le moteur, et toute comparaison future le dira. Cause la plus fréquente : "
+            "l'agent en service est antérieur au lot qui publie `moteur_llm`.",
+            file=sys.stderr,
+        )
+
     # L'appariement d'abord : c'est lui qui dit si un écart est un résultat. Le
     # diff des résumés reste affiché ensuite pour les grandeurs qui ne
     # s'apparient pas — latences, totaux, compteurs d'exclusion.
     empreinte = empreinte_des_ancrages(questions)
     appariement_possible = True
     if args.compare and args.compare.exists():
-        appariement_possible = comparer_apparie(lignes, args.compare, empreinte, peripherique)
+        appariement_possible = comparer_apparie(
+            lignes, args.compare, empreinte, peripherique, moteur
+        )
         comparer(resume, args.compare)
     elif args.compare:
         # UN `--compare` QUI POINTE UN FICHIER ABSENT NE DOIT PAS SE TAIRE. La
@@ -1539,6 +1788,13 @@ def main() -> int:
                     # campagnes séparées par une bascule se comparent en silence.
                     # `null` se lit « je n'ai pas pu lire », jamais « CPU ».
                     "peripherique": peripherique,
+                    # QUI a généré, à côté d'OÙ le calcul a eu lieu. Le banc
+                    # go/no-go du 15 septembre 2026 a établi qu'aucune campagne
+                    # de `runs/` n'étant comparable à une campagne d'après la
+                    # bascule vers vLLM, la question de la qualité n'était pas
+                    # tranchable (§7). C'est cette clé qui la rouvre.
+                    # `null` se lit « je n'ai pas pu lire », jamais « Ollama ».
+                    "moteur_llm": moteur,
                     "resume": resume,
                     "par_langue": langues,
                     "questions": lignes,

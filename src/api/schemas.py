@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints
 
@@ -608,6 +608,131 @@ class TorchDeviceHealth(BaseModel):
     pic_memoire_reservee_mio: float | None = None
 
 
+class MoteurLlmHealth(BaseModel):
+    """QUEL moteur a réellement généré, relevé DU SERVEUR et non du réglage.
+
+    POURQUOI CE CHAMP EXISTE. `ollama_model` publie depuis toujours
+    `settings.ollama_model` : c'est le nom qu'on DEMANDE, et il reste identique
+    quand le serveur d'en face est remplacé, mis à jour, ou sert un autre poids
+    sous le même tag. Le banc go/no-go du 15 septembre 2026 (§7) a buté dessus :
+    aucune campagne de `runs/` ne dit quel moteur l'a produite, donc aucune n'est
+    comparable à une campagne d'après une bascule. Ce champ est ce qui manque.
+
+    LE FAIT, JAMAIS L'INTENTION, et c'est la leçon de `TorchDeviceHealth` — dont
+    `requested` est le réglage et `embedding` le fait. Ici : `serveur`, `version`,
+    `modele_servi`, `empreinte_du_modele`, `quantification` et `fenetre_servie`
+    sont LUS du serveur qui répond. `modele_demande` et `options` sont notre
+    réglage, et ils sont nommés à part pour qu'on ne les confonde jamais.
+
+    `None` SUR LE CHAMP ENTIER SE LIT « JE N'AI PAS PU LIRE », jamais « Ollama ».
+    Un serveur injoignable, une URL mal formée, une réponse qui n'est pas du JSON
+    disent tous la même chose ici, et l'ignorance ne s'affirme pas en moteur.
+
+    Mode d'emploi complet : `documentation/moteur_llm.md`.
+    """
+
+    # `"ollama"` ou `"vllm"`, DÉDUIT DE CE QUI RÉPOND et non d'un réglage : les
+    # deux serveurs n'ont pas la même route de version, et c'est ce qui les
+    # sépare. `mesuré` le 15 septembre 2026 : `GET /api/version` rend 200 et un
+    # `version` sur Ollama, **404 sur vLLM** — le discriminant porte donc un fait
+    # des deux côtés, pas un échec d'un seul. `null` quand aucune des deux routes
+    # n'a répondu.
+    serveur: str | None = None
+    # L'URL RÉELLEMENT JOINTE, expurgée : schéma, hôte, port, rien d'autre. Un
+    # `null` dit qu'aucune des deux routes de version n'a répondu — donc que ce
+    # qui suit est muet, pas que l'adresse manque.
+    #
+    # EXPURGÉE PARCE QUE CE DÉPÔT EST PUBLIC ET QUE `runs/*.json` Y EST
+    # VERSIONNÉ : un déploiement qui mettrait des identifiants dans l'URL les
+    # verrait sinon recopiés dans une campagne commitée. Voir
+    # `main._endpoint_expurge`.
+    endpoint: str | None = None
+    # La version du serveur, telle QU'IL la donne — `"0.30.10"`, `"0.28.0"`.
+    version: str | None = None
+    # Le nom qu'on DEMANDE (`settings.ollama_model`). C'est le réglage, et il est
+    # ici pour une seule raison : confronté à `modele_servi`, il montre le cas où
+    # le serveur ne porte PAS ce qu'on lui réclame.
+    modele_demande: str
+    # Ce que le serveur porte RÉELLEMENT sous ce nom (Ollama) ou sert (vLLM).
+    # `null` sur Ollama signifie que le tag demandé n'est pas dans `/api/tags` :
+    # le modèle sera tiré au premier appel, ou l'appel échouera.
+    #
+    # ET `null` VEUT DIRE LA MÊME CHOSE CÔTÉ vLLM DEPUIS LE 15 SEPTEMBRE 2026 —
+    # non bloquante §2 de l'audit du même jour. Ce champ y valait `entrees[0]
+    # ["id"]`, **quel que soit** cet `id` : jamais confronté à ce que nous
+    # demandons, il ne pouvait être nul que sur un catalogue vide, et un serveur
+    # servant le modèle d'une autre équipe était donc publié — puis mémorisé à
+    # vie — sous un nom faux. Les deux côtés cherchent maintenant NOTRE entrée
+    # dans le catalogue ; `null` se lit des deux côtés « ce serveur ne sert pas
+    # ce que nous demandons », et jamais « il ne sert rien ».
+    modele_servi: str | None = None
+    # Le digest du poids côté Ollama, tronqué à 16 caractères — assez pour
+    # séparer deux poids, trop court pour qu'on le prenne pour une signature.
+    # C'EST LE SEUL CHAMP QUI DISTINGUE DEUX POIDS SOUS UN MÊME TAG, et un tag
+    # Ollama est mutable. `null` côté vLLM.
+    #
+    # ET CÔTÉ vLLM, CE NULL EST UNE BORNE, PAS UN DÉTAIL — non bloquante §2 de
+    # l'audit du 15 septembre 2026, et le chantier bascule VERS vLLM. Ce que
+    # l'instance de ce poste expose a été relevé en lecture seule le 15 septembre
+    # 2026 à 17:31 UTC, sur ses **sept** routes GET (`/openapi.json`) : rien n'y
+    # distingue deux poids servis sous un même `id`. `/v1/models` porte `id`,
+    # `root`, `max_model_len` — et deux faux amis, `created` et
+    # `permission[].id`, qui sont **régénérés à chaque requête** (`created`
+    # mesuré à 17:30:51 puis 17:31:05 sur deux lectures du même serveur) : les
+    # relever ferait différer deux relevés du même moteur, ce qu'un test
+    # interdit désormais. `/metrics` porte la configuration du moteur, dont son
+    # utilisation mémoire GPU, mais aucune empreinte de poids — et la lire
+    # coûterait une quatrième requête par battement sur un serveur partagé.
+    # CONSÉQUENCE, écrite au §6 de `documentation/moteur_llm.md` : la position
+    # `DIFFÉRENT` de `--compare` est **inatteignable côté vLLM sur deux poids
+    # servis sous le même `id`**. Ce qui reste visible est le nom, qui porte la
+    # quantification sur cette instance, et la fenêtre servie.
+    empreinte_du_modele: str | None = None
+    # `"Q4_K_M"` côté Ollama. `null` côté vLLM, où la quantification est dans le
+    # nom du modèle et non dans un champ.
+    quantification: str | None = None
+    # `max_model_len` côté vLLM — la fenêtre que le SERVEUR sert, à ne pas
+    # confondre avec `options.num_ctx`, qui est celle que NOUS demandons. Les
+    # deux ont dérivé sur cette instance : 32768 servie, 8192 demandée.
+    #
+    # ELLE EST DANS LA SIGNATURE DE `--compare` DEPUIS LE 15 SEPTEMBRE 2026 — non
+    # bloquante §4 de l'audit du même jour, où **32 768 contre 8 192 signaient
+    # `IDENTIQUE`**. Elle était relevée et publiée, et la comparaison appariée ne
+    # s'en servait pas : côté vLLM, où `empreinte_du_modele` est structurellement
+    # nulle, c'est le seul AUTRE fait relevé du serveur, et c'est la grandeur qui
+    # sépare les deux moteurs aujourd'hui. Elle satisfait le critère écrit au site
+    # de `signature_du_moteur` — invariante pour un moteur donné, elle ne bouge
+    # qu'au relancement du serveur avec un autre `--max-model-len` : `mesuré`
+    # stable sur deux lectures à 449 s d'écart le 15 septembre 2026, quand
+    # `created` changeait dans le même intervalle. `null` côté Ollama, où rien
+    # dans `/api/tags` ne la porte ; elle n'est alors pas imprimée du tout.
+    fenetre_servie: int | None = None
+    # NOS drapeaux d'appel, ceux qui changent le SENS de la réponse et non sa
+    # vitesse. Ils sont du réglage, assumé comme tel : deux campagnes lancées
+    # contre le même serveur avec `thinking` dans deux positions ne mesurent pas
+    # la même chose, et rien au monde ne le relève du serveur.
+    options: dict[str, Any] = Field(default_factory=dict)
+    # QUAND ce relevé a été pris, en ISO-8601 UTC à la seconde. `null` seulement
+    # sur une campagne écrite par un agent antérieur au 15 septembre 2026.
+    #
+    # POURQUOI UNE DATE SUR CE CHAMP ET SUR AUCUN AUTRE — non bloquante §3 de
+    # l'audit du 15 septembre 2026. Ce relevé est le SEUL état de `/health`
+    # mémorisé pour la vie du processus : toutes les autres sondes sont
+    # relancées à chaque battement, et ce qu'elles publient date donc de la
+    # réponse qu'on lit. Celui-ci peut dater d'il y a onze heures, et rien ne le
+    # disait. Le lecteur visé est EXTERNE — le pipeline, l'équipe voisine qui
+    # relance son serveur vLLM quand elle change son réglage de mémoire GPU : la
+    # valeur devient fausse sans que rien ne rougisse, et la seule défense
+    # honnête est de dater ce qu'on publie plutôt que de prétendre qu'il est
+    # frais.
+    #
+    # C'EST LA DATE DU RELEVÉ, JAMAIS CELLE DE LA LECTURE, et la distinction est
+    # tout l'intérêt du champ : le rafraîchir à chaque lecture rendrait un relevé
+    # de onze heures indiscernable d'un relevé neuf — le défaut exact qu'il
+    # ferme. Un test le tient dans les deux directions.
+    releve_le: str | None = None
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
@@ -638,3 +763,9 @@ class HealthResponse(BaseModel):
     # réponse rassurante, et ce champ existe précisément pour qu'on cesse de
     # deviner sur quoi ce service calcule.
     torch_device: TorchDeviceHealth
+    # Quel moteur a généré. OPTIONNEL, et c'est la différence avec les deux
+    # champs ci-dessus : leur muet se lirait comme une réponse rassurante, alors
+    # qu'ici `null` est la seule réponse honnête quand le serveur n'a pas
+    # répondu — et un agent ANTÉRIEUR à ce lot ne publie pas la clé du tout.
+    # `scripts/evaluate.py` distingue les deux cas de la même façon : muet.
+    moteur_llm: MoteurLlmHealth | None = None
