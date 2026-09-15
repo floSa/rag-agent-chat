@@ -1189,6 +1189,53 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             f"{derive} a signé comme le nôtre"
         )
 
+    def test_un_catalogue_qui_sert_le_derive_et_le_notre_retient_le_notre(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LA SCÈNE DE L'INSTANCE PARTAGÉE, et c'est celle où le refus PAIE vraiment.
+
+        Les quatre scènes ci-dessus jouent un catalogue à UNE entrée : le refus
+        y coûte le re-sondage permanent, et il vaut mieux que le nom faux. Ici le
+        serveur sert les deux — le dérivé de l'équipe voisine et le nôtre —, et
+        c'est la configuration réelle d'un poste partagé avec deux autres
+        équipes. La sonde retient la PREMIÈRE entrée qui satisfait la relation ;
+        le dérivé étant servi d'abord, c'est lui qui était retenu, avec SA
+        fenêtre, et mémorisé à vie.
+
+        LA FENÊTRE EST VÉRIFIÉE AVEC LE NOM, et il faut les deux : `max_model_len`
+        entre dans la signature du moteur, donc retenir la bonne entrée sous le
+        mauvais nombre signerait encore faux.
+
+        CE QUE CETTE SCÈNE NE MESURE PAS, dit comme tel : l'instance de ce poste
+        ne sert qu'UNE entrée, donc l'ordre réel de `data` sous plusieurs modèles
+        n'est pas mesuré contre un vrai serveur. L'ordre est ici CHOISI pour
+        placer le dérivé en tête — le cas défavorable —, et c'est bien le
+        comportement du code qui est éprouvé, pas celui du serveur.
+        """
+        from src.api import main
+
+        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        catalogue = {
+            "object": "list",
+            "data": [
+                {"id": f"{self._ID_REEL}-abliterated", "max_model_len": 8192},
+                {"id": self._ID_REEL, "max_model_len": 32768},
+            ],
+        }
+        releve, _ = _sonder(
+            monkeypatch,
+            {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, catalogue)},
+        )
+        assert releve is not None
+        assert releve.modele_servi == self._ID_REEL, (
+            "le dérivé servi EN TÊTE a été retenu : sur une instance partagée, c'est le "
+            "cas le plus fréquent, et le nom faux serait figé pour la vie du processus"
+        )
+        assert releve.fenetre_servie == 32768, (
+            "la fenêtre relevée est celle du DÉRIVÉ : elle entre dans la signature du "
+            "moteur, donc le bon nom sous le mauvais nombre signe encore faux"
+        )
+
     def test_le_temoin_inerte_un_nom_sans_rapport_reste_refuse(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
