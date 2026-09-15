@@ -1132,7 +1132,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
         """
         assert self._modele_servi_pour(monkeypatch, self._ID_REEL) == self._ID_REEL
 
-    def test_une_variante_ABLITEREE_n_est_pas_notre_modele(
+    def test_une_variante_abliteree_n_est_pas_notre_modele(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Les garde-fous ont été retirés : le modèle ne répond plus comme le nôtre.
@@ -1146,7 +1146,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             f"{derive} a signé comme le nôtre"
         )
 
-    def test_une_REQUANTIFICATION_TIERCE_n_est_pas_notre_modele(
+    def test_une_requantification_tierce_n_est_pas_notre_modele(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Republié par un tiers sous son propre format, ce n'est plus le poids de l'éditeur.
@@ -1162,7 +1162,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             f"{derive} a signé comme le nôtre"
         )
 
-    def test_une_DISTILLATION_n_est_pas_notre_modele(
+    def test_une_distillation_n_est_pas_notre_modele(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Le nôtre est le PROFESSEUR, pas l'élève — et l'élève porte son nom.
@@ -1175,7 +1175,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             f"{derive} a signé comme le nôtre"
         )
 
-    def test_un_AJUSTEMENT_METIER_n_est_pas_notre_modele(
+    def test_un_ajustement_metier_n_est_pas_notre_modele(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """Le cas le plus probable sur une instance PARTAGÉE avec deux autres équipes.
@@ -1201,7 +1201,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
         """
         assert self._modele_servi_pour(monkeypatch, "un/modele-sans-rapport") is None
 
-    def test_la_borne_de_la_QUANTIFICATION_reste_ouverte_et_c_est_mesure(
+    def test_la_borne_de_la_quantification_reste_ouverte_et_c_est_mesure(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """LA BORNE ÉCRITE N'A PAS BOUGÉ, ET CE TEST EST SA MESURE, PAS SA PROMESSE.
@@ -1219,7 +1219,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             "silencieux, et il rendrait `modele_servi` nul sur un serveur sain"
         )
 
-    def test_la_borne_QUI_RESTE_un_derive_au_vocabulaire_INCONNU_passe_encore(
+    def test_la_borne_qui_reste_un_derive_au_vocabulaire_inconnu_passe_encore(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """CE QUE CETTE FERMETURE NE FERME PAS, MESURÉ ET NON SUPPOSÉ.
@@ -1240,7 +1240,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             "déplacée et que la docstring de la relation doit être réécrite"
         )
 
-    def test_la_borne_QUI_RESTE_les_frontieres_jetees_confondent_deux_modeles_reels(
+    def test_la_borne_qui_reste_les_frontieres_jetees_confondent_deux_modeles_reels(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """LA SECONDE BORNE QUI RESTE, ET ELLE EST STRUCTURELLE, PAS NÉGLIGÉE.
@@ -1273,7 +1273,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
             "et l'`id` réel de ce poste est alors refusé : mesurer avant de se réjouir"
         )
 
-    def test_un_derive_n_est_pas_MEMORISE_et_c_est_la_conséquence_chere(
+    def test_un_derive_n_est_pas_memorise_et_c_est_la_consequence_chere(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """LE REFUS NE SUFFIT PAS : IL FAUT QUE LE DÉRIVÉ NE SOIT PAS FIGÉ À VIE.
@@ -1346,7 +1346,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
             "data": [{"id": identifiant, "object": "model", "max_model_len": 32768}],
         }
 
-    def test_les_trois_formes_de_tag_ne_sont_PAS_reconnues_et_c_est_epingle(
+    def test_les_trois_formes_de_tag_ne_sont_pas_reconnues_et_c_est_epingle(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """LA BORNE, MESURÉE DANS LE SENS OÙ ELLE EST FAUSSE POUR L'EXPLOITANT.
@@ -1395,7 +1395,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
         assert releve is not None
         assert releve.modele_servi == _ID_VLLM_REEL
 
-    def test_le_COUT_est_compte_en_requetes_et_non_decrit(
+    def test_le_cout_est_compte_en_requetes_et_non_decrit(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """LE CHIFFRE DE L'AUDIT, REJOUÉ ICI COMME GARDE : 9 CONTRE 3 SUR TROIS BATTEMENTS.
