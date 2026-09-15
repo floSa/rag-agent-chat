@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 841 tests, aucune dépendance
+## Unitaire — 852 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,15 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 15 septembre 2026 à 15:44 UTC par LOT-17 : **841** tests sur **46** fichiers,
+> `mesuré` le 15 septembre 2026 à 17:39 UTC par REPAR-18 : **852** tests sur **46** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(LOT-12 avait relevé **793** sur les
+> total que `pytest` annonce — concordent. *(LOT-17 avait relevé **841** sur les
+> mêmes 46 fichiers à 15:44 UTC ; les **onze** de plus sont les gardes de
+> REPAR-18 — quatre sur la mémorisation d'un relevé PARTIEL de moteur, trois sur
+> ce que la sonde ne relèvera jamais côté vLLM, deux sur l'horodatage du relevé,
+> un qui tient cet horodatage HORS de la signature, un sur le budget de durée de
+> la sonde entre deux battements du healthcheck. Aucun test n'a été ajouté par
+> REPAR-18 sans qu'une mutation l'ait fait rougir.)* *(LOT-12 avait relevé **793** sur les
 > mêmes 45 fichiers à 09:37 UTC ; les cinq de plus sont les gardes de REPAR-13 —
 > deux sur le chargement des modèles, deux sur le réservoir de fils des sondes,
 > un témoin sur `services_unknown`.)*

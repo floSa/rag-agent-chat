@@ -32,6 +32,7 @@ import json
 import pathlib
 import sys
 from contextlib import redirect_stdout
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -66,6 +67,7 @@ def _moteur(**ecarts: Any) -> dict[str, Any]:
         "empreinte_du_modele": "c6eb396dbd5992bb",
         "quantification": "Q4_K_M",
         "fenetre_servie": None,
+        "releve_le": "2026-09-15T17:31:00+00:00",
         "options": {
             "thinking": False,
             "outils_natifs": True,
@@ -138,6 +140,22 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
         signature = evaluate.signature_du_moteur(_moteur(modele_servi=None))
         assert signature is not None
         assert "ABSENT DU SERVEUR" in signature
+
+    def test_l_horodatage_n_entre_pas_dans_la_signature(self) -> None:
+        """LE MÊME MOTEUR RELEVÉ À DEUX INSTANTS SIGNE PAREIL, et c'est vital.
+
+        `releve_le` est né pour dire au lecteur externe l'ÂGE du relevé (non
+        bloquante §3 de l'audit du 15 septembre 2026). Le glisser dans la
+        signature ferait conclure « MOTEUR LLM DIFFÉRENT » à deux campagnes
+        tournées sur exactement le même serveur — la famille de faux positifs que
+        ce lot existe pour ne pas produire, et le symétrique exact de la
+        bloquante qu'il ferme.
+        """
+        evaluate = _evaluate()
+        veille = evaluate.signature_du_moteur(_moteur(releve_le="2026-09-14T08:00:00+00:00"))
+        aujourdhui = evaluate.signature_du_moteur(_moteur(releve_le="2026-09-15T19:00:00+00:00"))
+        assert veille == aujourdhui, "la date du relevé sépare deux campagnes du même moteur"
+        assert veille is not None, "contrôle positif : la signature n'est pas muette des deux côtés"
 
     def test_sans_serveur_la_signature_est_muette_et_ne_devine_rien(self) -> None:
         evaluate = _evaluate()
@@ -636,10 +654,19 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
     ) -> None:
         """Le serveur vLLM de ce poste appartient à une autre équipe.
 
-        La borne est asserté comme PROPRIÉTÉ — au plus trois — et non comme le
-        compte d'une scène : un quatrième appel, même utile, se paierait à chaque
-        battement du healthcheck sur un serveur partagé.
+        La borne est asserté comme PROPRIÉTÉ — au plus `_MOTEUR_REQUETES_MAX` —
+        et non comme le compte d'une scène : un quatrième appel, même utile, se
+        paierait à chaque battement du healthcheck sur un serveur partagé.
+
+        LE CHIFFRE EST RELU AU SITE, JAMAIS RECOPIÉ : il porte aussi le budget de
+        durée de la sonde (`test_health_parallele.py`), et un chiffre qui a deux
+        copies finit par en avoir deux valeurs. La scène jouée ici est celle du
+        PIRE cas — version Ollama écartée, version vLLM, puis catalogue — et le
+        test vérifie qu'elle l'atteint réellement, sans quoi la borne serait
+        tenue par une scène qui ne la touche pas.
         """
+        from src.api import main
+
         _, client = _sonder(
             monkeypatch,
             {
@@ -647,7 +674,10 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
                 "/v1/models": _ReponseHttp(200, {"data": []}),
             },
         )
-        assert len(client.demandes) <= 3, client.demandes
+        assert len(client.demandes) == main._MOTEUR_REQUETES_MAX, (
+            "cette scène doit ATTEINDRE la borne, sinon elle ne la tient pas"
+        )
+        assert len(client.demandes) <= main._MOTEUR_REQUETES_MAX, client.demandes
 
     def test_aucune_requete_de_generation_n_est_emise(
         self, monkeypatch: pytest.MonkeyPatch
@@ -660,23 +690,200 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
         assert not [u for u in client.demandes if u.endswith(interdites)], client.demandes
 
 
+class TestCeQueLaSondeNeReleveraJamaisCoteVllm:
+    """LA BORNE DE LA NON BLOQUANTE §2, ET LES DEUX FAUX AMIS QUI LA GARDENT.
+
+    `mesuré` en lecture seule le 15 septembre 2026 à 17:30–17:31 UTC contre
+    l'instance vLLM de ce poste, sur les **sept** routes GET qu'elle déclare à
+    `/openapi.json` : **rien n'y distingue deux poids servis sous un même `id`**.
+    Ce que `/v1/models` porte d'utile est `id`, `root` et `max_model_len` — et
+    deux champs qui ressemblent à un discriminant sans en être un :
+
+    - `created` : j'ai cru y tenir l'instant de DÉMARRAGE du serveur, ce qui
+      aurait séparé deux poids (vLLM charge son modèle au lancement). Deux
+      lectures du même serveur à quatorze secondes d'écart ont rendu
+      `1789493451` puis `1789493465`, soit **l'instant de chaque requête** ;
+    - `permission[].id` : un identifiant d'allure stable, régénéré lui aussi à
+      chaque requête (`modelperm-8e71c04ff2880f31` puis
+      `modelperm-9efd789f275ba600`).
+
+    Les relever ferait **différer deux relevés du même moteur** — exactement le
+    faux positif que ce lot existe pour ne pas produire. Ce test tient donc la
+    borne dans le sens utile : il ne fige pas l'absence d'empreinte, il interdit
+    qu'on la comble avec du bruit.
+    """
+
+    _CATALOGUE_REEL = {
+        "object": "list",
+        "data": [
+            {
+                "id": "google/gemma-4-E4B-it-qat-w4a16-ct",
+                "object": "model",
+                "created": 1789493451,
+                "owned_by": "vllm",
+                "root": "google/gemma-4-E4B-it-qat-w4a16-ct",
+                "parent": None,
+                "max_model_len": 32768,
+                "permission": [
+                    {"id": "modelperm-8e71c04ff2880f31", "object": "model_permission"}
+                ],
+            }
+        ],
+    }
+
+    def _releve(self, monkeypatch: pytest.MonkeyPatch) -> Any:
+        releve, _ = _sonder(
+            monkeypatch,
+            {
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(200, self._CATALOGUE_REEL),
+            },
+        )
+        return releve
+
+    def test_les_champs_regeneres_a_chaque_requete_ne_sont_pas_releves(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        releve = self._releve(monkeypatch)
+        assert releve is not None
+        publie = releve.model_dump()
+        for volatile in ("1789493451", "modelperm-8e71c04ff2880f31"):
+            assert volatile not in str(publie), (
+                f"{volatile} est régénéré à CHAQUE requête : le relever ferait différer "
+                "deux relevés du même serveur"
+            )
+
+    def test_le_controle_positif_ce_meme_catalogue_rend_bien_ce_qu_il_porte(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """SANS LUI, LE TEST CI-DESSUS PASSERAIT SUR UNE SONDE QUI NE LIT RIEN."""
+        releve = self._releve(monkeypatch)
+        assert releve is not None
+        assert releve.modele_servi == "google/gemma-4-E4B-it-qat-w4a16-ct"
+        assert releve.fenetre_servie == 32768
+
+    def test_l_empreinte_reste_nulle_cote_vllm_et_c_est_la_borne_ecrite(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CE TEST N'EST PAS UN GARDE, C'EST UN CONSTAT DATÉ, et il le dit.
+
+        Il épingle que la position `DIFFÉRENT` de `--compare` est inatteignable
+        côté vLLM sur deux poids servis sous le même `id` — §6 de
+        `documentation/moteur_llm.md`. Le jour où vLLM exposera un discriminant
+        de poids, ce test rougira : c'est **voulu**, il faudra alors relever ce
+        champ et réécrire la borne du §6, pas relâcher l'assertion.
+        """
+        releve = self._releve(monkeypatch)
+        assert releve is not None
+        assert releve.empreinte_du_modele is None
+        assert releve.quantification is None, "côté vLLM elle est dans le NOM, pas dans un champ"
+
+
+class TestLeReleveDitQuandIlAEtePris:
+    """NON BLOQUANTE §3 — le seul cache à vie de `/health` était sans date.
+
+    Un lecteur externe ne pouvait pas distinguer « relevé il y a dix secondes »
+    de « relevé il y a onze heures », alors que le serveur d'en face redémarre
+    quand l'équipe voisine change son réglage de mémoire GPU.
+    """
+
+    def test_le_releve_porte_la_date_a_laquelle_il_a_ete_pris(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        avant = datetime.now(UTC)
+        releve, _ = _sonder(
+            monkeypatch,
+            {
+                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
+                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+            },
+        )
+        apres = datetime.now(UTC)
+        assert releve is not None
+        assert releve.releve_le is not None, "le relevé est publié sans dire quand il a été pris"
+        date = datetime.fromisoformat(releve.releve_le)
+        assert date.tzinfo is not None, "une date sans fuseau n'est pas lisible de l'extérieur"
+        # Bornée des DEUX côtés par l'horloge du test : une constante recopiée
+        # passerait ce test sans que la date décrive quoi que ce soit.
+        assert avant.replace(microsecond=0) <= date <= apres
+
+    def test_la_date_est_celle_du_releve_et_ne_se_rafraichit_pas_a_la_lecture(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """C'EST TOUT L'INTÉRÊT DU CHAMP, et le sens dans lequel il peut mentir.
+
+        Un horodatage recalculé à chaque lecture rendrait un relevé de onze
+        heures indiscernable d'un relevé neuf — le défaut exact qu'il ferme.
+        """
+        from src.api import main
+
+        releve, _ = _sonder(
+            monkeypatch,
+            {
+                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
+                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+            },
+        )
+        assert releve is not None
+        relu = asyncio.run(main._sonder_moteur_llm())
+        assert relu is not None
+        assert relu.releve_le == releve.releve_le, (
+            "la date a été refaite à la lecture : un relevé vieux de onze heures "
+            "se présenterait comme neuf"
+        )
+
+
 class TestLaMemorisationDuReleve:
     """Le relevé est mémorisé, et le prix est nommé au site.
 
     `/health` est battu toutes les 20 s par le healthcheck ; deux requêtes de plus
     à chaque battement vers un serveur d'inférence PARTAGÉ seraient un prix
     permanent pour un fait qui ne change qu'au redémarrage de ce serveur.
+
+    CE QUI EST MÉMORISÉ EST UN RELEVÉ **COMPLET**, et c'est la correction de
+    l'audit du 15 septembre 2026 (§1, bloquante). Le prédicat était « le serveur
+    a dit son nom » ; il est désormais « le serveur a dit son nom ET ce qu'il
+    porte ». Entre les deux se trouve exactement la fenêtre de démarrage que la
+    justification du cache prétendait couvrir : un serveur dont le port HTTP
+    répond avant que son modèle soit tiré.
     """
 
-    def test_un_succes_est_memorise_et_ne_repart_pas_sur_le_reseau(
+    def test_un_succes_complet_est_memorise_et_ne_repart_pas_sur_le_reseau(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """REQUALIFIÉ le 15 septembre 2026, et le motif est écrit ici.
+
+        CE QUE CE TEST TENAIT. Sous son ancien nom
+        (`test_un_succes_est_memorise_et_ne_repart_pas_sur_le_reseau`), il ne
+        servait que `/api/version` : le relevé qu'il obtenait avait
+        `modele_servi=None`, `empreinte_du_modele=None`, `quantification=None` —
+        un relevé **partiel** — et il exigeait qu'il soit mémorisé **pour la vie
+        du processus**. Il nommait « un succès » la scène même du défaut, et
+        appliquer le correctif le faisait rougir.
+
+        CE QU'IL TIENT DÉSORMAIS, et c'est ce qu'il a toujours voulu tenir : un
+        succès **complet** — le serveur a dit son nom ET ce qu'il porte — est
+        mémorisé, et le battement suivant ne repart pas sur le réseau. La scène
+        change, l'assertion ne s'assouplit pas : c'est toujours l'égalité stricte
+        du compte de requêtes.
+
+        Il n'a **pas** été désactivé et son assertion n'a **pas** été relâchée :
+        un test qui rougit parce qu'il décrivait le défaut est un test à
+        requalifier.
+        """
         from src.api import main
 
         releve, client = _sonder(
-            monkeypatch, {"/api/version": _ReponseHttp(200, {"version": "0.30.10"})}
+            monkeypatch,
+            {
+                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
+                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+            },
         )
         assert releve is not None
+        assert releve.modele_servi is not None, (
+            "la scène de ce test doit être un succès COMPLET : c'est tout son objet"
+        )
         premier = len(client.demandes)
         asyncio.run(main._sonder_moteur_llm())
         assert len(client.demandes) == premier, "le second appel est reparti sur le réseau"
@@ -690,6 +897,112 @@ class TestLaMemorisationDuReleve:
         premier = len(client.demandes)
         asyncio.run(main._sonder_moteur_llm())
         assert len(client.demandes) > premier, "le silence a été mémorisé"
+
+    def test_un_releve_partiel_n_est_pas_memorise_et_le_battement_suivant_re_sonde(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LA SCÈNE DE LA BLOQUANTE — audit du 15 septembre 2026, §1.
+
+        Un serveur qui n'a pas fini de démarrer est précisément celui dont le
+        port HTTP répond — donc `/api/version` répond — mais dont le catalogue
+        n'est pas encore servi. Le relevé y est construit avec
+        `modele_servi=None`, et c'est CE relevé-là que le premier battement du
+        healthcheck a le plus de chances de prendre (`start_period: 30s`,
+        intervalle 20 s).
+
+        Figé, il publierait `modele_servi: null` en permanence sur un serveur
+        parfaitement sain, et `signature_du_moteur` en tirerait
+        « modèle ABSENT DU SERVEUR » — une phrase **fausse**, pas une phrase
+        muette, qui contourne par le bas la doctrine « muet n'est pas différent ».
+        """
+        from src.api import main
+
+        releve, client = _sonder(
+            monkeypatch, {"/api/version": _ReponseHttp(200, {"version": "0.30.10"})}
+        )
+        assert releve is not None, "un serveur qui a dit son nom n'est pas muet"
+        assert releve.serveur == "ollama"
+        assert releve.modele_servi is None, "la scène jouée ici est bien un relevé PARTIEL"
+        premier = len(client.demandes)
+        asyncio.run(main._sonder_moteur_llm())
+        assert len(client.demandes) > premier, (
+            "le relevé partiel est figé à vie : le serveur a beau finir de démarrer, "
+            "l'agent publiera `modele_servi: null` jusqu'à SON propre redémarrage"
+        )
+
+    def test_un_tag_encore_absent_du_catalogue_n_est_pas_memorise_non_plus(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le catalogue répond, mais pas encore avec ce qu'on lui demande.
+
+        Deuxième moitié de la même fenêtre, et le code la nomme lui-même au
+        site : « le tag demandé peut n'y être pas — il sera tiré au premier
+        appel ». Un fait transitoire n'est pas un fait à figer.
+        """
+        from src.api import main
+
+        releve, client = _sonder(
+            monkeypatch,
+            {
+                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
+                "/api/tags": _ReponseHttp(200, {"models": [{"name": "un-autre:tag"}]}),
+            },
+        )
+        assert releve is not None
+        assert releve.modele_servi is None
+        premier = len(client.demandes)
+        asyncio.run(main._sonder_moteur_llm())
+        assert len(client.demandes) > premier, "un tag pas encore tiré a été figé à vie"
+
+    def test_cote_vllm_un_catalogue_vide_n_est_pas_memorise_non_plus(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le prédicat est le MÊME des deux côtés, et c'est délibéré.
+
+        vLLM charge son modèle au lancement ; un catalogue vide y est donc encore
+        plus clairement l'état d'un serveur qui n'a pas fini de démarrer.
+        """
+        from src.api import main
+
+        releve, client = _sonder(
+            monkeypatch,
+            {
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(200, {"data": []}),
+            },
+        )
+        assert releve is not None
+        assert releve.serveur == "vllm"
+        assert releve.modele_servi is None
+        premier = len(client.demandes)
+        asyncio.run(main._sonder_moteur_llm())
+        assert len(client.demandes) > premier, "un catalogue vLLM vide a été figé à vie"
+
+    def test_le_controle_positif_le_releve_complet_vllm_est_memorise(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """SANS LUI, LES QUATRE TESTS CI-DESSUS PASSERAIENT SUR UN CACHE RETIRÉ.
+
+        C'est la leçon la plus chère de ce chantier : tout zéro — ici « aucune
+        mémorisation » — se double d'un contrôle positif qui montre qu'il reste
+        une scène où la mémorisation a bien lieu.
+        """
+        from src.api import main
+
+        releve, client = _sonder(
+            monkeypatch,
+            {
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(
+                    200, {"data": [{"id": "google/gemma-4", "max_model_len": 32768}]}
+                ),
+            },
+        )
+        assert releve is not None
+        assert releve.modele_servi == "google/gemma-4"
+        premier = len(client.demandes)
+        asyncio.run(main._sonder_moteur_llm())
+        assert len(client.demandes) == premier, "le second appel est reparti sur le réseau"
 
 
 class TestLEndpointEstExpurge:

@@ -44,6 +44,19 @@ _RACINE = Path(__file__).resolve().parents[2]
 _CAP_SECURITE_S = 8.0
 
 
+def _intervalle_du_healthcheck() -> float:
+    """L'intervalle entre deux battements, LU dans le fichier, comme le délai.
+
+    C'est le budget dont dépend la sonde du moteur LLM : elle survit au plafond
+    de la route et poursuit en fond, donc ce qui la borne utilement n'est pas le
+    délai de `curl` mais l'écart au battement suivant.
+    """
+    texte = (_RACINE / "docker-compose.yml").read_text(encoding="utf-8")
+    intervalles = re.findall(r"^\s+interval:\s*(\d+)s\s*$", texte, re.MULTILINE)
+    assert len(intervalles) == 1, "plusieurs intervals dans docker-compose.yml : préciser lequel"
+    return float(intervalles[0])
+
+
 def _delai_du_healthcheck() -> float:
     """Le délai que docker-compose accorde à /health, LU dans le fichier.
 
@@ -429,6 +442,41 @@ def test_le_plafond_laisse_une_marge_au_delai_du_healthcheck() -> None:
     from src.api import main
 
     assert _delai_du_healthcheck() > main._PLAFOND_SONDES_S
+
+
+def test_le_budget_de_la_sonde_du_moteur_tient_entre_deux_battements() -> None:
+    """RÉSERVE R1 DE L'AUDIT DU 15 SEPTEMBRE 2026, et elle n'était épinglée nulle part.
+
+    `_MOTEUR_TIMEOUT_S` vaut 3,0 s **par requête**, et la sonde en enchaîne
+    jusqu'à `_MOTEUR_REQUETES_MAX` en SÉQUENCE. Son pire cas n'est donc pas 3,0 s
+    mais **9,0 s** — et l'audit lui-même l'a sous-estimé à 6,0 s en ne comptant
+    que les deux lectures de version, alors que la lecture du catalogue suit la
+    seconde d'entre elles.
+
+    CE QUE CE TEST TIENT, ET CE QU'IL NE TIENT PAS. Il ne prétend pas que ce
+    délai protège `/health` : il ne le protège pas, et le commentaire du site le
+    disait mal — c'est `_PLAFOND_SONDES_S` qui coupe la route à 3 s, mesuré à
+    3,01 s sous quatre dépendances pendantes. Mais la TÂCHE de sonde, elle,
+    survit à ce plafond et poursuit en fond ; si son pire cas dépassait
+    l'intervalle du healthcheck, chaque battement en lancerait une nouvelle
+    par-dessus la précédente, sur un serveur d'inférence PARTAGÉ avec une autre
+    équipe. C'est cette relation-là qui compte, et c'est elle qui est épinglée.
+
+    Les deux valeurs sont tenues ENSEMBLE : porter le délai par requête à 7 s, ou
+    ramener l'intervalle du compose à 8 s, rougirait ici et nulle part ailleurs.
+    """
+    from src.api import main
+
+    pire_cas = main._MOTEUR_TIMEOUT_S * main._MOTEUR_REQUETES_MAX
+    assert pire_cas > main._PLAFOND_SONDES_S, (
+        "contrôle de cohérence de ce test : si le pire cas de la sonde passait "
+        "sous le plafond, c'est le plafond qui deviendrait la borne et cette "
+        "assertion cesserait de décrire quoi que ce soit"
+    )
+    assert pire_cas < _intervalle_du_healthcheck(), (
+        "une sonde de moteur peut encore tourner quand le battement suivant en "
+        "lance une autre : les requêtes s'empileraient sur un serveur partagé"
+    )
 
 
 # ─── Le parallélisme, et non la seule borne ───────────────────────────────────

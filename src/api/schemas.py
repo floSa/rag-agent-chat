@@ -660,7 +660,24 @@ class MoteurLlmHealth(BaseModel):
     # Le digest du poids côté Ollama, tronqué à 16 caractères — assez pour
     # séparer deux poids, trop court pour qu'on le prenne pour une signature.
     # C'EST LE SEUL CHAMP QUI DISTINGUE DEUX POIDS SOUS UN MÊME TAG, et un tag
-    # Ollama est mutable. `null` côté vLLM, qui n'expose pas d'empreinte.
+    # Ollama est mutable. `null` côté vLLM.
+    #
+    # ET CÔTÉ vLLM, CE NULL EST UNE BORNE, PAS UN DÉTAIL — non bloquante §2 de
+    # l'audit du 15 septembre 2026, et le chantier bascule VERS vLLM. Ce que
+    # l'instance de ce poste expose a été relevé en lecture seule le 15 septembre
+    # 2026 à 17:31 UTC, sur ses **sept** routes GET (`/openapi.json`) : rien n'y
+    # distingue deux poids servis sous un même `id`. `/v1/models` porte `id`,
+    # `root`, `max_model_len` — et deux faux amis, `created` et
+    # `permission[].id`, qui sont **régénérés à chaque requête** (`created`
+    # mesuré à 17:30:51 puis 17:31:05 sur deux lectures du même serveur) : les
+    # relever ferait différer deux relevés du même moteur, ce qu'un test
+    # interdit désormais. `/metrics` porte la configuration du moteur, dont son
+    # utilisation mémoire GPU, mais aucune empreinte de poids — et la lire
+    # coûterait une quatrième requête par battement sur un serveur partagé.
+    # CONSÉQUENCE, écrite au §6 de `documentation/moteur_llm.md` : la position
+    # `DIFFÉRENT` de `--compare` est **inatteignable côté vLLM sur deux poids
+    # servis sous le même `id`**. Ce qui reste visible est le nom, qui porte la
+    # quantification sur cette instance, et la fenêtre servie.
     empreinte_du_modele: str | None = None
     # `"Q4_K_M"` côté Ollama. `null` côté vLLM, où la quantification est dans le
     # nom du modèle et non dans un champ.
@@ -674,6 +691,25 @@ class MoteurLlmHealth(BaseModel):
     # contre le même serveur avec `thinking` dans deux positions ne mesurent pas
     # la même chose, et rien au monde ne le relève du serveur.
     options: dict[str, Any] = Field(default_factory=dict)
+    # QUAND ce relevé a été pris, en ISO-8601 UTC à la seconde. `null` seulement
+    # sur une campagne écrite par un agent antérieur au 15 septembre 2026.
+    #
+    # POURQUOI UNE DATE SUR CE CHAMP ET SUR AUCUN AUTRE — non bloquante §3 de
+    # l'audit du 15 septembre 2026. Ce relevé est le SEUL état de `/health`
+    # mémorisé pour la vie du processus : toutes les autres sondes sont
+    # relancées à chaque battement, et ce qu'elles publient date donc de la
+    # réponse qu'on lit. Celui-ci peut dater d'il y a onze heures, et rien ne le
+    # disait. Le lecteur visé est EXTERNE — le pipeline, l'équipe voisine qui
+    # relance son serveur vLLM quand elle change son réglage de mémoire GPU : la
+    # valeur devient fausse sans que rien ne rougisse, et la seule défense
+    # honnête est de dater ce qu'on publie plutôt que de prétendre qu'il est
+    # frais.
+    #
+    # C'EST LA DATE DU RELEVÉ, JAMAIS CELLE DE LA LECTURE, et la distinction est
+    # tout l'intérêt du champ : le rafraîchir à chaque lecture rendrait un relevé
+    # de onze heures indiscernable d'un relevé neuf — le défaut exact qu'il
+    # ferme. Un test le tient dans les deux directions.
+    releve_le: str | None = None
 
 
 class HealthResponse(BaseModel):

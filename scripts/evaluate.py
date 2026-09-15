@@ -1158,6 +1158,12 @@ _CHAMPS_DU_MOTEUR = (
     "quantification",
     "fenetre_servie",
     "options",
+    # QUAND l'agent a relevé ce moteur, et non quand la campagne s'est terminée.
+    # Le relevé est mémorisé pour la vie du processus de l'agent : il peut donc
+    # décrire un serveur tel qu'il était des heures avant que les questions ne
+    # partent. Sans cette date, une campagne ne permet pas de faire la
+    # différence, et c'est l'artefact qui est lu des mois plus tard.
+    "releve_le",
 )
 
 

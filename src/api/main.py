@@ -7,6 +7,7 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -622,13 +623,29 @@ async def _sonder[T](
         raise
 
 
-# Combien de temps on accorde au serveur LLM pour dire QUI il est. Court, et
-# pour une raison : ce relevé est une COMMODITÉ de traçabilité, pas une sonde de
-# santé. `_sonder_ollama` dit déjà si le service répond ; celui-ci dit ce qu'il
-# est. Un serveur lent ne doit pas coûter le healthcheck deux fois.
+# Combien de temps on accorde au serveur LLM pour dire QUI il est, PAR REQUÊTE.
+# Ce relevé est une COMMODITÉ de traçabilité, pas une sonde de santé :
+# `_sonder_ollama` dit déjà si le service répond ; celui-ci dit ce qu'il est.
+#
+# CE DÉLAI NE BORNE PAS `/health`, ET LE COMMENTAIRE QU'IL PORTAIT LE LAISSAIT
+# CROIRE — réserve R1 de l'audit du 15 septembre 2026, corrigée ici. Il vaut
+# `_MOTEUR_REQUETES_MAX` fois plus en SÉQUENCE, soit 9,0 s au pire, très au-delà
+# des 5 s que `docker-compose.yml` accorde au healthcheck. Ce qui protège la
+# route est `_PLAFOND_SONDES_S`, et lui seul ; l'audit du 15 septembre l'a
+# mesuré à 3,01 s sous quatre dépendances pendantes. Ce que ce délai-ci borne
+# est la durée de vie de la TÂCHE de sonde, qui survit au plafond et continue en
+# fond : elle doit finir avant le battement suivant, sans quoi les sondes
+# s'empileraient. C'est cette relation-là qui est désormais épinglée, dans
+# `test_health_parallele.py`.
 _MOTEUR_TIMEOUT_S = 3.0
 
-# Le relevé, mémorisé pour la vie du processus après un premier succès.
+# Le nombre MAXIMAL de requêtes qu'un relevé coûte, et c'est une propriété, pas
+# le compte d'une scène : version Ollama, version vLLM si la première a échoué,
+# puis le catalogue du serveur reconnu. Le site canonique de ce chiffre est ici ;
+# les deux tests qui le tiennent le relisent plutôt que de le recopier.
+_MOTEUR_REQUETES_MAX = 3
+
+# Le relevé, mémorisé pour la vie du processus après un premier relevé COMPLET.
 #
 # POURQUOI UN CACHE, ET CE QU'IL COÛTE. `/health` est battu par le healthcheck
 # du compose toutes les 20 s. Deux requêtes de plus à chaque battement, vers un
@@ -636,12 +653,55 @@ _MOTEUR_TIMEOUT_S = 3.0
 # payé pour un fait qui ne change qu'au redémarrage de ce serveur. Ce qu'on y
 # perd est borné et nommé : un serveur LLM remplacé SOUS un agent qui continue
 # de tourner serait publié dans son état d'avant, jusqu'au prochain redémarrage
-# de l'agent. C'est la même borne que `peripherique_de_la_campagne` accepte pour
-# la même raison, et ce n'est pas le cas que cette clé existe pour attraper.
+# de l'agent.
 #
-# UN ÉCHEC N'EST PAS MÉMORISÉ : un serveur qui n'avait pas fini de démarrer
-# resterait muet pour toujours si on gardait son silence.
+# L'ANALOGIE AVEC `peripherique_de_la_campagne` ÉTAIT FAUSSE, et elle est retirée
+# — non bloquante §3 de l'audit du 15 septembre 2026. Celui-ci vit dans
+# `scripts/evaluate.py`, un processus de campagne qui **se termine** au bout de
+# quelques minutes ; ceci est un DÉMON battu toutes les 20 s pendant des jours.
+# Une borne acceptable pour l'un ne l'est pas pour l'autre, et c'est précisément
+# parce qu'elle ne l'est pas que le relevé porte désormais `releve_le` : le
+# lecteur externe — le pipeline, l'équipe voisine — ne pouvait pas distinguer un
+# relevé pris il y a dix secondes d'un relevé pris il y a onze heures. Il le peut.
+#
+# `_moteur_releve` EST LE SEUL ÉTAT MÉMORISÉ À VIE DE `/health` : toutes les
+# autres sondes sont recréées à chaque battement.
+#
+# NI UN ÉCHEC NI UN RELEVÉ PARTIEL NE SONT MÉMORISÉS, et c'est la bloquante de
+# l'audit du 15 septembre 2026 (§1). La phrase que ce site portait — « un serveur
+# qui n'avait pas fini de démarrer resterait muet pour toujours si on gardait son
+# silence » — décrivait le cas en CROYANT le couvrir : un serveur qui n'a pas
+# fini de démarrer est celui dont le port HTTP répond, donc dont la route de
+# version répond, mais dont le catalogue n'est pas encore servi. Son relevé
+# n'était pas muet, il était PARTIEL — et figé à vie, il faisait publier
+# `modele_servi: null` sur un serveur parfaitement sain, dont
+# `signature_du_moteur` tire « modèle ABSENT DU SERVEUR ». Une affirmation
+# fausse, pas un silence : exactement ce que la doctrine « muet n'est pas
+# différent » existe pour interdire. Le prédicat porte donc maintenant sur le
+# FAIT relevé et non sur le seul nom du serveur — voir `_releve_est_complet`.
 _moteur_releve: MoteurLlmHealth | None = None
+
+
+def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
+    """Le relevé a-t-il abouti au point d'être figé pour la vie du processus ?
+
+    LE PRÉDICAT EST `modele_servi`, DES DEUX CÔTÉS, et il est unique par choix :
+    c'est le champ qui sépare « le serveur a dit son nom » de « le serveur a dit
+    ce qu'il porte ». Tout ce qui manque quand il manque — l'empreinte, la
+    quantification côté Ollama, la fenêtre servie côté vLLM — est lu au même
+    endroit et dans la même requête, donc un seul champ suffit à décider.
+
+    LES DEUX SCÈNES QU'IL ÉCARTE SONT TRANSITOIRES, et le code les nommait déjà :
+    le catalogue qui ne répond pas encore, et le tag demandé qui n'y est pas
+    encore — « il sera tiré au premier appel ». Un fait transitoire ne se fige
+    pas ; il se redemande au battement suivant, vingt secondes plus tard.
+
+    CE N'EST PAS UN REFUS DE RENDRE : le relevé partiel est rendu à l'appelant
+    tel quel, avec ce qu'on sait déjà du serveur. `signature_du_moteur` le tient
+    d'ailleurs pour non muet, et c'est juste — un serveur connu reste comparable.
+    Seule la MÉMORISATION lui est refusée.
+    """
+    return releve.modele_servi is not None
 
 
 def _endpoint_expurge(hote: str) -> str:
@@ -741,7 +801,7 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
             servi = premiere.get("id")
             longueur = premiere.get("max_model_len")
             fenetre = longueur if isinstance(longueur, int) else None
-    _moteur_releve = MoteurLlmHealth(
+    releve = MoteurLlmHealth(
         serveur=serveur,
         endpoint=_endpoint_expurge(hote),
         version=version,
@@ -750,6 +810,12 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
         empreinte_du_modele=empreinte,
         quantification=quantification,
         fenetre_servie=fenetre,
+        # QUAND ce relevé a été pris, et non quand il est lu. C'est la différence
+        # qui compte : mémorisé, il est publié des heures durant, et sans cette
+        # date un lecteur externe ne peut pas distinguer « relevé il y a dix
+        # secondes » de « relevé il y a onze heures ». Le rafraîchir à la lecture
+        # mentirait dans l'autre sens, et c'est gardé.
+        releve_le=datetime.now(UTC).isoformat(timespec="seconds"),
         # NOTRE réglage, nommé comme tel dans le schéma. Ces cinq-là changent le
         # SENS de la réponse et non sa vitesse : le raisonnement, la façon de
         # demander l'outil, l'aléa, la fenêtre demandée, le plafond de sortie.
@@ -761,7 +827,9 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
             "max_tokens": settings.llm_max_tokens,
         },
     )
-    return _moteur_releve
+    if _releve_est_complet(releve):
+        _moteur_releve = releve
+    return releve
 
 
 async def _sonder_ollama() -> bool:
