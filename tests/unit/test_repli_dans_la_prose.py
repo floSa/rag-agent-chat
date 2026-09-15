@@ -175,7 +175,11 @@ async def test_la_syntaxe_d_appel_ne_part_pas_a_l_ecran(
     resultat = await _servir(monkeypatch, texte)
 
     assert "search_vectors" not in resultat["response"], f"forme {etiquette} affichée"
-    assert attendue not in resultat["response"]
+    # La sous-question ENTRE GUILLEMETS est la marque de la syntaxe. Exiger
+    # qu'elle disparaisse tout court serait faux : le modèle a le droit
+    # d'annoncer en français ce qu'il va chercher, et la forme `query=` mesurée
+    # sur vLLM fait précisément les deux.
+    assert f'"{attendue}"' not in resultat["response"]
 
 
 @pytest.mark.asyncio
