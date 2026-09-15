@@ -302,16 +302,104 @@ corpus remplacé reste un refus, quel que soit le moteur.
   Ollama le fait depuis toujours — au lieu de prendre la première venue, dont
   l'ordre n'est de toute façon pas un contrat.
 
-  **CE QUE LA RELATION NE SAIT PAS, ET QUI RESTE OUVERT.** Elle ne sépare pas deux
-  **quantifications** du même modèle : `…-qat-w4a16-ct` et un hypothétique
-  `…-fp8` la satisfont tous deux. Elle ferme la question du **modèle**, pas celle
-  du **poids** — et la seconde est la puce ci-dessus, qu'aucune des sept routes
-  GET de l'instance ne permet de fermer. Un réglage dégénérément **court** mais
+  **ELLE ACCEPTAIT TOUT MODÈLE DÉRIVÉ DU NÔTRE — FERMÉ LE 15 SEPTEMBRE 2026**,
+  non bloquante §2 de l'audit de REPAR-19, et c'était le cas **probable** là où
+  les bornes déjà écrites couvraient les cas improbables. L'audit a construit
+  quatre dérivés sur l'`id` réellement servi — une variante **ablitérée**, une
+  **requantification tierce**, une **distillation**, un **ajustement métier** —
+  et **les quatre étaient acceptés**, quand son témoin inerte était bien refusé.
+  Un dérivé n'est pas un autre **poids** du même modèle : c'est un **autre
+  modèle**, au comportement différent. Le nom faux était alors mémorisé à vie, et
+  une campagne aurait enregistré un moteur faux — exactement ce que cette clé
+  existe pour empêcher, sur une instance partagée avec deux autres équipes.
+
+  La relation refuse désormais un `id` portant, **en segment entier**, un mot de
+  dérivation que le nom demandé ne porte pas (`_MARQUEURS_DE_DERIVATION` dans
+  `src/api/main.py`). En segment et non dans la forme réduite : `ft` est un
+  infixe de « microsoft », `merge` de « submerged ». Et c'est la **différence**
+  avec le demandé qui compte, non la présence : qui demande `…-abliterated` doit
+  être servi.
+
+  **DEUX BORNES RESTENT, ET ELLES SONT MESURÉES PAR DES TESTS, PAS SUPPOSÉES.**
+  (1) Une dérivation publiée **sans aucun mot de la liste** reste acceptée :
+  `…-ct-juridique-v3` est indiscernable d'une déclinaison de l'éditeur pour qui
+  ne connaît pas les deux noms, et l'`id` est tout ce que vLLM nous donne. La
+  borne est plus étroite qu'avant, elle n'est pas nulle. (2) La forme comparée
+  **jette les frontières**, donc `qwen2:5b` est reconnu dans `Qwen/Qwen-2.5B-Chat`
+  — deux modèles réels et distincts. Les aligner refuserait l'`id` réellement
+  servi par ce poste (`gemma4|e4b` contre `gemma|4|e4b`) : **fermer cette
+  borne-là ferme le cas nominal**, et c'est pourquoi elle reste ouverte.
+
+  **CE QUE LA RELATION NE SAIT TOUJOURS PAS, ET QUI RESTE OUVERT.** Elle ne
+  sépare pas deux **quantifications publiées par l'éditeur** sous son propre
+  `id` : `…-qat-w4a16-ct` et un hypothétique `…-fp8` la satisfont tous deux, et
+  un test le **mesure** pour que la fermeture ci-dessus ne l'ait pas refermée par
+  accident — un resserrement silencieux rendrait `modele_servi` nul sur un
+  serveur sain, donc le re-sondage permanent. Elle ferme la question du
+  **modèle**, pas celle du **poids** — et la seconde est la puce ci-dessus,
+  qu'aucune des sept routes GET de l'instance ne permet de fermer. Un réglage dégénérément **court** mais
   non vide (`g`) reste par ailleurs satisfait par presque tout nom : aucun seuil
   de longueur ne se justifierait sans arbitraire, et c'est une faute de
   configuration que ce relevé n'a pas mandat de corriger. Un réglage **vide**,
   lui, ne reconnaît plus rien — la chaîne vide était un infixe de tout, et c'est
   un défaut trouvé contre la relation elle-même, pas contre le code d'avant.
+
+- **« Le nom servi est plus LONG que le nom demandé, jamais l'inverse » était
+  FAUX.** **FERMÉ le 15 septembre 2026** — non bloquante §3 de l'audit de
+  REPAR-19. C'était une affirmation **positive**, écrite au site comme
+  justification du sens de l'inclusion, et **une borne écrite mais fausse est
+  pire qu'une borne absente**. Un tag Ollama nomme couramment les quatre — modèle,
+  taille, variante d'instruction, quantification — et non les deux premiers
+  seulement ; trois formes publiées la prennent en défaut :
+
+  | tag demandé | `id` servi | reconnu ? |
+  |---|---|---|
+  | `llama3:8b-instruct-q8_0` | `meta-llama/Llama-3-8B-Instruct` | **non** |
+  | `gemma4:e4b-it-q4_K_M` | `google/gemma-4-E4B` | **non** |
+  | `hf.co/google/gemma-4-E4B-it-qat-w4a16-ct:Q4_K_M` | l'`id` réel | **non** |
+
+  La phrase est **rendue exacte** : le sens choisi est celui du cas mesuré sur
+  cette instance, où le servi prolonge le demandé ; ce n'est pas une loi des deux
+  écosystèmes, et **l'inclusion inverse n'est pas tentée**. Le **coût est
+  inchangé** — 3 requêtes par battement, indéfiniment, contre 3 en tout pour un
+  tag reconnu, soit près de treize mille lectures quotidiennes vers un serveur
+  partagé — mais il cesse d'être **décrit** pour être **compté** : un test mesure
+  9 requêtes sur trois battements contre 3 pour le témoin mémorisé. Il reste par
+  ailleurs **annoncé** à chaque battement par le `warning` de R-4.
+
+  **L'inclusion inverse a été mesurée et écartée**, et non oubliée : elle ne
+  règle qu'**une** des trois formes — la troisième, où l'`id` servi est bien un
+  infixe du tag —, les deux autres n'étant incluses dans aucun sens. Elle
+  élargirait l'acceptation dans la direction exacte que garde la mutation « la
+  relation accepte tout », pour un tiers du défaut. **Borne écrite, mesurée, non
+  fermée.** Prospectif sur ce dépôt : le réglage versionné est `gemma4:e4b`, qui
+  ne porte pas de quantification ; le défaut mord le jour où un exploitant pose
+  un tag complet dans la variable d'environnement du modèle — un geste ordinaire.
+
+- **Le garde du budget lisait `docker-compose.yml`, quand docker lit AUSSI
+  `docker-compose.override.yml`.** **FERMÉ le 15 septembre 2026** — non bloquante
+  §4 de l'audit de REPAR-19, son « cinquième scénario ». Les ancres YAML, les
+  alias, la clé de fusion `<<:` et les fragments `x-` sont **tous correctement
+  traités** — vérifié un par un, il n'y avait rien là. Le défaut était ailleurs :
+  docker Compose charge **automatiquement** l'override et le fusionne. Mesuré,
+  avec son contrôle positif :
+
+  ```
+  avec un override de 4 lignes   docker compose config → interval: 8s
+  sans override (contrôle)       docker compose config → interval: 20s
+  le garde lisait                20,0 s dans les DEUX cas → 870 tests VERTS
+  ```
+
+  Et **sa propre docstring promettait le contraire** : « ramener l'intervalle du
+  compose à 8 s rougirait ici et nulle part ailleurs ». Un garde qui promet et ne
+  tient pas est **pire qu'un garde absent**, parce qu'on cesse de regarder. Le
+  lecteur fusionne désormais l'override comme docker le fusionne — mappings en
+  profondeur, séquences remplacées, ce qui est exact pour un healthcheck — et le
+  **chemin voisin est fermé avec** : un `compose.yaml` apparaissant à la racine
+  ferait que docker cesserait d'ouvrir le fichier que ce garde lit, et le garde
+  rougit désormais aussi sur celui-là. *(Borne écrite : docker **concatène**
+  `ports`, `volumes` et `dns` au lieu de les remplacer ; aucune ne vit sous
+  `healthcheck`, qui est tout ce que ce garde lit.)*
 
 - **Le garde du budget de la sonde lisait un `interval:` rattaché à aucun
   service.** **FERMÉ le 15 septembre 2026** — non bloquante §3 du même audit.
@@ -344,7 +432,14 @@ corpus remplacé reste un refus, quel que soit le moteur.
   à 18:40–19:00 UTC, le conteneur en service tourne toujours du code antérieur et
   aucun démon n'a été redémarré. **C'est la seule borne de ce document que
   personne n'a pu lever**, et elle ne se lèvera pas sans un redémarrage que le
-  poste partagé interdit.
+  poste partagé interdit. **REPAR-20 l'a constatée à son tour** — `mesuré` le
+  15 septembre 2026 à 20:50:34 UTC, une lecture, bornée par `timeout` : les clés
+  de `/health` sont `embedding_model`, `ollama_model`, `services`,
+  `services_unknown`, `sessions`, `status`, `torch_device`, `usage`, et
+  `moteur_llm` **en est absente** (contrôle positif : `status` y est bien
+  présente, à `ok`). Conteneur démarré à **14:05:56 UTC**, sur du code antérieur.
+  **Ce n'est pas une trouvaille de plus : c'est la même, constatée une
+  quatrième fois**, et elle est ici pour qu'on cesse de la redécouvrir.
 
   **EN REVANCHE, LA BORNE « PLUSIEURS WORKERS » QU'ELLE PORTAIT EST INERTE SUR CE
   DÉPLOIEMENT, ET C'EST MESURÉ.** Ce paragraphe écrivait au conditionnel que deux
