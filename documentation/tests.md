@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 852 tests, aucune dépendance
+## Unitaire — 870 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 15 septembre 2026 à 17:39 UTC par REPAR-18 : **852** tests sur **46** fichiers,
+> `mesuré` le 15 septembre 2026 à 19:01 UTC par REPAR-19 : **870** tests sur **46** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(LOT-17 avait relevé **841** sur les
+> total que `pytest` annonce — concordent. *(REPAR-18 avait relevé **852** sur les
+> mêmes 46 fichiers à 17:39 UTC ; les **dix-huit** de plus sont les gardes de
+> REPAR-19, qui ferme les trois non bloquantes et les quatre réserves de l'audit
+> de REPAR-18 — cinq sur la confrontation de l'`id` servi par vLLM au modèle que
+> nous demandons, trois sur la fenêtre servie dans la signature (dont celui qui
+> tient les DEUX moitiés du critère ensemble), sept sur le garde du budget qui
+> lit désormais la valeur du bon service (dont la contre-épreuve qui reproduit
+> ses deux faux verts et le contrôle positif sur le vrai fichier), trois sur le
+> signalement du régime de re-sondage. Aucun test n'a été ajouté par REPAR-19
+> sans qu'une mutation l'ait fait rougir d'abord.)* *(LOT-17 avait relevé **841** sur les
 > mêmes 46 fichiers à 15:44 UTC ; les **onze** de plus sont les gardes de
 > REPAR-18 — quatre sur la mémorisation d'un relevé PARTIEL de moteur, trois sur
 > ce que la sonde ne relèvera jamais côté vLLM, deux sur l'horodatage du relevé,

@@ -1210,7 +1210,45 @@ def signature_du_moteur(moteur: dict[str, Any] | None) -> str | None:
     Deux campagnes lancées toutes deux sur `gemma4:e4b` contre deux serveurs qui
     portent DEUX POIDS sous ce tag ne sont pas comparables, et leur
     `modele_demande` est identique. C'est `empreinte_du_modele` qui les sépare,
-    et c'est pour cela qu'elle est dans la signature.
+    et c'est pour cela qu'elle est dans la signature — **côté Ollama seulement :
+    elle est structurellement NULLE côté vLLM**, réserve R-1 de l'audit du
+    15 septembre 2026, et cette phrase l'affirmait sans le dire. Rien de ce que
+    les sept routes GET de l'instance exposent ne distingue deux poids servis
+    sous un même `id` (§6 de `documentation/moteur_llm.md`). Côté vLLM, ce qui
+    sépare deux moteurs est donc le NOM servi et la FENÊTRE servie, et la
+    position `DIFFÉRENT` sur deux POIDS y reste inatteignable.
+
+    LE CRITÈRE D'APPARTENANCE À LA SIGNATURE, ET IL TRANCHE DANS LES DEUX SENS.
+    **Un champ entre si et seulement s'il est invariant pour un moteur donné et
+    varie quand le moteur change.** Les deux moitiés sont nécessaires, et elles
+    tirent en sens opposé :
+
+    - `releve_le` en est SORTI par la seconde moitié — il varie à chaque relevé
+      **sans que le moteur change**, donc il ferait conclure « MOTEUR DIFFÉRENT »
+      à deux campagnes tournées sur le même serveur ;
+    - `fenetre_servie` y ENTRE par la première — non bloquante §4 de l'audit du
+      15 septembre 2026, où **32 768 contre 8 192 signaient `IDENTIQUE`**.
+
+    Et le critère est MESURÉ, pas supposé : deux lectures de `/v1/models` contre
+    l'instance de ce poste à 449 s d'écart (18:45:28 et 18:52:57 UTC le
+    15 septembre 2026, en lecture seule) rendent `max_model_len` **STABLE** à
+    32 768 quand `created` **CHANGE** — ce dernier étant le contrôle positif qui
+    établit que la comparaison sait voir un changement. La fenêtre ne bouge qu'au
+    relancement du serveur avec un autre `--max-model-len`, c'est-à-dire quand le
+    moteur change ; c'est aussi l'occasion que le §6 nomme, le voisin qui change
+    son réglage de mémoire GPU.
+
+    POURQUOI ELLE PÈSE PLUS QU'UN CHAMP DE PLUS. Côté vLLM, où l'empreinte est
+    nulle, elle est **le seul autre fait relevé du serveur**, et c'est exactement
+    la grandeur qui sépare les deux moteurs aujourd'hui. La comparaison appariée
+    est l'instrument avec lequel se jugera la bascule (lot 6) : la laisser dehors
+    ferait signer `IDENTIQUE` aux deux campagnes dont l'écart est le sujet même
+    du jugement.
+
+    UNE FENÊTRE INCONNUE RESTE MUETTE, ici comme partout. Côté Ollama elle est
+    **toujours** nulle — rien dans `/api/tags` ne la porte — et elle n'est alors
+    pas imprimée : une campagne Ollama ne doit pas signer comme une campagne
+    vLLM, mais pas non plus porter un `None` qu'on lirait comme une valeur.
 
     LE SERVEUR SUFFIT À NE PAS ÊTRE MUET. Un `modele_servi` inconnu — le tag
     demandé absent du catalogue — laisse quand même savoir qu'Ollama 0.30.10
@@ -1232,7 +1270,9 @@ def signature_du_moteur(moteur: dict[str, Any] | None) -> str | None:
         modele = f"{modele}@{empreinte}" if empreinte else modele
     else:
         modele = f"modèle ABSENT DU SERVEUR (demandé : {moteur.get('modele_demande') or 'inconnu'})"
-    return f"{serveur} {version} — {modele}"
+    fenetre = moteur.get("fenetre_servie")
+    servie = f" — fenêtre servie {fenetre}" if isinstance(fenetre, int) else ""
+    return f"{serveur} {version} — {modele}{servie}"
 
 
 def _options_du_moteur(moteur: dict[str, Any] | None) -> dict[str, Any] | None:

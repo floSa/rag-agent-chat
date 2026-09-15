@@ -30,6 +30,7 @@ import time
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 # ─── Outillage ────────────────────────────────────────────────────────────────
@@ -44,30 +45,98 @@ _RACINE = Path(__file__).resolve().parents[2]
 _CAP_SECURITE_S = 8.0
 
 
-def _intervalle_du_healthcheck() -> float:
-    """L'intervalle entre deux battements, LU dans le fichier, comme le délai.
+# Les unités de durée que docker accepte, et leur valeur en secondes. `ms` doit
+# précéder `m` et `s` dans l'alternance : sans cela `500ms` serait lu `500m`.
+_UNITES_DE_DUREE = {"h": 3600.0, "ms": 0.001, "us": 1e-6, "ns": 1e-9, "m": 60.0, "s": 1.0}
+_UNE_DUREE = r"(\d+(?:\.\d+)?)(h|ms|us|ns|m|s)"
+
+
+def _secondes_docker(duree: object) -> float:
+    """Une durée du compose en secondes. `1m30s` vaut 90,0, et l'illisible ROUGIT.
+
+    L'ANCIENNE LECTURE NE CONNAISSAIT QUE `<entier>s`, et c'est la moitié du
+    défaut de la non bloquante §3 : sur `interval: 1m`, parfaitement valide pour
+    docker, elle ne trouvait rien. Un lecteur qui n'en lirait qu'une partie
+    serait pire encore — `1m30s` rendrait 1 ou 30 au lieu de 90, donc un verdict
+    faux au lieu d'un rouge. La chaîne entière doit donc être consommée, sans
+    quoi on rougit en nommant ce qu'on n'a pas su lire.
+    """
+    texte = str(duree).strip()
+    assert re.fullmatch(f"(?:{_UNE_DUREE})+", texte), (
+        f"durée `{texte}` illisible dans docker-compose.yml : attendu un format docker "
+        "comme `20s`, `1m` ou `1m30s`, unité comprise"
+    )
+    return sum(
+        float(valeur) * _UNITES_DE_DUREE[unite] for valeur, unite in re.findall(_UNE_DUREE, texte)
+    )
+
+
+def _reglage_du_healthcheck(
+    cle: str, texte: str | None = None, service: str = "agent-api"
+) -> float:
+    """Un réglage du healthcheck D'UN SERVICE NOMMÉ, lu dans le compose.
+
+    NON BLOQUANTE §3 DE L'AUDIT DU 15 SEPTEMBRE 2026 — LE GARDE ÉTAIT CREUX.
+    Les deux lecteurs qui vivaient ici cherchaient `interval:` et `timeout:` dans
+    **tout** le fichier par expression rationnelle et exigeaient un unique
+    résultat. Ils ne rattachaient la valeur à **aucun service** : l'audit a
+    mesuré que deux modifications parfaitement anodines du compose — un
+    commentaire de fin de ligne, un healthcheck sur un second service —
+    suffisaient à leur faire rendre l'intervalle **d'un autre service**, sans
+    rougir. Le garde du budget comparait alors le pire cas de 9,0 s de la sonde
+    du moteur à 20 s quand l'agent battait toutes les 8 s, et se taisait pendant
+    que les sondes s'empilaient sur un serveur d'inférence partagé avec deux
+    autres équipes.
+
+    LE FICHIER EST DONC PARSÉ COMME DOCKER LE PARSE, et la valeur est cherchée
+    là où docker la cherche : sous `services.<service>.healthcheck`. Une
+    expression rationnelle sur un fichier structuré lit une ressemblance ; un
+    parseur lit la valeur.
+
+    IL ROUGIT EN NOMMANT CE QUI MANQUE — réserve R-2 du même audit. L'ancien
+    message disait « plusieurs intervals » **aussi quand il y en avait zéro**,
+    envoyant chercher le contraire du problème. Les trois échecs possibles sont
+    ici distincts : le service absent, le healthcheck absent, la clé absente.
+
+    `texte` N'EXISTE QUE POUR LES TESTS DE CE LECTEUR, et c'est assumé : sans
+    lui, éprouver les scènes de l'audit exigerait de muter le vrai compose
+    pendant que la porte tourne. Le défaut par défaut est le fichier du dépôt,
+    et un contrôle positif épingle que c'est bien lui qui est lu.
+    """
+    brut = texte if texte is not None else (_RACINE / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+    services = (yaml.safe_load(brut) or {}).get("services") or {}
+    assert service in services, (
+        f"le service `{service}` est absent de docker-compose.yml : ce garde lit la "
+        "valeur d'un service NOMMÉ, et ne se rabat sur aucun autre"
+    )
+    healthcheck = (services[service] or {}).get("healthcheck") or {}
+    assert cle in healthcheck, (
+        f"`{cle}` absent du healthcheck de `{service}` dans docker-compose.yml : "
+        "cette valeur est le contrat de déploiement dont ce garde tire son sens"
+    )
+    return _secondes_docker(healthcheck[cle])
+
+
+def _intervalle_du_healthcheck(texte: str | None = None, service: str = "agent-api") -> float:
+    """L'intervalle entre deux battements DE L'AGENT, LU dans le fichier.
 
     C'est le budget dont dépend la sonde du moteur LLM : elle survit au plafond
     de la route et poursuit en fond, donc ce qui la borne utilement n'est pas le
     délai de `curl` mais l'écart au battement suivant.
     """
-    texte = (_RACINE / "docker-compose.yml").read_text(encoding="utf-8")
-    intervalles = re.findall(r"^\s+interval:\s*(\d+)s\s*$", texte, re.MULTILINE)
-    assert len(intervalles) == 1, "plusieurs intervals dans docker-compose.yml : préciser lequel"
-    return float(intervalles[0])
+    return _reglage_du_healthcheck("interval", texte, service)
 
 
-def _delai_du_healthcheck() -> float:
-    """Le délai que docker-compose accorde à /health, LU dans le fichier.
+def _delai_du_healthcheck(texte: str | None = None, service: str = "agent-api") -> float:
+    """Le délai que docker-compose accorde à /health DE L'AGENT, LU dans le fichier.
 
     Recopié en dur ici, le lien entre le plafond du code et le contrat de
     déploiement serait invisible : c'est ce contrat qui donne au plafond sa
     valeur, et il vit dans un autre fichier que celui qu'on corrige.
     """
-    texte = (_RACINE / "docker-compose.yml").read_text(encoding="utf-8")
-    delais = re.findall(r"^\s+timeout:\s*(\d+)s\s*$", texte, re.MULTILINE)
-    assert len(delais) == 1, "plusieurs timeouts dans docker-compose.yml : préciser lequel"
-    return float(delais[0])
+    return _reglage_du_healthcheck("timeout", texte, service)
 
 
 class _SondeMuette:
@@ -477,6 +546,136 @@ def test_le_budget_de_la_sonde_du_moteur_tient_entre_deux_battements() -> None:
         "une sonde de moteur peut encore tourner quand le battement suivant en "
         "lance une autre : les requêtes s'empileraient sur un serveur partagé"
     )
+
+
+# ─── Le garde du budget lit la valeur DU BON SERVICE ─────────────────────────
+
+
+def _compose_simule(agent: str | None, voisin: str | None = None, commentaire: str = "") -> str:
+    """Un `docker-compose.yml` construit, pour éprouver le LECTEUR et non le fichier.
+
+    Les scènes jouées ici sont celles que l'audit du 15 septembre 2026 a mesurées
+    sur l'ancien lecteur (§3, S1 à S4), et elles sont toutes **anodines prises
+    une par une** : un commentaire de fin de ligne, un healthcheck sur un second
+    service, un intervalle écrit `1m` au lieu de `60s`.
+    """
+    texte = "services:\n  agent-api:\n    healthcheck:\n      test: [\"CMD\", \"true\"]\n"
+    if agent is not None:
+        texte += f"      interval: {agent}{commentaire}\n"
+    texte += "      timeout: 5s\n      retries: 5\n"
+    if voisin is not None:
+        texte += f"  voisin:\n    healthcheck:\n      interval: {voisin}\n      timeout: 3s\n"
+    return texte
+
+
+class TestLeGardeDuBudgetLitLaValeurDuBonService:
+    """NON BLOQUANTE §3 DE L'AUDIT DU 15 SEPTEMBRE 2026 — le garde était CREUX.
+
+    `_intervalle_du_healthcheck` cherchait `^\\s+interval:\\s*(\\d+)s\\s*$` dans
+    **tout** le fichier et exigeait un seul résultat. Il ne rattachait cet
+    `interval:` à **aucun service**. Un garde qui lit un fichier de configuration
+    doit lire la valeur du BON service, et rougir quand il ne peut plus le faire.
+
+    CE QUE ÇA COÛTAIT, ET POURQUOI C'EST PIRE QUE L'AUTRE LECTEUR DE CE FICHIER.
+    `_delai_du_healthcheck`, préexistant, portait la même faiblesse et la
+    réparation l'avait imitée par symétrie — c'est défendable. Mais la valeur
+    neuve garde une propriété de **charge sur un serveur d'inférence partagé
+    avec deux autres équipes** : si le pire cas de la sonde dépassait
+    l'intervalle, chaque battement empilerait une sonde sur la précédente. Là où
+    l'ancien lecteur ne gardait qu'une marge locale, celui-ci garde le voisin.
+
+    LES DEUX FAUX VERTS SONT REPRODUITS ICI, contre l'ancienne lecture elle-même
+    (`test_l_ancienne_lecture_rendait_deux_verdicts_faux`) : sans cette
+    contre-épreuve, rien ne distinguerait « le lecteur neuf est juste » de « la
+    scène ne mordait déjà pas ».
+    """
+
+    _ANCIENNE_LECTURE = r"^\s+interval:\s*(\d+)s\s*$"
+
+    def test_l_intervalle_lu_est_celui_de_l_agent_et_non_celui_d_un_voisin(self) -> None:
+        """S2 ET S4 DE L'AUDIT — les deux scènes où l'ancien lecteur se taisait à faux.
+
+        S4 est la plus chère : l'agent bat réellement toutes les **8 s** et
+        l'ancien lecteur comparait le pire cas de 9,0 s à **20 s**, celui d'un
+        autre service. Le garde du budget se taisait pendant que les sondes
+        s'empilaient.
+        """
+        # S4 — l'agent à 8 s avec un commentaire de fin de ligne, un voisin à 20 s
+        assert _intervalle_du_healthcheck(_compose_simule("8s", "20s", "  # resserré")) == 8.0
+        # S2 — l'agent à `1m` (format docker valide), un voisin à 20 s
+        assert _intervalle_du_healthcheck(_compose_simule("1m", "20s")) == 60.0
+
+    def test_l_ancienne_lecture_rendait_deux_verdicts_faux(self) -> None:
+        """LA CONTRE-ÉPREUVE, et sans elle le test ci-dessus ne prouve rien.
+
+        Elle applique l'ANCIENNE expression aux MÊMES textes et montre qu'elle
+        rendait `20` là où la vérité était 8 puis 60. C'est la mesure qui établit
+        que la correction en est une, et non un test écrit autour d'un
+        comportement qui n'avait jamais posé problème.
+        """
+        import re as _re
+
+        for texte, vrai in (
+            (_compose_simule("8s", "20s", "  # resserré"), 8.0),
+            (_compose_simule("1m", "20s"), 60.0),
+        ):
+            trouves = _re.findall(self._ANCIENNE_LECTURE, texte, _re.MULTILINE)
+            assert trouves == ["20"], "la scène du faux vert n'est plus celle que l'audit a mesurée"
+            assert float(trouves[0]) != vrai, (
+                "l'ancienne lecture rendait la BONNE valeur : il n'y avait pas de défaut"
+            )
+            assert _intervalle_du_healthcheck(texte) == vrai, "la lecture neuve n'est pas juste"
+
+    def test_un_second_service_a_healthcheck_ne_fait_plus_rougir_a_tort(self) -> None:
+        """S1 — le garde rougissait, et c'était déjà trop.
+
+        « Plusieurs intervals : préciser lequel » demandait une intervention
+        humaine pour un fichier parfaitement valide. Un healthcheck sur un second
+        service est une modification banale ; elle ne doit ni faire rougir la
+        porte ni la faire mentir.
+        """
+        assert _intervalle_du_healthcheck(_compose_simule("20s", "30s")) == 20.0
+
+    def test_un_healthcheck_sans_intervalle_rougit_en_nommant_la_bonne_chose(self) -> None:
+        """RÉSERVE R-2 DE L'AUDIT — le message mentait sur le sens de son échec.
+
+        « plusieurs intervals dans docker-compose.yml » s'imprimait aussi quand
+        il y en avait **zéro** (S3 : l'agent seul à `1m`, que l'ancienne
+        expression ne savait pas lire). Le garde rougissait — l'essentiel — mais
+        il envoyait chercher le contraire du problème.
+        """
+        with pytest.raises(AssertionError, match=r"interval.*agent-api"):
+            _intervalle_du_healthcheck(_compose_simule(None))
+
+    def test_un_service_absent_rougit_et_ne_se_rabat_sur_personne(self) -> None:
+        """Renommer le service ne doit pas faire lire l'intervalle d'un autre."""
+        with pytest.raises(AssertionError, match=r"agent-api"):
+            _intervalle_du_healthcheck(_compose_simule("20s", "30s"), service="un-autre-nom")
+
+    def test_les_formats_de_duree_de_docker_sont_lus_et_les_autres_rougissent(self) -> None:
+        """`1m30s` N'EST PAS `1` NI `30`, et un format inconnu ne vaut pas zéro.
+
+        L'ancienne expression ne lisait que `<entier>s`. Docker accepte les
+        durées composées, et un lecteur qui n'en lirait qu'une partie
+        produirait un verdict faux au lieu de rougir.
+        """
+        assert _intervalle_du_healthcheck(_compose_simule("1m30s")) == 90.0
+        assert _intervalle_du_healthcheck(_compose_simule("1h")) == 3600.0
+        assert _intervalle_du_healthcheck(_compose_simule("500ms")) == 0.5
+        with pytest.raises(AssertionError, match="durée"):
+            _intervalle_du_healthcheck(_compose_simule("20"))
+        with pytest.raises(AssertionError, match="durée"):
+            _intervalle_du_healthcheck(_compose_simule("bientot"))
+
+    def test_le_controle_positif_le_vrai_fichier_est_bien_lu(self) -> None:
+        """SANS LUI, TOUT CE QUI PRÉCÈDE PASSERAIT SUR UN LECTEUR QUI NE LIT QUE MES TEXTES.
+
+        Les deux valeurs du `docker-compose.yml` du dépôt, lues par défaut, sans
+        texte fourni — c'est cette lecture-là que les tests du budget et du
+        plafond utilisent réellement.
+        """
+        assert _intervalle_du_healthcheck() == 20.0
+        assert _delai_du_healthcheck() == 5.0
 
 
 # ─── Le parallélisme, et non la seule borne ───────────────────────────────────

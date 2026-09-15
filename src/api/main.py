@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import secrets
 import threading
 import time
@@ -682,6 +683,58 @@ _MOTEUR_REQUETES_MAX = 3
 _moteur_releve: MoteurLlmHealth | None = None
 
 
+def _forme_comparable(nom: str) -> str:
+    """Un nom de modèle réduit à ce qui le désigne : ses alphanumériques, en bas de casse.
+
+    CE QU'ELLE JETTE EST EXACTEMENT CE QUI DIFFÈRE ENTRE LES DEUX ÉCOSYSTÈMES —
+    la casse, les `/` de l'organisation, les `-` et les `:` de séparation. Ce
+    qu'elle garde est la suite de caractères qui nomme le modèle et sa taille.
+    """
+    return re.sub(r"[^a-z0-9]", "", nom.lower())
+
+
+def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bool:
+    """L'`id` d'une entrée de catalogue vLLM est-il celui du modèle que NOUS demandons ?
+
+    POURQUOI CE N'EST PAS UNE ÉGALITÉ, ET POURQUOI CE N'EST PAS « NON FERMABLE ».
+    La réserve R2 de l'audit du 15 septembre 2026 posait que les deux noms ne
+    vivent pas dans le même espace de nommage et ne se confrontent donc pas.
+    **Mesuré le 15 septembre 2026 à 18:45 UTC contre l'instance de ce poste**,
+    en lecture seule : `GET /v1/models` sert **une** entrée, d'`id`
+    `google/gemma-4-E4B-it-qat-w4a16-ct`, quand le réglage versionné demande
+    `gemma4:e4b`. Les deux ne sont pas ÉGAUX — R2 avait raison là-dessus — mais
+    réduits par `_forme_comparable`, le demandé est un **infixe exact** du servi :
+    `gemma4e4b` dans `googlegemma4e4bitqatw4a16ct`. La confrontation est donc
+    possible, et c'est une mesure de ce serveur, pas une hypothèse sur les noms.
+
+    LE SENS DE LA RELATION EST DÉLIBÉRÉ : le nom servi est plus LONG que le nom
+    demandé, jamais l'inverse. Un tag Ollama nomme le modèle et sa taille ; un
+    `id` vLLM y ajoute l'organisation, la variante d'instruction et la
+    quantification. On cherche donc le demandé DANS le servi.
+
+    CE QU'ELLE NE SAIT PAS, ET C'EST UNE BORNE, PAS UN OUBLI. Elle ne sépare pas
+    deux QUANTIFICATIONS du même modèle : `…-qat-w4a16-ct` et un hypothétique
+    `…-fp8` la satisfont tous deux. C'est la borne déjà écrite au §6 de
+    `documentation/moteur_llm.md` — côté vLLM, rien de ce que les sept routes GET
+    de l'instance exposent ne distingue deux poids, et `empreinte_du_modele` y
+    reste nulle. Cette relation ferme la question du MODÈLE ; celle du POIDS
+    reste ouverte, et elle ne se fermera pas ici.
+
+    UN NOM DEMANDÉ VIDE NE RECONNAÎT RIEN, et c'est le défaut que j'ai trouvé
+    contre ma propre relation : la chaîne vide est un infixe de **tout**. Sans ce
+    refus, un `OLLAMA_MODEL` absent ou fait de seuls séparateurs aurait reconnu
+    le premier modèle venu — le défaut qu'on ferme ici, en pire. Un réglage
+    dégénérément court mais non vide (`g`) reste, lui, satisfait par presque
+    tout : aucun seuil de longueur ne se justifierait sans arbitraire, et c'est
+    une faute de configuration que ce relevé n'a pas mandat de corriger. **Borne
+    écrite, non fermée.**
+    """
+    aiguille = _forme_comparable(demande)
+    if not aiguille:
+        return False
+    return aiguille in _forme_comparable(identifiant)
+
+
 def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
     """Le relevé a-t-il abouti au point d'être figé pour la vie du processus ?
 
@@ -690,6 +743,18 @@ def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
     ce qu'il porte ». Tout ce qui manque quand il manque — l'empreinte, la
     quantification côté Ollama, la fenêtre servie côté vLLM — est lu au même
     endroit et dans la même requête, donc un seul champ suffit à décider.
+
+    IL EST DÉSORMAIS SYMÉTRIQUE, ET CETTE PHRASE ÉTAIT VRAIE À LA LETTRE SANS
+    L'ÊTRE EN FAIT — non bloquante §2 de l'audit du 15 septembre 2026. Côté vLLM,
+    `modele_servi` valait `entrees[0]["id"]`, jamais confronté à quoi que ce
+    soit : le prédicat ne pouvait y être faux que sur un catalogue **vide**, donc
+    un serveur servant le modèle d'une autre équipe était mémorisé à vie sous un
+    nom faux. Le symétrique exact, en pire, de la bloquante que ce prédicat
+    venait de fermer : une affirmation POSITIVE fausse là où le défaut d'origine
+    figeait un silence. Les deux côtés confrontent maintenant le catalogue à ce
+    que NOUS demandons — `settings.ollama_model` dans `/api/tags`,
+    `_le_serveur_sert_ce_que_nous_demandons` dans `/v1/models` — et c'est de là
+    que le prédicat tire son sens.
 
     LES DEUX SCÈNES QU'IL ÉCARTE SONT TRANSITOIRES, et le code les nommait déjà :
     le catalogue qui ne répond pas encore, et le tag demandé qui n'y est pas
@@ -712,6 +777,11 @@ def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
     courtes, jamais une génération, jamais un jeton — et il se voit : c'est
     précisément le cas où `/health` publie `modele_servi: null`, à côté d'un
     `releve_le` qui avance à chaque battement au lieu de rester figé.
+
+    ET IL EST DÉSORMAIS SIGNALÉ, PAS SEULEMENT LISIBLE — réserve R-4 du même
+    audit. « Il se voit » était exact et insuffisant : il fallait aller lire
+    `/health` pour le voir, et rien dans les journaux ne l'annonçait. Chaque
+    relevé non mémorisé écrit maintenant un `warning` au site de la mémorisation.
     """
     return releve.modele_servi is not None
 
@@ -807,12 +877,30 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
                         quantification = details.get("quantization_level")
                     break
         else:
+            # `/v1/models` liste ce que le serveur SERT, et on y cherche NOTRE
+            # entrée — exactement comme `/api/tags` ci-dessus. Ce site prenait
+            # `entrees[0]` sans la confronter à quoi que ce soit : non bloquante
+            # §2 de l'audit du 15 septembre 2026, et symétrique exact de la
+            # bloquante que ce lot venait de fermer. Un serveur qui sert le
+            # modèle d'une AUTRE ÉQUIPE — le cas de ce poste, partagé — était
+            # alors mémorisé à vie sous un nom faux, et `signature_du_moteur`
+            # en tirait une ligne ni muette ni vraie que `--compare` traitait
+            # comme un fait. L'ordre de `data` n'est pas un contrat, et
+            # `entrees[0]` n'est pas « notre » entrée.
             catalogue = await _lire_json(client, f"{hote}/v1/models")
-            entrees = (catalogue or {}).get("data") or []
-            premiere = entrees[0] if entrees and isinstance(entrees[0], dict) else {}
-            servi = premiere.get("id")
-            longueur = premiere.get("max_model_len")
-            fenetre = longueur if isinstance(longueur, int) else None
+            for entree in (catalogue or {}).get("data") or []:
+                if not isinstance(entree, dict):
+                    continue
+                identifiant = entree.get("id")
+                if not isinstance(identifiant, str):
+                    continue
+                if not _le_serveur_sert_ce_que_nous_demandons(identifiant, settings.ollama_model):
+                    continue
+                servi = identifiant
+                # La fenêtre est celle de NOTRE entrée, jamais celle d'une autre.
+                longueur = entree.get("max_model_len")
+                fenetre = longueur if isinstance(longueur, int) else None
+                break
     releve = MoteurLlmHealth(
         serveur=serveur,
         endpoint=_endpoint_expurge(hote),
@@ -841,6 +929,36 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
     )
     if _releve_est_complet(releve):
         _moteur_releve = releve
+        return releve
+    # RÉSERVE R-4 DE L'AUDIT DU 15 SEPTEMBRE 2026 : LE RÉGIME DE RE-SONDAGE
+    # N'ÉTAIT SIGNALÉ NULLE PART. Il était LISIBLE dans `/health` pour qui le
+    # lit — `modele_servi: null` à côté d'un `releve_le` qui avance — et jamais
+    # ANNONCÉ : `_relever` ne journalise que si la tâche lève ou dépasse le
+    # plafond, or un relevé partiel est un retour normal. À 4 320 battements par
+    # jour, un relevé qui n'aboutit jamais coûte 8 640 requêtes quotidiennes vers
+    # un serveur d'inférence partagé avec deux autres équipes.
+    #
+    # IL PARLE À CHAQUE BATTEMENT, ET AUCUN ÉTAT NE LE LISSE. Le volume EST le
+    # signal : un serveur qui finit de démarrer produit une ligne ou deux, un tag
+    # renommé en produit une toutes les vingt secondes. Lisser demanderait de
+    # mémoriser ce qu'on a déjà dit — un second état à vie, à garder juste, pour
+    # économiser des lignes de journal. Le prix n'en vaut pas la peine, et c'est
+    # la raison écrite plutôt que sous-entendue.
+    # IL NE CHIFFRE PAS LA CADENCE, ET C'EST UN FAUX RÉSULTAT TROUVÉ CONTRE
+    # MOI-MÊME : la première écriture annonçait « toutes les 3 s » en prenant
+    # `_MOTEUR_TIMEOUT_S` pour l'écart entre deux battements. L'intervalle est
+    # celui du healthcheck du compose — 20 s —, et **ce module ne le connaît
+    # pas** : il vit dans `docker-compose.yml`, et c'est la porte qui le lit
+    # (`_intervalle_du_healthcheck`). Un garde qui affirme un chiffre qu'il n'a
+    # pas relevé est exactement ce que ce chantier passe son temps à réparer.
+    logger.warning(
+        "/health moteur_llm: relevé PARTIEL non mémorisé (serveur=%s, modèle demandé=%s "
+        "introuvable dans ce que ce serveur sert) — la sonde repartira à CHAQUE battement "
+        "de /health, jusqu'à %d requêtes par battement vers un serveur PARTAGÉ",
+        serveur,
+        settings.ollama_model,
+        _MOTEUR_REQUETES_MAX,
+    )
     return releve
 
 

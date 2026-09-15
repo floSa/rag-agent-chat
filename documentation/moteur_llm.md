@@ -193,6 +193,25 @@ rien qui sépare deux poids sous un même nom. Ce qui reste visible est le nom �
 qui porte la quantification sur l'instance de ce poste — et la fenêtre servie.
 Le détail de ce qui a été cherché, et de ce qui n'existe pas, est au §6.
 
+**LA FENÊTRE SERVIE EST DANS LA SIGNATURE DEPUIS LE 15 SEPTEMBRE 2026, et cette
+phrase était exacte pour le CHAMP et trompeuse pour la POSITION** — non bloquante
+§4 de l'audit du même jour. Elle était relevée et publiée, mais `--compare` ne
+s'en servait pas : **32 768 contre 8 192 signaient `IDENTIQUE`**, c'est-à-dire
+exactement la grandeur qui sépare les deux moteurs aujourd'hui, sur l'instrument
+avec lequel se jugera la bascule.
+
+Le critère d'appartenance à la signature est désormais écrit au site
+(`signature_du_moteur`), et il tranche dans les deux sens : **un champ y entre si
+et seulement s'il est invariant pour un moteur donné et varie quand le moteur
+change.** `releve_le` en est sorti par la seconde moitié — il varie sans que le
+moteur change ; `fenetre_servie` y entre par la première. Et c'est `mesuré` :
+deux lectures de `/v1/models` à 449 s d'écart (18:45:28 et 18:52:57 UTC le
+15 septembre 2026, en lecture seule) rendent `max_model_len` **stable** à 32 768
+quand `created` **change** dans le même intervalle — ce dernier étant le contrôle
+positif qui établit que la comparaison sait voir un changement. Côté Ollama la
+fenêtre est **toujours** nulle et n'est alors pas imprimée : muet n'est pas
+différent, ici comme partout.
+
 **IL SIGNALE, IL NE REFUSE PAS**, et le motif est plus fort ici que pour le
 périphérique. `empreinte_des_ancrages` **refuse**, parce qu'un corpus remplacé
 rend des chiffres plausibles et faux sur chaque question. Le moteur est de
@@ -235,7 +254,7 @@ corpus remplacé reste un refus, quel que soit le moteur.
   le 15 septembre 2026 à 17:30–17:31 UTC, en **lecture seule**, contre
   l'instance de ce poste et sur les **sept** routes GET qu'elle déclare à
   `/openapi.json` (`/health`, `/load`, `/metrics`, `/ping`, `/v1/models`,
-  `/v1/responses/{id}`, `/version`) :
+  `/v1/responses/{response_id}`, `/version`) :
 
   | Ce qu'on espérait | Ce qui a été mesuré |
   |---|---|
@@ -250,16 +269,70 @@ corpus remplacé reste un refus, quel que soit le moteur.
   sous un `id` inchangé**, côté vLLM — invisible, et dit ici plutôt que
   supposé fermé.
 
-- **Le premier modèle du catalogue vLLM n'est pas confronté au modèle demandé**,
-  là où la branche Ollama cherche explicitement le tag demandé et rend `null`
-  s'il est absent. Ce n'est **pas** réparable par une égalité : les deux noms ne
-  vivent pas dans le même espace de nommage — un tag Ollama court d'un côté, un
-  identifiant de dépôt Hugging Face de l'autre —, et les confronter rendrait
-  `modele_servi: null` en **permanence** sur un serveur parfaitement sain. Le
-  garde « modèle ABSENT DU SERVEUR » ne peut donc pas se déclencher côté vLLM.
-  `mesuré` le 15 septembre 2026 : l'instance voisine ne sert **qu'une** entrée,
-  donc la réserve est inerte en pratique — elle cessera de l'être le jour où un
-  serveur vLLM en servira plusieurs.
+- ~~**Le premier modèle du catalogue vLLM n'est pas confronté au modèle
+  demandé.**~~ **FERMÉ le 15 septembre 2026**, et cette puce se trompait deux
+  fois — c'est la non bloquante §2 de l'audit du même jour, sa trouvaille
+  principale.
+
+  Elle déclarait la confrontation **non réparable**, au motif que les deux noms
+  ne vivent pas dans le même espace de nommage, et ne voyait là qu'une limite de
+  **détection** : « le garde *modèle ABSENT DU SERVEUR* ne peut pas se déclencher
+  côté vLLM ». La conséquence réelle portait sur le **prédicat de mémorisation**
+  posé le même jour : `entrees[0]` remplissant **toujours** `modele_servi`, un
+  serveur servant le modèle d'une autre équipe était mémorisé **à vie sous un nom
+  faux**, dont `signature_du_moteur` tirait une ligne *ni muette ni vraie* que
+  `--compare` traitait comme un fait. Le symétrique exact de la bloquante que le
+  prédicat venait de fermer, en pire : une affirmation **positive** fausse là où
+  le défaut d'origine figeait un silence. Et l'argument « inerte en pratique
+  puisque l'instance ne sert qu'une entrée » se retournait : une instance qui ne
+  sert qu'une entrée est précisément celle où le défaut mord — **une entrée,
+  prise sans question, qui n'est pas la nôtre.**
+
+  L'hypothèse de non-fermabilité est **fausse, et c'est mesuré** — 15 septembre
+  2026 à 18:45:28 UTC, en lecture seule, contre l'instance de ce poste :
+  `/v1/models` sert **une** entrée, d'`id`
+  `google/gemma-4-E4B-it-qat-w4a16-ct`, quand le réglage versionné de
+  `settings.py` demande `gemma4:e4b`. Les deux noms ne sont pas **égaux** — la
+  puce avait raison là-dessus, et une égalité aurait bien rendu
+  `modele_servi: null` en permanence sur un serveur sain — mais réduits à leurs
+  seuls caractères alphanumériques minuscules, le demandé est un **infixe exact**
+  du servi : `gemma4e4b` dans `googlegemma4e4bitqatw4a16ct`. Ce n'est donc pas
+  une égalité qu'on exige, c'est cette relation-là, et la sonde parcourt
+  désormais le catalogue pour y chercher **notre** entrée — comme la branche
+  Ollama le fait depuis toujours — au lieu de prendre la première venue, dont
+  l'ordre n'est de toute façon pas un contrat.
+
+  **CE QUE LA RELATION NE SAIT PAS, ET QUI RESTE OUVERT.** Elle ne sépare pas deux
+  **quantifications** du même modèle : `…-qat-w4a16-ct` et un hypothétique
+  `…-fp8` la satisfont tous deux. Elle ferme la question du **modèle**, pas celle
+  du **poids** — et la seconde est la puce ci-dessus, qu'aucune des sept routes
+  GET de l'instance ne permet de fermer. Un réglage dégénérément **court** mais
+  non vide (`g`) reste par ailleurs satisfait par presque tout nom : aucun seuil
+  de longueur ne se justifierait sans arbitraire, et c'est une faute de
+  configuration que ce relevé n'a pas mandat de corriger. Un réglage **vide**,
+  lui, ne reconnaît plus rien — la chaîne vide était un infixe de tout, et c'est
+  un défaut trouvé contre la relation elle-même, pas contre le code d'avant.
+
+- **Le garde du budget de la sonde lisait un `interval:` rattaché à aucun
+  service.** **FERMÉ le 15 septembre 2026** — non bloquante §3 du même audit.
+  `_intervalle_du_healthcheck` et `_delai_du_healthcheck` cherchaient leur valeur
+  par expression rationnelle dans **tout** `docker-compose.yml` en exigeant un
+  unique résultat : deux modifications parfaitement anodines — un commentaire de
+  fin de ligne, un healthcheck sur un second service — leur faisaient rendre la
+  valeur **d'un autre service**, sans rougir. Le garde comparait alors le pire cas
+  de 9,0 s de la sonde à 20 s quand l'agent battait toutes les 8 s. Le compose est
+  désormais **parsé** et la valeur cherchée sous `services.agent-api.healthcheck`,
+  les durées composées de docker (`1m30s`) sont lues, et les trois échecs
+  possibles rougissent en nommant chacun le sien — là où l'ancien message disait
+  « plusieurs intervals » **même quand il y en avait zéro** (réserve R-2).
+
+- **Le régime de re-sondage n'était signalé nulle part.** **FERMÉ le 15 septembre
+  2026** — réserve R-4 du même audit. Il était **lisible** dans `/health` pour qui
+  va le lire, jamais **annoncé** : `_relever` ne journalise que si la tâche lève ou
+  dépasse le plafond, or un relevé partiel est un retour normal. Chaque relevé non
+  mémorisé écrit maintenant un `warning` qui nomme le serveur, le modèle demandé
+  et le coût par battement. Il ne chiffre **pas** la cadence : l'intervalle vit
+  dans `docker-compose.yml`, et ce module ne le connaît pas.
 
 - **La clé n'a jamais été relevée à travers le `/health` d'un agent réellement
   en service.** L'audit l'a vérifié plutôt que supposé : le conteneur en service
@@ -267,11 +340,33 @@ corpus remplacé reste un refus, quel que soit le moteur.
   L'atteindre exigerait de **redémarrer ce démon**, ce que le poste partagé
   interdit. Aucune mesure de bout en bout à travers un vrai serveur ASGI
   n'existe donc à ce jour — ni de la part du lot, ni de son audit, ni de cette
-  réparation. Ce que la sonde in-process ne peut pas voir reste non vu, en
-  particulier le comportement du cache sous **plusieurs workers**, chacun ayant
-  son propre `_moteur_releve` : deux battements consécutifs de `/health`
-  derrière un répartiteur pourraient publier deux relevés d'âges différents —
-  ce que `releve_le` rend au moins **visible**, sans le résoudre.
+  réparation, qui l'a **constaté et non supposé** : `mesuré` le 15 septembre 2026
+  à 18:40–19:00 UTC, le conteneur en service tourne toujours du code antérieur et
+  aucun démon n'a été redémarré. **C'est la seule borne de ce document que
+  personne n'a pu lever**, et elle ne se lèvera pas sans un redémarrage que le
+  poste partagé interdit.
+
+  **EN REVANCHE, LA BORNE « PLUSIEURS WORKERS » QU'ELLE PORTAIT EST INERTE SUR CE
+  DÉPLOIEMENT, ET C'EST MESURÉ.** Ce paragraphe écrivait au conditionnel que deux
+  battements derrière un répartiteur *pourraient* publier deux relevés d'âges
+  différents, chaque worker ayant son propre `_moteur_releve`. L'audit du
+  15 septembre 2026 l'a mesuré, et cette réparation l'a **remesuré à 19:00:54
+  UTC** :
+
+  ```
+  docker inspect rag-agent-api --format '{{json .Config.Cmd}}'
+    → ["uvicorn","src.api.main:app","--host","0.0.0.0","--port","8000"]
+  docker top rag-agent-api -o pid,ppid,cmd   → UN SEUL processus uvicorn
+  ```
+
+  Aucun `--workers`, aucun `replicas` au `deploy:` du compose — et la même sonde
+  `docker top` rend six lignes sur un autre conteneur du poste, contrôle positif
+  qui établit qu'elle sait compter plusieurs processus. **Un worker, donc un seul
+  `_moteur_releve` :** deux battements consécutifs ne peuvent pas publier deux
+  relevés d'âges différents ici. Ce que `releve_le` rend visible sans le résoudre
+  est un risque **réel mais non encouru sur ce déploiement**, et il faut le dire
+  ainsi plutôt que de le laisser au conditionnel — un conditionnel se relit comme
+  une dette ouverte alors que la mesure existe.
 
 ---
 
