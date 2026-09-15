@@ -656,6 +656,15 @@ class MoteurLlmHealth(BaseModel):
     # Ce que le serveur porte RÉELLEMENT sous ce nom (Ollama) ou sert (vLLM).
     # `null` sur Ollama signifie que le tag demandé n'est pas dans `/api/tags` :
     # le modèle sera tiré au premier appel, ou l'appel échouera.
+    #
+    # ET `null` VEUT DIRE LA MÊME CHOSE CÔTÉ vLLM DEPUIS LE 15 SEPTEMBRE 2026 —
+    # non bloquante §2 de l'audit du même jour. Ce champ y valait `entrees[0]
+    # ["id"]`, **quel que soit** cet `id` : jamais confronté à ce que nous
+    # demandons, il ne pouvait être nul que sur un catalogue vide, et un serveur
+    # servant le modèle d'une autre équipe était donc publié — puis mémorisé à
+    # vie — sous un nom faux. Les deux côtés cherchent maintenant NOTRE entrée
+    # dans le catalogue ; `null` se lit des deux côtés « ce serveur ne sert pas
+    # ce que nous demandons », et jamais « il ne sert rien ».
     modele_servi: str | None = None
     # Le digest du poids côté Ollama, tronqué à 16 caractères — assez pour
     # séparer deux poids, trop court pour qu'on le prenne pour une signature.
@@ -685,6 +694,18 @@ class MoteurLlmHealth(BaseModel):
     # `max_model_len` côté vLLM — la fenêtre que le SERVEUR sert, à ne pas
     # confondre avec `options.num_ctx`, qui est celle que NOUS demandons. Les
     # deux ont dérivé sur cette instance : 32768 servie, 8192 demandée.
+    #
+    # ELLE EST DANS LA SIGNATURE DE `--compare` DEPUIS LE 15 SEPTEMBRE 2026 — non
+    # bloquante §4 de l'audit du même jour, où **32 768 contre 8 192 signaient
+    # `IDENTIQUE`**. Elle était relevée et publiée, et la comparaison appariée ne
+    # s'en servait pas : côté vLLM, où `empreinte_du_modele` est structurellement
+    # nulle, c'est le seul AUTRE fait relevé du serveur, et c'est la grandeur qui
+    # sépare les deux moteurs aujourd'hui. Elle satisfait le critère écrit au site
+    # de `signature_du_moteur` — invariante pour un moteur donné, elle ne bouge
+    # qu'au relancement du serveur avec un autre `--max-model-len` : `mesuré`
+    # stable sur deux lectures à 449 s d'écart le 15 septembre 2026, quand
+    # `created` changeait dans le même intervalle. `null` côté Ollama, où rien
+    # dans `/api/tags` ne la porte ; elle n'est alors pas imprimée du tout.
     fenetre_servie: int | None = None
     # NOS drapeaux d'appel, ceux qui changent le SENS de la réponse et non sa
     # vitesse. Ils sont du réglage, assumé comme tel : deux campagnes lancées
