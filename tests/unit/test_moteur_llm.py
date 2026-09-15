@@ -1065,6 +1065,380 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
             )
 
 
+class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
+    """NON BLOQUANTE §2 DE L'AUDIT DU 15 SEPTEMBRE 2026 — et c'est le cas PROBABLE.
+
+    Les deux bornes que la relation portait — « elle ne sépare pas deux
+    QUANTIFICATIONS » et « un réglage dégénérément court reste satisfait » —
+    étaient **exactes**, l'audit l'a vérifié. Elles n'étaient pas les seules, et
+    celle qui manquait est **plus probable** que les deux qu'elles couvrent :
+    dans l'espace de nommage que vLLM sert, un modèle se **dérive** bien plus
+    souvent qu'il ne se requantifie.
+
+    UN DÉRIVÉ N'EST PAS UN AUTRE POIDS DU MÊME MODÈLE : C'EST UN AUTRE MODÈLE.
+    Une variante ablitérée n'a plus les mêmes garde-fous ; une distillation n'a
+    ni la même taille ni le même comportement ; un ajustement métier répond
+    autrement. La borne écrite couvrait le POIDS et laissait dehors la
+    DÉRIVATION, qui n'est pas la même question.
+
+    CE QUE ÇA COÛTAIT, ET C'EST EXACTEMENT CE QUE CETTE CLÉ EXISTE POUR EMPÊCHER.
+    Un catalogue servant un dérivé du nôtre le faisait signer comme le nôtre :
+    `modele_servi` publiait un nom que nous n'avions pas demandé, **mémorisé pour
+    la vie du processus**, et `signature_du_moteur` en tirait une ligne ni muette
+    ni vraie qu'une campagne enregistrait comme le moteur mesuré. Le défaut que
+    la non bloquante §2 du lot précédent venait de fermer pour le cas improbable
+    — « le voisin sert un modèle sans rapport » — revenait par le cas probable :
+    « le voisin change de dérivé sur le même modèle de base ».
+
+    ET RIEN NE LE JOUAIT. La mutation M3a de l'audit — refuser les `id` portant
+    un marqueur de dérivation — laissait **870 verts** ; sa jumelle M3b, au même
+    site et dans la même forme, en rougissait **5**. Aucune des 870 scènes ne
+    jouait un modèle dérivé : les noms qu'elles opposaient étaient tous plus
+    COURTS ou divergents EN TÊTE, jamais plus longs par la QUEUE, qui est la
+    forme que l'inclusion laisse passer par construction. Les quatre scènes
+    ci-dessous sont ces scènes manquantes.
+    """
+
+    _VERSION_VLLM = {"/version": _ReponseHttp(200, {"version": "0.28.0"})}
+    _ID_REEL = _ID_VLLM_REEL
+
+    def _catalogue(self, *identifiants: str) -> dict[str, Any]:
+        return {
+            "object": "list",
+            "data": [{"id": i, "object": "model", "max_model_len": 32768} for i in identifiants],
+        }
+
+    def _modele_servi_pour(self, monkeypatch: pytest.MonkeyPatch, identifiant: str) -> str | None:
+        from src.api import main
+
+        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        releve, _ = _sonder(
+            monkeypatch,
+            {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(identifiant))},
+        )
+        assert releve is not None, "un serveur qui a dit son nom n'est pas muet"
+        return releve.modele_servi
+
+    def test_le_temoin_l_id_reellement_servi_par_ce_poste_reste_retenu(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LE TÉMOIN QUI TIENT L'AUTRE BORD DE L'ENCADREMENT, et il passe d'abord.
+
+        Sans lui, les quatre refus ci-dessous seraient satisfaits par une
+        relation qui refuse TOUT — c'est-à-dire par la régression que la mutation
+        M2 de l'audit garde : `modele_servi` toujours nul côté vLLM, donc le
+        re-sondage permanent contre un serveur partagé, sur une instance
+        parfaitement saine.
+        """
+        assert self._modele_servi_pour(monkeypatch, self._ID_REEL) == self._ID_REEL
+
+    def test_une_variante_ABLITEREE_n_est_pas_notre_modele(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Les garde-fous ont été retirés : le modèle ne répond plus comme le nôtre.
+
+        C'est le dérivé dont la conséquence est la plus lourde pour une
+        campagne — le nom est le nôtre à un suffixe près, et le comportement
+        mesuré n'a rien à voir.
+        """
+        derive = f"{self._ID_REEL}-abliterated"
+        assert self._modele_servi_pour(monkeypatch, derive) is None, (
+            f"{derive} a signé comme le nôtre"
+        )
+
+    def test_une_REQUANTIFICATION_TIERCE_n_est_pas_notre_modele(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Republié par un tiers sous son propre format, ce n'est plus le poids de l'éditeur.
+
+        À NE PAS CONFONDRE AVEC LA BORNE DE LA QUANTIFICATION, et la scène
+        suivante le mesure : deux formats publiés par l'ÉDITEUR sous son propre
+        `id` restent indiscernables, parce que rien de ce que vLLM expose ne les
+        sépare. Ce qui est refusé ici n'est pas un format, c'est un
+        **repackaging tiers**, qui se reconnaît à son vocabulaire.
+        """
+        derive = "unsloth/gemma-4-E4B-it-qat-w4a16-ct-bnb-4bit"
+        assert self._modele_servi_pour(monkeypatch, derive) is None, (
+            f"{derive} a signé comme le nôtre"
+        )
+
+    def test_une_DISTILLATION_n_est_pas_notre_modele(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le nôtre est le PROFESSEUR, pas l'élève — et l'élève porte son nom.
+
+        La forme est celle que l'écosystème publie réellement : le nom du modèle
+        distillé garde en QUEUE le nom complet du modèle source.
+        """
+        derive = f"deepseek-ai/DeepSeek-R1-Distill-{self._ID_REEL.split('/', 1)[1]}"
+        assert self._modele_servi_pour(monkeypatch, derive) is None, (
+            f"{derive} a signé comme le nôtre"
+        )
+
+    def test_un_AJUSTEMENT_METIER_n_est_pas_notre_modele(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Le cas le plus probable sur une instance PARTAGÉE avec deux autres équipes.
+
+        C'est le geste ordinaire d'une équipe voisine : partir de notre modèle de
+        base et le réentraîner pour son domaine. Le nom reste le nôtre, le moteur
+        ne l'est plus.
+        """
+        derive = f"unequipe/{self._ID_REEL.split('/', 1)[1]}-finetune-juridique-v3"
+        assert self._modele_servi_pour(monkeypatch, derive) is None, (
+            f"{derive} a signé comme le nôtre"
+        )
+
+    def test_le_temoin_inerte_un_nom_sans_rapport_reste_refuse(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LE TÉMOIN INERTE DE CETTE CLASSE, et il établit que les quatre refus sont réels.
+
+        Sans lui, les quatre `None` ci-dessus pourraient être ceux d'une sonde
+        qui n'atteint pas son cas — un catalogue mal construit, une route mal
+        simulée. Ce nom-là était déjà refusé avant cette fermeture et le reste
+        après : c'est le même chemin, et il rend le même verdict.
+        """
+        assert self._modele_servi_pour(monkeypatch, "un/modele-sans-rapport") is None
+
+    def test_la_borne_de_la_QUANTIFICATION_reste_ouverte_et_c_est_mesure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LA BORNE ÉCRITE N'A PAS BOUGÉ, ET CE TEST EST SA MESURE, PAS SA PROMESSE.
+
+        Fermer la dérivation en fermant aussi la quantification aurait été un
+        resserrement silencieux : `…-fp8` est un autre POIDS du même modèle,
+        publié par le même éditeur sous le même `id` de base, et rien de ce que
+        les sept routes GET de vLLM exposent ne le distingue du nôtre. La
+        relation ferme la question du MODÈLE ; celle du POIDS reste ouverte, et
+        elle reste ouverte APRÈS cette fermeture — ce qui est mesuré ici.
+        """
+        variante = "google/gemma-4-E4B-it-fp8"
+        assert self._modele_servi_pour(monkeypatch, variante) == variante, (
+            "la borne du POIDS a été refermée par accident : c'est un resserrement "
+            "silencieux, et il rendrait `modele_servi` nul sur un serveur sain"
+        )
+
+    def test_la_borne_QUI_RESTE_un_derive_au_vocabulaire_INCONNU_passe_encore(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """CE QUE CETTE FERMETURE NE FERME PAS, MESURÉ ET NON SUPPOSÉ.
+
+        La dérivation se reconnaît ici à un VOCABULAIRE, et un vocabulaire est
+        une liste : un dérivé publié sans aucun des mots qu'elle porte reste
+        accepté. Rien de ce que vLLM expose ne permet de trancher — l'`id` est
+        la seule chose qu'on ait, et « `…-ct-juridique-v3` » est indiscernable
+        d'une déclinaison de l'éditeur pour qui ne connaît pas les deux noms.
+
+        LA BORNE EST DONC ÉCRITE ET MESURÉE, pas refermée par une promesse. Elle
+        est plus étroite que celle d'avant — quatre familles nommées en sortent —
+        et elle n'est pas nulle.
+        """
+        muet = f"{self._ID_REEL}-juridique-v3"
+        assert self._modele_servi_pour(monkeypatch, muet) == muet, (
+            "cette scène MESURE la borne : si elle rougit, c'est que la borne s'est "
+            "déplacée et que la docstring de la relation doit être réécrite"
+        )
+
+    def test_la_borne_QUI_RESTE_les_frontieres_jetees_confondent_deux_modeles_reels(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LA SECONDE BORNE QUI RESTE, ET ELLE EST STRUCTURELLE, PAS NÉGLIGÉE.
+
+        `_forme_comparable` jette les `-`, les `/` et les `:` **parce qu'ils ne
+        tombent pas au même endroit** dans les deux écosystèmes : `gemma4:e4b`
+        donne `gemma4|e4b` et `google/gemma-4-E4B-it…` donne `gemma|4|e4b`. Exiger
+        que l'aiguille tombe sur des frontières de segments refuserait donc l'`id`
+        RÉELLEMENT SERVI par ce poste — c'est-à-dire la régression que la mutation
+        M2 garde.
+
+        LE PRIX EST ÉCRIT : `qwen2:5b` est reconnu dans `Qwen/Qwen-2.5B-Chat`, et
+        ce sont deux modèles réels et distincts. Cette borne-là ne se ferme pas
+        sans fermer le cas nominal, et ce test la mesure pour qu'elle cesse d'être
+        une supposition.
+        """
+        from src.api import main
+
+        monkeypatch.setattr(main.settings, "ollama_model", "qwen2:5b")
+        releve, _ = _sonder(
+            monkeypatch,
+            {
+                **self._VERSION_VLLM,
+                "/v1/models": _ReponseHttp(200, self._catalogue("Qwen/Qwen-2.5B-Chat")),
+            },
+        )
+        assert releve is not None
+        assert releve.modele_servi == "Qwen/Qwen-2.5B-Chat", (
+            "si cette scène rougit, la relation a cessé de jeter les frontières — "
+            "et l'`id` réel de ce poste est alors refusé : mesurer avant de se réjouir"
+        )
+
+    def test_un_derive_n_est_pas_MEMORISE_et_c_est_la_conséquence_chere(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LE REFUS NE SUFFIT PAS : IL FAUT QUE LE DÉRIVÉ NE SOIT PAS FIGÉ À VIE.
+
+        C'est la conséquence que la non bloquante chiffrait, et elle survit au
+        redémarrage du serveur d'en face : un nom mémorisé ne se répare qu'en
+        redémarrant l'agent. Le test compte donc les requêtes d'un second
+        battement au lieu de relire le champ.
+        """
+        from src.api import main
+
+        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        releve, client = _sonder(
+            monkeypatch,
+            {
+                **self._VERSION_VLLM,
+                "/v1/models": _ReponseHttp(
+                    200, self._catalogue(f"{self._ID_REEL}-abliterated")
+                ),
+            },
+        )
+        assert releve is not None
+        assert releve.modele_servi is None
+        premier = len(client.demandes)
+        asyncio.run(main._sonder_moteur_llm())
+        assert len(client.demandes) > premier, (
+            "un dérivé a été figé pour la vie du processus sous notre nom"
+        )
+
+
+class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
+    """NON BLOQUANTE §3 DE L'AUDIT DU 15 SEPTEMBRE 2026 — une phrase « jamais », fausse.
+
+    Le site écrivait : « le nom servi est plus LONG que le nom demandé, **jamais
+    l'inverse** », et en tirait la justification du sens de l'inclusion. C'est une
+    affirmation POSITIVE, et elle est fausse : un tag Ollama nomme couramment la
+    variante d'instruction et la quantification, que ce site croyait propres aux
+    `id` vLLM. **Une borne écrite mais fausse est pire qu'une borne absente**,
+    parce qu'on cesse de vérifier ce qu'elle prétend couvrir.
+
+    LA PHRASE A ÉTÉ RENDUE EXACTE AU SITE. Ce qui reste ici est ce qui manquait :
+    les trois formes **gardées**, et le coût **compté** au lieu d'être décrit.
+    Sans ces scènes, la phrase corrigée serait elle aussi laissée seule — et la
+    prochaine réécriture du site n'aurait rien à faire rougir.
+
+    LES TROIS FORMES SONT PUBLIÉES, PAS INVENTÉES : `-instruct-q8_0` et
+    `-it-q4_K_M` sont des suffixes de tag Ollama courants, et `hf.co/…:Q4_K_M`
+    est la forme exacte sous laquelle Ollama tire un modèle de HuggingFace.
+
+    PROSPECTIF SUR CE DÉPÔT, ET IL FAUT LE DIRE : le réglage versionné est
+    `gemma4:e4b`, qui ne porte pas de quantification, donc le défaut ne mord pas
+    aujourd'hui. Il mord le jour où un exploitant pose un tag complet dans la
+    variable d'environnement du modèle — un geste ordinaire, et rien ne l'en
+    empêche.
+    """
+
+    _VERSION_VLLM = {"/version": _ReponseHttp(200, {"version": "0.28.0"})}
+
+    # Les trois formes de l'audit, chacune avec l'`id` que le serveur sert
+    # RÉELLEMENT en face — donc trois serveurs parfaitement sains.
+    _FORMES_NON_RECONNUES = (
+        ("llama3:8b-instruct-q8_0", "meta-llama/Llama-3-8B-Instruct"),
+        ("gemma4:e4b-it-q4_K_M", "google/gemma-4-E4B"),
+        (f"hf.co/{_ID_VLLM_REEL}:Q4_K_M", _ID_VLLM_REEL),
+    )
+
+    def _catalogue(self, identifiant: str) -> dict[str, Any]:
+        return {
+            "object": "list",
+            "data": [{"id": identifiant, "object": "model", "max_model_len": 32768}],
+        }
+
+    def test_les_trois_formes_de_tag_ne_sont_PAS_reconnues_et_c_est_epingle(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LA BORNE, MESURÉE DANS LE SENS OÙ ELLE EST FAUSSE POUR L'EXPLOITANT.
+
+        Ces trois serveurs servent EXACTEMENT ce qu'on leur demande, et le relevé
+        publie `modele_servi: null`, dont `signature_du_moteur` tire « modèle
+        ABSENT DU SERVEUR ». Ce test ne réclame pas que ce soit réparé : il
+        épingle que ça ne l'est pas, pour que la phrase du site cesse d'être
+        seule.
+        """
+        from src.api import main
+
+        for tag, identifiant in self._FORMES_NON_RECONNUES:
+            monkeypatch.setattr(main.settings, "ollama_model", tag)
+            releve, _ = _sonder(
+                monkeypatch,
+                {
+                    **self._VERSION_VLLM,
+                    "/v1/models": _ReponseHttp(200, self._catalogue(identifiant)),
+                },
+            )
+            assert releve is not None, "un serveur qui a dit son nom n'est pas muet"
+            assert releve.modele_servi is None, (
+                f"le tag {tag!r} est désormais reconnu dans {identifiant!r} : la borne "
+                "écrite au site a bougé, et la docstring de "
+                "`_le_serveur_sert_ce_que_nous_demandons` doit être réécrite AVEC son coût"
+            )
+
+    def test_le_temoin_le_tag_versionne_de_ce_depot_est_bien_reconnu(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LE TÉMOIN INERTE DE CETTE CLASSE, et il est indispensable.
+
+        Sans lui, les trois `None` ci-dessus seraient satisfaits par une relation
+        qui ne reconnaît plus rien du tout — le cas que la mutation M2 de l'audit
+        garde, et dont le coût est le même re-sondage permanent, mais pour TOUS
+        les exploitants au lieu de ceux qui posent un tag complet.
+        """
+        from src.api import main
+
+        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        releve, _ = _sonder(
+            monkeypatch,
+            {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(_ID_VLLM_REEL))},
+        )
+        assert releve is not None
+        assert releve.modele_servi == _ID_VLLM_REEL
+
+    def test_le_COUT_est_compte_en_requetes_et_non_decrit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """LE CHIFFRE DE L'AUDIT, REJOUÉ ICI COMME GARDE : 9 CONTRE 3 SUR TROIS BATTEMENTS.
+
+        C'est ce qui sépare une borne écrite d'une borne gardée. Un tag non
+        reconnu n'est jamais mémorisé, donc la sonde repart **à chaque
+        battement** : trois requêtes toutes les 20 s, indéfiniment, vers un
+        serveur d'inférence partagé avec deux autres équipes. Le témoin, lui,
+        paie ses trois requêtes une fois.
+
+        POURQUOI COMPTER PLUTÔT QUE RELIRE `modele_servi`. Le champ nul dit que
+        le nom n'est pas reconnu ; il ne dit pas ce que ça COÛTE. C'est le coût
+        qui décide si cette borne est acceptable, et c'est donc lui qu'on garde.
+        """
+        from src.api import main
+
+        def _trois_battements(tag: str, identifiant: str) -> int:
+            monkeypatch.setattr(main.settings, "ollama_model", tag)
+            _, client = _sonder(
+                monkeypatch,
+                {
+                    **self._VERSION_VLLM,
+                    "/v1/models": _ReponseHttp(200, self._catalogue(identifiant)),
+                },
+            )
+            for _ in range(2):
+                asyncio.run(main._sonder_moteur_llm())
+            return len(client.demandes)
+
+        memorise = _trois_battements("gemma4:e4b", _ID_VLLM_REEL)
+        assert memorise == 3, (
+            f"le témoin MÉMORISÉ a coûté {memorise} requêtes sur trois battements au lieu "
+            "de 3 : c'est la base du rapport, et sans elle le chiffre d'en face ne dit rien"
+        )
+        for tag, identifiant in self._FORMES_NON_RECONNUES:
+            permanent = _trois_battements(tag, identifiant)
+            assert permanent == 3 * memorise, (
+                f"le tag {tag!r} a coûté {permanent} requêtes sur trois battements au lieu "
+                f"de {3 * memorise} : le régime de re-sondage a changé, et le coût écrit "
+                "au site de la relation est devenu faux"
+            )
+
+
 class TestLeReleveDitQuandIlAEtePris:
     """NON BLOQUANTE §3 — le seul cache à vie de `/health` était sans date.
 

@@ -693,6 +693,92 @@ def _forme_comparable(nom: str) -> str:
     return re.sub(r"[^a-z0-9]", "", nom.lower())
 
 
+# Les mots par lesquels l'écosystème NOMME une dérivation, et rien d'autre.
+#
+# NON BLOQUANTE §2 DE L'AUDIT DU 15 SEPTEMBRE 2026. La relation cherchait le nom
+# demandé comme infixe du nom servi : tout ce qui PROLONGE notre nom était donc
+# reconnu comme le nôtre. L'audit a construit quatre dérivés sur l'`id`
+# réellement servi par ce poste — une variante ablitérée, une requantification
+# tierce, une distillation, un ajustement métier — et **les quatre étaient
+# acceptés**, quand son témoin inerte était bien refusé.
+#
+# UN DÉRIVÉ N'EST PAS UN AUTRE POIDS DU MÊME MODÈLE, et c'est ce que la borne
+# écrite ne couvrait pas : elle fermait la question du POIDS et laissait dehors
+# celle de la DÉRIVATION. Un catalogue servant un ajustement de notre modèle le
+# faisait signer comme le nôtre, mémorisé pour la vie du processus, et une
+# campagne enregistrait un moteur faux.
+#
+# POURQUOI DES SEGMENTS ET NON LA FORME COMPARABLE. Cherchés dans la forme
+# comparable — qui jette les séparateurs —, ces mots se trouveraient là où ils
+# ne sont pas : `ft` est un infixe de « microsoft », `merge` de « submerged ».
+# Un marqueur ne compte donc que s'il est un SEGMENT ENTIER du nom, entre deux
+# frontières que l'écosystème écrit vraiment (`/`, `-`, `_`, `:`, `.`).
+#
+# CE QUE CETTE LISTE NE CONTIENT PAS, ET C'EST DÉLIBÉRÉ. Aucun format de
+# quantification publié par l'ÉDITEUR sous son propre `id` — `w4a16`, `fp8`,
+# `int8`, `awq`, `gptq`. Les séparer reviendrait à refermer la borne du POIDS,
+# qui reste ouverte parce que rien de ce que vLLM expose ne la tranche ; et un
+# refus de trop n'est pas gratuit : il rend `modele_servi` nul sur un serveur
+# sain, donc le re-sondage permanent contre un serveur partagé. Les six derniers
+# mots ci-dessous sont des formats de REDISTRIBUTION — un tiers reprend le poids
+# de l'éditeur et le republie —, jamais le nom sous lequel l'éditeur sert.
+_MARQUEURS_DE_DERIVATION = frozenset(
+    {
+        # garde-fous retirés
+        "abliterated",
+        "uncensored",
+        "unaligned",
+        # distillation — le nôtre serait le professeur, pas l'élève
+        "distill",
+        "distilled",
+        # réentraînement et fusion de poids
+        "finetune",
+        "finetuned",
+        "lora",
+        "qlora",
+        "sft",
+        "dpo",
+        "orpo",
+        "rlhf",
+        "merge",
+        "merged",
+        "slerp",
+        # repackaging par un tiers, sous son propre format
+        "bnb",
+        "gguf",
+        "exl2",
+        "mlx",
+        "4bit",
+        "8bit",
+    }
+)
+
+
+def _segments(nom: str) -> set[str]:
+    """Le nom découpé aux frontières que l'écosystème écrit vraiment, en bas de casse.
+
+    C'est le pendant exact de `_forme_comparable`, et les deux coexistent parce
+    qu'elles répondent à deux questions différentes : celle-là JETTE les
+    frontières, parce qu'elles ne tombent pas au même endroit dans les deux
+    écosystèmes (`gemma4:e4b` donne `gemma4|e4b`, `google/gemma-4-E4B-it…` donne
+    `gemma|4|e4b`) ; celle-ci les GARDE, parce qu'un marqueur de dérivation n'a
+    de sens qu'entre deux frontières.
+    """
+    return {s for s in re.split(r"[^a-z0-9]+", nom.lower()) if s}
+
+
+def _marqueurs_de_derivation_ajoutes(identifiant: str, demande: str) -> set[str]:
+    """Les mots de dérivation que le nom SERVI porte et que le nom DEMANDÉ ne porte pas.
+
+    LA DIFFÉRENCE EST LE POINT, et pas la simple présence. Un exploitant qui
+    demande `gemma4:e4b-abliterated` demande la variante ablitérée : la lui
+    servir est juste, et la lui refuser serait le re-sondage permanent sur un
+    serveur parfaitement conforme à ce qu'on lui demande. Ce qui est refusé est
+    la dérivation que NOUS n'avons pas demandée.
+    """
+    return (_segments(identifiant) & _MARQUEURS_DE_DERIVATION) - _segments(demande)
+
+
 def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bool:
     """L'`id` d'une entrée de catalogue vLLM est-il celui du modèle que NOUS demandons ?
 
@@ -707,14 +793,61 @@ def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bo
     `gemma4e4b` dans `googlegemma4e4bitqatw4a16ct`. La confrontation est donc
     possible, et c'est une mesure de ce serveur, pas une hypothèse sur les noms.
 
-    LE SENS DE LA RELATION EST DÉLIBÉRÉ : le nom servi est plus LONG que le nom
-    demandé, jamais l'inverse. Un tag Ollama nomme le modèle et sa taille ; un
-    `id` vLLM y ajoute l'organisation, la variante d'instruction et la
-    quantification. On cherche donc le demandé DANS le servi.
+    LE SENS DE LA RELATION EST DÉLIBÉRÉ, ET LA PHRASE QUI LE JUSTIFIAIT ÉTAIT
+    FAUSSE — non bloquante §3 de l'audit du 15 septembre 2026. Ce site écrivait :
+    « le nom servi est plus LONG que le nom demandé, **jamais l'inverse** », au
+    motif qu'un tag Ollama ne nommerait que le modèle et sa taille. Un tag Ollama
+    nomme couramment les quatre — modèle, taille, variante d'instruction,
+    quantification — et l'audit a nommé trois formes publiées qui prennent la
+    phrase en défaut :
+
+    | tag demandé | `id` servi | reconnu ? |
+    | `llama3:8b-instruct-q8_0` | `meta-llama/Llama-3-8B-Instruct` | non |
+    | `gemma4:e4b-it-q4_K_M` | `google/gemma-4-E4B` | non |
+    | `hf.co/google/gemma-4-E4B-it-qat-w4a16-ct:Q4_K_M` | l'`id` réel | non |
+
+    LA PHRASE EXACTE EST DONC CELLE-CI : le sens choisi est celui du cas MESURÉ
+    sur cette instance — `gemma4:e4b` demandé, `google/gemma-4-E4B-it-qat-w4a16-ct`
+    servi —, où le servi prolonge le demandé. Ce n'est pas une loi des deux
+    écosystèmes, c'est le sens d'UNE inclusion, et **l'inclusion inverse n'est pas
+    tentée**. Un tag plus spécifique que l'`id` servi n'est donc PAS reconnu.
+
+    CE QUE ÇA COÛTE, CHIFFRÉ, ET CE QUE ÇA NE COÛTE PAS. Un tag non reconnu rend
+    `modele_servi` nul, donc le relevé n'est jamais mémorisé : **3 requêtes par
+    battement, indéfiniment**, contre 3 en tout pour un tag reconnu — mesuré par
+    l'audit à 9 requêtes sur 3 battements contre 3. À 20 s d'intervalle, c'est
+    près de treize mille lectures quotidiennes vers un serveur PARTAGÉ, et
+    `signature_du_moteur` imprime alors « modèle ABSENT DU SERVEUR » sur un
+    serveur qui sert exactement ce qu'on lui demande. Le coût est **inchangé par
+    cette correction** : ce qui change est qu'il n'est plus justifié par une
+    phrase fausse, qu'il est GARDÉ par des scènes qui comptent ces requêtes, et
+    qu'il est ANNONCÉ à chaque battement par le `warning` de R-4.
+
+    POURQUOI L'INCLUSION INVERSE N'A PAS ÉTÉ AJOUTÉE, et c'est mesuré et non
+    supposé : des trois formes ci-dessus, elle n'en règle qu'**une** — la
+    troisième, où l'`id` servi est bien un infixe du tag. Les deux autres ne sont
+    dans aucun sens d'inclusion l'une de l'autre. Elle élargirait donc
+    l'acceptation dans la direction exacte que garde la mutation M1 de l'audit —
+    « la relation accepte tout » — pour un tiers du défaut. Borne écrite,
+    mesurée, non fermée.
+
+    ELLE REFUSE LES MODÈLES DÉRIVÉS DU NÔTRE — non bloquante §2 du même audit, et
+    c'est le cas PROBABLE, pas le cas improbable. Voir `_MARQUEURS_DE_DERIVATION`
+    pour ce qui est reconnu comme dérivation et pourquoi. **Ce qui reste ouvert,
+    mesuré** : une dérivation publiée sans aucun des mots de cette liste reste
+    acceptée — l'`id` est tout ce que vLLM nous donne, et `…-ct-juridique-v3` est
+    indiscernable d'une déclinaison de l'éditeur pour qui ne connaît pas les deux
+    noms. La borne est plus étroite qu'avant, elle n'est pas nulle.
+
+    ELLE CONFOND DEUX MODÈLES QUE LES SÉPARATEURS SÉPARENT, et cette borne-là est
+    STRUCTURELLE : `qwen2:5b` est reconnu dans `Qwen/Qwen-2.5B-Chat`, deux modèles
+    réels et distincts, parce que `_forme_comparable` jette les frontières.
+    Exiger qu'elles s'alignent refuserait l'`id` RÉELLEMENT servi par ce poste
+    (`gemma4|e4b` contre `gemma|4|e4b`) : la fermer ferme le cas nominal.
 
     CE QU'ELLE NE SAIT PAS, ET C'EST UNE BORNE, PAS UN OUBLI. Elle ne sépare pas
-    deux QUANTIFICATIONS du même modèle : `…-qat-w4a16-ct` et un hypothétique
-    `…-fp8` la satisfont tous deux. C'est la borne déjà écrite au §6 de
+    deux QUANTIFICATIONS DE L'ÉDITEUR du même modèle : `…-qat-w4a16-ct` et un
+    hypothétique `…-fp8` la satisfont tous deux. C'est la borne déjà écrite au §6 de
     `documentation/moteur_llm.md` — côté vLLM, rien de ce que les sept routes GET
     de l'instance exposent ne distingue deux poids, et `empreinte_du_modele` y
     reste nulle. Cette relation ferme la question du MODÈLE ; celle du POIDS
@@ -732,7 +865,9 @@ def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bo
     aiguille = _forme_comparable(demande)
     if not aiguille:
         return False
-    return aiguille in _forme_comparable(identifiant)
+    if aiguille not in _forme_comparable(identifiant):
+        return False
+    return not _marqueurs_de_derivation_ajoutes(identifiant, demande)
 
 
 def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
