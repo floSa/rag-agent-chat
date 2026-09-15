@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 909 tests, aucune dépendance
+## Unitaire — 910 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,12 +20,12 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 15 septembre 2026 à 22:53 UTC par LOT-19 : **909** tests sur **47** fichiers,
+> `mesuré` le 15 septembre 2026 à 23:00 UTC par LOT-19 : **910** tests sur **47** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
 > total que `pytest` annonce — concordent. *(REPAR-20 avait relevé **892** sur **46**
-> fichiers à 20:57 UTC ; les **dix-sept** de plus sont ceux du second rideau — quinze
+> fichiers à 20:57 UTC ; les **dix-huit** de plus sont ceux du second rideau — seize
 > dans le fichier neuf `test_repli_dans_la_prose.py`, qui éprouve les quatre formes
-> d'appel mesurées sur les deux moteurs et les cinq proses ordinaires qui ne
+> d'appel mesurées sur les deux moteurs et les six proses ordinaires qui ne
 > doivent rien déclencher, plus les deux gardes du site unique du motif dans
 > `test_coherence_depot.py`. Avant lui, REPAR-19 avait relevé **870** sur les
 > mêmes 46 fichiers à 19:01 UTC ; les **vingt-deux** de plus sont les gardes de

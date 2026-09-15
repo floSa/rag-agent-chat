@@ -284,6 +284,10 @@ PROSE_ORDINAIRE = [
         'Sous-question : "Quelles sont les modalités et la durée du compte épargne temps ?"',
         id="mention-puis-citation-entre-guillemets",
     ),
+    pytest.param(
+        'Le nom search_vectors "durée du congé") sans parenthèse ouvrante.',
+        id="juxtaposition-sans-parenthese-ouvrante",
+    ),
 ]
 
 
@@ -305,6 +309,15 @@ async def test_les_mentions_en_prose_ne_declenchent_rien(monkeypatch, texte) -> 
     texte ; il tient le bord haut du motif, que rien ne tenait avant lui — une
     mutation retirant les parenthèses du motif a survécu à tout le reste de ce
     fichier.
+
+    Le dernier, lui, est CONSTRUIT, et il faut le dire aussi : aucun moteur ne
+    l'a écrit. Il vient d'une mutation qui retire la seule parenthèse OUVRANTE
+    et qui a survécu à tout. Confrontée au motif servi sur les 34 textes
+    réellement mesurés ce soir, elle rend le même résultat 34 fois sur 34 : son
+    zéro rouge disait « équivalente sur le domaine mesuré », pas « mal
+    couverte ». Ce cas est le témoin qui les sépare — la parenthèse fait partie
+    de ce qui distingue un APPEL d'une juxtaposition de mots, et l'exiger n'est
+    pas deviner une forme.
     """
     resultat = await _servir(monkeypatch, texte)
 
