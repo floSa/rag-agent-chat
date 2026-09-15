@@ -960,15 +960,18 @@ async def health() -> HealthResponse:
     # met pas : il faut le dire ici.
     if peripherique is None:
         inconnues.append("peripherique_torch")
-    # MÊME DIALECTE, ET C'EST LE MOTIF : le dépôt dit déjà son non-savoir par
-    # cette liste, et un troisième mot pour la même chose serait une divergence
-    # sans fait pour la porter. Ce qu'il ne fait PAS : dégrader `status`. Un
-    # serveur qui refuse de dire son nom n'est pas un serveur en panne — la
-    # sonde `ollama` porte la panne —, et faire passer le conteneur `unhealthy`
-    # sur un champ de traçabilité serait exactement le faux positif que le
-    # §1.27 existe pour éviter.
-    if moteur is None:
-        inconnues.append("moteur_llm")
+    # LE MOTEUR MUET N'ENTRE PAS DANS `services_unknown`, ET C'EST UN ARBITRAGE
+    # PESÉ, non une omission. Le précédent voisin ferait croire l'inverse :
+    # `peripherique_torch` y est inscrit, mais il y est parce qu'il DÉGRADE
+    # `status` et qu'un exploitant doit savoir quoi réparer. Le moteur ne dégrade
+    # rien — un serveur qui refuse de dire son nom n'est pas un serveur en panne,
+    # et la sonde `ollama` porte déjà la panne s'il y en a une.
+    #
+    # Ce qui resterait est du bruit PERMANENT : sur un déploiement dont le
+    # serveur LLM n'expose aucune route de version, cette liste porterait
+    # `moteur_llm` à chaque battement du healthcheck, pour une information que
+    # `moteur_llm: null` donne déjà sans ambiguïté. Une liste d'anomalies qui
+    # porte en permanence un non-problème cesse d'être lue.
     #
     # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
     # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier

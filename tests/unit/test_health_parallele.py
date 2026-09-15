@@ -470,6 +470,17 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
     monkeypatch.setattr(main, "chroma_ping", sonde("chromadb"))
     monkeypatch.setattr(main, "nebula_ping", sonde("nebulagraph"))
     monkeypatch.setattr(main, "lexical_ready", sonde("index_lexical"))
+    # LE RELEVÉ DU MOTEUR EST ÉPINGLÉ CHAUD, et il faut dire pourquoi. Il passe
+    # par le MÊME `httpx.AsyncClient` que la sonde `ollama` ci-dessous — c'est
+    # lui que le faux client remplace — donc il arriverait EN CINQUIÈME sur une
+    # barrière de quatre et la casserait. Ce que ce test mesure est la
+    # simultanéité des QUATRE sondes de `services` ; le moteur n'en fait pas
+    # partie, il ne publie rien dans `services` et ne dégrade pas `status`.
+    #
+    # Épinglé chaud plutôt que neutralisé : c'est l'état RÉEL du service dès le
+    # second appel à `/health`, le relevé étant mémorisé pour la vie du
+    # processus. La scène reste donc celle d'un agent en marche.
+    monkeypatch.setattr(main, "_moteur_releve", main.MoteurLlmHealth(modele_demande="épinglé"))
 
     sonde_ollama = sonde("ollama")
 
