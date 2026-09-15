@@ -700,6 +700,18 @@ def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
     tel quel, avec ce qu'on sait déjà du serveur. `signature_du_moteur` le tient
     d'ailleurs pour non muet, et c'est juste — un serveur connu reste comparable.
     Seule la MÉMORISATION lui est refusée.
+
+    CE QUE CE PRÉDICAT COÛTE, ET IL FAUT LE DIRE. Un serveur qui ne porterait
+    **jamais** le modèle demandé — une faute de tag, un modèle retiré du
+    catalogue — n'atteindra jamais le relevé complet : la sonde repartira à
+    chaque battement, soit deux à trois GET toutes les 20 s, indéfiniment. C'est
+    exactement le prix permanent que le cache existe pour ne pas payer, et il
+    est ici accepté en connaissance de cause : il ne se produit que dans un état
+    **anormal et réparable**, alors que le figer publierait une affirmation
+    fausse dans un état **parfaitement sain**. Le coût reste borné — des lectures
+    courtes, jamais une génération, jamais un jeton — et il se voit : c'est
+    précisément le cas où `/health` publie `modele_servi: null`, à côté d'un
+    `releve_le` qui avance à chaque battement au lieu de rester figé.
     """
     return releve.modele_servi is not None
 
