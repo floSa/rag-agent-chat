@@ -196,11 +196,44 @@ SOURCES = [
 ]
 
 
-def _scene(question: str) -> list[dict[str, str]]:
-    corps = "\n\n".join(f"[src:{eid}] {texte}" for eid, texte in SOURCES)
+# Une quatrième source, qui AIGUILLE sans répondre. Sans elle, le modèle
+# applique la règle 4 du système (« dis que tu n'as pas trouvé ») et n'appelle
+# jamais l'outil — sur AUCUN des deux moteurs. Mesuré le 15 septembre 2026 :
+# quatre cellules sur quatre sans appel et sans fuite, donc quatre cellules qui
+# ne distinguaient rien. Le premier faux résultat de ce banc, contre lui-même.
+AIGUILLON = (
+    "9f8e7d6c5b",
+    "Le congé parental d'éducation fait l'objet d'une fiche distincte, référence RH-114, "
+    "non reproduite ici.",
+)
+
+
+def _scene(question: str, aiguillon: bool = False) -> list[dict[str, str]]:
+    sources = [*SOURCES, AIGUILLON] if aiguillon else list(SOURCES)
+    corps = "\n\n".join(f"[src:{eid}] {texte}" for eid, texte in sources)
     return [
         {"role": "system", "content": SYSTEME},
         {"role": "user", "content": f"Sources :\n\n{corps}\n\nQuestion : {question}"},
+    ]
+
+
+# Le prompt système de production porte DEUX règles qui se contredisent quand
+# les sources ne suffisent pas : la 4 ordonne de dire qu'on n'a pas trouvé, la
+# 5 ordonne d'appeler l'outil. Mesuré le 15 septembre 2026 : la 4 gagne, sur
+# les DEUX moteurs. Une scène qui ne lève pas cette pince ne mesure donc pas le
+# moteur, elle mesure le prompt. Celle-ci la lève depuis le MESSAGE
+# UTILISATEUR, sans toucher au système.
+INJONCTION = (
+    "Les sources ci-dessus ne suffisent pas. Lance une recherche complémentaire "
+    "sur la durée du congé parental d'éducation avant de répondre."
+)
+
+
+def _scene_injonction() -> list[dict[str, str]]:
+    corps = "\n\n".join(f"[src:{eid}] {texte}" for eid, texte in SOURCES)
+    return [
+        {"role": "system", "content": SYSTEME},
+        {"role": "user", "content": f"Sources :\n\n{corps}\n\n{INJONCTION}"},
     ]
 
 
@@ -222,49 +255,87 @@ def sonde_outil() -> dict[str, Any]:
     question = "Quelle est la durée du congé parental d'éducation ?"
     resultats: dict[str, Any] = {"motif_repli": verifier_la_copie_du_repli(), "cellules": []}
 
+    # CONTRÔLE POSITIF DU TRANSPORT, et il est séparé du reste exprès. Il
+    # répond à « le tuyau porte-t-il un tool_calls structuré jusqu'à notre
+    # lecteur ? », pas à « le modèle s'en sert-il ? ». Confondre les deux, c'est
+    # lire une absence d'appel comme une panne de transport, ou l'inverse.
+    charge: dict[str, Any] = {
+        "model": MODELE_VLLM,
+        "messages": _scene(question),
+        "stream": False,
+        "temperature": 0.0,
+        "max_tokens": JETONS_COURTS,
+        "tools": [SEARCH_TOOL],
+        "tool_choice": "required",
+    }
+    code, corps, ecoule = _poster(VLLM, "/v1/chat/completions", charge)
+    message = _lire_openai(corps)
+    resultats["controle_positif_transport"] = {
+        "serveur": "vllm",
+        "tool_choice": "required",
+        "code_http": code,
+        "secondes": round(ecoule, 2),
+        "extract_tool_query": extract_tool_query(message),
+        "tool_calls_bruts": message.get("tool_calls"),
+        "erreur": corps.get("message") if code >= 400 else None,
+    }
+
     for serveur, base, chemin, modele in (
         ("vllm", VLLM, "/v1/chat/completions", MODELE_VLLM),
         ("ollama", OLLAMA, "/api/chat", MODELE_OLLAMA),
     ):
-        for natif in (True, False):
-            charge: dict[str, Any] = {
-                "model": modele,
-                "messages": _scene(question),
-                "stream": False,
-            }
-            if serveur == "vllm":
-                charge["max_tokens"] = JETONS_COURTS
-                charge["temperature"] = 0.0
-            else:
-                charge["think"] = False
-                charge["options"] = {"temperature": 0.0, "num_predict": JETONS_COURTS}
-            # NATIVE_TOOL_CALLING allumé = l'outil est DÉCLARÉ. Éteint = il ne
-            # l'est pas — mais `prompts/system.txt` le décrit quand même, dans
-            # les deux positions : ce n'est pas l'interrupteur qui le décrit.
-            if natif:
-                charge["tools"] = [SEARCH_TOOL]
-
-            code, corps, ecoule = _poster(base, chemin, charge)
-            message = _lire_openai(corps) if serveur == "vllm" else (corps.get("message") or {})
-            texte = message.get("content") or ""
-            fuite = re.search(MOTIF_REPLI, texte)
-            resultats["cellules"].append(
-                {
-                    "serveur": serveur,
-                    "native_tool_calling": natif,
-                    "code_http": code,
-                    "secondes": round(ecoule, 2),
-                    # LA preuve : le lecteur de production a-t-il vu l'appel ?
-                    "extract_tool_query": extract_tool_query(message),
-                    "tool_calls_bruts": message.get("tool_calls"),
-                    "finish_reason": ((corps.get("choices") or [{}])[0]).get("finish_reason")
-                    if serveur == "vllm"
-                    else corps.get("done_reason"),
-                    "repli_prose_attrape": fuite.group(1) if fuite else None,
-                    "contenu": texte[:600],
-                    "contenu_longueur": len(texte),
+        # `None` = scène d'injonction : le prompt système de production, plus un
+        # message utilisateur qui lève la pince règle 4 / règle 5.
+        for aiguillon in (False, True, None):
+            for natif in (True, False):
+                messages = (
+                    _scene_injonction()
+                    if aiguillon is None
+                    else _scene(question, aiguillon=aiguillon)
+                )
+                charge = {
+                    "model": modele,
+                    "messages": messages,
+                    "stream": False,
                 }
-            )
+                if serveur == "vllm":
+                    charge["max_tokens"] = JETONS_COURTS
+                    charge["temperature"] = 0.0
+                else:
+                    charge["think"] = False
+                    charge["options"] = {"temperature": 0.0, "num_predict": JETONS_COURTS}
+                # NATIVE_TOOL_CALLING allumé = l'outil est DÉCLARÉ. Éteint = il
+                # ne l'est pas — mais `prompts/system.txt` le décrit quand même,
+                # dans les DEUX positions : ce n'est pas l'interrupteur qui le
+                # décrit, et le repli par prose de `graph.py:315` reste armé
+                # dans les deux aussi.
+                if natif:
+                    charge["tools"] = [SEARCH_TOOL]
+
+                code, corps, ecoule = _poster(base, chemin, charge)
+                message = _lire_openai(corps) if serveur == "vllm" else (corps.get("message") or {})
+                texte = message.get("content") or ""
+                fuite = re.search(MOTIF_REPLI, texte)
+                resultats["cellules"].append(
+                    {
+                        "serveur": serveur,
+                        "scene": "injonction"
+                        if aiguillon is None
+                        else ("aiguillon" if aiguillon else "nue"),
+                        "native_tool_calling": natif,
+                        "code_http": code,
+                        "secondes": round(ecoule, 2),
+                        # LA preuve : le lecteur de production a-t-il vu l'appel ?
+                        "extract_tool_query": extract_tool_query(message),
+                        "tool_calls_bruts": message.get("tool_calls"),
+                        "finish_reason": ((corps.get("choices") or [{}])[0]).get("finish_reason")
+                        if serveur == "vllm"
+                        else corps.get("done_reason"),
+                        "repli_prose_attrape": fuite.group(1) if fuite else None,
+                        "contenu": texte[:600],
+                        "contenu_longueur": len(texte),
+                    }
+                )
     return resultats
 
 
@@ -272,7 +343,9 @@ def sonde_outil() -> dict[str, Any]:
 # Sonde 2 — les arguments arrivent-ils typés ?
 # --------------------------------------------------------------------------
 def sonde_arguments() -> dict[str, Any]:
-    question = "Quelle est la durée du congé parental d'éducation ?"
+    # Scène d'injonction : la seule mesurée qui produise réellement un appel sur
+    # les deux moteurs. Sur la scène nue, il n'y a aucun appel à typer — et une
+    # sonde qui lit le type d'un appel absent rend « aucun problème ».
     cellules = []
     for serveur, base, chemin, modele in (
         ("vllm", VLLM, "/v1/chat/completions", MODELE_VLLM),
@@ -280,7 +353,7 @@ def sonde_arguments() -> dict[str, Any]:
     ):
         charge: dict[str, Any] = {
             "model": modele,
-            "messages": _scene(question),
+            "messages": _scene_injonction(),
             "stream": False,
             "tools": [SEARCH_TOOL],
         }
@@ -467,7 +540,7 @@ def sonde_raisonnement() -> dict[str, Any]:
                     "finish_reason": ((corps.get("choices") or [{}])[0]).get("finish_reason"),
                     # Sans --reasoning-parser côté serveur, un raisonnement ne
                     # part PAS dans un champ à lui : il sort dans `content`.
-                    "reasoning_content": message.get("reasoning_content"),
+                    "reasoning": message.get("reasoning"),
                     "contenu": texte[:700],
                     "contenu_longueur": len(texte),
                     "erreur": corps.get("message") if code >= 400 else None,
@@ -492,7 +565,7 @@ def sonde_raisonnement() -> dict[str, Any]:
                 "prompt_tokens": corps.get("prompt_eval_count"),
                 "completion_tokens": corps.get("eval_count"),
                 "finish_reason": corps.get("done_reason"),
-                "reasoning_content": (corps.get("message") or {}).get("thinking"),
+                "reasoning": (corps.get("message") or {}).get("thinking"),
                 "contenu": texte[:700],
                 "contenu_longueur": len(texte),
                 "erreur": None,
@@ -518,7 +591,7 @@ def sonde_raisonnement() -> dict[str, Any]:
         "secondes": round(ecoule, 2),
         "usage": corps.get("usage"),
         "finish_reason": ((corps.get("choices") or [{}])[0]).get("finish_reason"),
-        "reasoning_content": message.get("reasoning_content"),
+        "reasoning": message.get("reasoning"),
         "contenu": (message.get("content") or "")[:1200],
     }
     return {"gabarit_rendu": rendus, "mesures": mesures, "budget_genereux": budget}
