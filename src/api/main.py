@@ -8,6 +8,7 @@ import uuid
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 from anyio import CapacityLimiter, to_thread
@@ -63,6 +64,7 @@ from src.api.schemas import (
     GenerationMeasure,
     HealthResponse,
     ImageRef,
+    MoteurLlmHealth,
     ReindexResponse,
     RetrievedContext,
     SearchRequest,
@@ -620,6 +622,148 @@ async def _sonder[T](
         raise
 
 
+# Combien de temps on accorde au serveur LLM pour dire QUI il est. Court, et
+# pour une raison : ce relevé est une COMMODITÉ de traçabilité, pas une sonde de
+# santé. `_sonder_ollama` dit déjà si le service répond ; celui-ci dit ce qu'il
+# est. Un serveur lent ne doit pas coûter le healthcheck deux fois.
+_MOTEUR_TIMEOUT_S = 3.0
+
+# Le relevé, mémorisé pour la vie du processus après un premier succès.
+#
+# POURQUOI UN CACHE, ET CE QU'IL COÛTE. `/health` est battu par le healthcheck
+# du compose toutes les 20 s. Deux requêtes de plus à chaque battement, vers un
+# serveur d'inférence PARTAGÉ avec une autre équipe, seraient un prix permanent
+# payé pour un fait qui ne change qu'au redémarrage de ce serveur. Ce qu'on y
+# perd est borné et nommé : un serveur LLM remplacé SOUS un agent qui continue
+# de tourner serait publié dans son état d'avant, jusqu'au prochain redémarrage
+# de l'agent. C'est la même borne que `peripherique_de_la_campagne` accepte pour
+# la même raison, et ce n'est pas le cas que cette clé existe pour attraper.
+#
+# UN ÉCHEC N'EST PAS MÉMORISÉ : un serveur qui n'avait pas fini de démarrer
+# resterait muet pour toujours si on gardait son silence.
+_moteur_releve: MoteurLlmHealth | None = None
+
+
+def _endpoint_expurge(hote: str) -> str:
+    """L'URL du serveur LLM, sans ce qu'elle pourrait porter de secret.
+
+    CE DÉPÔT EST PUBLIC ET `runs/*.json` Y EST VERSIONNÉ. `OLLAMA_HOST` est un
+    nom de service docker sur ce poste, mais rien n'empêche un déploiement d'y
+    mettre `http://utilisateur:motdepasse@hote:11434`, et ce champ finirait
+    recopié dans une campagne commitée. On ne garde donc que schéma, hôte et
+    port — ce qui suffit à dire « ce n'est pas le même serveur qu'hier », qui est
+    tout ce qu'on lui demande.
+    """
+    decoupe = urlsplit(hote)
+    if not decoupe.scheme or not decoupe.hostname:
+        # Une URL que `urlsplit` ne sait pas découper n'est pas recopiée : on ne
+        # sait pas ce qu'elle contient. Le fait « illisible » est rendu tel quel.
+        return "(illisible)"
+    port = f":{decoupe.port}" if decoupe.port else ""
+    return f"{decoupe.scheme}://{decoupe.hostname}{port}"
+
+
+async def _lire_json(client: httpx.AsyncClient, url: str) -> dict[str, Any] | None:
+    """Le corps JSON d'un GET, ou `None` dès que quoi que ce soit cloche.
+
+    L'ABSORPTION EST LARGE ET ASSUMÉE : transport, délai, statut, décodage — ici
+    ils disent tous la même chose, « je n'ai pas pu lire ». La distinction
+    servirait un diagnostic que ce relevé ne rend pas ; `_sonder_ollama` porte
+    déjà la santé du service, et c'est elle qu'un exploitant regarde.
+    """
+    try:
+        reponse = await client.get(url)
+        if reponse.status_code != 200:
+            return None
+        charge = reponse.json()
+    except Exception:  # noqa: BLE001 — voir la docstring : toutes ces pannes se disent pareil
+        return None
+    return charge if isinstance(charge, dict) else None
+
+
+async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
+    """QUI génère réellement, relevé du serveur. `None` si on n'a pas pu lire.
+
+    LE DISCRIMINANT PORTE UN FAIT DES DEUX CÔTÉS, et ce n'est pas un détail de
+    forme : `GET /api/version` rend 200 et un `version` sur Ollama, et **404 sur
+    vLLM** — `mesuré` le 15 septembre 2026 à 15:25 UTC sur les deux serveurs de
+    ce poste. Un discriminant qui ne saurait dire que « ce n'est pas Ollama »
+    rangerait n'importe quel serveur muet dans « vLLM » ; celui-ci exige une
+    version des deux côtés, donc une réponse positive pour conclure.
+
+    Au plus TROIS requêtes, toutes en LECTURE : aucune génération, aucun jeton.
+    Le serveur vLLM de ce poste appartient à une autre équipe.
+    """
+    global _moteur_releve
+    if _moteur_releve is not None:
+        return _moteur_releve
+    hote = settings.ollama_host
+    serveur: str | None = None
+    version: str | None = None
+    servi: str | None = None
+    empreinte: str | None = None
+    quantification: str | None = None
+    fenetre: int | None = None
+    async with httpx.AsyncClient(timeout=_MOTEUR_TIMEOUT_S) as client:
+        charge = await _lire_json(client, f"{hote}/api/version")
+        if charge is not None and isinstance(charge.get("version"), str):
+            serveur, version = "ollama", charge["version"]
+        else:
+            charge = await _lire_json(client, f"{hote}/version")
+            if charge is not None and isinstance(charge.get("version"), str):
+                serveur, version = "vllm", charge["version"]
+        if serveur is None:
+            # Ni l'un ni l'autre n'a dit son nom. On ne DEVINE pas : le champ
+            # entier est muet, et `evaluate.py` le lira « je ne sais pas ».
+            return None
+        if serveur == "ollama":
+            # `/api/tags` liste ce que le serveur PORTE. Le tag demandé peut n'y
+            # être pas — il sera tiré au premier appel, ou l'appel échouera — et
+            # c'est un fait qu'on veut voir plutôt que de le remplacer par le
+            # nom demandé.
+            catalogue = await _lire_json(client, f"{hote}/api/tags")
+            for modele in (catalogue or {}).get("models") or []:
+                if not isinstance(modele, dict):
+                    continue
+                if settings.ollama_model in (modele.get("name"), modele.get("model")):
+                    servi = modele.get("name")
+                    # Tronqué à 16 : assez pour séparer deux poids, assez court
+                    # pour qu'on ne le prenne pas pour une empreinte complète.
+                    empreinte = (modele.get("digest") or "")[:16] or None
+                    details = modele.get("details")
+                    if isinstance(details, dict):
+                        quantification = details.get("quantization_level")
+                    break
+        else:
+            catalogue = await _lire_json(client, f"{hote}/v1/models")
+            entrees = (catalogue or {}).get("data") or []
+            premiere = entrees[0] if entrees and isinstance(entrees[0], dict) else {}
+            servi = premiere.get("id")
+            longueur = premiere.get("max_model_len")
+            fenetre = longueur if isinstance(longueur, int) else None
+    _moteur_releve = MoteurLlmHealth(
+        serveur=serveur,
+        endpoint=_endpoint_expurge(hote),
+        version=version,
+        modele_demande=settings.ollama_model,
+        modele_servi=servi,
+        empreinte_du_modele=empreinte,
+        quantification=quantification,
+        fenetre_servie=fenetre,
+        # NOTRE réglage, nommé comme tel dans le schéma. Ces cinq-là changent le
+        # SENS de la réponse et non sa vitesse : le raisonnement, la façon de
+        # demander l'outil, l'aléa, la fenêtre demandée, le plafond de sortie.
+        options={
+            "thinking": settings.llm_thinking,
+            "outils_natifs": settings.native_tool_calling,
+            "temperature": settings.llm_temperature,
+            "num_ctx": settings.llm_num_ctx,
+            "max_tokens": settings.llm_max_tokens,
+        },
+    )
+    return _moteur_releve
+
+
 async def _sonder_ollama() -> bool:
     """Sonde HTTP d'Ollama.
 
@@ -718,6 +862,11 @@ async def health() -> HealthResponse:
         for nom, sonde in sondes.items()
     }
     taches["ollama"] = asyncio.create_task(_sonder_ollama())
+    # Sous le MÊME plafond, et hors de `services` pour la même raison que le
+    # périphérique : ce n'est pas un booléen. Une panne du serveur LLM est déjà
+    # portée par la sonde `ollama` ci-dessus ; celle-ci ne dit QUE l'identité, et
+    # son silence ne dégrade donc rien — il se dit dans `services_unknown`.
+    tache_moteur = asyncio.create_task(_sonder_moteur_llm())
     # Sous le MÊME plafond : `usage_stats` ouvre SQLite avec un busy_timeout de
     # 5 s, donc laissée dehors elle pouvait à elle seule faire dépasser le délai
     # du healthcheck, sans qu'aucune sonde soit en cause — un plafond qui ne
@@ -751,6 +900,7 @@ async def health() -> HealthResponse:
         tache_usage,
         tache_embedding,
         tache_peripherique,
+        tache_moteur,
     ]
     await asyncio.wait(attente, timeout=_PLAFOND_SONDES_S)
 
@@ -793,6 +943,7 @@ async def health() -> HealthResponse:
     # périphérique hors d'atteinte et dégraderait un service dont on ne sait
     # RIEN. Le `or` de repli est donc APRÈS ce calcul, pas avant.
     peripherique = _relever("peripherique_torch", tache_peripherique, si_levee=None)
+    moteur = _relever("moteur_llm", tache_moteur, si_levee=None)
     peripherique_refuse = peripherique is not None and peripherique.hors_d_atteinte is not None
     # ET L'IGNORANCE SE DIT, sinon `ok` sur une sonde muette est indiscernable
     # de `ok` sur un service sain — NB-1 de l'audit du 14 septembre 2026. Ne pas
@@ -809,6 +960,15 @@ async def health() -> HealthResponse:
     # met pas : il faut le dire ici.
     if peripherique is None:
         inconnues.append("peripherique_torch")
+    # MÊME DIALECTE, ET C'EST LE MOTIF : le dépôt dit déjà son non-savoir par
+    # cette liste, et un troisième mot pour la même chose serait une divergence
+    # sans fait pour la porter. Ce qu'il ne fait PAS : dégrader `status`. Un
+    # serveur qui refuse de dire son nom n'est pas un serveur en panne — la
+    # sonde `ollama` porte la panne —, et faire passer le conteneur `unhealthy`
+    # sur un champ de traçabilité serait exactement le faux positif que le
+    # §1.27 existe pour éviter.
+    if moteur is None:
+        inconnues.append("moteur_llm")
     #
     # `unknown` ne dégrade PAS : la sonde `chromadb` porte déjà le fait qu'on n'a
     # pas pu lire, et le publier deux fois ferait croire à deux pannes. Publier
@@ -842,6 +1002,7 @@ async def health() -> HealthResponse:
         ),
         embedding_model=embedding,
         torch_device=peripherique or _peripherique_inconnu(),
+        moteur_llm=moteur,
     )
 
 
