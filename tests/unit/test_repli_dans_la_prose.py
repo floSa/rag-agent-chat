@@ -50,17 +50,39 @@ from src.api.schemas import BreadcrumbEntry, SectionContext
 QUESTION = "Quelle est la durée du congé parental d'éducation ?"
 
 
-def _flux_sans_appel_natif(texte: str):
-    """Un serveur qui rend `texte` en un seul jeton et AUCUN `tool_calls`.
+def _flux_sans_appel_natif(texte: str, appel_natif: str | None = None):
+    """Un serveur qui rend `texte`, avec ou sans `tool_calls` structuré.
 
-    C'est la scène du défaut : le canal natif est muet, donc `tool_queries`
-    reste vide, donc le second rideau est le seul signal disponible.
+    Sans `appel_natif`, c'est la scène du défaut : le canal natif est muet, donc
+    `tool_queries` reste vide, donc le second rideau est le seul signal
+    disponible.
+
+    Avec, c'est la scène des DEUX canaux à la fois — un modèle qui appelle
+    l'outil ET écrit l'appel dans son texte. Elle existe parce que le nettoyage
+    n'est pas commandé par le repli : la syntaxe doit partir de l'écran même
+    quand la recherche est déjà servie par le canal structuré.
     """
 
     class Resp:
         def raise_for_status(self) -> None: ...
 
         async def aiter_lines(self):
+            if appel_natif is not None:
+                yield json.dumps(
+                    {
+                        "message": {
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "search_vectors",
+                                        "arguments": {"query": appel_natif},
+                                    }
+                                }
+                            ],
+                        }
+                    }
+                )
             yield json.dumps({"message": {"content": texte}})
             yield json.dumps({"message": {"content": ""}, "done": True})
 
@@ -94,13 +116,15 @@ def _section() -> SectionContext:
     )
 
 
-async def _servir(monkeypatch, texte: str) -> dict:
+async def _servir(monkeypatch, texte: str, appel_natif: str | None = None) -> dict:
     """Joue un tour complet de `node_generate` sur un modèle qui rend `texte`.
 
     `NATIVE_TOOL_CALLING` est posé à `True` : la valeur SERVIE en production.
     """
     monkeypatch.setattr(llm.settings, "native_tool_calling", True)
-    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_sans_appel_natif(texte))
+    monkeypatch.setattr(
+        llm.httpx, "AsyncClient", _flux_sans_appel_natif(texte, appel_natif)
+    )
     return await graph_module.node_generate(
         {
             "question": QUESTION,
@@ -200,6 +224,34 @@ async def test_l_enrobage_du_moteur_ne_reste_pas_orphelin(monkeypatch) -> None:
     assert resultat["next_query"] == "le contrat cadre"
     assert "execute_tool" not in resultat["response"]
     assert resultat["response"] == "Je vais chercher."
+
+
+@pytest.mark.asyncio
+async def test_le_nettoyage_ne_depend_pas_du_canal_qui_a_servi(monkeypatch) -> None:
+    """Un modèle qui appelle l'outil ET écrit l'appel : les deux moitiés partent.
+
+    Avant ce lot, le nettoyage était attaché au repli — il ne s'exécutait que
+    dans le bloc qui n'avait PAS reçu d'appel natif. Un modèle qui fait les deux
+    voyait donc sa recherche servie par le canal structuré, et sa syntaxe
+    s'afficher quand même.
+
+    C'est la scène que le commentaire du code annonçait sans que rien ne la
+    garde : une mutation rattachant le nettoyage au repli a survécu aux 908
+    tests du dépôt. Un commentaire n'est pas un garde.
+
+    L'appel natif fait foi pour la sous-question — c'est lui qui est structuré,
+    donc sans ambiguïté — et la prose écrit ici une AUTRE sous-question, pour
+    que l'assertion distingue les deux au lieu de les confondre.
+    """
+    resultat = await _servir(
+        monkeypatch,
+        "Je cherche.\n\n" + 'search_vectors(query="ce que la prose demande")',
+        appel_natif="ce que le canal natif demande",
+    )
+
+    assert resultat["next_query"] == "ce que le canal natif demande"
+    assert "search_vectors" not in resultat["response"]
+    assert resultat["response"] == "Je cherche."
 
 
 # ─── L'AUTRE BORD : ce qui ne doit RIEN déclencher ───────────────────────────
