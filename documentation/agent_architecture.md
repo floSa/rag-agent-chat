@@ -275,9 +275,44 @@ celui de l'image Docker ; hors conteneur, repli sur celui du dépôt.
 
 `search_vectors` est déclaré comme **outil natif** Ollama : le modèle répond par
 un `tool_calls` structuré, capté au fil du flux et jamais rendu à l'utilisateur.
-Le repérage de `search_vectors("…")` dans la prose reste actif en second rideau,
-pour les modèles sans tool-calling ; le log indique lequel des deux canaux a
-parlé. Limite : `MAX_SEARCH_ITERATIONS`.
+Le repérage de l'appel dans la prose reste actif en **second rideau**, pour les
+modèles qui n'en font pas ; le log indique lequel des deux canaux a parlé.
+Limite : `MAX_SEARCH_ITERATIONS`.
+
+**Le second rideau a UN site : `src/agent/repli_outil.py`.** `lire_et_retirer`
+rend d'un seul passage la sous-question écrite dans la prose ET le texte
+débarrassé de l'appel. Les deux sortaient auparavant de deux expressions
+régulières recopiées dans `graph.py`, libres de diverger — et la divergence
+n'est pas un détail de forme : celle qui reconnaît sans nettoyer affiche la
+syntaxe à l'utilisateur, celle qui nettoie sans reconnaître efface la demande
+sans jamais la servir. `tests/unit/test_coherence_depot.py` rougit si un second
+site apparaît.
+
+**Les formes reconnues sont MESURÉES, pas supposées.** Le motif d'origine
+exigeait une parenthèse immédiatement suivie d'un guillemet — la forme
+positionnelle — et les deux moteurs du poste écrivent aussi la forme nommée.
+`mesuré` le 15 septembre 2026 entre 22:35 et 22:50 UTC, en lecture, une requête
+à la fois, sans déclarer l'outil nativement :
+
+| forme écrite par le modèle | moteur |
+|---|---|
+| `search_vectors("…")` | Ollama |
+| `search_vectors(query="…")` | vLLM |
+| `search_vectors(sous_question="…")` | vLLM |
+| `search_vectors(sous-question="…")` | Ollama |
+
+Le nom d'argument n'est pas comparé à une liste : trois noms désignent la même
+place, et un modèle en inventera un quatrième. C'est la FORME qui est exigée —
+un identifiant, un `=`, une chaîne entre guillemets — parce que c'est elle qui
+distingue un appel d'une phrase. L'exigence de la parenthèse ET des guillemets
+est ce qui empêche le rideau d'attraper « Je vais lancer une recherche
+complémentaire avec l'outil `search_vectors`. », qu'Ollama écrit sans jamais
+appeler l'outil (mesuré, deux essais sur deux) : un motif plus large ne rend pas
+le rideau plus solide, il lui fait inventer des recherches.
+
+**Le nettoyage ne dépend pas du canal.** Il était attaché au repli ; un modèle
+qui fait l'appel natif ET l'écrit dans son texte laissait donc la seconde moitié
+à l'écran.
 
 ### Budget de contexte
 

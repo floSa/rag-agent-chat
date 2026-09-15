@@ -265,7 +265,12 @@ cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
   devinette.
 - **Tool-calling natif, repli par regex.** `search_vectors` est déclaré comme
   outil ; le repérage de l'appel dans la prose reste actif pour les modèles sans
-  tool-calling.
+  tool-calling. Ce repli a **un seul site**, `src/agent/repli_outil.py`, qui rend
+  d'un même passage la sous-question et le texte nettoyé — deux motifs séparés
+  finissent par diverger, et la divergence laisse fuir d'un côté ce qu'elle
+  reconnaît de l'autre. Les formes reconnues sont celles que les moteurs
+  écrivent réellement, mesurées le 15 septembre 2026 ; voir
+  `documentation/agent_architecture.md`, « Boucle agentique ».
 - **API native Ollama + thinking désactivé** (`LLM_THINKING=false`) : sans ce
   flag, la réflexion peut consommer tout le budget `num_predict` avant le
   premier token. L'endpoint OpenAI-compatible ne permet pas de piloter `think`.
