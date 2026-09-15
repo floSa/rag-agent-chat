@@ -32,7 +32,7 @@ import json
 import pathlib
 import sys
 from contextlib import redirect_stdout
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -814,6 +814,14 @@ class TestLeReleveDitQuandIlAEtePris:
 
         Un horodatage recalculé à chaque lecture rendrait un relevé de onze
         heures indiscernable d'un relevé neuf — le défaut exact qu'il ferme.
+
+        LA VIEILLESSE EST INJECTÉE, ET C'EST UNE CORRECTION CONTRE MOI-MÊME.
+        Ce test comparait d'abord deux lectures consécutives. Mutation M4 —
+        redater le relevé à chaque lecture du cache — l'a laissé **VERT** : les
+        deux lectures tombent dans la même seconde, et la date est publiée à la
+        seconde. Un garde qui dépend de la vitesse de la machine ne garde rien.
+        Le relevé mémorisé est donc vieilli d'un jour à la main, ce qui rend la
+        scène déterministe et la mutation mordante.
         """
         from src.api import main
 
@@ -825,10 +833,14 @@ class TestLeReleveDitQuandIlAEtePris:
             },
         )
         assert releve is not None
+        veille = (datetime.now(UTC) - timedelta(days=1)).isoformat(timespec="seconds")
+        monkeypatch.setattr(
+            main, "_moteur_releve", releve.model_copy(update={"releve_le": veille})
+        )
         relu = asyncio.run(main._sonder_moteur_llm())
         assert relu is not None
-        assert relu.releve_le == releve.releve_le, (
-            "la date a été refaite à la lecture : un relevé vieux de onze heures "
+        assert relu.releve_le == veille, (
+            "la date a été refaite à la lecture : un relevé vieux d'un jour "
             "se présenterait comme neuf"
         )
 
