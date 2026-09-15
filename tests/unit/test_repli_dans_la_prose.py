@@ -227,6 +227,11 @@ PROSE_ORDINAIRE = [
         "Il faudrait appeler search_vectors avec une sous-question précise.",
         id="nom-de-l-outil-dans-une-phrase",
     ),
+    pytest.param(
+        "Je vais lancer une recherche complémentaire avec l'outil `search_vectors`.\n\n"
+        'Sous-question : "Quelles sont les modalités et la durée du compte épargne temps ?"',
+        id="mention-puis-citation-entre-guillemets",
+    ),
 ]
 
 
@@ -238,6 +243,16 @@ async def test_les_mentions_en_prose_ne_declenchent_rien(monkeypatch, texte) -> 
     Le premier cas n'est pas inventé : Ollama l'a écrit, deux essais sur deux.
     Un rideau qui cherche `search_vectors` sans exiger la parenthèse ET la
     chaîne entre guillemets part en recherche sur cette phrase-là.
+
+    Le dernier est COMPOSÉ, et il faut le dire : ses deux moitiés sont mesurées
+    séparément — Ollama écrit « avec l'outil `search_vectors`. » sans jamais
+    l'appeler (deux essais sur deux), et les deux moteurs citent les sources
+    entre guillemets (quatre cellules sur quatre). Aucune requête ne les a
+    produites ENSEMBLE : le prompt système interdit d'écrire l'appel, et les
+    modèles lui obéissent. Ce cas n'affirme donc pas qu'un moteur écrit ce
+    texte ; il tient le bord haut du motif, que rien ne tenait avant lui — une
+    mutation retirant les parenthèses du motif a survécu à tout le reste de ce
+    fichier.
     """
     resultat = await _servir(monkeypatch, texte)
 
