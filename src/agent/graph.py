@@ -21,6 +21,7 @@ from src.agent.llm import (
     translate_question,
 )
 from src.agent.minio_client import to_media_path
+from src.agent.repli_outil import lire_et_retirer
 from src.agent.retriever import group_by_document, rerank, retrieve
 from src.agent.settings import settings
 from src.agent.state import AgentState
@@ -307,15 +308,23 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     next_query: str | None = tool_queries[0] if tool_queries else None
     origine = "outil natif"
 
-    if next_query is None:
-        # Repli pour les modèles sans tool-calling : repérer l'appel dans la
-        # prose. Fragile — le modèle doit produire la syntaxe exacte, et les
-        # tokens sont déjà partis à l'écran — mais c'est le seul signal
-        # disponible dans ce cas.
-        match = re.search(r"search_vectors\([\"'](.+?)[\"']\)", response)
-        if match:
-            next_query = match.group(1)
-            origine = "prose (repli)"
+    # Le second rideau, et il rend ses DEUX résultats d'un seul passage : la
+    # sous-question écrite dans la prose, et le texte débarrassé de l'appel.
+    # Les deux sortaient auparavant de deux motifs recopiés à quinze lignes
+    # l'un de l'autre, libres de diverger — et une divergence laisse fuir d'un
+    # côté ce qu'elle a reconnu de l'autre. Voir `src/agent/repli_outil.py`.
+    #
+    # Le nettoyage a lieu QUEL QUE SOIT le canal : un modèle qui fait l'appel
+    # natif ET l'écrit dans son texte existe, et la seconde moitié doit partir
+    # de l'écran même quand la première a déjà servi la recherche.
+    ecrit_dans_la_prose, response = lire_et_retirer(response)
+
+    if next_query is None and ecrit_dans_la_prose:
+        # Repli pour les modèles sans appel natif. Fragile — les tokens sont
+        # déjà partis à l'écran avant qu'on les retire — mais c'est le seul
+        # signal disponible dans ce cas.
+        next_query = ecrit_dans_la_prose
+        origine = "prose (repli)"
 
     needs_more = bool(next_query) and (
         state.get("search_count", 0) < settings.max_search_iterations
@@ -325,9 +334,6 @@ async def node_generate(state: AgentState) -> dict[str, Any]:
     elif next_query:
         logger.info("Recherche supplémentaire ignorée : plafond d'itérations atteint.")
         next_query = None
-
-    # La syntaxe d'appel d'outil ne doit jamais apparaître dans la réponse finale
-    response = re.sub(r"search_vectors\([\"'].+?[\"']\)", "", response).strip()
 
     return {
         "response": response,
