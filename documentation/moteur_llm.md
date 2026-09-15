@@ -54,6 +54,34 @@ du découpage, et il doit passer **avant** tout changement de moteur.
 | `fenetre_servie` | **fait** | `max_model_len` (vLLM) |
 | `modele_demande` | *réglage* | `OLLAMA_MODEL` |
 | `options` | *réglage* | nos cinq drapeaux d'appel |
+| `releve_le` | **fait**, sur NOUS | l'horloge de l'agent à l'instant du relevé, ISO-8601 UTC |
+
+**POURQUOI UNE DATE, ET SUR CE CHAMP SEUL.** Le relevé est **mémorisé pour la vie
+du processus** de l'agent, et c'est le **seul** état de `/health` qui le soit :
+toutes les autres sondes sont relancées à chaque battement, donc ce qu'elles
+publient date de la réponse qu'on lit. Celui-ci peut dater d'il y a onze heures.
+Le lecteur visé est **externe** — le pipeline, l'équipe voisine qui relance son
+serveur vLLM quand elle change son réglage de mémoire GPU : la valeur devient
+fausse sans que rien ne rougisse, et la seule défense honnête est de dater ce
+qu'on publie. C'est la date du **relevé**, jamais celle de la lecture, et la
+distinction est tout l'intérêt du champ — un horodatage refait à chaque lecture
+rendrait un relevé de onze heures indiscernable d'un relevé neuf.
+
+`releve_le` **n'entre pas dans la signature**, et un test le tient : deux
+campagnes tournées sur le même serveur à deux heures différentes doivent signer
+**pareil**, sans quoi `--compare` conclurait « MOTEUR LLM DIFFÉRENT » sur un
+moteur identique.
+
+**CE QUI EST MÉMORISÉ EST UN RELEVÉ COMPLET**, et c'était la bloquante de l'audit
+du 15 septembre 2026. Le prédicat était « le serveur a dit son nom » ; il est
+« le serveur a dit son nom **et** ce qu'il porte » (`modele_servi`). Entre les
+deux se trouve la fenêtre de démarrage : un serveur dont le port HTTP répond
+avant que son modèle soit servi rendait un relevé **partiel**, figé à vie, d'où
+`/health` publiait `modele_servi: null` en permanence sur un serveur
+parfaitement sain — et `signature_du_moteur` en tirait « modèle ABSENT DU
+SERVEUR », une affirmation **fausse** et non un silence. Le relevé partiel est
+toujours **rendu** ; il n'est plus **figé**. Il se redemande au battement
+suivant, vingt secondes plus tard.
 
 **LE FAIT, JAMAIS L'INTENTION**, et c'est la leçon de la clé `peripherique` du
 lot 12 : `requested` y est le réglage, `embedding` le fait. Ici, `ollama_model`
@@ -103,6 +131,14 @@ serveurs de ce poste. **Valeurs datées, non gardées.**
   (`LLM_NUM_CTX`). `fenetre_servie` et `options.num_ctx` sont deux grandeurs
   différentes et le document les nomme séparément.
 
+**CE QUE LE CATALOGUE vLLM PORTE D'AUTRE, ET QUI NE SERT À RIEN.** `mesuré` le
+15 septembre 2026 à 17:30 UTC, la réponse complète de `/v1/models` porte aussi
+`created`, `owned_by`, `root`, `parent` et un bloc `permission`. **Aucun n'est
+relevé, et deux sont écartés exprès** : `created` et `permission[].id` sont
+**régénérés à chaque requête** — deux lectures du même serveur à quatorze
+secondes d'écart rendent deux valeurs différentes. Les consigner ferait différer
+deux relevés du même moteur. Voir le §6.
+
 ---
 
 ## 4. Le discriminant, et pourquoi il exige une réponse POSITIVE
@@ -149,6 +185,14 @@ C'est la forme exacte du faux vert que ce chantier a trouvée neuf fois.
 **« MUET » N'EST PAS « DIFFÉRENT ».** On ne peut ni affirmer ni exclure une
 bascule. Les campagnes de `runs/` en sont toutes là aujourd'hui.
 
+**ET `DIFFÉRENT` EST INATTEIGNABLE CÔTÉ vLLM SUR DEUX POIDS SERVIS SOUS LE MÊME
+`id`.** C'est une borne du tableau ci-dessus, pas une note de bas de page, et
+elle pèse d'autant plus que le chantier bascule **vers** vLLM : la position
+n'est atteinte que par un écart de signature, et la signature côté vLLM ne porte
+rien qui sépare deux poids sous un même nom. Ce qui reste visible est le nom —
+qui porte la quantification sur l'instance de ce poste — et la fenêtre servie.
+Le détail de ce qui a été cherché, et de ce qui n'existe pas, est au §6.
+
 **IL SIGNALE, IL NE REFUSE PAS**, et le motif est plus fort ici que pour le
 périphérique. `empreinte_des_ancrages` **refuse**, parce qu'un corpus remplacé
 rend des chiffres plausibles et faux sur chaque question. Le moteur est de
@@ -179,9 +223,55 @@ corpus remplacé reste un refus, quel que soit le moteur.
   `ollama-central` plutôt qu'un autre est **plausible et non mesuré** : l'établir
   demanderait un `docker exec` dans un conteneur de production.
 - **Le comportement sous un serveur relancé pendant une campagne.** Le relevé
-  étant mémorisé, il décrirait l'état d'avant. La borne est la même que celle
-  que `peripherique_de_la_campagne` accepte, et pour la même raison : ce n'est
-  pas le cas que cette clé existe pour attraper.
+  étant mémorisé, il décrirait l'état d'avant. Ce n'est pas le cas que cette clé
+  existe pour attraper — mais depuis le 15 septembre 2026 le relevé **porte sa
+  date**, donc un lecteur peut voir qu'il décrit un instant antérieur.
+  *(L'analogie autrefois invoquée ici avec `peripherique_de_la_campagne` a été
+  **retirée** : celui-ci vit dans un processus de campagne qui se **termine** au
+  bout de quelques minutes, celui-là dans un **démon** battu toutes les 20 s
+  pendant des jours. La borne du premier ne justifie pas celle du second.)*
+
+- **AUCUN DISCRIMINANT DE POIDS N'EXISTE CÔTÉ vLLM, et c'est mesuré.** `mesuré`
+  le 15 septembre 2026 à 17:30–17:31 UTC, en **lecture seule**, contre
+  l'instance de ce poste et sur les **sept** routes GET qu'elle déclare à
+  `/openapi.json` (`/health`, `/load`, `/metrics`, `/ping`, `/v1/models`,
+  `/v1/responses/{id}`, `/version`) :
+
+  | Ce qu'on espérait | Ce qui a été mesuré |
+  |---|---|
+  | un digest de poids dans `/v1/models` | **absent** — `id`, `root`, `max_model_len` et rien d'autre d'utile |
+  | `created` = l'instant de DÉMARRAGE du serveur | **faux** : il vaut l'instant de **chaque requête** (deux lectures du même serveur à 14 s d'écart rendent deux valeurs) |
+  | `permission[].id` comme identifiant stable | **faux** : régénéré à chaque requête lui aussi |
+  | une empreinte dans `/metrics` | **absente** — on y trouve la configuration du moteur, dont son utilisation mémoire GPU, et la lire coûterait une **quatrième** requête par battement sur un serveur partagé |
+
+  Les deux faux amis ne sont pas seulement inutiles, ils sont **nuisibles** : les
+  relever ferait différer deux relevés du **même** moteur. Un test l'interdit
+  désormais. Ce qui reste donc non couvert est le cas exact du **poids remplacé
+  sous un `id` inchangé**, côté vLLM — invisible, et dit ici plutôt que
+  supposé fermé.
+
+- **Le premier modèle du catalogue vLLM n'est pas confronté au modèle demandé**,
+  là où la branche Ollama cherche explicitement le tag demandé et rend `null`
+  s'il est absent. Ce n'est **pas** réparable par une égalité : les deux noms ne
+  vivent pas dans le même espace de nommage — un tag Ollama court d'un côté, un
+  identifiant de dépôt Hugging Face de l'autre —, et les confronter rendrait
+  `modele_servi: null` en **permanence** sur un serveur parfaitement sain. Le
+  garde « modèle ABSENT DU SERVEUR » ne peut donc pas se déclencher côté vLLM.
+  `mesuré` le 15 septembre 2026 : l'instance voisine ne sert **qu'une** entrée,
+  donc la réserve est inerte en pratique — elle cessera de l'être le jour où un
+  serveur vLLM en servira plusieurs.
+
+- **La clé n'a jamais été relevée à travers le `/health` d'un agent réellement
+  en service.** L'audit l'a vérifié plutôt que supposé : le conteneur en service
+  tourne du code antérieur au lot, et `moteur_llm` est absente de sa réponse.
+  L'atteindre exigerait de **redémarrer ce démon**, ce que le poste partagé
+  interdit. Aucune mesure de bout en bout à travers un vrai serveur ASGI
+  n'existe donc à ce jour — ni de la part du lot, ni de son audit, ni de cette
+  réparation. Ce que la sonde in-process ne peut pas voir reste non vu, en
+  particulier le comportement du cache sous **plusieurs workers**, chacun ayant
+  son propre `_moteur_releve` : deux battements consécutifs de `/health`
+  derrière un répartiteur pourraient publier deux relevés d'âges différents —
+  ce que `releve_le` rend au moins **visible**, sans le résoudre.
 
 ---
 
@@ -193,6 +283,15 @@ curl -s localhost:8011/health | python3 -c "import json,sys; print(json.dumps(js
 
 # Ce qu'une campagne a consigné
 python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('moteur_llm'))" runs/une-campagne.json
+
+# L'AGE du relevé publié : « pris il y a dix secondes » ou « il y a onze heures » ?
+curl -s localhost:8011/health | python3 -c "
+import datetime, json, sys
+d = json.load(sys.stdin).get('moteur_llm') or {}
+pris = d.get('releve_le')
+print('relevé le', pris, '— il y a',
+      datetime.datetime.now(datetime.UTC) - datetime.datetime.fromisoformat(pris)
+      if pris else 'DATE ABSENTE (agent antérieur au 15 septembre 2026)')"
 
 # Combien de campagnes du disque sont muettes
 python3 -c "import json,glob; f=glob.glob('runs/*.json'); print(sum(1 for x in f if json.load(open(x)).get('moteur_llm') is None), 'muettes sur', len(f))"
