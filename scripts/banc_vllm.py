@@ -40,6 +40,7 @@ RACINE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE))
 
 from src.agent.llm import SEARCH_TOOL, extract_tool_query  # noqa: E402
+from src.agent.repli_outil import APPEL_DANS_LA_PROSE  # noqa: E402
 
 # --------------------------------------------------------------------------
 # Adresses. Ce sont des services DÉJÀ lancés ; le banc n'en démarre aucun.
@@ -60,26 +61,24 @@ PAUSE = 1.0
 JETONS_COURTS = 64
 JETONS_RAISONNEMENT = 300
 
-# Le repli de `graph.py:315`, recopié ICI et nulle part ailleurs dans ce banc.
-# Le recopier est un choix : `graph.py` ne l'expose pas en fonction, et
-# l'importer voudrait dire importer le graphe entier. Le banc vérifie donc
-# d'abord que cette copie est bien celle du site canonique.
-MOTIF_REPLI = r"search_vectors\([\"'](.+?)[\"']\)"
-SITE_REPLI = RACINE / "src" / "agent" / "graph.py"
-
-
+# Le repli n'est PLUS recopié ici, et c'est le lot 19 qui l'a rendu possible.
+#
+# Ce banc en portait une copie, plus un contrôle qui vérifiait que la copie se
+# retrouvait à l'identique dans `graph.py`. Le motif de la copie : `graph.py`
+# ne l'exposait pas en fonction, et l'importer voulait dire importer le graphe
+# entier. `src/agent/repli_outil.py` l'expose désormais sans tirer LangGraph,
+# donc le banc mesure le rideau que la PRODUCTION sert.
+#
+# Ce que ce changement retire est plus qu'une duplication : un contrôle de
+# conformité de copie rend vert tant que les deux textes coïncident, y compris
+# quand ils sont FAUX tous les deux — ce qui était précisément le cas, et ce
+# banc l'a mesuré sans jamais pouvoir le signaler.
 def verifier_la_copie_du_repli() -> str:
-    """Refuse de mesurer si la copie du motif a divergé de son site canonique.
-
-    Sans ce contrôle, le banc mesurerait un repli que la production n'a plus.
-    """
-    source = SITE_REPLI.read_text(encoding="utf-8")
-    if MOTIF_REPLI not in source:
-        raise SystemExit(
-            f"Le motif de repli recopié dans ce banc est introuvable dans {SITE_REPLI}. "
-            "Le site canonique a changé : la mesure serait fausse."
-        )
-    return "copie conforme au site canonique"
+    """Rend l'état du site de repli. Il n'y a plus de copie à confronter."""
+    return (
+        "importé de src/agent/repli_outil.py, plus aucune copie dans ce banc "
+        f"({APPEL_DANS_LA_PROSE.pattern})"
+    )
 
 
 @dataclass
@@ -315,7 +314,7 @@ def sonde_outil() -> dict[str, Any]:
                 code, corps, ecoule = _poster(base, chemin, charge)
                 message = _lire_openai(corps) if serveur == "vllm" else (corps.get("message") or {})
                 texte = message.get("content") or ""
-                fuite = re.search(MOTIF_REPLI, texte)
+                fuite = APPEL_DANS_LA_PROSE.search(texte)
                 resultats["cellules"].append(
                     {
                         "serveur": serveur,

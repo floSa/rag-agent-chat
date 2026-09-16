@@ -2283,3 +2283,88 @@ def test_le_garde_de_la_promesse_distingue_une_citation_d_une_affirmation() -> N
 
     assert _est_citee(cite, cite.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE))
     assert not _est_citee(affirme, affirme.index(_PROMESSE_RETIREE), len(_PROMESSE_RETIREE))
+
+
+# ─── Le second rideau n'a qu'UN site, et ce garde l'y tient ──────────────────
+
+# Le fragment qui trahit une expression régulière posée sur l'appel d'outil :
+# le nom de l'outil suivi d'une parenthèse ÉCHAPPÉE. Une phrase ordinaire qui
+# parle de `search_vectors(...)` n'échappe pas sa parenthèse ; un motif, si.
+#
+# Il est ASSEMBLÉ et non écrit d'un bloc, pour une raison que ce chantier a déjà
+# payée : un garde qui écrit littéralement ce qu'il cherche se trouve lui-même,
+# et rend alors un rouge permanent qu'on finit par arracher. La concaténation
+# est le contrôle, pas une coquetterie.
+_MARQUE_D_UN_MOTIF_DE_REPLI = "search_vectors" + "\\("
+
+# Le seul fichier autorisé à en porter un. Il l'expose, tout le reste l'importe.
+_SITE_DU_REPLI = "src/agent/repli_outil.py"
+
+
+def _fichiers_de_code_portant_un_motif_de_repli() -> list[str]:
+    """Les fichiers de code qui construisent leur propre motif de repli."""
+    porteurs = []
+    for relatif in _fichiers_suivis():
+        if not _est_du_code(relatif):
+            continue
+        chemin = _RACINE / relatif
+        if not chemin.is_file():
+            continue
+        try:
+            texte = chemin.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if _MARQUE_D_UN_MOTIF_DE_REPLI in texte:
+            porteurs.append(relatif)
+    return porteurs
+
+
+def test_le_motif_du_second_rideau_n_a_qu_un_site() -> None:
+    """Deux motifs identiques sont deux motifs LIBRES DE DIVERGER.
+
+    Avant le lot 19, `graph.py` en portait deux — la reconnaissance et le
+    nettoyage — à quinze lignes l'un de l'autre, et `scripts/banc_vllm.py` une
+    troisième copie. La divergence n'est pas une faute de forme : celui qui
+    reconnaît sans nettoyer affiche la syntaxe d'appel à l'utilisateur, celui
+    qui nettoie sans reconnaître efface la demande sans jamais la servir.
+
+    Le garde ne confronte PAS des copies entre elles. Un contrôle de conformité
+    de copie reste vert tant que les textes coïncident, **y compris quand ils
+    sont faux tous les deux** — ce qui était exactement le cas ici, et le banc
+    l'a mesuré des mois sans pouvoir le dire. Ce qui est tenu, c'est qu'il n'y
+    ait qu'un seul site : une copie ne peut alors plus exister pour diverger.
+    """
+    porteurs = _fichiers_de_code_portant_un_motif_de_repli()
+
+    # CONTRÔLE POSITIF, et il n'est pas décoratif. Sans lui, un balayage qui ne
+    # lit plus rien — zone renommée, fichier déplacé, lecture qui échoue en
+    # silence — rendrait la liste vide, et l'assertion suivante serait verte
+    # pour la raison exactement opposée à celle qu'elle prétend garder.
+    assert _SITE_DU_REPLI in porteurs, (
+        f"le balayage ne trouve pas le site canonique {_SITE_DU_REPLI}, donc il "
+        "ne trouverait pas non plus une copie. Ce garde ne mesure rien tant que "
+        "ce contrôle est rouge."
+    )
+
+    assert porteurs == [_SITE_DU_REPLI], (
+        "le motif du second rideau est construit dans "
+        f"{[p for p in porteurs if p != _SITE_DU_REPLI]}, en plus de "
+        f"{_SITE_DU_REPLI}. Importe `lire_et_retirer` ou `APPEL_DANS_LA_PROSE` "
+        "au lieu de recopier le motif : deux copies finissent par diverger, et "
+        "la divergence laisse fuir d'un côté ce qu'elle reconnaît de l'autre."
+    )
+
+
+def test_le_garde_du_site_unique_saurait_voir_une_copie() -> None:
+    """Et il en est CAPABLE : une copie posée pour de bon est vue.
+
+    Le contrôle positif du test précédent prouve que le balayage TROUVE. Celui-ci
+    prouve qu'il DISCRIMINE — une sonde de secrets de ce chantier a déjà rendu
+    280 occurrences dont aucune n'était un secret, et son contrôle positif ne
+    prouvait que la première moitié.
+    """
+    ordinaire = "Le modèle écrit parfois search_vectors(query=…) dans sa prose."
+    un_motif = 're.compile(r"search_vectors' + '\\(' + '[\\"\'](.+?)[\\"\']\\)")'
+
+    assert _MARQUE_D_UN_MOTIF_DE_REPLI not in ordinaire
+    assert _MARQUE_D_UN_MOTIF_DE_REPLI in un_motif
