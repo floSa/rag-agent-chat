@@ -8551,3 +8551,171 @@ fichier, inchangée — pas par le résultat, qui était plausible.
   déclaration d'`anyio` ci-dessus est ce qui rend cette installation sûre sans y
   toucher* ;
 - **`src/agent/llm.py` et la bascule vLLM** — c'est un chantier, pas un lot.
+
+### 4.54 → LOT-19 : le second rideau, son site unique, et ce que l'audit y laisse ouvert
+
+**Livré le 15 septembre 2026, FUSIONNÉ le 16** — `9b5c331`. Lot **3** du
+découpage du chantier vLLM (§8) : **pas une bascule**, un défaut d'aujourd'hui,
+en production.
+
+**Ce que le lot ferme.** Le motif de `graph.py` exigeait une parenthèse
+**immédiatement** suivie d'un guillemet — la seule forme positionnelle — et les
+deux moteurs du poste écrivent aussi la forme **nommée**. Deux effets, pas un, et
+ils tombent séparément : la recherche supplémentaire ne partait jamais, **et** la
+syntaxe d'appel partait telle quelle à l'écran. La reconnaissance et le nettoyage
+étaient **deux expressions régulières recopiées à quinze lignes l'une de
+l'autre**, libres de diverger. `src/agent/repli_outil.py` en fait un **site
+canonique unique** : `lire_et_retirer` rend la sous-question **et** le texte
+nettoyé d'un seul passage sur un seul motif — la divergence n'est plus
+représentable. Le nettoyage a désormais lieu **quel que soit le canal**.
+
+**Porte, mesurée par le pilote SUR LE RÉSULTAT DE LA FUSION** (`main` avait
+avancé du rapport d'audit et n'en était plus ancêtre ; `git merge --no-ff`, aucun
+rebase), arbre détaché neuf monté par le §2.2, le **16 septembre 2026** :
+`rc(make lint)=0`, `rc(make test)=0`, **910 passés** sur **47** fichiers — `main`
+avant le lot : 892 sur 46. **L'arbre scellé est bit pour bit celui qui a été
+mesuré** : `git rev-parse main^{tree}` et `HEAD^{tree}` de l'arbre de porte
+rendent tous deux **`ac067c9`**. Ce n'est pas une supposition, c'est un SHA.
+
+#### L'audit indépendant : aucune bloquante, et il le dit franchement
+
+[`audits/2026-09-16-audit-lot-19.md`](audits/2026-09-16-audit-lot-19.md), versé
+sur `main` en **`92e28a7`** *avant* d'être cité. **Onze mutations, témoin inerte
+à 0, dix rouges.** Deux comptent :
+
+- **MU2** — remettre le motif d'origine — fait rougir **quatre scènes** : c'est
+  la **preuve rouge** que le défaut visé est fermé, et non une lecture rassurante
+  du diff ;
+- **MU3** — rattacher le nettoyage au repli — meurt sur **exactement la scène que
+  le lot a ajoutée** : le lot 19 avait trouvé ce trou contre lui-même, il a
+  converti son commentaire en garde, et le garde tient.
+
+C'est le **premier audit de ce chantier à ne rien trouver de bloquant deux fois
+d'affilée** (AUDIT-18 non plus), et l'auditeur choisit de l'écrire plutôt que
+d'inventer une trouvaille. Le compte reste : **dix-sept audits, dix-sept
+trouvailles bloquantes**, quasi toutes *un garde vert sous une scène que le
+défaut ne rencontre jamais*.
+
+#### Ce qui reste OUVERT, et qui est désormais chiffré
+
+**(a) Une forme d'appel MESURÉE sur le moteur de production n'est pas reconnue.**
+`gemma4:e4b`, servi par `ollama-central`, écrit aussi l'appel **sans
+guillemets** :
+
+```
+search_vectors(Quel est le calcul et le montant légal de l'indemnité de rupture conventionnelle ?)
+```
+
+`mesuré` le **16 septembre 2026 vers 01:22 UTC**, interrogation en lecture sur
+`ollama-central` — **un appel sur quatre réellement écrits** au cours de onze
+interrogations. Les **deux charges** du rideau tombent ensemble.
+
+**Ce n'est pas une régression** : `main` ne la reconnaissait pas davantage, et le
+motif du lot est un **sur-ensemble strict** de l'ancien. C'est un bord non
+atteint, pas un bord déplacé. Mais **la justification écrite du module est
+boiteuse** : elle paie le prix des guillemets par la mention qu'Ollama écrit
+— « *avec l'outil `search_vectors`.* » —, or cette mention **ne porte aucune
+parenthèse**, donc l'exigence de la parenthèse ouvrante l'exclut déjà seule. Le
+prix réel est payé par `signature-citee-sans-guillemets`, que MU8 fait bien
+rougir — mais **cette scène-là n'est pas déclarée mesurée, alors que la forme
+qu'elle coûte l'est**.
+
+**BORNE, et elle est écrite, pas supposée** : un appel sur quatre, sur **onze**
+interrogations, à température 0,1, sur **une seule famille de questions**. C'est
+assez pour dire que la forme **existe**, pas pour dire à quel **taux** elle sort
+en service.
+
+**(b) Rien ne garde le nettoyage d'une réponse portant DEUX appels.** `MU6` —
+`sub(…, count=1)` — **survit aux 910 tests**, et elle n'est pas équivalente : le
+mutant **laisse la syntaxe à l'écran** sur un texte à deux appels, soit la charge
+n° 2 du rideau. Le comportement servi est le bon ; c'est le **garde** qui manque.
+La docstring dit que « le PREMIER appel décide » pour la sous-question — elle ne
+dit rien du fait que le nettoyage, lui, les retire **tous**, et c'est ce silence
+que MU6 traverse.
+
+**(c) La déclaration de provenance désigne deux fois « le dernier ».**
+Conséquence : `mention-puis-citation-entre-guillemets` se retrouve **sans
+déclaration** et l'en-tête de la liste la présente alors comme **relevée** — elle
+ne l'est pas. Exhaustives en nombre, **inexactes en désignation**, et c'est
+précisément la zone dont le lot fait son point d'honneur.
+
+#### Les réserves que le chantier garde
+
+**R1 — le garde du site unique est aveugle à une copie REFORMULÉE.** Il cherche
+la chaîne littérale. Cinq copies plantées une à la fois : témoin inerte **vert**,
+copie littérale sous un autre nom **rouge**, sous un autre répertoire **rouge** —
+mais **trois reformulations** (concaténation, classe de caractères,
+`re.escape`) **passent au vert**. Le garde tient donc **l'unicité du site pour la
+forme littérale**, ce qui est ce qu'on lui demandait d'abord ; mais le module
+affirme que « la divergence n'est plus représentable » et que « une copie ne peut
+plus exister pour diverger ». **Sa promesse écrite dépasse ce qu'il rend.** C'est
+la leçon du *garde de copie conforme*, retournée : ici l'unicité est bien tenue,
+mais **sur un domaine plus étroit que la phrase**.
+
+**R2 — le rideau retire du texte que `main` laissait intact, sur un appel MAL
+FORMÉ.** Quand la chaîne n'est pas refermée là où on l'attend, le nettoyage mange
+jusqu'au prochain couple guillemet + parenthèse : le lot part alors en recherche
+sur une sous-question aberrante **et** efface la phrase. **Aucun moteur n'a écrit
+cette forme** — elle est **construite**, donc réserve et non trouvaille. Elle
+compte parce qu'elle est du côté le plus coûteux : *un rideau qui efface du texte
+utile est plus grave, parce que personne ne le verra.*
+
+**R3 — le résultat du lot est juste, sa FORMULATION ne l'est pas.** Le lot écrit
+« une mutation qui retire la seule parenthèse **ouvrante** » et rapporte **0
+désaccord sur 34 textes mesurés**. Pris au pied de la lettre — parenthèse
+**supprimée** — le mutant désaccorde sur 8 textes sur 18. Pris comme parenthèse
+**rendue optionnelle**, il rend **1 seul** désaccord, exactement la scène
+construite. L'auditeur a d'abord cru tenir une contradiction : **c'était son
+mutant qui était mal choisi**, et il l'a consigné contre lui-même. Sur le fond,
+**dix textes mesurés de plus, zéro désaccord** : le bord est là où le lot le
+croit.
+
+**R4 — LA BORNE DE VALEUR DU RIDEAU, et elle n'était écrite nulle part.** Le
+second rideau **ne se déclenche que sur une désobéissance**. `prompts/system.txt`
+est le **même dans les deux modes**, et sa règle 5 dit : « *N'écris jamais cet
+appel dans ta réponse : utilise le mécanisme d'outil.* » **En mode repli, ce
+mécanisme n'existe pas**, et la consigne interdit le **seul signal que le rideau
+sait lire**. Les quatre premières interrogations de l'auditeur avec le prompt de
+production n'ont produit **aucun** appel — ce qui reproduit le premier « faux
+résultat contre lui-même » que le lot avait déjà consigné. **Ce n'est pas un
+défaut du lot 19**, c'est le prix d'entrée du rideau, et il est maintenant au
+registre.
+
+**R5 — hors périmètre, croisé en chemin : `/health` publie un moteur MÉMORISÉ.**
+À **01:18:37 UTC** le 16 septembre, `/health` rendait `status: ok` avec
+`moteur_llm.releve_le = 2026-09-15T21:21:16+00:00` — un relevé vieux de **quatre
+heures**, décrivant un `ollama-central` **mort (sorti en 137, 01:08:40) et revenu
+(01:08:55)** dans l'intervalle. **La réserve écrite au site par REPAR-18 est
+réelle en production** : le champ ne ment pas sur sa date, mais rien n'indique au
+lecteur que le serveur décrit n'est plus celui qui tourne. Constaté, non
+instruit.
+
+#### Les faux résultats que l'auditeur a trouvés CONTRE LUI-MÊME
+
+Quatre, et deux entrent au corpus des pièges de mesure :
+
+1. **`git status --porcelain && echo "(porcelain vide)"` MENT.** `git status` rend
+   `rc=0` **qu'il ait de la sortie ou non** : l'idiome a imprimé « porcelain
+   vide » **au-dessus d'un fichier modifié**, en pleine campagne de mutations.
+   C'est le **SHA-256** qui a attrapé l'écart, pas lui. *Un contrôle de propreté
+   se fait sur la CHAÎNE, jamais sur le `rc`.*
+2. **Sa propre borne de tokens lui a fait conclure « le modèle n'écrit pas
+   d'appel ».** Deux interrogations à `num_predict=300` se terminaient sur
+   « *Afin de répondre à* » — **coupées avant l'appel**. Rejouées à 700, les deux
+   l'écrivent, et **c'est l'une d'elles qui porte la trouvaille (a)**. Il a failli
+   publier un zéro qui n'était que **sa propre troncature**.
+3. Son mutant M2 était mal choisi — R3 ci-dessus.
+4. **Son sélecteur `-k` ne prenait qu'un test sur deux** : `"site_unique"` ne
+   correspond pas à `test_le_motif_du_second_rideau_n_a_qu_un_site`. Son premier
+   « vert de départ » ne mesurait que **la moitié** de ce qu'il croyait.
+
+#### Ce qui n'a PAS pu être mesuré, dit comme tel
+
+- **Les trois formes vLLM du motif** — `query=`, `sous_question=`,
+  `<execute_tool>` — restent **crues sur parole** côté audit : aucune requête n'a
+  été adressée à `vllm-central`, qui appartient à l'équipe voisine. Elles sont
+  mesurées par le lot lui-même, pas confirmées indépendamment.
+- **L'agent réellement en service** tourne du code d'avant le lot ; rien n'est
+  éprouvable à travers lui sans un redémarrage que le lot n'avait pas mandat de
+  faire.
+
