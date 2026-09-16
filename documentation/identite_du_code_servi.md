@@ -114,6 +114,36 @@ licite et produit une image **anonyme**, qui le déclare dans `/health`.
 > arrière du lot 18, et l'ordre n'est pas négociable : une fois `latest` repris
 > par une image neuve, l'ancienne n'a plus de nom.
 
+> **CE QUI A ÉTÉ ÉPROUVÉ, ET CE QUI NE L'A PAS ÉTÉ. LA DISTINCTION EST ÉCRITE
+> ICI PARCE QU'ELLE DOIT SURVIVRE À LA CONVERSATION QUI L'A ÉTABLIE.**
+> Les gestes (a), (b), (c) et (f) sont **éprouvés** : ils ne font que lire ou
+> étiqueter, et ils ont été exercés sur les images réelles de ce poste. Le geste
+> (d), `make image`, est **éprouvé** — l'audit du lot 22 l'a appelé pour de vrai,
+> sur un arbre propre puis sur un arbre sali, et a relevé les `LABEL` produits
+> dans les deux cas.
+>
+> **LES DEUX `docker compose up -d --no-build agent-api` — celui du (e) et celui
+> de la section *Revenir* — N'ONT PAS ÉTÉ ÉPROUVÉS, ET NE POUVAIENT PAS L'ÊTRE.**
+> Ils recréent le conteneur en service, et aucun lot n'a été autorisé à y
+> toucher. La preuve est dans l'état du conteneur lui-même, `mesuré` le
+> 16 septembre 2026 à 12:43 UTC — et le lot 22 l'avait déjà relevé à 11:45 :
+>
+> ```
+> docker inspect rag-agent-api --format 'StartedAt={{.State.StartedAt}} RestartCount={{.RestartCount}}'
+> StartedAt=2026-09-15T21:21:05.169520372Z   RestartCount=0
+> ```
+>
+> Le conteneur n'a été ni recréé ni redémarré depuis le 15 septembre 21:21 UTC,
+> soit **avant** les travaux du lot 22. **Ces deux lignes sont donc ÉCRITES et
+> non ÉPROUVÉES** : elles reposent sur la documentation de `docker compose`, pas
+> sur une exécution de ce poste. En particulier, **que `--no-build` empêche
+> effectivement `up` de reconstruire n'a pas été vérifié ici**, ni que le retour
+> arrière rende le conteneur à l'image relevée en (a).
+>
+> Une commande éprouvée et une commande écrite ne portent pas le même poids.
+> Celui qui jouera (e) pour de bon est donc **le premier à le faire** : qu'il
+> relève (f) avec attention, et qu'il vienne corriger cette réserve ici même.
+
 ```bash
 # (a) Ce qui sert MAINTENANT. On tranche par le conteneur.
 SERVI="$(docker inspect -f '{{.Image}}' rag-agent-api)"
@@ -147,6 +177,12 @@ make image
 ```bash
 # (e) Déployer. `--no-build` est une ceinture : il interdit à `up` de
 #     reconstruire par surprise l'image que (d) vient de produire.
+#
+#     ⚠ CETTE LIGNE EST ÉCRITE, PAS ÉPROUVÉE. Elle recrée le conteneur en
+#     service, et aucun lot n'a été autorisé à le faire : `RestartCount=0` et
+#     `StartedAt=2026-09-15T21:21:05Z` le prouvent (voir l'encadré du §4). Le
+#     comportement de `--no-build` est ici cru sur la documentation de
+#     `docker compose`, pas mesuré sur ce poste.
 docker compose up -d --no-build agent-api
 ```
 
@@ -172,6 +208,13 @@ ETIQUETTE="<celle que (b) a affichée, recopiée telle quelle>"
 # Vérifier d'abord à quoi elle pend, et SEULEMENT ensuite la faire servir.
 docker image inspect -f '{{.Id}}' "$ETIQUETTE"
 docker image tag "$ETIQUETTE" "$NOM:latest"
+
+# ⚠ MÊME RÉSERVE QU'AU (e), ET ELLE EST PLUS GÊNANTE ICI : c'est la ligne d'un
+#   RETOUR ARRIÈRE, donc celle qu'on joue sous pression. Elle est ÉCRITE et non
+#   ÉPROUVÉE — voir l'encadré du §4. Les deux lignes qui l'encadrent, elles, le
+#   sont : vérifier à quoi l'étiquette pend AVANT, et relever l'image du
+#   conteneur APRÈS. Si le `up` ne fait pas ce qu'on attend, c'est la dernière
+#   ligne de ce bloc qui le dira.
 docker compose up -d --no-build agent-api
 
 # Et contrôler que le retour a eu lieu, par le conteneur.

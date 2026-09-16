@@ -17,15 +17,37 @@ services:
       dockerfile: Dockerfile.agent
       # L'IDENTITÉ DU CODE ENTRE DANS L'IMAGE ICI, ET NULLE PART AILLEURS.
       #
-      # `${VAR:-}` — DEUX-POINTS-TIRET, et le détail n'est pas cosmétique :
-      # `${VAR-}` ne se replie que sur une variable ABSENTE, quand `${VAR:-}` se
-      # replie aussi sur une variable PRÉSENTE ET VIDE. Sans les deux-points, un
-      # `RAG_AGENT_CODE_SHA=` traînant dans le `.env` ferait entrer une chaîne
-      # vide là où la forme retenue fait entrer la même chaîne vide — mais par
-      # un chemin qui reste vrai quand la valeur est un espace ou un reliquat.
-      # Dans les deux cas l'image se déclare ANONYME, et c'est la position à
-      # tenir : une image non instrumentée ne doit jamais passer pour
-      # identifiée.
+      # `${VAR:-}` — ET ICI LES DEUX-POINTS NE CHANGENT RIEN. CETTE PHRASE
+      # REMPLACE UNE AFFIRMATION QUI NE ROUGISSAIT PAS. La rédaction du lot 22
+      # ouvrait par « le détail n'est pas cosmétique » ; il l'est, sur ce
+      # fichier-ci, et la mutation `${VAR:-}` → `${VAR-}` est donc ÉQUIVALENTE.
+      # Elle est avouée comme telle plutôt que présentée comme une trouvaille.
+      #
+      # LA RAISON EST EXACTE, ET LE DOMAINE EST EXHAUSTIF — PAS ÉCHANTILLONNÉ.
+      # Les deux formes ne peuvent différer que sur UN état de la variable, celui
+      # où elle est PRÉSENTE ET VIDE : `${VAR:-X}` y replie sur `X`, `${VAR-X}`
+      # y rend la chaîne vide. Ici `X` EST la chaîne vide, donc les deux rendent
+      # la même chose. Une variable n'a que trois états — absente, présente et
+      # vide, présente et non vide — et les trois sont couverts : il n'y a aucun
+      # cas restant où les deux formes pourraient se séparer.
+      #
+      # `mesuré` le 16 septembre 2026 à 12:44 UTC par REPAR-23, sur une COPIE de
+      # ce fichier en projet isolé (`-p repar23probe`, `.env` vide — sans quoi la
+      # commande échoue et rend une sortie vide qu'on lirait comme un résultat),
+      # par `docker compose config --format json`. Les deux formes coïncident sur
+      # les SEPT valeurs balayées : absente, vide, un espace, deux espaces,
+      # `abc`, `0`, un saut de ligne. Que les deux compose soient bien distincts
+      # est doublé du SHA-256 du fichier, sans quoi la mesure aurait comparé deux
+      # fois la même chose. *(L'audit du lot 22 avait établi le même résultat sur
+      # trois valeurs ; ce relevé étend le domaine, notamment à l'ESPACE — le cas
+      # que la rédaction précédente invoquait, et qui ne sépare pas davantage.)*
+      #
+      # CE QUI RESTE VRAI ET IMPORTE ICI : quel que soit le chemin, une variable
+      # non renseignée fait entrer une chaîne VIDE dans le build, donc une image
+      # qui se déclare ANONYME. C'est la position à tenir — une image non
+      # instrumentée ne doit jamais passer pour identifiée —, et elle ne dépend
+      # d'aucune subtilité d'interpolation. `_lire` du module d'identité dépouille
+      # de toute façon les blancs et ramène la chaîne vide à `None`.
       #
       # POURQUOI UN REPLI PLUTÔT QU'UNE ERREUR. Sans repli, `docker compose
       # build` échouerait dans un shell où ces variables ne sont pas exportées —

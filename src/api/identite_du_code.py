@@ -3,7 +3,7 @@
 POURQUOI CE MODULE EXISTE, ET CE QU'IL A DÉJÀ COÛTÉ. Pendant douze lots, l'agent
 en service a exécuté du code antérieur et aucun garde livré ne tournait ; personne
 ne s'en est aperçu parce que rien ne permettait de répondre à « quel code
-tourne ? ». Site canonique : `documentation/registre_du_chantier.md` §4.42. La
+tourne ? ». Site canonique : `documentation/axes_amelioration.md` §4.42. La
 borne que ce module pose est une PROPRIÉTÉ : *l'image porte l'identité du code
 qu'elle contient, et `/health` la publie ou déclare qu'elle ne l'a pas.*
 

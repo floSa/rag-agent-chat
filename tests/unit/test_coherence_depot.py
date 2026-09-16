@@ -2423,3 +2423,149 @@ def test_le_garde_du_site_unique_saurait_voir_une_copie_en_sentinelles() -> None
         "la marque ne voit pas un motif posé sur la sentinelle : le garde du "
         "site unique rendrait alors zéro par impuissance"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# UN CHEMIN DE DOCUMENT CITÉ PAR LE CODE DÉSIGNE UN FICHIER QUI EXISTE
+# ══════════════════════════════════════════════════════════════════════════
+#
+# CE GARDE EST NÉ D'UN DÉFAUT RÉEL, ET AUCUN GARDE DE CE DÉPÔT NE LE TENAIT.
+# `src/api/identite_du_code.py` a cité pendant tout le lot 22 un
+# « site canonique » nommé `documentation/registre_du_chantier.md` §4.42 — un
+# fichier QUI N'A JAMAIS ÉTÉ SUIVI par ce dépôt. `git log --all
+# --diff-filter=A -- '*registre*'` ne rend rien, et le même sélecteur trouve
+# bien l'ajout de `pilotage_du_chantier.md` : il sait chercher, son zéro est un
+# vrai zéro. Un pointeur canonique qui ne pointe nulle part est pire qu'aucun
+# pointeur, dans un module dont la thèse est *« un seul site canonique »*.
+#
+# LE DOMAINE EST `src/`, ET CE CHOIX EST LA RÉPONSE AU SECOND PIÈGE.
+# Une sonde qui cherche des chemins DANS LE CODE trouve les chemins écrits dans
+# SA PROPRE SOURCE : sur ce chantier, une sonde `OLLAMA_HOST` s'est attrapée
+# elle-même — la phrase qui déclarait l'absence ÉTAIT l'occurrence —, et un grep
+# d'appelants trouvait sa propre citation. Ici le piège est fermé PAR
+# CONSTRUCTION et non par une liste d'exclusions : ce garde vit dans `tests/`,
+# et `tests/` n'est pas dans le domaine balayé. Les chemins fabriqués du
+# contrôle positif ci-dessous ne peuvent donc pas entrer dans ce qu'il mesure.
+# `test_le_domaine_balaye_exclut_la_source_de_ce_garde` le tient, pour que
+# personne n'élargisse le domaine sans voir ce qu'il casse.
+#
+# `mesuré` le 16 septembre 2026 à 12:40 UTC, après la correction : **30**
+# citations, **10** chemins distincts, **8** fichiers de `src/`, et **zéro**
+# absent. Avant la correction, exactement **un** absent — celui du lot 22.
+# Le bruit est donc nul sur ce dépôt, ce qui est la raison pour laquelle ce
+# garde est posé plutôt que refusé.
+_MOTIF_D_UN_DOCUMENT_CITE = re.compile(r"documentation/[A-Za-z0-9_/.-]+\.md")
+
+
+def _documents_cites_par(racine: Path) -> dict[str, list[str]]:
+    """Chaque chemin de document cité sous `racine`, et les fichiers qui le citent."""
+    trouves: dict[str, list[str]] = collections.defaultdict(list)
+    for source in sorted(racine.rglob("*.py")):
+        texte = source.read_text(encoding="utf-8")
+        for chemin in _MOTIF_D_UN_DOCUMENT_CITE.findall(texte):
+            # Relatif à la racine du domaine, et non au dépôt : le contrôle
+            # positif balaie un domaine fabriqué hors de l'arbre, et un
+            # `relative_to(_RACINE)` y lèverait au lieu de mesurer.
+            relatif = str(source.relative_to(racine.parent))
+            if relatif not in trouves[chemin]:
+                trouves[chemin].append(relatif)
+    return dict(trouves)
+
+
+def test_tout_document_cite_par_le_code_existe() -> None:
+    """UN POINTEUR CANONIQUE QUI NE POINTE NULLE PART, ET LE ZÉRO EST PROUVÉ ATTEINT.
+
+    CE TEST ASSERTE DEUX CHOSES, PAS UNE, et la seconde est ce qui le distingue
+    d'un garde creux. Un garde qui cherche « des chemins » et n'en trouve aucun
+    est vert par IMPUISSANCE, et ne prouve rien du tout : c'est la forme de
+    défaut que ce chantier traque depuis dix audits. La preuve d'atteinte est
+    donc assertée avec le verdict, dans le même test — une borne INFÉRIEURE et
+    non le compte exact, parce que le compte exact serait un instantané qui
+    rougirait au prochain commentaire ajouté, et qu'un garde qui rougit pour
+    rien est désarmé avant la fin du mois.
+    """
+    cites = _documents_cites_par(_RACINE / "src")
+
+    fichiers_citants = {f for citants in cites.values() for f in citants}
+    assert len(cites) >= 5 and len(fichiers_citants) >= 4, (
+        f"ce garde n'a vu que {len(cites)} chemin(s) distinct(s) dans "
+        f"{len(fichiers_citants)} fichier(s) de `src/` : il ne mesure plus rien, "
+        "et son verdict serait vert par impuissance. Le motif a probablement "
+        "cessé de reconnaître la forme des citations."
+    )
+
+    absents = {
+        chemin: citants
+        for chemin, citants in sorted(cites.items())
+        if not (_RACINE / chemin).is_file()
+    }
+    rendus = [f"{chemin} (cité par {', '.join(citants)})" for chemin, citants in absents.items()]
+    assert not absents, (
+        "le code cite des documents qui n'existent pas dans ce dépôt : "
+        + " ; ".join(rendus)
+        + ". Un site canonique qui ne pointe nulle part est pire qu'aucune citation."
+    )
+
+
+def test_ce_garde_saurait_voir_un_document_cite_qui_n_existe_pas(tmp_path: Path) -> None:
+    """LE CONTRÔLE POSITIF, UNE FAUTE À LA FOIS, ET IL EST INDISPENSABLE.
+
+    Le test ci-dessus rend ZÉRO absent. Un zéro non doublé d'un contrôle positif
+    ne dit pas « rien n'est cassé » : il dit « je n'ai rien vu », et les deux se
+    ressemblent exactement. Une sonde de secrets de ce chantier a rendu 280
+    occurrences dont aucune n'était un secret ; une autre a compté six fois une
+    variable vide comme un résultat cohérent.
+
+    LES CHEMINS FABRIQUÉS ICI SONT HORS DU DOMAINE BALAYÉ — ce fichier est sous
+    `tests/`, le garde ne lit que `src/` — donc ce contrôle positif ne peut pas
+    contaminer la mesure qu'il contrôle. C'est la raison du découpage, et
+    `test_le_domaine_balaye_exclut_la_source_de_ce_garde` l'asserte.
+    """
+    faux = tmp_path / "src"
+    faux.mkdir()
+    (faux / "temoin.py").write_text(
+        '"""Site canonique : `' + "documentation/ce-fichier-n-existe-pas.md" + '` §1.1."""\n',
+        encoding="utf-8",
+    )
+
+    vus = _documents_cites_par(faux)
+    assert "documentation/ce-fichier-n-existe-pas.md" in vus, (
+        "le motif n'a pas vu une citation posée exprès : il TROUVERAIT zéro par "
+        "impuissance, et le test principal serait vert sans rien mesurer"
+    )
+    assert not (_RACINE / "documentation/ce-fichier-n-existe-pas.md").is_file(), (
+        "le témoin de ce contrôle positif existe réellement dans le dépôt : il "
+        "ne prouve donc plus que le garde sait rougir"
+    )
+
+    # ET LE SENS INVERSE, SANS QUOI LA MOITIÉ QUI DISCRIMINE RESTE NON PROUVÉE :
+    # un chemin qui EXISTE ne doit pas être signalé. Sans cette moitié, un garde
+    # qui déclarerait tout absent serait vert ci-dessus.
+    (faux / "temoin_juste.py").write_text(
+        '"""Site canonique : `' + "documentation/tests.md" + '` §1.1."""\n',
+        encoding="utf-8",
+    )
+    vus = _documents_cites_par(faux)
+    assert "documentation/tests.md" in vus
+    assert (_RACINE / "documentation/tests.md").is_file(), (
+        "la moitié qui DISCRIMINE n'est pas prouvée : ce garde signalerait un "
+        "chemin parfaitement valide"
+    )
+
+
+def test_le_domaine_balaye_exclut_la_source_de_ce_garde() -> None:
+    """LA SONDE SE TIENT À DISTANCE D'ELLE-MÊME, ET C'EST ASSERTÉ.
+
+    Ce chantier a déjà payé deux fois qu'une sonde s'attrape elle-même. Le
+    découpage `src/` contre `tests/` ferme le piège par construction — mais un
+    découpage non gardé est une intention, pas une borne. Le jour où quelqu'un
+    élargira le domaine à `tests/`, ce test rougira AVANT que les chemins
+    fabriqués du contrôle positif ne se mettent à peupler la mesure.
+    """
+    domaine = _RACINE / "src"
+    moi = Path(__file__).resolve()
+    assert not moi.is_relative_to(domaine), (
+        f"la source de ce garde ({moi.name}) est tombée dans le domaine qu'il "
+        "balaie : ses propres chemins fabriqués entreraient dans la mesure"
+    )
+    assert domaine.is_dir(), "le domaine balayé n'existe pas : la mesure serait vide"
