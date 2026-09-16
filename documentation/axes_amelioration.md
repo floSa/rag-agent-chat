@@ -9461,3 +9461,44 @@ commentaire dit désormais ce qui est vrai, et le garde du gabarit mord toujours
   compose a rendu du vide, sans qu'il ait alors prouvé que ses deux formes
   différaient. *Corrigé en doublant du SHA-256 et en recoupant chaque compte par
   une seconde méthode.*
+
+#### Ce que le pilote a vérifié DE SES MAINS, et pourquoi il n'y a pas de quatrième audit
+
+**Le §4.18 s'applique sans ambiguïté** : `git diff main..tête -- src/` fait **une
+seule ligne** — un nom de fichier dans une docstring —, lue en entier. Tout le
+reste du diff est du garde, de la prose et de la documentation. Mais la clause
+exige une vérification personnelle, la voici.
+
+**(1) LA MATRICE DIAGONALE, REMESURÉE.** Mutations posées **par motif** sur
+`_UN_SHA`, `assert` d'unicité de l'ancre avant écriture, `assert` que le SHA-256
+a bougé, restauration contrôlée au SHA-256, `git status --porcelain` testé **sur
+la chaîne**. `rc` relevé de **`pytest`** :
+
+| mutation du pilote | `rc(pytest)` | rouges | ce qui meurt |
+|---|---|---|---|
+| **témoin inerte** (commentaire ajouté) | **0** | **0** | — *le banc ne rougit pas tout seul* |
+| borne de **longueur**, `{40}` → `{7,40}` | **1** | **1** | `…test_un_sha_illisible_laisse_l_image_anonyme_et_le_dit[sha-abrege]` |
+| borne d'**ancrage**, `^…$` retirées | **1** | **1** | le même test, `[40-hex-suffixe]` |
+| borne de **casse**, `a-f` → `a-fA-F` | **1** | **1** | le même test, `[40-hex-majuscule]` |
+
+**UN SEUL ROUGE CHACUNE.** Aucune ne meurt par un autre chemin, et la troisième
+borne — celle que l'audit nommait sans la muter — est bien fermée. **Le lot a
+raison contre l'auditeur : les « deux cas » recommandés en auraient laissé une
+vivante.**
+
+**(2) LE FICHIER DU §4.42, REMESURÉ — ET C'EST UNE ERREUR DE PILOTAGE.**
+`git grep -n '^#\+ *4\.42' -- documentation/` rend **une seule ligne**, dans
+`documentation/axes_amelioration.md`. Les titres `4.N` comptent **58** dans ce
+fichier et **ZÉRO** dans `pilotage_du_chantier.md`, dont les sections vont de
+`## 1.` à `## 12.` et dont le §4 est « L'état du poste ».
+
+**J'avais recopié le nom donné par l'auditeur dans le §4.57 ci-dessus, sans
+passer cette commande.** Le lot l'a corrigé aux deux sites. L'erreur est portée
+au **§12 du mandat**, parce qu'elle a une forme générale : *la rigueur d'un
+rapport ne dispense pas de mesurer ce qu'on en cite — elle y oblige plutôt, parce
+qu'un rapport juste partout ailleurs est celui qu'on recopie sans y penser.*
+
+**(3) La porte, sur le RÉSULTAT DE LA FUSION** : `rc(make lint)=0`,
+`rc(make test)=0`, **1005 passés** sur **49** fichiers. Arbre scellé
+**`f98fe4f`**, bit pour bit celui mesuré.
+
