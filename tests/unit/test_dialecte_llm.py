@@ -423,3 +423,78 @@ def test_l_empreinte_de_configuration_suit_le_moteur(monkeypatch) -> None:
     # Aucune clé nouvelle : l'empreinte d'une campagne sous Ollama est celle
     # qu'elle avait, et les `runs/` déjà enregistrés restent groupés avec elle.
     assert detail_vllm.keys() == detail_ollama.keys()
+
+
+# ─── LE POSTE DE FLUX, QUI EST LE POSTE PRINCIPAL ─────────────────────────────
+
+
+def _flux_espion(vus: list[tuple[str, dict]]):
+    """Un client qui capture l'URL et la charge du `stream`, et rend un flux vide.
+
+    CETTE SCÈNE EXISTE PARCE QU'UNE MUTATION A SURVÉCU. Remettre
+    `f"{settings.ollama_host}/api/chat"` en dur dans `generate_stream` ne
+    faisait rougir AUCUN test : les deux postes non-flux étaient exercés sur
+    leur URL, le poste de flux ne l'était pas — et c'est celui qui sert chaque
+    réponse de l'agent.
+    """
+
+    class Resp:
+        def raise_for_status(self) -> None: ...
+
+        async def aiter_lines(self):
+            yield json.dumps({"message": {"content": "Réponse."}, "done": True})
+
+    class Stream:
+        async def __aenter__(self):
+            return Resp()
+
+        async def __aexit__(self, *_):
+            return False
+
+    class Client:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return False
+
+        def stream(self, _methode, url, json=None, **_kwargs):
+            vus.append((url, json))
+            return Stream()
+
+    return lambda **_kwargs: Client()
+
+
+@pytest.mark.asyncio
+async def test_le_poste_de_flux_poste_sur_l_url_du_dialecte(monkeypatch) -> None:
+    vus: list[tuple[str, dict]] = []
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_espion(vus))
+
+    async for _ in llm.generate_stream("Quel est le taux ?", []):
+        pass
+
+    url, charge = vus[0]
+    assert url == f"{settings.ollama_host}/api/chat"
+    assert charge["stream"] is True
+    assert charge["options"]["num_predict"] == settings.llm_max_tokens
+
+
+@pytest.mark.asyncio
+async def test_le_poste_de_flux_bascule_avec_le_reglage(monkeypatch) -> None:
+    """Les DEUX sens dans la même campagne : sans celle-ci, une URL figée sur
+    Ollama passerait la scène précédente sans être basculable."""
+    vus: list[tuple[str, dict]] = []
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_espion(vus))
+    monkeypatch.setattr(settings, "llm_engine", "vllm")
+    monkeypatch.setattr(settings, "vllm_host", "http://vllm-essai:8000")
+    monkeypatch.setattr(settings, "vllm_model", "org/modele-essai")
+
+    async for _ in llm.generate_stream("Quel est le taux ?", []):
+        pass
+
+    url, charge = vus[0]
+    assert url == "http://vllm-essai:8000/v1/chat/completions"
+    assert charge["model"] == "org/modele-essai"
+    assert charge["max_tokens"] == settings.llm_max_tokens
+    assert charge["stream_options"] == {"include_usage": True}
+    assert "options" not in charge
