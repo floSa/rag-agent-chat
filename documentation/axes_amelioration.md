@@ -9308,3 +9308,156 @@ trouvaille.**
   occurrences —, il les a élidées et rejoué la sonde à zéro. *La consigne le
   disait ; c'est la sonde qui l'a fait respecter.*
 
+
+---
+
+### 4.58 → REPAR-23 : les quatre non bloquantes du garde de déploiement, et une TROISIÈME borne que l'audit n'avait pas mutée
+
+> **Rien n'est basculé et rien n'est redéployé.** Aucune image de production
+> construite, `rag-agent-api` non touché — `RestartCount=0`,
+> `StartedAt=2026-09-15T21:21:05Z` avant comme après, `mesuré` le 16 septembre
+> 2026 à 12:43 et 13:0x UTC. Le redéploiement est le lot suivant, et il n'aura
+> lieu qu'une fois : c'est la raison pour laquelle ces corrections passent avant.
+
+**Base.** `main` = `origin/main` = `0a57787`, **455 commits**, remesuré à
+12:21 UTC. Porte du lot : `rc(make lint)=0`, `rc(make test)=0`,
+**1005 passés sur 49 fichiers** (999 avant), programme relevé : `make`.
+
+#### NB-1 — le seul rempart contre un `/health` en 500 : **TROIS** bornes, pas deux
+
+L'audit publie deux mutations survivantes sur `_UN_SHA`. **IL Y EN A TROIS.**
+La borne de CASSE — que l'audit nomme dans sa prose (« la borne de longueur et la
+borne de **casse** … ne sont visitées par personne ») mais ne mute pas — ouvre
+son propre chemin vers le 500. Les trois survivaient à la suite entière
+(**999 passés, 0 rouge, `rc(pytest)=0`**), et chacune a son **texte séparateur
+propre**, `/health` appelé pour de vrai des deux côtés (`TestClient`,
+`raise_server_exceptions=False`), `mesuré` le 16 septembre 2026 à 12:32–12:33 UTC :
+
+| Mutation du motif | `8209e68` | `…4c15b-dirty` | 40-hex MAJUSCULE |
+|---|---|---|---|
+| **code servi** | 200 `anonyme` | 200 `anonyme` | 200 `anonyme` |
+| `{40}` → `{7,40}` | **500** | 200 | 200 |
+| ancres `^…$` retirées | 200 | **500** | 200 |
+| `[0-9a-f]` → `[0-9a-fA-F]` | 200 | 200 | **500** |
+
+**LA MATRICE EST DIAGONALE, ET C'EST LE FAIT QUI COMMANDE LA CORRECTION** :
+chaque valeur ne sépare **qu'une** mutation. Un seul cas ajouté en aurait laissé
+deux vivantes. Les trois valeurs sont les sorties de trois commandes qu'un
+lecteur pressé mettrait dans la cible `image` en croyant l'améliorer :
+`git rev-parse --short HEAD`, `git describe --always --dirty`, et un relevé passé
+par un outil qui majuscule.
+
+**Après correction** — la scène `test_un_sha_illisible_laisse_l_image_anonyme_et_le_dit`
+est paramétrée sur quatre cas — chaque mutation meurt par **son** cas nommé et un
+seul, ce qui écarte la mort « par un autre chemin » :
+
+| Mutation | `rc(pytest)` | Rouges | Ce qui meurt |
+|---|---|---|---|
+| `{40}` → `{7,40}` | 1 | **1** | `…test_un_sha_illisible…[sha-abrege]` |
+| ancres retirées | 1 | **1** | `…test_un_sha_illisible…[40-hex-suffixe]` |
+| casse relâchée | 1 | **1** | `…test_un_sha_illisible…[40-hex-majuscule]` |
+
+**Le coût du 500 est écrit au site, exactement.** `restart: unless-stopped` NE le
+rattrape PAS — Docker redémarre un conteneur qui **sort**, pas un `unhealthy`, et
+ce compose ne porte aucun autoheal. Le coût réel est que `frontend` porte
+`depends_on: agent-api: condition: service_healthy` et **ne lèverait jamais à
+froid**. Un conteneur déjà debout, lui, continue de servir.
+
+#### NB-2 — **REPAR-23 RENVERSE L'AUDITEUR, ET LE PILOTE AVAIT RAISON**
+
+Le fichier cité n'existe pas : c'est acquis. **Mais le fichier de remplacement
+que l'auditeur nomme est le mauvais.** `mesuré` le 16 septembre 2026 à
+12:39 UTC, trois méthodes concordantes :
+
+- `git grep -n '^#\+ *4\.42' -- documentation/` ne rend **qu'une seule ligne** :
+  `documentation/axes_amelioration.md:6579:### 4.42 → Le lot 4 : … l'agent en
+  service n'a jamais exécuté le garde du lot 3` — et cet intitulé est
+  **exactement** ce que la docstring du module désigne ;
+- comptage des titres `4.N` par fichier : **58** dans `axes_amelioration.md`,
+  **0** dans `pilotage_du_chantier.md` ;
+- contre-épreuve sur le second : `grep -nE '^#+.*4\.42'` rend **`rc=1`**. Ses
+  cinq occurrences de « §4.42 » sont des **renvois**, tous dans des lignes de
+  tableau ; ses propres sections vont de `## 1.` à `## 12.`, et son §4 est
+  « L'état du poste ».
+
+**Le garde générique est POSÉ**, et la décision est mesurée et non jugée : sur ce
+dépôt le motif rend **30** citations, **10** chemins distincts, **8** fichiers de
+`src/`, et **une seule** absente avant correction — **le bruit est nul**.
+
+Ses deux pièges sont nommés et traités :
+
+- **IL DISCRIMINE, et sa preuve d'atteinte est assertée DANS le verdict** — une
+  borne inférieure (≥ 5 chemins, ≥ 4 fichiers) et non le compte exact, qui serait
+  un instantané rougissant au prochain commentaire ajouté. Un garde qui cherche
+  des chemins et n'en trouve aucun serait vert **par impuissance**.
+- **IL SE TIENT À DISTANCE DE LUI-MÊME, PAR CONSTRUCTION ET NON PAR EXCLUSION** :
+  il vit dans `tests/`, et `tests/` n'est pas dans le domaine balayé (`src/`).
+  Les chemins fabriqués de son contrôle positif ne peuvent donc pas entrer dans
+  ce qu'il mesure. `test_le_domaine_balaye_exclut_la_source_de_ce_garde`
+  l'asserte, pour que personne n'élargisse le domaine sans voir ce qu'il casse.
+
+Cinq mutations l'éprouvent, toutes rouges : motif rendu aveugle (**2** rouges —
+le verdict ET le contrôle positif), domaine élargi à `tests/` (**1** —
+le garde de distance), et **trois contrôles positifs sur trois fichiers réels
+différents**, une faute à la fois, dont un chemin **imbriqué** (`campagnes/…`) :
+le défaut du lot 22 replanté dans `identite_du_code.py`, un chemin inventé dans
+`usage.py`, un autre dans `llm.py`. Chacun rend **1** rouge nommé.
+
+#### NB-3 — la réserve est écrite AU SITE, à ses **trois** endroits
+
+Le lot 22 avait écrit cette réserve dans son rapport de conversation ; elle
+n'était nulle part dans le dépôt. **Le dépôt survit, pas la conversation.**
+`documentation/identite_du_code_servi.md` porte désormais, en encadré au §4 puis
+**au site exact de chacune des deux commandes**, que les deux
+`docker compose up -d --no-build agent-api` sont **ÉCRITS et non ÉPROUVÉS** —
+avec ce qui n'a donc pas été vérifié (que `--no-build` empêche `up` de
+reconstruire ; que le retour rende le conteneur à l'image relevée en (a)), et
+avec ce qui l'a été (a, b, c, d, f). La réserve du *Revenir* dit en plus
+**pourquoi elle y est plus gênante** : c'est la ligne qu'on joue sous pression.
+
+#### NB-4 — l'équivalence, **mesurée par REPAR-23 sur un domaine EXHAUSTIF**
+
+**Je confirme l'auditeur et j'étends son domaine.** `mesuré` le 16 septembre 2026
+à 12:44 UTC, copie du compose en projet isolé (`-p repar23probe`, `.env` vide),
+`docker compose config --format json`, **les deux compose doublés de leur SHA-256
+pour prouver qu'ils diffèrent réellement** : les deux formes coïncident sur
+**sept** valeurs — absente, vide, **un espace**, deux espaces, `abc`, `0`, un
+saut de ligne.
+
+**Le domaine n'est pas échantillonné, il est COMPLET** : une variable n'a que
+trois états, les deux formes ne peuvent différer que sur « présente et vide », et
+le repli y est la chaîne vide des deux côtés. **L'ESPACE — le cas que la
+rédaction précédente invoquait pour justifier sa clause finale — ne sépare pas
+davantage.** La mutation `${VAR:-}` → `${VAR-}` est donc **ÉQUIVALENTE**, elle
+survit encore après réécriture (1005 passés, 0 rouge), et c'est **avoué**. Le
+commentaire dit désormais ce qui est vrai, et le garde du gabarit mord toujours
+(argument renommé : **3** rouges nommés).
+
+#### Les faux résultats de REPAR-23, contre lui-même
+
+- **UN `git checkout --` A EFFACÉ SA PROPRE CORRECTION NON COMMITÉE.** En
+  restaurant après un contrôle positif, la correction NB-2 — écrite mais pas
+  encore commitée — a été détruite avec la mutation. **C'est le SHA-256 qui l'a
+  attrapé** : le « restauré » attendu n'a pas été imprimé, et la vérification a
+  montré le chemin fautif revenu. Les contrôles suivants ont alors mesuré un
+  arbre déjà cassé. *Corrigé en commitant AVANT de muter, et tout a été rejoué.*
+- **SA SONDE DE BASCULE S'EST ATTRAPÉE ELLE-MÊME.** `OLLAMA_HOST` rend **1**
+  occurrence dans son diff — c'est la phrase de son propre garde qui **raconte**
+  qu'une sonde `OLLAMA_HOST` s'est attrapée. *La phrase qui déclare le précédent
+  EST l'occurrence.* Qualifiée (prose, pas un réglage) et doublée d'un contrôle
+  positif discriminant : un vrai témoin de bascule posé dans le compose est bien
+  vu.
+- **IL A CASSÉ LA NOTE DU COMPTE EN LA RÉÉCRIVANT**, en faisant passer le mot
+  « fichiers » à la ligne suivante. Le garde `TestLaNoteDuCompteEstLueAuBonEndroit`
+  a rougi — **le même geste qui l'avait fait naître le 11 septembre**. Il tient.
+- **SON GARDE D'UNICITÉ A COMPTÉ 174 POUR UNE ANCRE PRÉSENTE UNE FOIS** : une
+  ancre multi-ligne terminée par un saut de ligne fait compter à `grep -cF`
+  **toutes les lignes du fichier** (174 = `wc -l` du compose). *Le garde a
+  REFUSÉ la mutation au lieu de la poser à l'aveugle* — il a fait son travail.
+- **IL A LU UNE SORTIE VIDE COMME UNE VALEUR, DEUX FOIS.**
+  `pytest --collect-only -q` s'est cumulé au `-q` de `addopts` : la sortie ne
+  portait plus d'identifiants de nœuds, et son compte a rendu **0 test** — ce qui
+  aurait pu passer pour une mesure. Et son écho de contrôle sur la forme du
+  compose a rendu du vide, sans qu'il ait alors prouvé que ses deux formes
+  différaient. *Corrigé en doublant du SHA-256 et en recoupant chaque compte par
+  une seconde méthode.*
