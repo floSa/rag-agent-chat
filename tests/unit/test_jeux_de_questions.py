@@ -17,6 +17,7 @@ faux, à zéro de rappel. Site canonique du constat et de la décision qui en so
 
 import ast
 import importlib.util
+import json
 import pathlib
 import re
 
@@ -301,18 +302,35 @@ def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str)
     monkeypatch.setattr(settings, "llm_engine", moteur)
     postes: list[dict] = []
 
+    # LE DOUBLE REPOND DANS LE DIALECTE DU MOTEUR, et c'est ce qui rend ce test
+    # capable de voir une régression de LECTURE. Un double qui répondrait
+    # toujours à la forme d'Ollama laisserait passer un retour à
+    # `response.json()["message"]["content"]` : la charge partirait juste, la
+    # réponse serait illisible sous vLLM, et CHAQUE question serait écartée en
+    # silence par le repli — le défaut même que NB-5 signalait.
+    reponse_json = json.dumps(
+        {
+            "question": "Quelle est la cadence de purge du collecteur ?",
+            "preuve": "Le collecteur est purgé toutes les 19 minutes.",
+        }
+    )
+    corps = {
+        "ollama": {"message": {"content": reponse_json}},
+        "vllm": {"choices": [{"message": {"content": reponse_json}}]},
+    }
+
     class _Reponse:
         def raise_for_status(self) -> None: ...
 
         def json(self) -> dict:
-            return {"message": {"content": "{}"}}
+            return corps[moteur]
 
     def _post(url, json=None, **_k):  # noqa: A002 — le nom du paramètre de httpx
         postes.append({"url": url, "charge": json})
         return _Reponse()
 
     monkeypatch.setattr(module.httpx, "post", _post)
-    module.demander_question(
+    rendue = module.demander_question(
         {"texte": "Le collecteur est purgé toutes les 19 minutes.", "language": "fr"},
         "fr",
         "http://serveur-d-essai:11434",
@@ -320,6 +338,15 @@ def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str)
         5.0,
         4242,
     )
+
+    assert rendue is not None, (
+        f"sous `LLM_ENGINE={moteur}`, la réponse du serveur n'a pas été LUE, et "
+        "la question a été écartée par le repli — sans erreur, sans journal. "
+        f"Pannes absorbées : {module._PANNES}. C'est le défaut de NB-5 : un "
+        "poste qui bascule le chemin sans basculer la lecture rend un jeu vide "
+        "en sortant à zéro."
+    )
+    assert rendue["question"] == "Quelle est la cadence de purge du collecteur ?"
 
     assert len(postes) == 1, (
         f"{len(postes)} appel(s) postés au lieu d'un : ce garde ne mesure pas "

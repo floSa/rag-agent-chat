@@ -715,3 +715,71 @@ def test_le_delai_de_lecture_du_flux_n_est_pas_borne(monkeypatch: pytest.MonkeyP
         "coupée, et rien dans le dépôt ne le disait : c'est NB-7 de l'audit du "
         "16 septembre 2026."
     )
+
+
+# ─── LE SECOND POSTE D'OUTILLAGE, LUI AUSSI HORS DU SITE UNIQUE ─────────────
+
+
+@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
+def test_la_traduction_du_balayage_poste_et_lit_dans_le_dialecte(
+    monkeypatch: pytest.MonkeyPatch, moteur: str
+) -> None:
+    """NB-5, SECOND POSTE : `scripts/sweep_retrieval.py`.
+
+    Il postait `/api/chat` en dur et lisait `message.content` à la racine.
+    Pointé vers un serveur vLLM, il rendait `None` pour CHAQUE question — en
+    silence, par `except Exception: return None` — et le balayage comparait
+    ensuite ses configurations sur un jeu **sans aucune traduction**, en
+    concluant. Une traduction manquante ne fait pas lever ce script : elle
+    DÉPLACE le rappel translinguistique mesuré.
+
+    Les DEUX moitiés sont éprouvées ici, parce qu'une seule ne suffit pas : le
+    chemin POSTÉ (la charge part au bon endroit dans la bonne forme) et la
+    réponse LUE (le corps du dialecte est compris). Un poste qui basculerait
+    l'un sans l'autre serait muet de la même façon.
+    """
+    import importlib.util
+    import pathlib
+
+    from src.agent.settings import settings as reglages
+
+    chemin = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "sweep_retrieval.py"
+    spec = importlib.util.spec_from_file_location("sweep_retrieval", chemin)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    monkeypatch.setattr(reglages, "llm_engine", moteur)
+    corps = {
+        "ollama": {"message": {"content": "What is the purge rate of the collector?"}},
+        "vllm": {"choices": [{"message": {"content": "What is the purge rate of the collector?"}}]},
+    }[moteur]
+    postes: list[str] = []
+
+    class _Reponse:
+        def raise_for_status(self) -> None: ...
+
+        def json(self) -> dict[str, Any]:
+            return corps
+
+    def _post(url: str, json: Any = None, **_k: Any) -> "_Reponse":  # noqa: A002
+        postes.append(url)
+        return _Reponse()
+
+    monkeypatch.setattr(module.httpx, "post", _post)
+    rendue = module.traduire(
+        "Quelle est la cadence de purge du collecteur ?",
+        "http://serveur-d-essai:11434",
+        "modele-d-essai",
+    )
+
+    chemin_attendu = "/api/chat" if moteur == "ollama" else "/v1/chat/completions"
+    assert postes == [f"http://serveur-d-essai:11434{chemin_attendu}"], (
+        f"sous `LLM_ENGINE={moteur}`, le balayage a posté sur {postes} : le "
+        "chemin ne suit pas le dialecte"
+    )
+    assert rendue == "What is the purge rate of the collector?", (
+        f"sous `LLM_ENGINE={moteur}`, la réponse du serveur n'a pas été LUE et "
+        f"la traduction a été écartée en silence. Pannes absorbées : "
+        f"{module._PANNES_DE_TRADUCTION}"
+    )

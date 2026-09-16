@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1086 tests, aucune dépendance
+## Unitaire — 1088 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,13 +20,13 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 20:03 UTC par REPAR-26 : **1086** tests sur **51** fichiers,
+> `mesuré` le 16 septembre 2026 à 20:26 UTC par REPAR-26 : **1088** tests sur **51** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
 > total que `pytest` annonce — concordent. *(LOT-25 relevait **1035** sur
-> **50** fichiers à 15:32 UTC ; les **51** de plus se répartissent en **36**
+> **50** fichiers à 15:32 UTC ; les **53** de plus se répartissent en **38**
 > dans le fichier neuf `test_champs_du_dialecte.py`, **13** dans
 > `test_coherence_depot.py` et **2** dans `test_jeux_de_questions.py`.
-> Les **36** tiennent LA CAUSE des sept non bloquantes de l'audit du lot 25, et
+> Les **38** tiennent LA CAUSE des sept non bloquantes de l'audit du lot 25, et
 > non leurs symptômes : une TABLE qui dit, pour chaque champ de
 > `MoteurLlmHealth` et pour chacun des deux dialectes, la valeur que le relevé
 > doit porter — exhaustive contre le schéma, paritaire entre les deux colonnes,
