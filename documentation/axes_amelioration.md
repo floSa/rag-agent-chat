@@ -9502,3 +9502,138 @@ qu'un rapport juste partout ailleurs est celui qu'on recopie sans y penser.*
 `rc(make test)=0`, **1005 passés** sur **49** fichiers. Arbre scellé
 **`f98fe4f`**, bit pour bit celui mesuré.
 
+### 4.59 → LOT-24 : le redéploiement, et la première fois que l'agent dit quel code il exécute
+
+**Livré et FUSIONNÉ le 16 septembre 2026** — `f30af30`. Le seul lot du chantier
+qui touche le service.
+
+#### LA BORNE QUE DOUZE LOTS ONT PAYÉE EST LEVÉE
+
+Conteneur **recréé** le 16 septembre à **13:40:14 UTC**, `healthy` en **21 s**,
+`RestartCount=0`. L'agent servait le code de `8209e68`, **sans `flux_llm.py` ni
+`repli_outil.py` — ABSENTS, pas anciens**. **Les lots 19, 20 et 21 tournent
+maintenant.**
+
+`/health` publie désormais :
+
+```json
+{"etat": "identifie", "sha": "b7337a3e544009dbbbc36764cb072e046b175e09",
+ "construite_le": "2026-09-16T13:39:21Z", "avertissement": null}
+```
+
+**Et `b7337a3` EST `main`.** Pour la première fois de ce chantier, l'agent en
+service dit quel code il exécute. **§4.42 est refermé pour de bon** — non par une
+promesse, mais par un champ que n'importe qui peut lire.
+
+#### CE QUE LE PILOTE A VÉRIFIÉ DE SES MAINS, ET LE ZÉRO EST DOUBLÉ
+
+`code_servi` est une **DÉCLARATION DU BUILD**, pas une preuve du contenu — le
+module le dit lui-même. J'ai donc tranché **PAR LE CONTENEUR** : `docker cp` puis
+SHA-256 fichier par fichier contre `git show b7337a3:<path>` → **18 identiques,
+0 différent, 0 manquant, 0 en trop**, `rc=0`.
+
+**ET DEUX CONTRÔLES POSITIFS**, parce qu'un zéro de différence ne vaut rien sans
+eux : la même méthode rend `rc=1` contre l'ancienne révision, et `rc=1` sur **UN
+SEUL OCTET** ajouté à `flux_llm.py`. Elle discrimine.
+
+#### LE LOT RENVERSE LE PILOTE SUR DEUX CHIFFRES, ET LES DEUX SONT LA MÊME FAUTE
+
+**Un instantané publié comme une propriété.**
+
+- **« 27 commits derrière `main` » en valait 38** à sa lecture. Le 27 n'était pas
+  faux : il avait vieilli de onze commits de registre entre sa mesure et sa
+  relecture. **LA PROPRIÉTÉ EST `8209e68` ; LA DISTANCE PÉRIME.**
+- **Les « 914 ko de contexte transféré » ne mesurent pas la taille du contexte.**
+  Le clone pèse 2,0 Go hors `.git` et il n'existe aucun `.dockerignore` :
+  BuildKit ne transfère que ce que les `COPY` réclament, puis incrémentalement.
+  **Le lot ne l'a pas laissé en déduction, il l'a ÉPROUVÉ** sur un Dockerfile
+  jetable ne portant qu'un `COPY requirements.txt` → **38 B transférés**.
+
+#### LE FAUX POSITIF QUI AURAIT FAIT TOMBER L'OBJECTIF DU LOT
+
+`make image` décide de `code.arbre` sur `git status --porcelain`, **QUI COMPTE
+LES FICHIERS NON SUIVIS**. Or les arbres de travail de l'outillage de session
+vivent sous `.claude/` : **le lot qui redéploie salit l'arbre par sa seule
+présence**. L'image aurait gravé `arbre_sale`, donc `/health` aurait rendu « ne
+pas comparer », donc **une campagne appariée refusée** — pour un arbre dont aucun
+fichier suivi ne s'écartait de `HEAD`, et dont rien n'entre dans l'image
+(`Dockerfile.agent` ne copie que `requirements.txt`, `src/agent` et `src/api`).
+
+Le lot a contourné en local par `.git/info/exclude`, motif **étroit**, **retiré
+immédiatement après et restauré au SHA-256** — avec un **contrôle positif posé
+avant de construire** : un fichier témoin à la racine ressortait bien, donc le
+garde mordait encore sur toute autre saleté.
+
+Le remède **versionné** est `.gitignore`. **VÉRIFIÉ PAR LE PILOTE DANS LES QUATRE
+SENS** sur le résultat de fusion :
+
+| état de l'arbre | ce que la recette rend |
+|---|---|
+| tel quel | `propre` |
+| + un arbre de travail sous `.claude/` | **`propre`** — le faux positif est éteint |
+| + un fichier non suivi **ailleurs** | **`sale`** |
+| + un fichier **SUIVI** modifié | **`sale`** |
+
+**Le faux positif est éteint SANS que le garde soit désarmé.**
+
+**La correction de fond — borner la sonde à `requirements.txt src/agent src/api`
+— est PROPOSÉE ET NON FAITE**, parce qu'elle touche le `Makefile` et mérite son
+lot avec son garde. C'est le bon jugement : on n'élargit pas un lot de
+déploiement à une modification de la porte.
+
+#### LA RÉSERVE DEVIENT UNE MESURE
+
+`up --no-build` était **ÉCRIT, PAS ÉPROUVÉ** depuis le lot 22, et le document le
+disait à son site. Mesuré, 13:40:12 → 13:40:15 UTC, `rc=0` :
+
+| ce que la réserve demandait | la mesure |
+|---|---|
+| `--no-build` empêche-t-il de reconstruire ? | **OUI** — aucune étape de build, `latest` désigne la même image avant et après |
+| `up` recrée-t-il le conteneur ? | **OUI, il le RECRÉE** — identifiant neuf, PID neuf, `RestartCount` remis à 0 |
+| le conteneur sert-il l'image neuve ? | **OUI** |
+| `frontend` est-il emporté par son `depends_on` ? | **NON** — même identifiant, même `StartedAt` de part et d'autre |
+
+**Le retour arrière n'a pas eu lieu** — rien n'a mal tourné — et **sa composition
+reste crue sur la documentation** : l'éprouver exigeait de casser le service qui
+venait d'être réparé. Réserve **réduite, pas levée**, écrite comme telle.
+
+#### La marge sur la carte, mesurée AVANT de couper
+
+`nvidia-smi --query-compute-apps` croisé avec les cgroups — **l'attribution des
+PID aux conteneurs est LUE, pas supposée**. `vllm-central` 14 264 MiB,
+`ollama-central` 3 586, l'agent 1 468, **3 229 libres**. L'agent rend puis
+redemande au plus son pic : marge de **2,2×**. **GO.**
+
+Le seul scénario qui cassait exigeait que le voisin redémarre à
+`--gpu-memory-utilization 0.76` dans la fenêtre. **Le lot a RELU sa valeur
+courante au lieu de la supposer** — `0.55` — et a vérifié son `StartedAt` avant
+et après : identique. *Le 27 de l'accord est un ACCORD, pas une propriété de la
+carte, et cette ligne le montre appliqué.*
+
+#### Le piège paresseux, rencontré deux fois et non pris pour une panne
+
+À froid, `/health` rend `index_lexical: false` **et** `torch_device.embedding`
+à `null` — les deux sont construits au premier usage. Le lot **n'a pas conclu à
+une panne** : il a tranché **par la première recherche réelle**, et le
+`lexical_ms: 478` de la réponse le confirme. Après : les quatre sondes à `true`,
+`cuda:0` des deux côtés, pic 1 074 MiB.
+
+**Une réponse réelle a été servie** : HTTP 200 en 43,0 s, 1 770 caractères,
+**six citations ancrées**, `dropped_contexts: 0`. Un `/health` vert n'est pas une
+réponse servie, et le lot ne s'en est pas contenté.
+
+#### Les faux résultats du lot contre lui-même
+
+- **IL A ÉCRIT SA CONCLUSION DANS LA COMMANDE.** Son
+  `echo "(aucune ligne ci-dessus = aucun téléchargement)"` s'exécutait **quoi
+  qu'il arrive**, et s'est affiché **sous dix lignes de requêtes**. *Une phrase
+  qui s'imprime sans condition n'est pas une mesure.* Corrigé en faisant
+  **compter** la sonde, puis doublé d'un contrôle positif.
+- **Quinze fichiers « en trop » dans le conteneur** qui étaient des
+  `__pycache__` écrits à l'import — comptés à part plutôt que passés sous
+  silence.
+- **Sa sonde d'attribution s'est attrapée elle-même deux fois**, dont sur un
+  commit qui **cite** la signature interdite pour prouver que le hook tire.
+- **Son premier réflexe a été de lire le prompt comme à jour** : les deux
+  chiffres périmés ont survécu à sa première lecture.
+
