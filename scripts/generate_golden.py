@@ -46,6 +46,7 @@ hook inarmable sans un audit de ses 34 detections. Le YAML le laisse armable.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import random
 import re
@@ -60,6 +61,18 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+
+# APRÈS le `sys.path.insert` : ce script n'est pas dans un paquet, et ces deux
+# imports n'existent qu'une fois la racine du dépôt sur le chemin.
+from src.agent.dialecte_llm import dialecte_courant  # noqa: E402 — voir ci-dessus
+from src.agent.flux_llm import charge_du_corps  # noqa: E402 — voir ci-dessus
+
+# CE QUI A ÉTÉ AVALÉ, GARDÉ POUR ÊTRE DIT À LA FIN. Une liste et non un
+# compteur : le TYPE de la panne est ce qui sépare « le modèle n'a pas rendu de
+# JSON », qui est le fonctionnement normal de ce script, de « ce serveur ne
+# parle pas ce dialecte », qui est une campagne perdue. `main` en imprime les
+# premières et le total.
+_PANNES: list[str] = []
 
 # Un passage trop court ne porte pas de quoi formuler une question spécifique ;
 # un passage énorme donne des questions vagues qui portent sur son ensemble.
@@ -290,40 +303,66 @@ def demander_question(
 ) -> dict | None:
     """Fait écrire une question par le LLM, et vérifie qu'elle tient debout.
 
-    **LA GRAINE EST TRANSMISE À OLLAMA, ET ELLE NE L'ÉTAIT PAS.** Voir
+    **LA GRAINE EST TRANSMISE AU MOTEUR, ET ELLE NE L'ÉTAIT PAS.** Voir
     `main` pour ce que cela change et ce que cela ne rattrape pas.
+
+    CE POSTE EST PASSÉ PAR LE SITE UNIQUE LE 16 SEPTEMBRE 2026 — NB-5 de l'audit
+    du lot 25. Il postait `/api/chat` en dur et lisait `message.content` à la
+    racine : pointé vers un serveur vLLM par son argument `--ollama`, il aurait
+    écarté CHAQUE question **en silence**, par le repli ci-dessous. C'est
+    exactement le défaut que le lot 25 venait de fermer dans `src/`, laissé
+    ouvert d'un cran dans `scripts/`.
+
+    L'ADRESSE ET LE MODÈLE RESTENT CEUX DES ARGUMENTS : ce script s'exécute
+    depuis le poste et non depuis le réseau compose, donc son `--ollama` par
+    défaut ne vaut pas `OLLAMA_HOST`. Ce qui vient du dialecte est la FORME —
+    chemin, place de la graine, nom du format contraint, plafond de sortie — et
+    c'est elle qui rendait la bascule muette.
+
+    LA FENÊTRE VIENT DÉSORMAIS DE `LLM_NUM_CTX` et non plus d'un 8192 écrit ici.
+    C'est un changement de comportement, et il est voulu : deux fenêtres pour le
+    même corpus produisaient deux jeux dorés sans que rien ne le dise. Poser
+    `LLM_NUM_CTX=8192` reproduit à l'octet ce que ce script envoyait.
     """
     prompt = PROMPT.format(
         passage=passage["texte"], langue_nom=_LANGUES.get(langue_cible, "français")
     )
-    payload = {
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "think": False,
-        "format": "json",
-        # `seed` TRANSMISE, et c'est une correction du 8 septembre 2026. Sans
-        # elle, `temperature: 0.4` rendait la génération non déterministe, donc
-        # le MOTIF DE REJET variait d'une exécution à l'autre, donc l'ensemble
-        # des ancrages retenus pouvait varier — voir `main`. `mesuré` sur
-        # `ollama-central`, `gemma4:e4b`, même prompt, trois paires d'appels :
-        #
-        #   sans `seed`     : deux appels -> deux textes DIFFÉRENTS
-        #   `seed: 42`      : deux appels -> textes IDENTIQUES
-        #   `seed: 43`      : différent de `seed: 42` — la graine mord
-        "options": {
-            "temperature": 0.4,
-            "num_predict": 300,
-            "num_ctx": 8192,
-            "seed": graine,
-        },
-    }
+    # `_replace` : le dialecte du réglage courant, à l'adresse et sous le nom que
+    # la ligne de commande désigne. La FORME suit `LLM_ENGINE`, l'adresse non.
+    dialecte = dialecte_courant()._replace(hote=host, modele=model)
+    # `seed` TRANSMISE, et c'est une correction du 8 septembre 2026. Sans elle,
+    # `temperature: 0.4` rendait la génération non déterministe, donc le MOTIF
+    # DE REJET variait d'une exécution à l'autre, donc l'ensemble des ancrages
+    # retenus pouvait varier — voir `main`. `mesuré` sur `ollama-central`,
+    # `gemma4:e4b`, même prompt, trois paires d'appels :
+    #
+    #   sans `seed`     : deux appels -> deux textes DIFFÉRENTS
+    #   `seed: 42`      : deux appels -> textes IDENTIQUES
+    #   `seed: 43`      : différent de `seed: 42` — la graine mord
+    payload = dialecte.charge(
+        [{"role": "user", "content": prompt}],
+        stream=False,
+        temperature=0.4,
+        max_tokens=300,
+        thinking=False,
+        graine=graine,
+        format_json=True,
+    )
     try:
-        response = httpx.post(f"{host}/api/chat", json=payload, timeout=timeout)
+        response = httpx.post(dialecte.url_chat, json=payload, timeout=timeout)
         response.raise_for_status()
-        brut = response.json().get("message", {}).get("content", "")
+        brut = charge_du_corps(response.json()).get("content") or ""
         donnees = json.loads(brut)
-    except Exception:
+    except Exception as panne:  # noqa: BLE001 — voir juste en dessous
+        # L'ABSORPTION RESTE LARGE, ET ELLE N'EST PLUS MUETTE. Deux pannes très
+        # différentes arrivent ici : une réponse que le modèle n'a pas su rendre
+        # en JSON — qui est un rejet NORMAL de ce script, il en compte des
+        # dizaines — et une panne de DIALECTE ou de transport : modèle inconnu du
+        # serveur, route absente, serveur éteint. La seconde écartait jusqu'ici
+        # toutes les questions sans un mot, et la campagne rendait un jeu vide
+        # en sortant à zéro. Les distinguer par leur type serait fragile ;
+        # les DIRE ne l'est pas, et c'est ce que `main` compte et imprime.
+        _PANNES.append(f"{type(panne).__name__}: {panne}")
         return None
 
     question = (donnees.get("question") or "").strip()
@@ -482,6 +521,16 @@ def main() -> int:
         questions.append(construire(passage, genere, langue_question, len(questions) + 1))
         if len(questions) % 10 == 0:
             print(f"  {len(questions)}/{args.count} ({rejets} rejetées)")
+
+    # LE BILAN DES PANNES, ET IL EST IMPRIMÉ MÊME QUAND TOUT S'EST BIEN PASSÉ —
+    # un compteur qui ne s'affiche qu'au-dessus de zéro ne se lit jamais comme
+    # « zéro », il se lit comme « rien n'a été mesuré ». Une seule panne répétée
+    # autant de fois qu'il y a de passages est la signature d'un serveur qui ne
+    # parle pas le dialecte qu'on lui envoie : elle se voyait autrefois comme un
+    # taux de rejet élevé, indiscernable d'un corpus difficile.
+    print(f"  pannes d'appel absorbées : {len(_PANNES)}")
+    for panne, occurrences in collections.Counter(_PANNES).most_common(3):
+        print(f"    {occurrences}x {panne}")
 
     # Questions sans réponse : le corpus est muet, le système doit s'abstenir.
     for index, (langue, texte) in enumerate(_UNANSWERABLE, start=1):

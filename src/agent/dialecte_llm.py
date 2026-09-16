@@ -140,13 +140,34 @@ class Dialecte(NamedTuple):
         max_tokens: int,
         thinking: bool,
         outils: list[dict[str, Any]] | None = None,
+        graine: int | None = None,
+        format_json: bool = False,
     ) -> dict[str, Any]:
         """La charge utile POST, dans le dialecte du moteur courant.
 
-        Les cinq grandeurs nommées ici sont celles qui changent le SENS de la
-        réponse : elles sont donc toutes passées, jamais laissées au défaut du
-        serveur. `num_ctx` n'en fait pas partie, et c'est traité dans
+        Les cinq premières grandeurs nommées ici sont celles qui changent le
+        SENS de la réponse : elles sont donc toutes passées, jamais laissées au
+        défaut du serveur. `num_ctx` n'en fait pas partie, et c'est traité dans
         `_charge_vllm`.
+
+        `graine` ET `format_json` SONT NULS SUR LE CHEMIN QUI SERT, et c'est
+        pourquoi la charge de production ne bouge pas d'un octet : ni l'un ni
+        l'autre n'est inséré quand il n'est pas demandé. Ils existent pour les
+        DEUX SCRIPTS D'OUTILLAGE — `scripts/generate_golden.py` et
+        `scripts/sweep_retrieval.py` — qui postaient jusqu'ici `/api/chat` en
+        dur, donc hors de ce site (NB-5 de l'audit du 16 septembre 2026). Les
+        faire entrer ici plutôt que de les laisser dehors est la seule lecture
+        cohérente de « UN SEUL SITE » : un site unique qui ne porte pas toute la
+        forme n'est pas unique, il est majoritaire.
+
+        LES DEUX N'ONT PAS LE MÊME NOM NI LA MÊME PLACE DES DEUX CÔTÉS, et c'est
+        exactement la raison d'être de ce module : `seed` vit dans `options` chez
+        Ollama et à plat chez vLLM ; le format contraint s'appelle
+        `format: "json"` chez l'un et `response_format: {"type": "json_object"}`
+        chez l'autre. Un script qui bascule le chemin sans basculer ces deux-là
+        les verrait ACCEPTÉS ET IGNORÉS, sans erreur — la panne muette que ce
+        module existe pour empêcher, et qui coûterait ici la reproductibilité du
+        jeu doré.
         """
         if self.nom == "ollama":
             return _charge_ollama(
@@ -157,6 +178,8 @@ class Dialecte(NamedTuple):
                 max_tokens=max_tokens,
                 thinking=thinking,
                 outils=outils,
+                graine=graine,
+                format_json=format_json,
             )
         return _charge_vllm(
             self.modele,
@@ -166,6 +189,8 @@ class Dialecte(NamedTuple):
             max_tokens=max_tokens,
             thinking=thinking,
             outils=outils,
+            graine=graine,
+            format_json=format_json,
         )
 
 
@@ -191,6 +216,8 @@ def _charge_ollama(
     max_tokens: int,
     thinking: bool,
     outils: list[dict[str, Any]] | None,
+    graine: int | None = None,
+    format_json: bool = False,
 ) -> dict[str, Any]:
     """La charge d'Ollama, dans l'ORDRE D'INSERTION qu'elle avait déjà.
 
@@ -213,6 +240,13 @@ def _charge_ollama(
             "num_ctx": settings.llm_num_ctx,
         },
     }
+    # AJOUTÉS SEULEMENT S'ILS SONT DEMANDÉS, et l'ordre d'insertion de la charge
+    # de production est donc INTACT : `graine` et `format_json` sont nuls sur les
+    # trois postes qui servent. Le garde de l'octet près le vérifie encore.
+    if graine is not None:
+        charge["options"]["seed"] = graine
+    if format_json:
+        charge["format"] = "json"
     if outils:
         charge["tools"] = outils
     return charge
@@ -227,6 +261,8 @@ def _charge_vllm(
     max_tokens: int,
     thinking: bool,
     outils: list[dict[str, Any]] | None,
+    graine: int | None = None,
+    format_json: bool = False,
 ) -> dict[str, Any]:
     """La charge OpenAI-compatible, et les TROIS décisions qu'elle porte.
 
@@ -301,6 +337,14 @@ def _charge_vllm(
     }
     if stream:
         charge["stream_options"] = {"include_usage": True}
+    # LES DEUX MÊMES DEMANDES, DANS L'AUTRE DIALECTE. `seed` est à plat ici et
+    # dans `options` chez Ollama ; le format contraint passe par
+    # `response_format`, le champ du dialecte OpenAI. Envoyer `format: "json"` à
+    # vLLM le ferait ignorer en silence, exactement comme `options`.
+    if graine is not None:
+        charge["seed"] = graine
+    if format_json:
+        charge["response_format"] = {"type": "json_object"}
     if outils:
         charge["tools"] = outils
     return charge

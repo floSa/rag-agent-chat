@@ -18,6 +18,7 @@ chaque configuration coûterait plus cher que tout le reste réuni.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import statistics
 import sys
@@ -46,26 +47,53 @@ def charger_questions(chemin: Path) -> list[dict[str, Any]]:
     return [q for q in data["questions"] if q.get("gold_element_ids")]
 
 
+# CE QUI A ÉTÉ AVALÉ, GARDÉ POUR ÊTRE DIT. Une traduction manquante ne fait pas
+# lever ce script : elle retire la question du versant translinguistique, donc
+# elle DÉPLACE le rappel mesuré sans qu'aucune erreur n'apparaisse. Un balayage
+# dont la moitié des traductions a échoué compare des configurations sur un jeu
+# amputé, et conclut.
+_PANNES_DE_TRADUCTION: list[str] = []
+
+
 def traduire(question: str, ollama: str, model: str) -> str | None:
-    """Traduit une question, en réutilisant le gabarit de production."""
+    """Traduit une question, en réutilisant le gabarit de production.
+
+    CE POSTE EST PASSÉ PAR LE SITE UNIQUE LE 16 SEPTEMBRE 2026 — NB-5 de l'audit
+    du lot 25. Il postait `/api/chat` en dur et lisait `message.content` à la
+    racine : pointé vers un serveur vLLM, il aurait rendu `None` pour CHAQUE
+    question, en silence, et le balayage aurait comparé ses configurations sur
+    un jeu sans aucune traduction — en concluant.
+
+    L'adresse et le modèle restent ceux des arguments, pour la même raison que
+    dans `generate_golden.py` : ce script s'exécute depuis le poste et non
+    depuis le réseau compose. Ce qui vient du dialecte est la FORME.
+    """
+    from src.agent.dialecte_llm import dialecte_courant
+    from src.agent.flux_llm import charge_du_corps
     from src.agent.llm import _get_jinja_env
 
     prompt = _get_jinja_env().get_template("translate_query.j2").render(question=question)
+    dialecte = dialecte_courant()._replace(hote=ollama, modele=model)
     try:
         reponse = httpx.post(
-            f"{ollama}/api/chat",
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "stream": False,
-                "think": False,
-                "options": {"temperature": 0.0, "num_predict": 150},
-            },
+            dialecte.url_chat,
+            json=dialecte.charge(
+                [{"role": "user", "content": prompt}],
+                stream=False,
+                temperature=0.0,
+                max_tokens=150,
+                thinking=False,
+            ),
             timeout=180.0,
         )
         reponse.raise_for_status()
-        texte = reponse.json().get("message", {}).get("content", "").strip()
-    except Exception:
+        texte = (charge_du_corps(reponse.json()).get("content") or "").strip()
+    except Exception as panne:  # noqa: BLE001 — absorption large ASSUMÉE, et DITE
+        # Toutes ces pannes se disent pareil ici — « je n'ai pas de traduction »
+        # — et les distinguer par leur type serait fragile. Ce qui manquait
+        # n'est pas la distinction, c'est la TRACE : `cache_traductions` imprime
+        # désormais le compte et les trois premières.
+        _PANNES_DE_TRADUCTION.append(f"{type(panne).__name__}: {panne}")
         return None
     texte = texte.splitlines()[0].strip().strip("\"'") if texte else ""
     return texte or None
@@ -88,6 +116,14 @@ def cache_traductions(
                 cache[q["question"]] = traduction
             if index % 20 == 0:
                 print(f"  {index}/{len(manquantes)}")
+        # IMPRIMÉ MÊME À ZÉRO : un compteur qui ne s'affiche qu'au-dessus de
+        # zéro ne se lit jamais comme « zéro », il se lit comme « rien n'a été
+        # mesuré ». Une panne répétée autant de fois qu'il y a de questions est
+        # la signature d'un serveur qui ne parle pas le dialecte qu'on lui
+        # envoie ; elle se voyait autrefois comme un cache simplement plus petit.
+        print(f"  pannes de traduction absorbées : {len(_PANNES_DE_TRADUCTION)}")
+        for panne, occurrences in collections.Counter(_PANNES_DE_TRADUCTION).most_common(3):
+            print(f"    {occurrences}x {panne}")
         CACHE_TRADUCTIONS.parent.mkdir(parents=True, exist_ok=True)
         CACHE_TRADUCTIONS.write_text(
             json.dumps(cache, ensure_ascii=False, indent=2), encoding="utf-8"
