@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1088 tests, aucune dépendance
+## Unitaire — 1089 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,11 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 20:26 UTC par REPAR-26 : **1088** tests sur **51** fichiers,
+> `mesuré` le 16 septembre 2026 à 20:37 UTC par REPAR-26 : **1089** tests sur **51** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
 > total que `pytest` annonce — concordent. *(LOT-25 relevait **1035** sur
-> **50** fichiers à 15:32 UTC ; les **53** de plus se répartissent en **38**
-> dans le fichier neuf `test_champs_du_dialecte.py`, **13** dans
+> **50** fichiers à 15:32 UTC ; les **54** de plus se répartissent en **38**
+> dans le fichier neuf `test_champs_du_dialecte.py`, **14** dans
 > `test_coherence_depot.py` et **2** dans `test_jeux_de_questions.py`.
 > Les **38** tiennent LA CAUSE des sept non bloquantes de l'audit du lot 25, et
 > non leurs symptômes : une TABLE qui dit, pour chaque champ de
@@ -33,7 +33,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > et refusant qu'un champ porte la même valeur des deux côtés, ce qui est le
 > garde anti-« mesuré sous le défaut ». Une seule scène la joue, paramétrée sur
 > (champ × dialecte) : **il n'y a rien à écrire deux fois**, et un champ neuf
-> non classé fait rougir. Les **13** ferment la correspondance
+> non classé fait rougir. Les **14** ferment la correspondance
 > `Settings`/`.env.example` dans les deux sens, l'arithmétique interne de cette
 > note même, et le chemin de génération hors du site unique. Les **2** viennent
 > d'un garde de la graine réécrit : il lisait l'arbre syntaxique et rougissait

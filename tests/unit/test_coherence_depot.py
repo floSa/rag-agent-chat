@@ -2714,7 +2714,15 @@ _MOTIF_DU_MAILLON = (
 # La part portée par un fichier NEUF, qui est la seule part COLLECTABLE : un
 # fichier qui existait déjà porte aussi ses tests d'avant, et « N de plus dans
 # un fichier ancien » ne se vérifie par aucune collecte.
-_MOTIF_DU_FICHIER_NEUF = r"\*\*(\d+)\*\* dans le[\s>]*fichier neuf[\s>]*`([\w./]+)`"
+# `[\s>]*` APRÈS le nombre AUSSI, et c'est une correction trouvée PAR MUTATION
+# contre moi-même : la première écriture portait une espace littérale entre
+# `**N**` et `dans`, or la note réelle passe à la ligne à cet endroit précis.
+# Le motif ne trouvait donc RIEN sur la page du dépôt, et le garde se taisait
+# — une part de fichier neuf annoncée à 12 pour 38 collectés restait VERTE.
+# C'est la forme de défaut que ce fichier poursuit depuis dix audits, et elle
+# était dans le garde qui la poursuit. `test_une_mention_de_fichier_neuf_
+# illisible_est_un_rouge` interdit désormais ce silence.
+_MOTIF_DU_FICHIER_NEUF = r"\*\*(\d+)\*\*[\s>]*dans le[\s>]*fichier neuf[\s>]*`([\w./]+)`"
 # La contradiction qui suivait deux lignes plus bas.
 _MOTIF_DES_SCENES = r"de ces (\d+) scènes"
 
@@ -2788,6 +2796,17 @@ def test_la_part_du_fichier_neuf_est_celle_que_pytest_collecte() -> None:
         "garde en vérifierait un choisi en silence"
     )
     if not parts:
+        # LE SILENCE N'EST LÉGITIME QUE SI LA NOTE NE PARLE PAS DE FICHIER NEUF.
+        # Un lot peut n'en ajouter aucun — REPAR-23 est dans ce cas. Mais une
+        # note qui en NOMME un que la lecture ne sait pas extraire est un garde
+        # muet, et c'est ainsi que ce garde-ci a d'abord été vert sur une part
+        # fausse : mutation M20 de REPAR-26, 0 rouge sur 1088.
+        assert "fichier neuf" not in _parenthese_de_tete(texte), (
+            f"la parenthèse de tête de {_PAGE_DES_TESTS} PARLE d'un fichier "
+            "neuf, et la lecture n'en extrait aucune part : le garde se tait au "
+            "lieu de mesurer. Écris la part sous la forme « **N** dans le "
+            "fichier neuf `test_x.py` », ou corrige `_MOTIF_DU_FICHIER_NEUF`."
+        )
         return
     annonce, neuf = int(parts[0][0]), parts[0][1]
     chemin = _RACINE / "tests" / "unit" / neuf
@@ -2906,11 +2925,41 @@ class TestLaLectureDuMaillonEstAncree:
         with pytest.raises(AssertionError, match="au lieu d'un seul"):
             _maillon_de_tete(page)
 
+    def test_une_mention_de_fichier_neuf_illisible_est_un_rouge(self) -> None:
+        """LE SILENCE QUI A FAILLI PASSER, reproduit sur une scène.
+
+        PREUVE D'ATTEINTE : la scène NOMME un fichier neuf dans une forme que le
+        motif ne reconnaît pas. Une lecture qui rendrait simplement « aucune
+        part » laisserait le garde vert sur une page qui annonce un chiffre.
+        """
+        page = (
+            "> `mesuré` le 1er janvier : **100** tests sur **9** fichiers.\n"
+            "> *(LOT-W relevait **80** sur **8** fichiers ; les **20** de plus\n"
+            "> tiennent au fichier neuf `test_quelque_chose.py`, qui en porte 20.)*\n"
+        )
+        tete = _parenthese_de_tete(page)
+        assert "fichier neuf" in tete
+        assert not re.findall(_MOTIF_DU_FICHIER_NEUF, tete), (
+            "la scène ne reproduit plus le défaut : le motif reconnaît cette "
+            "forme, et ce test ne mesure rien"
+        )
+
     def test_la_page_reelle_du_depot_porte_un_maillon_et_un_seul(self) -> None:
-        """LE TÉMOIN INERTE : la page livrée se lit sans ambiguïté."""
+        """LE TÉMOIN INERTE : la page livrée se lit sans ambiguïté.
+
+        La part du fichier neuf y est exigée LISIBLE : sans elle, le garde
+        voisin ne mesurerait rien sur le dépôt réel, et c'est arrivé.
+        """
         texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
         antecedent, ecart = _maillon_de_tete(texte)
         assert antecedent > 0 and ecart > 0
+        tete = _parenthese_de_tete(texte)
+        if "fichier neuf" in tete:
+            parts = re.findall(_MOTIF_DU_FICHIER_NEUF, tete)
+            assert len(parts) == 1 and int(parts[0][0]) > 0, (
+                "la page du dépôt nomme un fichier neuf dont la part n'est pas "
+                f"lisible par le garde : {parts}"
+            )
 
 
 # ─── LE CHEMIN DE GÉNÉRATION N'EST ÉCRIT QU'À UN SEUL ENDROIT ───────────────
