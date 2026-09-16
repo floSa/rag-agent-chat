@@ -9264,8 +9264,19 @@ lot éprouvent le **contrat**, pas la **lecture** — le seul qui traverse
 **NB-2 — une citation de site canonique qui désigne un fichier n'ayant jamais
 existé.** `src/api/identite_du_code.py` cite
 `documentation/registre_du_chantier.md` §4.42 ; ce fichier n'a jamais été suivi.
-Le registre réel est `documentation/pilotage_du_chantier.md`, où le §4.42 se
-trouve bien. **Aucun rouge à montrer, et c'est le fait** : aucun garde de ce
+**REPAR-23 RENVERSE ICI L'AUDITEUR SUR LE FICHIER DE REMPLACEMENT**, et le
+pilote avait raison : le registre réel est **`documentation/axes_amelioration.md`**,
+seul fichier du dépôt à porter le **titre de section** `### 4.42 →`, à la ligne
+6579 — et ce titre (« *le lot 4 … l'agent en service n'a jamais exécuté le garde
+du lot 3* ») est exactement ce que la docstring veut désigner.
+`documentation/pilotage_du_chantier.md` ne porte **aucun** titre `4.42` à aucune
+profondeur ; ses cinq occurrences de « §4.42 » sont des **renvois**, tous dans
+des lignes de tableau, et ses propres sections vont de `## 1.` à `## 12.`
+— son §4 est « L'état du poste ». `mesuré` le 16 septembre 2026 à 12:39 UTC par
+trois méthodes concordantes : `git grep -n '^#\+ *4\.42'` sur `documentation/`
+ne rend qu'une ligne ; le comptage des titres `4.N` par fichier rend **58** pour
+`axes_amelioration.md` et **0** pour `pilotage_du_chantier.md` ; la contre-épreuve
+sur le second rend `rc=1`. **Aucun rouge à montrer, et c'est le fait** : aucun garde de ce
 dépôt ne vérifie que les documents cités par le code existent — dans un module
 dont la thèse est *« un seul site canonique »*.
 

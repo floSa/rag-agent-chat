@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 999 tests, aucune dépendance
+## Unitaire — 1005 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,21 +20,36 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 09:14 UTC par LOT-22 : **999** tests sur **49** fichiers,
+> `mesuré` le 16 septembre 2026 à 12:46 UTC par REPAR-23 : **1005** tests sur **49** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(REPAR-21 avait relevé **954** sur
-> **48** fichiers à 07:58 UTC ; les **quarante-cinq** de plus sont ceux du garde
+> total que `pytest` annonce — concordent. *(LOT-22 avait relevé **999** sur les
+> mêmes 49 fichiers à 09:14 UTC ; les **six** de plus ferment deux non bloquantes
+> de l'audit du lot 22. **Trois** dans `test_identite_du_code.py` (NB-1) : la
+> scène du sha illisible est paramétrée sur les **trois bornes** du motif du
+> module — longueur, ancrage, casse —, chacune éprouvée par la sortie d'une
+> commande `git` qu'un lecteur pressé mettrait dans la cible `image` en croyant
+> l'améliorer. Les trois mutations correspondantes SURVIVAIENT à la suite
+> entière, et chaque borne a son propre texte séparateur : elle tue une mutation
+> et une seule. **Trois** dans `test_coherence_depot.py` (NB-2) : un chemin de
+> document cité par `src/` doit désigner un fichier qui existe — le verdict avec
+> sa preuve d'atteinte, son contrôle positif dans les deux sens, et l'assertion
+> que le domaine balayé exclut la source du garde, pour qu'une sonde ne
+> s'attrape pas elle-même.)*
+>
+> *(REPAR-21 avait relevé **954** sur
+> **48** fichiers à 07:58 UTC ; les **quarante-huit** de plus sont ceux du garde
 > de déploiement, tous dans le fichier neuf `test_identite_du_code.py` : **treize**
 > sur le contrat qui refuse qu'une image anonyme passe pour identifiée — les deux
 > sens de chacun de ses trois invariants, plus les sept formes qui ressemblent à
-> un sha sans en être un —, **dix** sur les trois positions de la
+> un sha sans en être un —, **treize** sur les trois positions de la
 > lecture et les trois chemins distincts vers l'anonymat, **trois** sur la
 > publication dans le corps de `/health`, **seize** sur le gabarit qui fait entrer
 > l'identité dans l'image — les trois arguments du compose, leur interpolation,
 > les trois `ARG` sans valeur par défaut, les trois `ENV`, les trois `LABEL` et
 > la cible qui relève le sha ET la propreté de l'arbre —, et **trois** sur le
 > lecteur qui lit le compose COMME DOCKER LE LIT, override compris. Aucun test
-> n'a été ajouté par LOT-22 sans qu'une mutation l'ait fait rougir d'abord.)*
+> n'a été ajouté par LOT-22 ni par REPAR-23 sans qu'une mutation l'ait fait
+> rougir d'abord.)*
 > *(LOT-20 avait relevé **937** sur les
 > mêmes 48 fichiers à 04:45 UTC ; les **dix-sept** de plus sont les gardes de
 > REPAR-21, qui ferme les huit trouvailles non bloquantes de l'audit du lot 20 —

@@ -251,8 +251,54 @@ class TestCeQueLeBuildAGraveEstCeQuiSePublie:
         assert identite.avertissement is not None
         assert "construite sans" in identite.avertissement
 
+    # LES TROIS BORNES DU MOTIF DU MODULE, ET CHACUNE A SON PROPRE TEXTE
+    # SÉPARATEUR. `_UN_SHA` est la PREMIÈRE barrière : c'est elle qui ramène une
+    # identité mal formée à `anonyme` AVANT que le validateur de
+    # `CodeServiHealth` — la seconde — ne puisse lever. Les deux ne sont pas
+    # redondantes : la première rend un corps, la seconde rend une EXCEPTION,
+    # donc un `/health` en **HTTP 500**.
+    #
+    # CE QUE COÛTE CE 500, EXACTEMENT — ni dramatisé, ni minimisé. `restart:
+    # unless-stopped` NE le rattrape PAS : Docker redémarre un conteneur qui
+    # SORT, pas un conteneur `unhealthy`, et ce compose ne porte aucun autoheal.
+    # Le coût est ailleurs et il est sérieux : `frontend` porte
+    # `depends_on: agent-api: condition: service_healthy`, donc un `agent-api`
+    # qui ne passe jamais `healthy` EMPÊCHE `frontend` DE LEVER À FROID,
+    # indéfiniment. Un conteneur déjà debout continue, lui, de servir.
+    #
+    # POURQUOI CES TROIS VALEURS-LÀ, ET PAS TROIS AUTRES. Ce ne sont pas des
+    # curiosités de laboratoire : ce sont les sorties de trois commandes qu'un
+    # lecteur pressé mettrait dans la cible `image` en croyant l'améliorer.
+    # `git rev-parse --short HEAD` rend un sha ABRÉGÉ ; `git describe --always
+    # --dirty` rend un 40-hex SUFFIXÉ ; et un relevé passé par un outil qui
+    # majuscule rend un 40-hex EN CAPITALES.
+    #
+    # CE QUE CE PARAMÉTRAGE FERME, MESURÉ LE 16 SEPTEMBRE 2026, `/health` appelé
+    # pour de vrai des deux côtés (`TestClient`, `raise_server_exceptions=False`).
+    # Chaque valeur tue UNE mutation ET UNE SEULE — c'est pourquoi il en faut
+    # trois et non une :
+    #
+    #   motif muté en `{7,40}`   : `8209e68` -> 500, les deux autres -> 200
+    #   motif muté sans ancres   : `…c15b-dirty` -> 500, les deux autres -> 200
+    #   motif muté en `a-fA-F`   : 40-hex majuscule -> 500, les deux autres -> 200
+    #
+    # Les trois mutations SURVIVAIENT à la suite entière (999 passés, 0 rouge)
+    # avant ce paramétrage. La cause était nommée : les sept `faux_sha` de ce
+    # fichier éprouvent le CONTRAT (`CodeServiHealth` construit directement), et
+    # le seul faux sha qui traversait `identite_du_code()` était `HEAD` — que
+    # les trois mutants refusent aussi. La LECTURE n'était donc visitée par
+    # personne sur ses bornes.
+    @pytest.mark.parametrize(
+        "sha_mal_forme",
+        [
+            pytest.param("HEAD", id="non-resolu"),
+            pytest.param("8209e68", id="sha-abrege"),
+            pytest.param("c8d595e9c3c41a6405a88356758bc4d27a44c15b-dirty", id="40-hex-suffixe"),
+            pytest.param("C8D595E9C3C41A6405A88356758BC4D27A44C15B", id="40-hex-majuscule"),
+        ],
+    )
     def test_un_sha_illisible_laisse_l_image_anonyme_et_le_dit(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, monkeypatch: pytest.MonkeyPatch, sha_mal_forme: str
     ) -> None:
         """Un relevé qui a échoué ne se publie pas, ET ne se tait pas non plus.
 
@@ -260,7 +306,7 @@ class TestCeQueLeBuildAGraveEstCeQuiSePublie:
         même façon : rien de gravé est un build non instrumenté, un sha illisible
         est un build instrumenté qui s'est cassé. L'avertissement les sépare.
         """
-        monkeypatch.setenv(VAR_SHA, "HEAD")
+        monkeypatch.setenv(VAR_SHA, sha_mal_forme)
         monkeypatch.setenv(VAR_ARBRE, "propre")
         identite = identite_du_code()
         assert identite.etat == "anonyme"
