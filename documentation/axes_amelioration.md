@@ -9072,3 +9072,58 @@ depuis 937 : le chiffre est celui de la collecte.
   `isinstance(x, str)`** en général — il l'est sur le domaine mesuré ici, et
   c'est à ce titre seulement qu'il sert de témoin.
 
+#### Ce que le pilote a vérifié DE SES MAINS, et pourquoi il n'y a pas de quatrième audit
+
+**Le §4.18 s'applique, et sa clause exige une vérification personnelle : la
+voici.**
+
+**(1) Le périmètre de comportement, borné par un banc AST AVEC CONTRÔLE
+POSITIF.** Docstrings retirées, `src/agent/llm.py` et `src/agent/repli_outil.py`
+rendent un AST **IDENTIQUE** entre `main` et la tête — leurs 36 et 48 lignes sont
+**intégralement** du commentaire. Dans `src/agent/flux_llm.py`, comparaison unité
+par unité : **`_lire_decomptes` modifiée, `_renseigner` ajoutée, et RIEN
+D'AUTRE** — `lire`, `_charge`, `_accumuler`, `message_outils`, `__init__` et
+`Decomptes` sont inchangés. *Le contrôle positif — une seule ligne mutée dans
+`flux_llm.py` — rend bien « AST différent », donc le banc discrimine et ne rend
+pas « identique » par impuissance.*
+
+**(2) LA SEULE DÉCISION QUE L'AUDIT N'AVAIT PAS SPÉCIFIÉE, REMESURÉE.** L'audit
+demandait « une ligne qui ne remplace que ce qu'elle renseigne » ; il ne disait
+rien du **sens** du conflit. Le lot a tranché « le dernier renseigné gagne » sur
+une mesure. `mesuré` par le pilote le **16 septembre 2026 à 08:36 UTC**, sur
+`vllm-central`, avec `stream_options: {"include_usage": true,
+"continuous_usage_stats": true}` passé **par requête**, et sur un prompt **qui
+n'est pas celui du lot** : **62 événements JSON, 62 portant un `usage`**,
+`completion_tokens` allant de **0 à 60**, premier renseigné **`(35, 0)`**,
+dernier **`(35, 60)`**, **aucun champ `done`**. La règle « le premier gagne »
+aurait donc figé le compte à **zéro token généré**. **La mesure du lot se
+reproduit sous une autre main et un autre prompt.**
+
+**(3) Les gardes éprouvés, parce qu'un garde ne se juge pas à sa lecture.** Six
+mutations posées **par motif**, `assert` d'unicité de l'ancre avant écriture,
+`assert` que le SHA-256 a bougé, restauration contrôlée au SHA-256 et
+`git status --porcelain` testé **sur la chaîne** après chacune :
+
+| mutation du pilote | `rc(pytest)` | ce qui meurt |
+|---|---|---|
+| **témoin inerte** (commentaire ajouté) | **0** | — *le banc ne rougit pas tout seul* |
+| écrasement inconditionnel restauré | **1** | les trois scènes `…n_efface_pas…` |
+| garde d'erreur limité à la première ligne | **1** | les trois scènes d'erreur, dont les deux **après des tokens** |
+| priorité prose/sentinelles inversée | **1** | `…la_prose_garde_la_priorite…` |
+| **copie du motif DES SENTINELLES dans `graph.py`** | **1** | `test_le_motif_du_second_rideau_n_a_qu_un_site` |
+| copie du motif DE LA PROSE *(contrôle positif, même passe)* | **1** | le même |
+
+**La réserve R1 — ouverte par l'audit du lot 19, rouverte par celui du lot 20 —
+est fermée**, et son contrôle positif est dans la même passe.
+
+**(4) UN FAUX RÉSULTAT DU PILOTE CONTRE LUI-MÊME, ET IL VALAIT UNE TROUVAILLE.**
+Ma première mutation de la règle inversée est passée **VERTE** là où le lot
+annonçait rouge. J'ai failli l'écrire comme un garde qui ne mord pas. **Elle
+n'inversait que `prompt_eval_count`** — or `prompt_tokens` est **CONSTANT** (35)
+dans le flux cumulatif que je venais de mesurer : la moitié que j'inversais **ne
+pouvait pas se voir**. Elle était **équivalente sur le domaine mesuré**, pas
+faible. Rejouée sur **les deux champs**, elle rend `rc=1` et meurt sur exactement
+`test_un_usage_cumulatif_rend_le_dernier_compte_et_non_le_premier`. **C'était mon
+mutant, pas le garde** — la faute que l'auditeur du lot 19 avait déjà consignée
+contre lui-même sur son mutant M2, refaite ici par le pilote.
+
