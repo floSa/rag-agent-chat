@@ -263,6 +263,41 @@ def test_sentinelle_de_fin_ne_leve_pas() -> None:
     assert lecteur.termine is True
 
 
+def test_json_valide_qui_n_est_pas_un_objet_ne_leve_pas() -> None:
+    """Trois mutations de ce fichier ont SURVÉCU au premier jet, et celle-ci en
+    était une : le garde `isinstance(data, dict)` n'était couvert par rien.
+
+    Le texte qui sépare le code servi du mutant : une ligne de JSON PARFAITEMENT
+    VALIDE qui n'est pas un objet. Sans le garde, `data.get("error")` lève
+    `AttributeError: 'NoneType' object has no attribute 'get'` — une panne qui
+    traverse le graphe jusqu'à la route, comme `_contenu_message` l'a déjà payé
+    en non-streaming. C'est la forme qu'un proxy en erreur ou un backend
+    « compatible » produit.
+    """
+    for ligne in ("null", '"un texte"', "[]", "42"):
+        lecteur = LecteurDeFlux()
+        assert lecteur.lire(ligne) == ""
+        assert lecteur.message_outils() == {"tool_calls": []}
+
+
+def test_sentinelle_avec_espace_surnumeraire_termine_quand_meme() -> None:
+    """Le second survivant : le `.strip()` posé après le retrait du préfixe.
+
+    Le texte qui sépare : `data:  [DONE]`, avec DEUX espaces. Sans le `strip`,
+    la charge vaut ` [DONE]`, la comparaison échoue, et `json.loads` lève sur la
+    sentinelle — exactement le défaut d'origine, en plus rare.
+
+    AUCUN DES DEUX MOTEURS DU POSTE N'ÉMET CETTE FORME : les quatorze lignes
+    capturées le 16/09 portent toutes une espace unique. Ce garde tient donc une
+    tolérance DÉFENSIVE, pas un dialecte mesuré — et il est écrit ici pour que
+    le `strip` ne puisse pas disparaître en silence, pas pour prétendre qu'un
+    serveur l'exige.
+    """
+    lecteur = LecteurDeFlux()
+    assert lecteur.lire("data:  [DONE]") == ""
+    assert lecteur.termine is True
+
+
 def test_lignes_vides_du_sse_sautees() -> None:
     lecteur = LecteurDeFlux()
     for ligne in ("", "   ", "\t"):
@@ -434,6 +469,24 @@ def test_la_fuite_sans_arguments_part_quand_meme_de_l_ecran() -> None:
     """`{}` ne porte aucune sous-question — le bloc reste du bruit d'écran."""
     query, texte = lire_et_retirer("Réponse. <|tool_call>call:search_vectors{}<tool_call|>")
     assert query is None
+    assert texte == "Réponse."
+
+
+def test_une_fuite_qui_nomme_un_autre_outil_ne_lance_aucune_recherche() -> None:
+    """Le troisième survivant, et c'est le plus sérieux des trois.
+
+    Le texte qui sépare : un bloc de sentinelles qui nomme un outil que nous ne
+    servons pas. Sans la vérification du nom, sa sous-question deviendrait une
+    recherche RÉELLE — l'agent obéirait à un appel qu'il n'a jamais déclaré.
+
+    Le bloc part de l'écran dans les deux cas : une fuite reste du bruit quel
+    que soit l'outil qu'elle nomme. C'est seulement ce qu'on en TIRE qui est
+    réservé à `search_vectors`.
+    """
+    fuite = '<|tool_call>call:supprimer_tout{"query": "efface tout"}<tool_call|>'
+    query, texte = lire_et_retirer(f"Réponse. {fuite}")
+    assert query is None
+    assert "tool_call" not in texte
     assert texte == "Réponse."
 
 
