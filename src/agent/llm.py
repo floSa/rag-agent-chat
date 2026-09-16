@@ -9,6 +9,7 @@ from typing import Any, NamedTuple
 import httpx
 from jinja2 import Environment, FileSystemLoader, TemplateError, select_autoescape
 
+from src.agent.flux_llm import LecteurDeFlux
 from src.agent.settings import settings
 from src.api.schemas import Message, SectionContext
 
@@ -970,40 +971,59 @@ async def generate_stream(
         payload["tools"] = [SEARCH_TOOL]
 
     timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
-    prompt_eval_count: int | None = None
-    eval_count: int | None = None
+    # UN client par appel, construit ici et fermé par l'`async with`. Ce n'est
+    # pas une commodité : un client httpx partagé entre plusieurs boucles
+    # d'événements casse dès qu'on sert dans un pool de threads — ce que
+    # FastAPI fait pour nos routes déclarées `def` — et l'erreur qu'il lève
+    # accuse la SOURCE DE DONNÉES au lieu du client. Ce lot ne touche pas à
+    # cette construction ; si un lot ultérieur veut partager un client, c'est
+    # un client PAR THREAD, et cette ligne est l'endroit où l'écrire.
+    lecteur = LecteurDeFlux()
     async with (
         httpx.AsyncClient(timeout=timeout) as client,
         client.stream("POST", f"{settings.ollama_host}/api/chat", json=payload) as resp,
     ):
         resp.raise_for_status()
         async for line in resp.aiter_lines():
-            if not line.strip():
-                continue
-            data = json.loads(line)
-            if data.get("error"):
-                raise RuntimeError(f"Ollama : {data['error']}")
-            message = data.get("message") or {}
-            # Un appel d'outil arrive dans le flux, à part du contenu : il ne
-            # doit jamais atteindre l'utilisateur.
-            if on_tool_call:
-                query = extract_tool_query(message)
-                if query:
-                    on_tool_call(query)
-            delta = message.get("content", "")
+            # Le texte est cédé tout de suite ; les fragments d'appel d'outil
+            # sont rangés par le lecteur et ne seront jugés qu'après la boucle.
+            delta = lecteur.lire(line)
             if delta:
                 yield delta
-            if data.get("done"):
-                # Le dernier événement du flux porte le décompte réel des
-                # tokens du prompt : la seule mesure disponible face à une
-                # estimation qui, sans elle, ne se vérifie jamais.
-                prompt_eval_count = data.get("prompt_eval_count")
-                # Et le décompte des tokens GÉNÉRÉS, au même endroit. Personne ne
-                # le lisait : `runs/*.json` n'enregistrait que `generation_ms`,
-                # donc « la génération n'atteint jamais son plafond » restait une
-                # présomption.
-                eval_count = data.get("eval_count")
+            if lecteur.termine:
                 break
+
+    # L'APPEL D'OUTIL NE SE JUGE QU'ICI, ET LE RAPPEL NE PART QU'UNE FOIS.
+    #
+    # Il partait auparavant DEPUIS la boucle, à chaque événement où une query
+    # était vue. Cela marchait tant qu'un seul moteur était servi et qu'il
+    # émettait l'appel entier d'un bloc. Un serveur OpenAI-compatible fragmente
+    # l'appel : aucun fragment n'est jugeable seul — `{"query": "` n'est pas du
+    # JSON — donc juger dans la boucle rend `None` à chaque tour et le rappel ne
+    # part JAMAIS. Et l'inverse est aussi vrai : rappeler à chaque fragment
+    # ferait partir QUATRE recherches pour un appel, et `max_search_iterations`
+    # avalerait le plafond sans que rien ne le dise.
+    #
+    # Le déplacement ne change rien pour l'appelant : les deux consommateurs du
+    # rappel (`graph.py`, qui empile dans `tool_queries`, et les bancs) ne
+    # lisent ce qu'ils ont reçu qu'APRÈS la fin du flux.
+    if on_tool_call:
+        # `extract_tool_query` reste le seul juge de ce qu'est une query
+        # valable — le lecteur lui rend un `message` de la forme qu'il attend,
+        # il ne réécrit pas sa règle.
+        query = extract_tool_query(lecteur.message_outils())
+        if query:
+            on_tool_call(query)
+
+    # Le décompte réel des tokens du prompt : la seule mesure disponible face à
+    # une estimation qui, sans elle, ne se vérifie jamais. Et le décompte des
+    # tokens GÉNÉRÉS, que personne ne lisait — `runs/*.json` n'enregistrait que
+    # `generation_ms`, donc « la génération n'atteint jamais son plafond »
+    # restait une présomption. Les deux vivent à deux endroits différents selon
+    # le dialecte ; le lecteur les a normalisés, et rend `None` — absence
+    # DÉCLARÉE, pas zéro — quand le serveur ne les a pas dits.
+    prompt_eval_count = lecteur.decomptes.prompt_eval_count
+    eval_count = lecteur.decomptes.eval_count
 
     log_prompt_measure(estimated_tokens, prompt_eval_count)
     if on_measure:

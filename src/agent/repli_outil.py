@@ -63,6 +63,7 @@ qu'aucun moteur n'a écrite serait deviner dans l'autre sens.
 
 from __future__ import annotations
 
+import json
 import re
 
 # L'enrobage que vLLM pose autour de l'appel (mesuré). Il est OPTIONNEL des deux
@@ -89,6 +90,51 @@ APPEL_DANS_LA_PROSE = re.compile(
 )
 
 
+# LA SECONDE FORME : L'APPEL QUI FUIT EN SENTINELLES.
+#
+# Quand l'analyseur d'outils est mal choisi CÔTÉ SERVEUR, l'appel n'est pas
+# structuré du tout : il part dans le contenu, encadré de sentinelles, et il
+# arrive donc à l'écran de l'utilisateur. C'est la même fuite que celle
+# au-dessus, dans une autre syntaxe, et elle se ferme au même endroit — un
+# second site voudrait dire deux motifs libres de diverger, ce que ce module
+# existe précisément pour empêcher.
+#
+# CETTE FORME EST CRUE SUR PAROLE, et c'est la seule du module qui le soit :
+# elle nous vient de l'équipe voisine, et la reproduire demanderait de poser un
+# `--reasoning-parser` sur un serveur qui ne nous appartient pas. Les quatre
+# formes du motif au-dessus, elles, ont été relevées sur les moteurs du poste.
+#
+# Le nom d'outil n'est pas figé dans le motif mais VÉRIFIÉ à la lecture : un
+# bloc qui fuit est du bruit d'écran quel que soit l'outil qu'il nomme, donc il
+# se retire toujours ; seul `search_vectors` a une place où servir la
+# sous-question, donc lui seul en rend une.
+_NOM_DE_L_OUTIL_SERVI = "search_vectors"
+APPEL_EN_SENTINELLES = re.compile(
+    r"<\|tool_call>\s*call:\s*([A-Za-z_]\w*)\s*(\{.*?\})?\s*<tool_call\|>",
+    re.S,
+)
+
+
+def _query_des_sentinelles(trouve: re.Match[str]) -> str | None:
+    """Rend la sous-question portée par un bloc de sentinelles, None sinon.
+
+    Le bloc se retire dans tous les cas — c'est l'appelant qui s'en charge, avec
+    le MÊME objet de motif. Cette fonction ne décide que de ce qu'on en tire.
+    """
+    if trouve.group(1) != _NOM_DE_L_OUTIL_SERVI:
+        return None
+    try:
+        arguments = json.loads(trouve.group(2) or "{}")
+    except json.JSONDecodeError:
+        # `{}` vide, tronqué, ou brouillé par la fuite elle-même. Le bloc part
+        # quand même de l'écran : une fuite illisible reste une fuite.
+        return None
+    if not isinstance(arguments, dict):
+        return None
+    query = arguments.get("query")
+    return query.strip() if isinstance(query, str) and query.strip() else None
+
+
 def lire_et_retirer(reponse: str) -> tuple[str | None, str]:
     """Rend la sous-question demandée dans la prose, et le texte sans l'appel.
 
@@ -105,4 +151,16 @@ def lire_et_retirer(reponse: str) -> tuple[str | None, str]:
     sous_question = trouve.group(1) if trouve else None
     # Le nettoyage passe même sans correspondance : `sub` rend alors le texte
     # tel quel, et le `strip` reste celui d'avant ce lot.
-    return sous_question, APPEL_DANS_LA_PROSE.sub("", reponse).strip()
+    reponse = APPEL_DANS_LA_PROSE.sub("", reponse)
+
+    # La seconde forme, lue et retirée par le MÊME objet de motif — la
+    # propriété qui fait ce module tient forme par forme, pas globalement.
+    # La prose garde la priorité : c'est elle qui a quatre relevés derrière
+    # elle, les sentinelles n'en ont aucun.
+    sentinelles = APPEL_EN_SENTINELLES.search(reponse)
+    if sentinelles is not None:
+        if sous_question is None:
+            sous_question = _query_des_sentinelles(sentinelles)
+        reponse = APPEL_EN_SENTINELLES.sub("", reponse)
+
+    return sous_question, reponse.strip()
