@@ -30,8 +30,9 @@ ni nom de serveur. Il lit la FORME de ce qu'on lui donne :
 
 - l'enveloppe : un `data: ` en tête est retiré s'il est là. Les lignes d'Ollama
   n'en ont jamais, donc la même ligne de code les traverse sans rien faire.
-- la charge : `message` si l'objet en a un, sinon `choices[0].delta`. Une seule
-  fonction, `_charge`, et tout ce qui suit travaille sur son résultat.
+- la charge : `message` si l'objet en a un, sinon `choices[0].delta` en flux ou
+  `choices[0].message` hors flux. Une seule fonction, `charge_du_corps`, et tout
+  ce qui suit travaille sur son résultat — `llm._contenu_message` compris.
 - une fois normalisée, la clé des appels d'outil porte LE MÊME NOM dans les
   deux dialectes — `tool_calls`. L'accumulation n'a donc pas deux versions :
   elle n'en a qu'une, et elle est exercée par les deux moteurs.
@@ -48,8 +49,9 @@ règle de lecture des arguments — objet, ou chaîne JSON — n'est donc PAS
 réécrite ici. Il n'y en a toujours qu'une dans le dépôt.
 
 Il ne bascule rien : la charge utile envoyée au serveur n'est pas de son
-ressort et reste le dialecte d'Ollama. Ce lecteur rend le dépôt CAPABLE de lire
-l'autre dialecte, il ne l'y envoie pas.
+ressort. Ce lecteur rend le dépôt CAPABLE de lire l'autre dialecte, il ne l'y
+envoie pas — ce ressort-là est `src/agent/dialecte_llm.py` depuis le lot 25, et
+le défaut qu'il sert reste Ollama.
 
 Il ne retire rien du texte. Un appel d'outil qui a FUI dans le contenu — la
 forme `<|tool_call>…<tool_call|>` d'un analyseur mal choisi côté serveur —
@@ -96,7 +98,7 @@ LES DEUX PIÈGES QUI N'ÉTAIENT PAS DANS LE BANC
 
 1. L'événement d'usage de vLLM porte `"choices": []` — une liste VIDE. Un
    lecteur qui écrit `data["choices"][0]` lève `IndexError` sur le seul
-   événement qui porte les décomptes. `_charge` rend `{}` sur une liste vide.
+   événement qui porte les décomptes. `charge_du_corps` rend `{}` sur une liste vide.
 
 2. Chez vLLM, les décomptes n'existent en streaming QUE si la requête a
    demandé `stream_options: {"include_usage": true}` (mesuré : présents avec,
@@ -118,6 +120,49 @@ _PREFIXE_SSE = "data: "
 # La sentinelle de fin du SSE. Elle n'est pas du JSON — c'est exactement ce qui
 # faisait lever `json.loads` — et elle doit donc être reconnue AVANT lui.
 _SENTINELLE_FIN = "[DONE]"
+
+
+def charge_du_corps(data: dict[str, Any]) -> dict[str, Any]:
+    """Rend l'objet qui porte `content` et `tool_calls`, `{}` si absent.
+
+    LE SEUL SITE DU DÉPÔT QUI CONNAISSE LES DEUX DIALECTES EN ENTRÉE. Tout ce
+    qui est en aval travaille sur son résultat et ignore d'où il vient — c'est
+    ce qui empêche la branche « si vLLM … sinon … » de se répandre. Son
+    symétrique en SORTIE est `dialecte_llm`, et il n'y en a pas de troisième.
+
+    TROIS FORMES, ET LA TROISIÈME EST UNE CORRECTION DU LOT 25. Ce module ne
+    servait que le FLUX, où vLLM écrit `choices[0].delta` ; mais `llm.py` a
+    aussi DEUX appels non-flux — la réécriture de question et la traduction —
+    et là vLLM écrit `choices[0].message`. Leur lecteur, `llm._contenu_message`,
+    ne connaissait que `message` à la racine : sous vLLM il aurait rendu `""`
+    sur une réponse PARFAITEMENT VALIDE, et les deux appels seraient tombés sur
+    leur repli — « question d'origine conservée », « recherche monolingue » —
+    en HTTP 200, sans erreur, avec un journal qui accuse le serveur. Une
+    recherche dégradée dans les deux langues, pour une réponse que le serveur
+    avait bien donnée. (`mesuré` le 16 septembre 2026 à 14:12 UTC : le corps
+    non-flux de `vllm-central` porte `choices[0].message.content` et aucune clé
+    `message` à la racine.)
+
+    `delta` est cherché AVANT `message` : en flux, les deux moteurs du poste
+    n'émettent que `delta` (mesuré), et l'ordre inverse ne changerait donc rien
+    aujourd'hui. Il est écrit ainsi pour qu'un corps qui porterait les deux —
+    un proxy qui mêle les dialectes, le même chemin que `_lire_decomptes`
+    traite déjà — rende le FRAGMENT et non la réponse entière : céder la
+    réponse assemblée au milieu d'un flux la ferait s'afficher deux fois.
+    """
+    message = data.get("message")
+    if isinstance(message, dict):
+        return message
+    choix = data.get("choices")
+    # `choices: []` N'EST PAS une anomalie : c'est la forme exacte de
+    # l'événement d'usage de vLLM, celui qui porte les décomptes. Écrire
+    # `choices[0]` lèverait `IndexError` précisément là. (mesuré 16/09)
+    if isinstance(choix, list) and choix and isinstance(choix[0], dict):
+        for cle in ("delta", "message"):
+            charge = choix[0].get(cle)
+            if isinstance(charge, dict):
+                return charge
+    return {}
 
 
 class Decomptes(NamedTuple):
@@ -198,7 +243,7 @@ class LecteurDeFlux:
             raise RuntimeError(f"Ollama : {data['error']}")
 
         self._lire_decomptes(data)
-        charge_utile = self._charge(data)
+        charge_utile = charge_du_corps(data)
         self._accumuler(charge_utile.get("tool_calls"))
         if data.get("done"):
             self.termine = True
@@ -228,27 +273,6 @@ class LecteurDeFlux:
         }
 
     # ─── ce qui suit n'est appelé que par `lire` ─────────────────────────────
-
-    @staticmethod
-    def _charge(data: dict[str, Any]) -> dict[str, Any]:
-        """Rend l'objet qui porte `content` et `tool_calls`, `{}` si absent.
-
-        Le SEUL endroit du lecteur qui connaît les deux dialectes. Tout ce qui
-        est en aval travaille sur son résultat et ignore d'où il vient — c'est
-        ce qui empêche la branche « si vLLM … sinon … » de se répandre.
-        """
-        message = data.get("message")
-        if isinstance(message, dict):
-            return message
-        choix = data.get("choices")
-        # `choices: []` N'EST PAS une anomalie : c'est la forme exacte de
-        # l'événement d'usage de vLLM, celui qui porte les décomptes. Écrire
-        # `choices[0]` lèverait `IndexError` précisément là. (mesuré 16/09)
-        if isinstance(choix, list) and choix and isinstance(choix[0], dict):
-            delta = choix[0].get("delta")
-            if isinstance(delta, dict):
-                return delta
-        return {}
 
     def _lire_decomptes(self, data: dict[str, Any]) -> None:
         """Deux dialectes, deux places, un seul champ de sortie.
