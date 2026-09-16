@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1035 tests, aucune dépendance
+## Unitaire — 1086 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,10 +20,27 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 15:32 UTC par LOT-25 : **1035** tests sur **50** fichiers,
+> `mesuré` le 16 septembre 2026 à 20:03 UTC par REPAR-26 : **1086** tests sur **51** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(REPAR-23 relevait **1005** sur
-> **49** fichiers à 12:46 UTC ; les **26** de plus sont le fichier neuf
+> total que `pytest` annonce — concordent. *(LOT-25 relevait **1035** sur
+> **50** fichiers à 15:32 UTC ; les **51** de plus se répartissent en **36**
+> dans le fichier neuf `test_champs_du_dialecte.py`, **13** dans
+> `test_coherence_depot.py` et **2** dans `test_jeux_de_questions.py`.
+> Les **36** tiennent LA CAUSE des sept non bloquantes de l'audit du lot 25, et
+> non leurs symptômes : une TABLE qui dit, pour chaque champ de
+> `MoteurLlmHealth` et pour chacun des deux dialectes, la valeur que le relevé
+> doit porter — exhaustive contre le schéma, paritaire entre les deux colonnes,
+> et refusant qu'un champ porte la même valeur des deux côtés, ce qui est le
+> garde anti-« mesuré sous le défaut ». Une seule scène la joue, paramétrée sur
+> (champ × dialecte) : **il n'y a rien à écrire deux fois**, et un champ neuf
+> non classé fait rougir. Les **13** ferment la correspondance
+> `Settings`/`.env.example` dans les deux sens, l'arithmétique interne de cette
+> note même, et le chemin de génération hors du site unique. Les **2** viennent
+> d'un garde de la graine réécrit : il lisait l'arbre syntaxique et rougissait
+> sur du code sain dès que le poste est passé par le site unique ; il mesure
+> désormais la charge RÉELLEMENT postée, sous les deux dialectes.)*
+> *(REPAR-23 relevait **1005** sur
+> **49** fichiers à 12:46 UTC ; les **30** de plus sont le fichier neuf
 > `test_dialecte_llm.py`, qui tient l'interrupteur `LLM_ENGINE` — la charge
 > d'Ollama inchangée à l'octet, la bascule, le retour arrière, les deux lectures
 > non-flux, et les trois postes d'appel sur leur URL. **QUATRE de ces 30 scènes
@@ -46,11 +63,11 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > s'attrape pas elle-même.)*
 >
 > *(REPAR-21 avait relevé **954** sur
-> **48** fichiers à 07:58 UTC ; les **quarante-huit** de plus sont ceux du garde
+> **48** fichiers à 07:58 UTC ; les **quarante-cinq** de plus sont ceux du garde
 > de déploiement, tous dans le fichier neuf `test_identite_du_code.py` : **treize**
 > sur le contrat qui refuse qu'une image anonyme passe pour identifiée — les deux
 > sens de chacun de ses trois invariants, plus les sept formes qui ressemblent à
-> un sha sans en être un —, **treize** sur les trois positions de la
+> un sha sans en être un —, **dix** sur les trois positions de la
 > lecture et les trois chemins distincts vers l'anonymat, **trois** sur la
 > publication dans le corps de `/health`, **seize** sur le gabarit qui fait entrer
 > l'identité dans l'image — les trois arguments du compose, leur interpolation,
@@ -218,6 +235,7 @@ Les fichiers les plus fournis disent où sont les pièges du projet :
 | `test_resilience.py` | Un store qui redémarre doit rester invisible : cache oublié, une seule reprise. |
 | `test_coherence_depot.py` | Trois endroits qui doivent s'accorder et que rien ne forçait à s'accorder : la borne d'historique dupliquée dans le frontend (son image ne contient pas les schémas), et les versions épinglées par `Dockerfile.frontend` face à `requirements.txt`. Les deux ont réellement divergé. Le troisième est la liste des étages de latence, recopiée dans `scripts/evaluate.py` — délibérément, le script interrogeant un service distant — donc exposée à la divergence qui rendrait un étage mesuré mais jamais publié. Le quatrième est une **mesure** : la marge de fenêtre reprise par le remplissage vit dans un docstring de `llm.py` et dans deux documents, et les trois copies avaient dérivé jusqu'à porter trois triplets pour une seule grille. Le rapprochement se fait à espaces normalisés — c'est la phrase qui est gardée, pas sa mise en page. |
 | `test_moteur_llm.py` | **Quel moteur LLM a généré une campagne**, consigné dans `runs/` et confronté par `--compare`. Le banc go/no-go du 15 septembre 2026 a conclu NO-GO sur la seule question de la qualité (§7) parce que **rien** ne le consignait : 19 campagnes sur 19 muettes, donc aucune comparable à une campagne d'après la bascule vers vLLM. Le garde tient quatre propriétés, et chacune a été éprouvée par mutation : il **signale sans refuser** — refuser interdirait la campagne Ollama contre campagne vLLM, qui est le lot 6 du chantier ; **trois positions dont `identique`, qui est imprimé**, sans quoi un silence se lirait comme un accord ; la signature porte le **fait** (`modele_servi`, l'empreinte du poids) et non le réglage (`modele_demande`), parce qu'un tag Ollama est **mutable** et que deux poids peuvent être servis sous le même nom ; un antécédent antérieur au lot est **muet, jamais différent**. Côté sonde, le discriminant exige une réponse **positive** des deux côtés — `/api/version` rend 200 sur Ollama et **404 sur vLLM** — sans quoi tout serveur silencieux serait rangé dans « vLLM ». Le double des tests a dû être corrigé pour cela : sa première écriture reconnaissait la route par un **suffixe**, et `/api/version` se termine par `/version`. |
+| `test_champs_du_dialecte.py` | **LA TABLE DES CHAMPS QUI DÉPENDENT DU DIALECTE**, et la réponse de REPAR-26 à la cause que le lot 25 avait écrite lui-même : *« une campagne menée sous le défaut ne peut pas mesurer ce qui ne varie qu'à la bascule »*. Son audit a trouvé **trois champs de plus** que le lot — hôte interrogé, modèle demandé, modèle confronté — dont les mutations passaient les 1035 tests **sans un rouge**. Ce fichier ne pose pas trois scènes : il pose une TABLE qui donne, pour chaque champ de `MoteurLlmHealth` et pour chacun des deux dialectes, la valeur attendue, et **quatre gardes la tiennent** — exhaustive contre `model_fields` (un champ neuf non classé rougit), paritaire entre les deux colonnes, SÉPARANTE (un champ portant la même valeur des deux côtés est refusé : c'est le garde anti-« mesuré sous le défaut », et c'est l'erreur exacte que `num_ctx` avait payée), et JOUÉE par une seule scène paramétrée sur (champ × dialecte). **Il n'y a rien à écrire deux fois** : un garde qu'il faut penser à écrire deux fois divergera, et c'est la leçon du lot 19 appliquée à la mesure. Son double route par **(hôte, chemin)** et non par le seul chemin — deux serveurs à deux adresses, comme le poste réel — sans quoi une sonde qui interroge le mauvais hôte y resterait invisible. Il tient aussi les trois sites qui publient le modèle demandé, l'expurgation de l'endpoint **à travers le relevé** (dépôt public, `runs/*.json` versionné), le délai de lecture du flux qui n'est pas borné, et la famille des réglages qu'aucune scène ne doit éprouver à leur **valeur par défaut**. |
 | `test_historique_soumis.py` | La profondeur d'historique soumise au LLM, par route. /chat/simple soumettait tout ce que le client envoyait là où les autres coupaient à six : la même conversation produisait deux prompts selon la route. |
 | `test_montage_des_tests.py` | **Les garanties du montage des tests, gardées comme du code.** Une fixture `autouse` est une décision invisible : elle s'applique à tout et n'est nommée nulle part dans les tests qu'elle protège. Deux d'entre elles ont été mesurées inertes ou non gardées — retirées, la suite restait verte. Ce fichier est leur rouge. Il garde (a) la **barrière réseau** de `tests/unit/conftest.py`, qui interdit à un test unitaire d'ouvrir une vraie connexion `chromadb` : 41 tests en ouvraient une, 48 tentatives, et ils ne restaient verts et rapides que parce que l'hôte `chromadb` ne se résout pas depuis un poste de développement — *le montage tenait par absorption, pas par construction* ; (b) la fixture qui empêche un test d'**hériter du verdict de concordance** établi par un autre, au moyen de deux tests **ordonnés** dont le second exige de ne rien hériter du premier. Le témoin qui les accompagne vérifie que la barrière ne transforme pas ce cas en panne : une estampille hors réseau se publie en `unknown`, état prévu et documenté, là où un échec de résolution DNS ne l'était pas. |
 | `test_ordre_des_sources.py` | L'ordre dans lequel les sources entrent dans la fenêtre. Tout l'aval du budget suppose la pertinence décroissante ; le frontend postait un `set`, donc l'ordre du hachage, et la fenêtre écartait une source au hasard. Les tests assertent depuis `node_reconstruct_context`, qui produit l'ordre. Le cinquième épingle la cause en lisant l'**arbre syntaxique** de `src/frontend/app.py` — `selected_ids` initialisé par `set()`, `selected_element_ids` posté par un `list()` nu. Sa première version construisait `list(set(...))` sur ses propres identifiants : elle n'épinglait rien — corriger le frontend laissait la suite verte — et elle rougissait sur environ une graine de hachage sur deux cents. Un test qui n'importe pas le fichier dont il parle ne garde pas ce fichier. |

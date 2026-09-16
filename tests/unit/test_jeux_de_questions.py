@@ -264,24 +264,82 @@ def test_la_graine_est_transmise_au_generateur_de_texte() -> None:
         "`demander_question` ne reçoit plus la graine : le tirage est reproductible "
         "et la génération ne l'est pas, ce qui décale les ancrages"
     )
-    # La graine doit atteindre `options`, pas seulement la signature : c'est la
-    # différence entre « le paramètre existe » et « le serveur le reçoit ».
-    options = next(
-        noeud
-        for noeud in ast.walk(fonction)
-        if isinstance(noeud, ast.Dict)
-        and any(
-            isinstance(cle, ast.Constant) and cle.value == "temperature"
-            for cle in noeud.keys
-        )
+
+
+def _generate_golden():
+    """Charge `scripts/generate_golden.py` sans faire de `scripts/` un paquet."""
+    chemin = _RACINE / "scripts" / "generate_golden.py"
+    spec = importlib.util.spec_from_file_location("generate_golden", chemin)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
+def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str) -> None:
+    """LA GRAINE DANS LA CHARGE QUI PART, ET SOUS LES DEUX DIALECTES.
+
+    LA FORME PRÉCÉDENTE DE CE GARDE LISAIT L'ARBRE SYNTAXIQUE et cherchait un
+    `options` littéral portant `seed`. Elle tenait la bonne propriété par le
+    mauvais moyen : le jour où ce poste est passé par le site unique
+    (REPAR-26, NB-5), le dict littéral a disparu, la charge est restée juste, et
+    **le garde s'est mis à rougir sur du code sain**. Un garde qui rougit sur du
+    code sain est retiré par le lot suivant, donc désarmé.
+
+    IL MESURE MAINTENANT CE QUI PART, en interceptant `httpx.post`. C'est plus
+    fort à deux titres : il ne dépend d'aucune forme d'écriture, et il tient
+    **les deux dialectes** — où la graine n'a ni la même place ni le même nom,
+    `options.seed` chez Ollama et `seed` à plat chez vLLM. Un poste qui
+    basculerait le chemin sans basculer la place de la graine la verrait
+    ACCEPTÉE ET IGNORÉE, sans erreur ni journal, et la reproductibilité du jeu
+    doré serait perdue en silence.
+    """
+    from src.agent.settings import settings
+
+    module = _generate_golden()
+    monkeypatch.setattr(settings, "llm_engine", moteur)
+    postes: list[dict] = []
+
+    class _Reponse:
+        def raise_for_status(self) -> None: ...
+
+        def json(self) -> dict:
+            return {"message": {"content": "{}"}}
+
+    def _post(url, json=None, **_k):  # noqa: A002 — le nom du paramètre de httpx
+        postes.append({"url": url, "charge": json})
+        return _Reponse()
+
+    monkeypatch.setattr(module.httpx, "post", _post)
+    module.demander_question(
+        {"texte": "Le collecteur est purgé toutes les 19 minutes.", "language": "fr"},
+        "fr",
+        "http://serveur-d-essai:11434",
+        "modele-d-essai",
+        5.0,
+        4242,
     )
-    cles = [c.value for c in options.keys if isinstance(c, ast.Constant)]
-    assert "seed" in cles, f"`options` ne porte pas `seed` : {cles}"
-    valeur = options.values[cles.index("seed")]
-    assert isinstance(valeur, ast.Name) and valeur.id == "graine", (
-        "`options[\"seed\"]` n'est pas la graine reçue en paramètre : une constante "
-        "figée rendrait `--seed` décoratif"
+
+    assert len(postes) == 1, (
+        f"{len(postes)} appel(s) postés au lieu d'un : ce garde ne mesure pas "
+        "la charge qu'il croit"
     )
+    charge = postes[0]["charge"]
+    # La graine, là où CE dialecte la porte. Les deux places sont écrites ici
+    # plutôt que déduites : c'est le fait mesuré, pas une convention.
+    vue = charge["options"]["seed"] if moteur == "ollama" else charge["seed"]
+    assert vue == 4242, (
+        f"sous `LLM_ENGINE={moteur}`, la charge postée porte une graine "
+        f"{vue!r} au lieu de celle reçue en paramètre : `--seed` est décoratif, "
+        "et deux exécutions du générateur rendent deux jeux différents"
+    )
+    # ET LE FORMAT CONTRAINT SUIT AUSSI, car sans lui le modèle rend de la prose
+    # et `json.loads` écarte la question — silencieusement, par le repli.
+    if moteur == "ollama":
+        assert charge["format"] == "json"
+    else:
+        assert charge["response_format"] == {"type": "json_object"}
 
 
 def test_le_jeu_du_pipeline_nomme_son_site_canonique() -> None:

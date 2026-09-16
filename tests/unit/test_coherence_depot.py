@@ -2569,3 +2569,470 @@ def test_le_domaine_balaye_exclut_la_source_de_ce_garde() -> None:
         "balaie : ses propres chemins fabriqués entreraient dans la mesure"
     )
     assert domaine.is_dir(), "le domaine balayé n'existe pas : la mesure serait vide"
+
+
+# ─── `.env.example` et `Settings` : la correspondance, dans les DEUX sens ────
+#
+# LE DÉFAUT QUE CE GARDE FERME. Le lot 25 a ajouté trois réglages — `LLM_ENGINE`,
+# `VLLM_HOST`, `VLLM_MODEL` — et **aucun n'est entré dans `.env.example`**
+# (NB-6 de l'audit du 16 septembre 2026, mesuré à zéro occurrence avec contrôle
+# positif sur deux clés existantes). Ce fichier est versionné, et c'est celui
+# qu'un exploitant COPIE pour fabriquer son `.env` : le réglage existait et ne
+# se voyait pas là où on le cherche d'abord. Une quatrième clé,
+# `TORCH_MAX_CONCURRENCY`, manquait de la même façon depuis plus longtemps.
+#
+# CE QUE CE GARDE N'EST PAS. Il ne juge aucune VALEUR : `.env.example` porte
+# légitimement des valeurs de déploiement qui ne sont pas les défauts des champs
+# — `OLLAMA_HOST` en est une — et il porte aussi un défaut discuté au registre
+# qu'il n'appartient pas à ce garde de trancher. Ce qu'il tient est la seule
+# propriété qui se décide sans arbitrage : **un réglage que le code lit est
+# NOMMÉ dans le fichier d'exemple, et le fichier d'exemple ne nomme rien que le
+# code ne lise plus**.
+#
+# IL EST SANS EXEMPTION, ET C'EST DÉLIBÉRÉ. Une liste d'exemptions se remplit :
+# la première dispense en appelle une seconde, et le garde finit par ne plus
+# rien tenir. `mesuré` le 16 septembre 2026 : les deux ensembles se recouvrent
+# exactement, donc la propriété est atteignable telle quelle.
+
+_FICHIER_D_EXEMPLE = ".env.example"
+# Une affectation en début de ligne, hors commentaire : c'est la forme qu'un
+# exploitant copie. Les lignes commentées ne comptent pas — une clé mise en
+# commentaire est une clé qui ne se voit pas.
+_MOTIF_DE_CLE = r"^([A-Z][A-Z0-9_]*)="
+
+
+def _cles_du_fichier_d_exemple() -> set[str]:
+    texte = (_RACINE / _FICHIER_D_EXEMPLE).read_text(encoding="utf-8")
+    cles = set(re.findall(_MOTIF_DE_CLE, texte, re.M))
+    assert cles, (
+        f"aucune clé lue dans {_FICHIER_D_EXEMPLE} : ce garde ne mesure rien, "
+        "et il serait vert sur un fichier vide"
+    )
+    return cles
+
+
+def _alias_des_reglages() -> set[str]:
+    from src.agent.settings import Settings
+
+    alias = {champ.alias for champ in Settings.model_fields.values() if champ.alias}
+    assert alias, "aucun alias lu sur `Settings` : ce garde ne mesure rien"
+    return alias
+
+
+def test_tout_reglage_du_code_est_nomme_dans_le_fichier_d_exemple() -> None:
+    """LE SENS QUI A MORDU : trois réglages neufs invisibles de l'exploitant.
+
+    Le geste attendu au rouge est d'écrire la clé dans `.env.example`, avec la
+    raison du réglage — pas d'allonger une liste d'exemptions.
+    """
+    manquantes = _alias_des_reglages() - _cles_du_fichier_d_exemple()
+    assert not manquantes, (
+        f"réglage(s) lu(s) par `Settings` et absent(s) de {_FICHIER_D_EXEMPLE} : "
+        f"{sorted(manquantes)}. C'est le fichier qu'un exploitant COPIE pour "
+        "fabriquer son `.env` : un réglage qui n'y figure pas existe sans se "
+        "voir. Les trois clés du lot 25 y ont manqué — NB-6 de l'audit du "
+        "16 septembre 2026."
+    )
+
+
+def test_le_fichier_d_exemple_ne_nomme_aucun_reglage_disparu() -> None:
+    """L'AUTRE SENS, ET IL EST MUET SANS CE GARDE.
+
+    Une clé restée dans `.env.example` après le retrait de son champ se copie
+    dans les `.env` et n'a plus aucun effet : l'exploitant la règle, et rien ne
+    change. C'est la même classe de panne que celle que tout ce chantier
+    poursuit — un réglage qui ment.
+    """
+    orphelines = _cles_du_fichier_d_exemple() - _alias_des_reglages()
+    assert not orphelines, (
+        f"clé(s) de {_FICHIER_D_EXEMPLE} qu'aucun champ de `Settings` ne lit "
+        f"plus : {sorted(orphelines)}. Un exploitant les réglerait sans effet."
+    )
+
+
+def test_le_garde_de_la_correspondance_sait_voir_un_manque() -> None:
+    """LE CONTRÔLE POSITIF DES DEUX GARDES CI-DESSUS.
+
+    Deux ensembles qui se recouvrent exactement rendent `not manquantes` vrai —
+    et un garde cassé le rendrait vrai aussi. La lecture est donc éprouvée sur
+    une scène où le manque EXISTE, avant d'être crue sur le dépôt réel.
+    """
+    exemple = "A_UN=1\n# B_DEUX=2  ← mise en commentaire : elle ne se voit pas\nC_TROIS=3\n"
+    lues = set(re.findall(_MOTIF_DE_CLE, exemple, re.M))
+    assert lues == {"A_UN", "C_TROIS"}, (
+        f"la lecture des clés rend {sorted(lues)} : elle compte une clé "
+        "commentée, ou en rate une, et les deux gardes mesureraient autre chose"
+    )
+    assert {"A_UN", "B_DEUX", "C_TROIS"} - lues == {"B_DEUX"}
+
+
+# ─── L'ARITHMÉTIQUE INTERNE DE LA NOTE DE `tests.md` ────────────────────────
+#
+# LE DÉFAUT QUE CE GARDE FERME, ET LE GARDE VOISIN NE LE VOYAIT PAS.
+# `test_le_compte_de_tests_annonce_est_celui_que_pytest_collecte` mord sur les
+# deux chiffres du TOTAL — une mutation de 1035 rougit — mais il ne regarde pas
+# ce que la note dit ENTRE PARENTHÈSES. Elle annonçait « les **26** de plus sont
+# le fichier neuf `test_dialecte_llm.py` » quand ce fichier en porte **30**, et
+# se contredisait DEUX LIGNES PLUS BAS en écrivant « QUATRE de ces 30 scènes ».
+# Mutation du 26 en 99 : **0 rouge sur 1035** (NB-1 de l'audit du 16 septembre
+# 2026, rejouée par REPAR-26).
+#
+# CE DOCUMENT A DÉJÀ ÉTÉ CORRIGÉ AU SITE TROIS FOIS SANS GARDE, et une de ces
+# fois le retard a été écrit par le commit qui prétendait le rattraper — 520/36
+# annoncés contre 539/37 réels, vus ni par le lot, ni par son audit, ni par le
+# pilote (§4.13, §4.21 du registre).
+#
+# IL COMPTE, IL NE CALCULE PAS. La part du fichier neuf n'est pas déduite d'une
+# soustraction entre deux relevés — qui ne mesurerait que l'accord du document
+# avec lui-même : elle est COLLECTÉE par `pytest` sur le fichier que la note
+# NOMME. C'est la seule forme qui aurait attrapé le 26.
+#
+# IL EST ANCRÉ SUR LA PARENTHÈSE DE TÊTE, ET PAS SUR LE PREMIER MOTIF VENU. La
+# page porte une DIZAINE de parenthèses de la même forme — toute la chaîne des
+# relevés antérieurs — et un `re.search` non ancré en choisirait une en silence.
+# C'est exactement le défaut que `TestLaNoteDuCompteEstLueAuBonEndroit` a fermé
+# sur la note elle-même le 11 septembre 2026, et il se reposerait ici d'un cran.
+#
+# CE QU'IL NE TIENT PAS, ET C'EST DIT PLUTÔT QUE TU : les maillons PLUS ANCIENS
+# de la chaîne. Les vérifier demanderait un arbre détaché par commit historique,
+# ce qu'un test unitaire ne fait pas. REPAR-26 les a sondés à la main une fois —
+# et en a trouvé un second faux, « quarante-huit de plus » entre 954 et 999
+# quand la collecte sur les deux têtes rend **45 ajoutés et zéro test disparu**
+# (`mesuré` le 16 septembre 2026, deux arbres détachés sur `04501f1` et
+# `0a57787`). Ce garde ne couvre que le maillon de tête, et la borne est écrite
+# ici pour qu'on ne le croie pas plus large qu'il n'est.
+
+# La parenthèse de tête : la PREMIÈRE qui suit la note `mesuré`, et elle seule.
+_MOTIF_DE_LA_PARENTHESE = r"\*\((.+?)\)\*"
+# L'antécédent et l'écart. `[\s>]*` ET NON `\s*` : la note est un bloc de
+# citation, donc les retours à la ligne y sont suivis de `> `. Un `\s*` seul ne
+# franchirait pas le chevron, et le garde serait MUET sur la page réelle.
+_MOTIF_DU_MAILLON = (
+    r"relev\w* \*\*(\d+)\*\* sur[\s>]*\*\*?(\d+)\*\*? fichiers"
+    r"[^;]*; les \*\*(\d+)\*\* de plus"
+)
+# La part portée par un fichier NEUF, qui est la seule part COLLECTABLE : un
+# fichier qui existait déjà porte aussi ses tests d'avant, et « N de plus dans
+# un fichier ancien » ne se vérifie par aucune collecte.
+_MOTIF_DU_FICHIER_NEUF = r"\*\*(\d+)\*\* dans le[\s>]*fichier neuf[\s>]*`([\w./]+)`"
+# La contradiction qui suivait deux lignes plus bas.
+_MOTIF_DES_SCENES = r"de ces (\d+) scènes"
+
+
+def _parenthese_de_tete(texte: str) -> str:
+    """Le texte de la PREMIÈRE parenthèse qui suit la note `mesuré`.
+
+    L'ancrage porte sur la note — celle que `_lit_la_note` a déjà prouvée unique
+    — et non sur le premier motif de la page : la chaîne des relevés antérieurs
+    porte une dizaine de parenthèses de la même forme.
+    """
+    note = re.search(_MOTIF_DE_LA_NOTE, texte)
+    assert note is not None, (
+        f"la note `mesuré` n'a pas été trouvée dans {_PAGE_DES_TESTS} : ce "
+        "garde n'a plus d'ancre, et il lirait une parenthèse quelconque"
+    )
+    suite = re.search(_MOTIF_DE_LA_PARENTHESE, texte[note.end() :], re.S)
+    assert suite is not None, (
+        f"aucune parenthèse *(…)* après la note `mesuré` de {_PAGE_DES_TESTS} : "
+        "le maillon qui relie le total au relevé précédent a disparu"
+    )
+    return suite.group(1)
+
+
+def _maillon_de_tete(texte: str) -> tuple[int, int]:
+    """L'antécédent et l'écart annoncés par la parenthèse de tête."""
+    trouves = re.findall(_MOTIF_DU_MAILLON, _parenthese_de_tete(texte))
+    assert len(trouves) == 1, (
+        f"{len(trouves)} maillon(s) « relevait **A** sur **B** fichiers … ; les "
+        "**C** de plus » dans la parenthèse de tête, au lieu d'un seul. Zéro : "
+        "elle a changé de forme et ce garde ne mesurerait plus rien. Plusieurs : "
+        "l'arithmétique porterait sur un maillon choisi en silence."
+    )
+    antecedent, _fichiers, ecart = trouves[0]
+    return int(antecedent), int(ecart)
+
+
+def test_l_arithmetique_interne_de_la_note_est_juste() -> None:
+    """L'écart annoncé doit relier l'antécédent au total, ET LE TOTAL EST MESURÉ.
+
+    Le total n'est pas relu dans le document — ce serait confronter la page à
+    elle-même, et deux sites qui s'accordent entre eux peuvent être faux
+    ensemble : il est celui que `pytest` collecte. L'antécédent, lui, est un
+    fait historique que ce garde prend tel quel.
+    """
+    texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+    antecedent, ecart = _maillon_de_tete(texte)
+    total, _ = _comptes_collectes()
+    assert antecedent + ecart == total, (
+        f"{_PAGE_DES_TESTS} annonce {antecedent} tests au relevé précédent et "
+        f"{ecart} « de plus », soit {antecedent + ecart}, quand `pytest` en "
+        f"collecte {total}. Écris le chiffre mesuré : c'est un décompte, pas "
+        "une décision."
+    )
+
+
+def test_la_part_du_fichier_neuf_est_celle_que_pytest_collecte() -> None:
+    """LE COMPTE, PRIS SUR LE FICHIER QUE LA NOTE NOMME.
+
+    C'est ce garde qui aurait attrapé le **26** : il ne déduit rien, il collecte
+    le fichier et compare. Il ne mord que si la parenthèse de tête nomme un
+    fichier neuf — un lot peut n'en ajouter aucun, et REPAR-23 est dans ce cas —
+    et `TestLaLectureDuMaillonEstAncree` prouve à part que la lecture sait en
+    trouver un quand il y en a un, de sorte qu'un silence ici reste un fait sur
+    la note et non sur le garde.
+    """
+    texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+    parts = re.findall(_MOTIF_DU_FICHIER_NEUF, _parenthese_de_tete(texte))
+    assert len(parts) <= 1, (
+        f"{len(parts)} fichiers neufs annoncés dans la parenthèse de tête : ce "
+        "garde en vérifierait un choisi en silence"
+    )
+    if not parts:
+        return
+    annonce, neuf = int(parts[0][0]), parts[0][1]
+    chemin = _RACINE / "tests" / "unit" / neuf
+    assert chemin.is_file(), (
+        f"{_PAGE_DES_TESTS} nomme le fichier neuf `{neuf}`, qui n'existe pas "
+        "sous tests/unit/ : la note décrit un dépôt qui n'est plus celui-ci"
+    )
+    acheve = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            f"tests/unit/{neuf}",
+            "--collect-only",
+            "-o",
+            "addopts=",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+        ],
+        cwd=_RACINE,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    collectes = re.search(r"^(\d+) tests? collected", acheve.stdout, re.M)
+    assert collectes is not None, (
+        "la collecte du fichier neuf n'a rien rendu, donc ce garde ne mesure "
+        f"rien. Sortie de pytest (rc={acheve.returncode}) :\n"
+        f"{acheve.stdout[-2000:]}\n{acheve.stderr[-2000:]}"
+    )
+    porte = int(collectes.group(1))
+    assert porte == annonce, (
+        f"{_PAGE_DES_TESTS} annonce {annonce} tests dans le fichier neuf "
+        f"`{neuf}`, quand `pytest` en collecte {porte}. Ce chiffre a été faux "
+        "une fois de quatre, et rien ne le surveillait."
+    )
+
+
+def test_la_note_ne_se_contredit_pas_deux_lignes_plus_bas() -> None:
+    """LE SECOND CHIFFRE DE LA MÊME PHRASE, qui disait déjà le contraire.
+
+    La note écrivait « les **26** de plus » puis « QUATRE de ces **30** scènes ».
+    Les deux désignaient le même ensemble : les faire diverger est le défaut, et
+    aucun des deux n'était gardé.
+    """
+    texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+    tete = _parenthese_de_tete(texte)
+    scenes = re.findall(_MOTIF_DES_SCENES, tete)
+    if not scenes:
+        return
+    assert len(scenes) == 1, (
+        f"{len(scenes)} phrases « de ces N scènes » dans la parenthèse de tête : "
+        "ce garde en choisirait une en silence"
+    )
+    parts = re.findall(_MOTIF_DU_FICHIER_NEUF, tete)
+    _, ecart = _maillon_de_tete(texte)
+    reference = int(parts[0][0]) if parts else ecart
+    assert int(scenes[0]) == reference, (
+        f"la note annonce {reference} tests puis parle de « ces {scenes[0]} "
+        "scènes » : deux chiffres pour le même ensemble, dans la même phrase."
+    )
+
+
+class TestLaLectureDuMaillonEstAncree:
+    """LE GARDE DU GARDE, dans les deux directions.
+
+    Sans lui, la lecture pourrait cesser de franchir le chevron de la citation —
+    ou se mettre à lire une parenthèse de la chaîne historique — sans qu'un seul
+    rouge n'apparaisse sur la page réelle.
+    """
+
+    _PAGE = (
+        "> `mesuré` le 1er janvier : **100** tests sur **9** fichiers,\n"
+        "> et les comptes concordent. *(LOT-W relevait **80** sur\n"
+        "> **8** fichiers à 01:00 UTC ; les **20** de plus sont **17** dans le\n"
+        "> fichier neuf `test_quelque_chose.py` et trois ailleurs. **DEUX de ces\n"
+        "> 17 scènes** sont nées d'une mutation.)*\n"
+        "> *(LOT-V avait relevé **60** sur **7** fichiers ; les **20** de plus\n"
+        "> sont **20** dans le fichier neuf `test_autre_chose.py`.)*\n"
+    )
+
+    def test_le_motif_franchit_bien_le_chevron_de_la_citation(self) -> None:
+        """LE SENS QUI DOIT MORDRE : la note réelle est un bloc de citation.
+
+        Un `\\s*` là où il faut `[\\s>]*` rendrait ce garde MUET sur la page du
+        dépôt, et il serait vert sans avoir rien lu.
+        """
+        assert _maillon_de_tete(self._PAGE) == (80, 20)
+
+    def test_seule_la_parenthese_de_tete_est_lue(self) -> None:
+        """LA SECONDE DIRECTION : la chaîne historique ne doit pas être lue.
+
+        PREUVE D'ATTEINTE : la scène porte DEUX parenthèses de la même forme, et
+        la seconde annonce un autre antécédent. Une lecture non ancrée pourrait
+        prendre l'une pour l'autre sans le dire.
+        """
+        toutes = re.findall(_MOTIF_DU_MAILLON, self._PAGE)
+        assert len(toutes) == 2, (
+            f"la scène ne porte pas deux maillons concurrents ({toutes}) : elle "
+            "ne met pas l'ancrage à l'épreuve"
+        )
+        parts = re.findall(_MOTIF_DU_FICHIER_NEUF, _parenthese_de_tete(self._PAGE))
+        assert parts == [("17", "test_quelque_chose.py")]
+
+    def test_une_note_sans_maillon_est_un_rouge_et_non_un_silence(self) -> None:
+        """LE SENS MUET, ET C'EST LE GRAVE.
+
+        Le jour où la parenthèse changerait de forme, un garde non ancré
+        continuerait de rendre vert sans rien avoir lu.
+        """
+        page = (
+            "> `mesuré` le 1er janvier : **100** tests sur **9** fichiers.\n"
+            "> *(une parenthèse qui ne porte aucun maillon de ce genre.)*\n"
+        )
+        with pytest.raises(AssertionError, match="au lieu d'un seul"):
+            _maillon_de_tete(page)
+
+    def test_la_page_reelle_du_depot_porte_un_maillon_et_un_seul(self) -> None:
+        """LE TÉMOIN INERTE : la page livrée se lit sans ambiguïté."""
+        texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
+        antecedent, ecart = _maillon_de_tete(texte)
+        assert antecedent > 0 and ecart > 0
+
+
+# ─── LE CHEMIN DE GÉNÉRATION N'EST ÉCRIT QU'À UN SEUL ENDROIT ───────────────
+#
+# NB-5 DE L'AUDIT DU 16 SEPTEMBRE 2026. Le lot 25 a fait passer les trois postes
+# de `src/` par `dialecte_llm`, et DEUX SCRIPTS sont restés dehors :
+# `generate_golden.py` et `sweep_retrieval.py` postaient `/api/chat` en dur et
+# lisaient `message.content` à la racine. Préexistants, non pilotés par
+# `LLM_ENGINE`, donc aucune régression le jour de l'audit — mais pointés vers un
+# vLLM par leur argument `--ollama`, ils écartaient **chaque question en
+# silence** : `except Exception: return None`. La campagne appariée qui vient
+# voudra peut-être générer sous vLLM, et elle aurait rendu un jeu vide en
+# sortant à zéro.
+#
+# LES DEUX SONT PASSÉS PAR LE SITE UNIQUE PAR REPAR-26. Ce garde tient qu'aucun
+# troisième ne rouvre la porte.
+#
+# IL LIT L'ARBRE SYNTAXIQUE ET NON LE TEXTE, et c'est la leçon de
+# `test_verification_des_ancrages` : une recherche de sous-chaîne rougirait sur
+# les commentaires qui NOMMENT le défaut — il y en a trois dans le dépôt, dont
+# deux écrits par cette réparation même — et un garde qui rougit sur du code
+# sain est retiré par le lot suivant, donc désarmé. Seules les chaînes
+# littérales du CODE sont lues ; les docstrings sont écartées nommément.
+
+_CHEMINS_DE_GENERATION = ("/api/chat", "/v1/chat/completions")
+# `dialecte_llm.py` EST le site : il doit les porter, et un test plus bas exige
+# qu'il les porte encore. `banc_vllm.py` est le banc BI-DIALECTE — sa raison
+# d'être est de parler aux deux serveurs côte à côte sans passer par le réglage,
+# et le faire passer par le site unique le priverait de ce qu'il mesure.
+_HORS_DU_SITE_UNIQUE = {"src/agent/dialecte_llm.py", "scripts/banc_vllm.py"}
+
+
+def _chaines_du_code(source: str) -> list[str]:
+    """Les chaînes littérales d'un module, DOCSTRINGS EXCLUES.
+
+    Une docstring qui nomme le défaut refermé n'est pas le défaut. Les exclure
+    est ce qui sépare ce garde d'une recherche de sous-chaîne, qui rougissait
+    sur du code sain.
+    """
+    import ast
+
+    arbre = ast.parse(source)
+    docs: set[int] = set()
+    for noeud in ast.walk(arbre):
+        if isinstance(
+            noeud, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+        ):
+            corps = getattr(noeud, "body", None)
+            if corps and isinstance(corps[0], ast.Expr):
+                valeur = corps[0].value
+                if isinstance(valeur, ast.Constant) and isinstance(valeur.value, str):
+                    docs.add(id(valeur))
+    return [
+        noeud.value
+        for noeud in ast.walk(arbre)
+        if isinstance(noeud, ast.Constant)
+        and isinstance(noeud.value, str)
+        and id(noeud) not in docs
+    ]
+
+
+def test_aucun_poste_n_ecrit_le_chemin_de_generation_hors_du_site_unique() -> None:
+    """Un site unique qui ne l'est qu'à moitié rend la bascule MUETTE.
+
+    Le geste attendu au rouge est de passer par `dialecte_courant()` — la forme
+    ET le chemin ensemble —, pas d'ajouter une exemption.
+    """
+    fautifs: list[str] = []
+    balayes = 0
+    for domaine in ("src", "scripts"):
+        for source in sorted((_RACINE / domaine).rglob("*.py")):
+            relatif = source.relative_to(_RACINE).as_posix()
+            if relatif in _HORS_DU_SITE_UNIQUE:
+                continue
+            balayes += 1
+            for chaine in _chaines_du_code(source.read_text(encoding="utf-8")):
+                if any(chemin in chaine for chemin in _CHEMINS_DE_GENERATION):
+                    fautifs.append(f"{relatif} → {chaine!r}")
+    assert balayes > 0, "aucun module balayé : ce garde ne mesure rien"
+    assert not fautifs, (
+        f"chemin de génération écrit hors de `dialecte_llm.py` : {fautifs}. "
+        "Poste par `dialecte_courant().url_chat` et `.charge(...)` : basculer le "
+        "chemin sans basculer la FORME fait générer avec la température et le "
+        "plafond PAR DÉFAUT du serveur, sans erreur et sans journal."
+    )
+
+
+def test_le_site_unique_porte_bien_les_deux_chemins() -> None:
+    """LE CONTRÔLE DISCRIMINANT : un zéro doit vouloir dire quelque chose.
+
+    Si `dialecte_llm.py` cessait de porter les deux chemins — réécrits par
+    concaténation, par exemple —, le garde ci-dessus rendrait zéro **par
+    impuissance** et non par propreté. Ce test dit que la lecture sait voir ces
+    chaînes-là quand elles sont présentes.
+    """
+    source = (_RACINE / "src/agent/dialecte_llm.py").read_text(encoding="utf-8")
+    chaines = _chaines_du_code(source)
+    manquants = [c for c in _CHEMINS_DE_GENERATION if not any(c in s for s in chaines)]
+    assert not manquants, (
+        f"le site unique ne porte plus {manquants} dans ses chaînes de code : "
+        "soit le chemin est construit autrement, soit la lecture par arbre "
+        "syntaxique ne le voit plus — et le garde voisin rend alors zéro par "
+        "impuissance"
+    )
+
+
+def test_la_lecture_ecarte_les_docstrings_et_pas_le_code() -> None:
+    """LE CONTRÔLE POSITIF DE LA LECTURE, dans les deux sens.
+
+    PREUVE D'ATTEINTE : une source fabriquée où le chemin est **une fois dans
+    une docstring** et **une fois dans le code**. La lecture doit en voir une et
+    une seule — sans quoi ce garde serait soit aveugle, soit criard.
+    """
+    source = (
+        '"""Ce module postait sur /api/chat en dur, et ne le fait plus."""\n'
+        "\n"
+        "def poster(hote):\n"
+        '    """Poste la charge. Autrefois sur /api/chat."""\n'
+        '    return hote + "/api/chat"\n'
+    )
+    vues = [c for c in _chaines_du_code(source) if "/api/chat" in c]
+    assert vues == ["/api/chat"], (
+        f"la lecture rend {vues} : elle compte une docstring, ou elle rate le "
+        "littéral du code, et le garde du site unique mesurerait autre chose"
+    )
