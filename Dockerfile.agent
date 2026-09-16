@@ -54,6 +54,54 @@ COPY --from=builder /root/.local /root/.local
 COPY src/agent ./src/agent
 COPY src/api ./src/api
 
+# ─── L'IDENTITÉ DU CODE QUE CETTE IMAGE CONTIENT ──────────────────────────────
+#
+# CE BLOC EXISTE PARCE QUE CE CHANTIER A PAYÉ DEUX FOIS SON ABSENCE. Pendant
+# douze lots, l'agent en service a exécuté du code antérieur et aucun garde
+# livré ne tournait ; rien ne permettait de répondre à « quel code tourne ? »
+# (§4.42 du registre). Puis le lot 18 a failli rendre l'état servi anonyme et
+# irrécupérable, parce qu'une étiquette datée désignait une autre image que son
+# nom ne le disait.
+#
+# APRÈS CE BLOC, L'IMAGE PORTE SON IDENTITÉ DE DEUX FAÇONS, ET CE N'EST PAS UNE
+# REDONDANCE :
+#
+# - en `ENV`, que `src/api/identite_du_code.py` lit et que `/health` publie —
+#   c'est le chemin par lequel un exploitant, une campagne ou le pipeline
+#   d'ingestion l'obtiennent SANS accès au démon Docker ;
+# - en `LABEL`, que `docker image inspect` lit — et c'est le seul des deux que
+#   l'exécution ne peut pas contredire. `env_file:` charge le `.env` au
+#   démarrage et Docker laisse l'exécution l'emporter sur l'`ENV` de l'image :
+#   une variable `RAG_AGENT_CODE_SHA` posée dans le `.env` ferait publier à
+#   `/health` une identité que ce build n'a pas gravée. Le label, lui, est figé
+#   ici. Un désaccord entre les deux nomme exactement ce cas, et la procédure de
+#   `documentation/identite_du_code_servi.md` fait croiser les deux.
+#
+# LES `ARG` N'ONT PAS DE VALEUR PAR DÉFAUT, ET C'EST LA BORNE PRINCIPALE. Un
+# défaut — `unknown`, `dev`, un sha écrit à la main — ferait passer une image
+# NON INSTRUMENTÉE pour identifiée, ce qui est le défaut exact qu'on ferme :
+# `None` veut dire « on ne me l'a pas dit », jamais « c'est à jour ». Sans
+# `--build-arg`, ces trois variables arrivent VIDES dans l'image, et
+# `identite_du_code()` déclare l'image ANONYME plutôt que d'inventer.
+#
+# CE BLOC EST APRÈS LES `COPY` À DESSEIN : le sha change à chaque commit, et
+# placé plus haut il invaliderait le cache de l'installation des dépendances —
+# plusieurs Go de roues retéléchargées pour une ligne de métadonnée.
+#
+# CE QUI LE POSE, ET C'EST LE SEUL GESTE À CONNAÎTRE : `make image`, qui relève
+# le sha ET la propreté de l'arbre. Un `docker build` nu construit légitimement
+# une image, mais elle sera anonyme et le dira.
+# Garde : `tests/unit/test_identite_du_code.py`.
+ARG CODE_SHA
+ARG CODE_ARBRE
+ARG CODE_CONSTRUITE_LE
+ENV RAG_AGENT_CODE_SHA=${CODE_SHA}
+ENV RAG_AGENT_CODE_ARBRE=${CODE_ARBRE}
+ENV RAG_AGENT_CODE_CONSTRUITE_LE=${CODE_CONSTRUITE_LE}
+LABEL org.opencontainers.image.revision=${CODE_SHA}
+LABEL org.opencontainers.image.created=${CODE_CONSTRUITE_LE}
+LABEL rag-agent-chat.code.arbre=${CODE_ARBRE}
+
 ENV PATH=/root/.local/bin:$PATH
 ENV PYTHONPATH=/app
 
