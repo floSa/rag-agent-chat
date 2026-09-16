@@ -8719,3 +8719,190 @@ Quatre, et deux entrent au corpus des pièges de mesure :
   éprouvable à travers lui sans un redémarrage que le lot n'avait pas mandat de
   faire.
 
+### 4.55 → LOT-20 : le lecteur des deux dialectes, l'appel d'outil accumulé, et les huit gardes qui manquent
+
+**Livré et FUSIONNÉ le 16 septembre 2026** — `551f205`. Lot **4** du découpage du
+chantier vLLM (§8), et **le premier à toucher `src/agent/llm.py`**, que dix-neuf
+lots avaient laissé intact exprès.
+
+**CE LOT NE BASCULE RIEN.** Ollama reste le moteur servi ; `.env`, `.env.example`,
+`docker-compose.yml` et `OLLAMA_HOST` sont **hors du diff**, vérifié. Il rend le
+lecteur **capable** de lire les deux dialectes. La bascule est le lot 7.
+
+#### Pourquoi les deux défauts étaient soudés
+
+Notre lecteur cassait **bruyamment** sur le préfixe `data: ` de vLLM
+(`json.loads` sur du NDJSON pur). **Derrière ce mur, silencieusement**, vLLM
+fragmente l'appel d'outil sur **quatre événements** dont aucun ne porte l'appel
+entier. **Séparés, réparer le premier aurait rendu le second INVISIBLE** : le
+flux serait passé, les tokens seraient sortis, et l'agent aurait perdu sa
+capacité à relancer une recherche sans que rien ne le dise. C'est la famille
+dominante de ce chantier, prise à l'avance.
+
+#### Ce que le lot a mesuré et que le banc n'avait pas
+
+- **L'`index` n'est pas à la même place** : au niveau de l'**appel** chez vLLM,
+  au niveau de la **fonction** chez Ollama. Une accumulation qui n'aurait lu que
+  `call["index"]` aurait fait **se recouvrir** les appels d'Ollama.
+- **Les deux moteurs incrémentent l'index sur deux appels**, et **Ollama étale
+  alors ses deux appels sur DEUX événements**. Donc **le moteur servi
+  aujourd'hui avait lui aussi besoin de l'accumulation** — le banc présentait la
+  fragmentation comme un défaut purement vLLM.
+- **L'événement d'usage de vLLM porte `"choices": []`**, liste vide, et c'est le
+  **seul** qui porte les décomptes : `choices[0]` y lèverait `IndexError`,
+  précisément là. Découvert par une sonde faite pour vérifier autre chose.
+- Les décomptes n'existent chez vLLM **qu'avec** `stream_options:
+  {"include_usage": true}` — vérifié dans les deux sens, pas supposé.
+
+#### La forme du remède
+
+`src/agent/flux_llm.py`, site canonique, **sans aucune branche par moteur** : il
+lit la **FORME**, pas un réglage. `_charge` est le seul endroit qui connaisse les
+deux dialectes ; en aval, la clé porte le même nom des deux côtés.
+`extract_tool_query` **reste le seul juge** — le lecteur lui rend un `message` de
+la forme qu'il attend, sa règle n'est réécrite nulle part. **Une chaîne se
+concatène, un objet remplace** : `{"query": "` n'est pas du JSON pris seul, et
+« fusionner » des dicts inventerait un appel.
+
+`on_tool_call` **sort de la boucle et ne part qu'UNE fois**. Les deux erreurs
+symétriques sont écrites au site : juger dans la boucle rend `None` à chaque
+tour et **le rappel ne part jamais** ; rappeler à chaque fragment lance **quatre
+recherches pour un appel** et `max_search_iterations` avale le plafond en
+silence.
+
+**Porte, mesurée par le pilote SUR LE RÉSULTAT DE LA FUSION**, arbre détaché neuf
+monté par le §2.2, le **16 septembre 2026** : `rc(make lint)=0`,
+`rc(make test)=0`, **937 passés** sur **48** fichiers (`main` avant : 910 sur
+47). **L'arbre scellé est bit pour bit celui qui a été mesuré** : `af27f47`.
+
+#### L'audit indépendant : aucune bloquante, et il refuse d'en fabriquer une
+
+[`audits/2026-09-16-audit-lot-20.md`](audits/2026-09-16-audit-lot-20.md), versé
+sur `main` en **`76441dc`** *avant* d'être cité. **Vingt-huit mutations, DEUX
+témoins inertes à zéro, dix-neuf tuées, NEUF SURVIVANTES**, chacune avec son
+texte séparateur **montré dans les deux états**.
+
+**IL ÉPROUVE LE LOT SUR SES PROPRES CAPTURES**, pas sur celles du lot : six
+requêtes d'inférence, prompts tous distincts, trois par moteur. Le lecteur lit
+ses cinq flux correctement, **là où l'ancienne boucle de `main` lève
+`JSONDecodeError` sur les trois captures vLLM**. Le défaut réparé est donc
+**reproduit sous une main qui n'a pas écrit le remède**.
+
+**IL RENVERSE DEUX LECTURES DU PILOTE, ET LES DEUX FOIS EN FAVEUR DU LOT :**
+
+- **L'angle 2 est un NON-SUJET, ET IL EST GARDÉ.** Le pilote craignait que le
+  `break` sorte avant l'événement d'usage, les décomptes étant alors **présentés
+  comme une absence déclarée alors que ce serait une perte**. Ordre mesuré sur
+  vLLM : `finish_reason` → usage → `[DONE]`, et `termine` **ne bouge que sur
+  `[DONE]`**. La mutation qui pose `termine` sur `finish_reason` **fait
+  rougir**. Et si un serveur n'émet jamais `[DONE]`, la boucle se termine
+  d'elle-même : **le `break` est une sortie anticipée, pas la condition de
+  terminaison.**
+- **La ventilation de M11 ne se reproduit pas** : le lot annonçait « 22 rouges
+  dont **deux** préexistantes » ; l'auditeur mesure **14 préexistantes**, sur la
+  suite entière. Le total se reproduit, la ventilation non — et **la couverture
+  Ollama héritée est sept fois plus large que le lot ne le dit**.
+
+#### Ce qui reste OUVERT — huit gardes qui manquent, pas une ligne fausse
+
+**Aucune ligne fausse dans les 1 033 lignes du diff.** Les huit trouvailles sont
+de la même nature, et c'est ce qui les rend fusionnables.
+
+**(a) LA PERTE QUE LE PILOTE CHERCHAIT DANS LE `break` EXISTE — AILLEURS.**
+`_lire_decomptes` écrit ses deux branches **inconditionnellement**, l'une après
+l'autre. Mesuré sur le code servi : `done: true` + `prompt_eval_count: 108`,
+`eval_count: 27` rend `(108, 27)` ; **le même événement portant aussi
+`"usage": {"total_tokens": 135}` rend `(None, None)`** — 108 et 27 **écrasés**.
+Idem avec `"usage": {}`. **Une mesure réelle devient une absence déclarée, et
+`mesure_prompt_exploitable` la croira honnête.** Non représentable sur les
+moteurs du poste — mesuré : Ollama n'émet pas `usage`, vLLM n'émet pas `done` —
+mais le module se présente comme lisant « la FORME, pas un réglage » : **devant
+un proxy qui mêle les deux dialectes, il perd les décomptes en silence.** Aucune
+scène ne couvre ce chemin.
+
+**(b) Le garde du site unique ne couvre pas la seconde marque.** `repli_outil.py`
+écrit qu'un second site voudrait dire deux motifs libres de diverger, « ce que ce
+module existe précisément pour empêcher ». **Rien ne l'empêche pour la forme en
+sentinelles** : le garde ne cherche que la marque de la forme du lot 19. **Preuve
+rouge ET son contrôle positif dans la même mesure** : une copie du motif *des
+sentinelles* collée dans `graph.py` → **38 passed, le garde ne voit rien** ; une
+copie du motif *de la prose* au même endroit → **rouge**. C'est, mot pour mot, la
+réserve R1 que l'audit du lot 19 avait laissée ouverte sur la même phrase.
+
+**(c) La borne du rideau n'est tenue par rien.** Deux mutations qui élargissent
+ou rétrécissent la portée du motif neuf passent au vert. Mais **le risque est
+BORNÉ, et mesuré sur huit textes** : prose ordinaire, accolades JSON légitimes,
+sentinelle ouvrante seule, sentinelles sans accolades → **0 caractère retiré**.
+Deux cas où du texte part : une réponse qui **cite la syntaxe de fuite pour
+l'expliquer** (57 caractères, et une recherche réelle part), et du texte pris
+entre deux blocs d'accolades **à l'intérieur** des sentinelles (107). Le second
+est structurellement le risque déjà accepté pour la forme du lot 19. **Ce qui est
+retenu contre le lot n'est pas le motif : c'est qu'aucune scène ne tient sa
+borne** — le lot 19 avait six proses ordinaires en contrôle négatif, la forme
+neuve n'en a qu'une.
+
+**(d) Le `break` n'est gardé par rien.** Le neutraliser passe au vert ; le
+séparateur est un flux Ollama qui émet une ligne **après** son `done: true`.
+
+**(e) Le garde d'erreur n'est tenu que pour le PREMIER événement.** Il **a
+survécu au déménagement avec sa force** — vérifié : deux tokens cédés puis
+`{"error": …}` lève bien, et la forme enveloppée en SSE aussi. Mais un mutant qui
+ne lève **que sur la première ligne lue** passe les **937** tests : le cas nommé
+par le pilote — l'erreur arrivant **après** des tokens — est **correct dans le
+code et absent des scènes**.
+
+**(f) La priorité prose / sentinelles est écrite au site et tenue par rien.**
+Aucune scène du dépôt ne fait apparaître **les deux formes dans le même texte**.
+
+**(g) Trois lignes défensives non exercées par les moteurs du poste** : un nom
+vide qui écraserait le nom acquis (vLLM **omet** `name`, il ne le met pas à
+`""` — mesuré), l'ordre d'apparition remplacé par un tri, et `isinstance(usage,
+dict)` affaibli.
+
+**(h) Une mutation qui casse le chemin Ollama et que rien ne fait rougir** :
+`tool_calls` ignorés quand l'événement porte aussi du `content`. **AVEU DE BORNE
+DE L'AUDITEUR** : il a essayé de faire produire cette forme par le moteur servi
+et **gemma4 a séparé les deux** — l'événement portant `tool_calls` avait
+`content: ""`. *Une requête ne fait pas une propriété* : il laisse la mutation
+comme **ligne non gardée**, pas comme défaut représentable, et il écrit qu'il n'a
+pas su la reproduire.
+
+#### Deux déclarations du lot qui ne se reproduisent pas
+
+**La provenance des scènes.** L'en-tête du fichier neuf affirme en capitales que
+ses lignes « ne sont pas écrites de mémoire ». Inventaire de l'auditeur sur les
+27 scènes : **12 relevées, 15 construites**, alors que le lot n'en déclare que
+**deux** construites. Deux portent même une docstring « Mesuré 16/09 04:01:49 »
+alors que leurs lignes sont **reconstruites**. **C'est le même piège que l'audit
+du lot 19 avait relevé au même endroit du même chantier.** *Mais l'auditeur a
+remesuré les deux faits que ces scènes affirment, et les deux sont vrais* : la
+déclaration est **imprécise sur la forme, exacte sur le fond**.
+
+**Une justification écrite au test qui est fausse.** Le lot écrit que « la
+lecture ligne à ligne n'en voyait jamais que le premier [appel], y compris sur le
+moteur servi ». Rejouant **l'ancienne boucle de `main`** sur sa propre capture,
+l'auditeur mesure **2 rappels**, pas un : chaque événement d'Ollama porte un
+appel entier et jugeable. **CE N'EST PAS LA LECTURE QUI N'EN VOYAIT QU'UN, C'EST
+`graph.py` QUI N'EN RETIENT QU'UN** (`tool_queries[0]`). Sans conséquence sur le
+comportement, mais la phrase est inexacte.
+
+#### Ce qui entre au corpus des pièges
+
+- **Un job de mutation est passé EN FOND au dépassement du délai**, et l'auditeur
+  l'écrit : *« le risque a existé, et je ne l'ai pas prévenu, je l'ai
+  rattrapé »*. Un lot de ce chantier avait déjà compté 15 puis 14 pour la même
+  question à cause de ça.
+- **Il a failli auditer `main` en croyant auditer le lot** : l'arbre où sa
+  session s'ouvre était sur `2102f2a`. Un `pytest` lancé là aurait rendu des
+  chiffres **parfaitement crédibles et parfaitement hors sujet**.
+- **Il a failli valider « 22 rouges dont deux préexistantes » sur la coïncidence
+  du total** : son banc de 202 tests rendait exactement 22, le même nombre. Il a
+  fallu rejouer sur les 937 pour voir que la ventilation était fausse.
+- **`/health` lui a rendu une réponse vide** et il a failli écrire que l'API ne
+  répondait pas : le service écoute sur **8011**, pas 8000. *La sonde était
+  fausse, pas le service.*
+- **Il n'a pas recopié les motifs exacts de ses sondes d'attribution** dans son
+  rapport : les écrire en toutes lettres ferait entrer dans ce dépôt public, **par
+  la porte du rapport**, les noms mêmes que le refus écarte. Il les décrit, et
+  établit leur pouvoir de discrimination par un contrôle positif.
+
