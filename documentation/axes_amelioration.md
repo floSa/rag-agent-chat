@@ -9127,3 +9127,173 @@ faible. Rejouée sur **les deux champs**, elle rend `rc=1` et meurt sur exacteme
 mutant, pas le garde** — la faute que l'auditeur du lot 19 avait déjà consignée
 contre lui-même sur son mutant M2, refaite ici par le pilote.
 
+### 4.57 → LOT-22 : l'image porte l'identité du code, et `/health` la publie
+
+**Livré et FUSIONNÉ le 16 septembre 2026** — `c2581cd`. Lot **5** du découpage du
+chantier vLLM. **Il ne bascule rien et ne redéploie rien** : Ollama reste le
+moteur servi, aucun conteneur n'a été touché, `RestartCount=0` et `StartedAt`
+inchangé après le lot comme après son audit.
+
+#### La borne qu'il lève a été payée DEUX FOIS
+
+**§4.42** : pendant **douze lots**, l'agent servi a exécuté du code antérieur et
+**aucun garde livré ne tournait** — parce que rien ne permettait de répondre à
+« quel code tourne ? ». Puis **au lot 18** : une étiquette datée désignait
+l'image d'un autre jour, et un `build` aurait rendu l'état servi **anonyme et
+irrécupérable**.
+
+#### Le mécanisme, et pourquoi celui-là
+
+Trois `ARG` **sans valeur par défaut** dans `Dockerfile.agent`, gravés **deux
+fois** : en `ENV` que `/health` lit, et en `LABEL` que `docker image inspect`
+lit. **Ce n'est pas de la redondance** : `env_file: .env` permet à l'exécution de
+l'emporter sur l'`ENV` de l'image, alors que le label est **figé à la
+construction**. Le document dit lequel tranche.
+
+**Trois positions, et trois seulement** : `identifie`, `arbre_sale`, `anonyme` —
+**séparées par leur AVERTISSEMENT et pas seulement par leur position**, ce que
+deux mutations de l'audit établissent en remplaçant un message par un autre à
+position constante.
+
+**Un sha gravé sans mot sur l'arbre reste `anonyme`.** Le rendre `identifie`
+supposerait la propreté, `arbre_sale` affirmerait la saleté : **les deux
+affirmeraient un fait que le build n'a pas donné.** C'est la doctrine du chantier
+appliquée à un cas neuf.
+
+**Un build en arbre sale publie son sha AVEC sa réserve** — le taire publierait
+une identité fausse, ne rien publier perdrait le seul repère. La propreté est
+relevée **SUR LA CHAÎNE** (`S="$(git status --porcelain)"` puis `[ -z "$S" ]`),
+jamais sur le `rc`, et deux mutations le gardent.
+
+**Porte, mesurée par le pilote SUR LE RÉSULTAT DE LA FUSION**, arbre détaché neuf
+monté par le §2.2, le **16 septembre 2026** : `rc(make lint)=0`,
+`rc(make test)=0`, **999 passés** sur **49** fichiers (`main` avant : 954 sur
+48). Arbre scellé **`fd61468`**, bit pour bit celui mesuré.
+
+#### CE QUE LE LOT A TROUVÉ EN CHEMIN, ET QUI COMMANDE LA SUITE DU CHANTIER
+
+**L'AGENT EN SERVICE EXÉCUTE LE CODE DE `8209e68`, 27 COMMITS DERRIÈRE `main`.**
+`src/agent/flux_llm.py` et `src/agent/repli_outil.py` en sont **ABSENTS, pas
+anciens** : **les lots 19, 20 et 21 ne sont pas en service.** Le second rideau ne
+tourne pas ; le lecteur des deux dialectes ne tourne pas.
+
+**Tranché PAR LE CONTENEUR, jamais par l'étiquette**, et trois fois : le lot par
+`docker cp` + SHA-256 ; **le pilote de ses mains** le 16 septembre à 10:52 UTC,
+même méthode, autre recette d'empreinte ; l'auditeur par une méthode
+**exhaustive** — empreinte d'objet git de chaque `.py` extrait du conteneur,
+comparée à `git ls-tree -r` de **chacun des 451 commits atteignables**.
+
+**ET L'AUDITEUR PRÉCISE CE QUE NI LE LOT NI LE PILOTE N'AVAIENT VU** : *le contenu
+seul ne désigne pas `8209e68`.* **TREIZE commits portent exactement le même
+`src/`**, de 32 à 22 derrière `main`. Ce qui pince `8209e68` est **l'horodatage
+de construction de l'image** — sept minutes après ce commit — **ni le contenu, ni
+l'étiquette**. Le chiffre 27 est juste, **mais il repose sur deux faits et non
+sur un seul**, et c'est exactement ce que le document du lot écrit de lui-même :
+*« il ne prouve pas que l'image contient le code de ce commit — il rapporte ce
+que le build a déclaré »*.
+
+*Corollaire relevé au passage : l'étiquette `2026-09-14-servi-avant-lot15` pend
+toujours à l'image du 11 septembre. **Une étiquette datée ment sur ce qu'elle
+désigne**, et le poste le démontre encore.*
+
+#### L'audit : aucune bloquante, et il refuse d'en forcer une
+
+[`audits/2026-09-16-audit-lot-22.md`](audits/2026-09-16-audit-lot-22.md), versé
+sur `main` en **`b88fa0b`** *avant* d'être cité. Les **18 prémisses se
+reproduisent à l'identique**, aucune n'a vieilli.
+
+**L'ANGLE LE PLUS CHER EST RÉGLÉ PAR LA MESURE LA PLUS DIRECTE POSSIBLE.** Le
+pilote craignait qu'une image mal construite fasse rendre **500** à `/health`,
+transformant une incertitude en indisponibilité. L'auditeur a construit de vraies
+images et interrogé de vrais conteneurs : **les six formes d'identité mal formée
+rendent HTTP 200**, avec `etat: anonyme`. Plus un balayage de **1 056
+combinaisons** d'environnement : **zéro `ValidationError`**, les **trois**
+positions atteintes (960 / 72 / 24), **avec contrôle positif** — en relâchant le
+motif, la même boucle voit lever. *Le module ramène à `anonyme` AVANT le schéma,
+et la seconde barrière ne peut pas tirer en production.* En chemin **forcé**, elle
+rend bien 500, mesuré aussi.
+
+**IL A JOUÉ `make image` POUR DE VRAI**, ce que le lot déclarait n'avoir pas fait,
+et **dans les deux sens** : arbre propre → `code.arbre=propre`, arbre sali →
+`code.arbre=sale`, **même sha**, `rc(make)=0` des deux côtés.
+
+#### IL CORRIGE LE PILOTE TROIS FOIS, ET IL A RAISON LES TROIS FOIS
+
+1. **`restart: unless-stopped` ne redémarre PAS un conteneur `unhealthy`** —
+   Docker réagit à une **sortie**, et il n'y a aucun *autoheal* dans ce compose.
+   Ma phrase « la panne se répète toute seule » était fausse. **Le coût réel est
+   ailleurs et il est sérieux** : `frontend` porte
+   `depends_on: agent-api: condition: service_healthy`, donc un `agent-api` qui
+   ne passe jamais `healthy` **empêche `frontend` de lever à froid,
+   indéfiniment**.
+2. **La déclaration « deux gestes non éprouvés » N'EXISTE NULLE PART DANS LE
+   DÉPÔT.** Je l'avais reprise du rapport de conversation du lot. Le diff entier
+   et les trois corps de commit ne la portent pas ; le commit dit *« chaque
+   commande exacte, éprouvée »*, **sans réserve**, alors que `RestartCount=0`
+   prouve que les deux gestes qui touchent le service n'ont pas pu l'être. **ET
+   C'EST LE DÉPÔT QUI SURVIT, PAS LA CONVERSATION** — leçon à porter au-delà de
+   ce lot.
+3. **L'absence de `.dockerignore` coûte 914 ko transférés, pas 2 Go** : BuildKit
+   ne transfère que ce que les `COPY` désignent. Ma crainte était mal calibrée.
+
+#### LE TÉMOIN INERTE A PAYÉ POUR TOUT LE RAPPORT
+
+À sa **première exécution**, le témoin de l'auditeur a rendu **954 passés au lieu
+de 999**. Son harnais écrivait bien dans l'arbre détaché mais lançait `pytest`
+**depuis le répertoire courant du shell**, c'est-à-dire sur `main`. **Sans ce
+témoin, les vingt-deux mutations suivantes auraient toutes été jouées contre un
+arbre où le fichier audité n'existe pas : elles auraient toutes « survécu », et
+le rapport aurait affirmé que le lot n'est gardé par rien.** C'est la
+démonstration la plus complète du témoin inerte que ce chantier ait produite, et
+elle vaut d'être citée telle quelle.
+
+#### Ce qui reste OUVERT — quatre non bloquantes
+
+**NB-1 — LE SEUL REMPART CONTRE UN `/health` EN 500 N'EST GARDÉ PAR RIEN.**
+`_UN_SHA = re.compile(r"^[0-9a-f]{40}$")` est la **première** barrière, celle qui
+empêche la seconde de tirer. **Deux mutations distinctes ne font rougir aucun
+test** : `{40}` → `{7,40}`, et les ancres retirées. **Elles ne sont pas
+équivalentes**, et leurs textes séparateurs sont mesurés des deux côtés,
+`/health` appelé pour de vrai : `8209e68` (ce que rend `git rev-parse --short
+HEAD`) et un 40-hex suffixé `-dirty` (ce que rend `git describe --always
+--dirty`) font passer le mutant de **200 à 500**. **Ce sont les deux façons les
+plus probables de casser la cible.** La cause est nommée : les sept faux sha du
+lot éprouvent le **contrat**, pas la **lecture** — le seul qui traverse
+`identite_du_code()` est `HEAD`, que les deux mutants refusent aussi.
+
+**NB-2 — une citation de site canonique qui désigne un fichier n'ayant jamais
+existé.** `src/api/identite_du_code.py` cite
+`documentation/registre_du_chantier.md` §4.42 ; ce fichier n'a jamais été suivi.
+Le registre réel est `documentation/pilotage_du_chantier.md`, où le §4.42 se
+trouve bien. **Aucun rouge à montrer, et c'est le fait** : aucun garde de ce
+dépôt ne vérifie que les documents cités par le code existent — dans un module
+dont la thèse est *« un seul site canonique »*.
+
+**NB-3 — une déclaration d'épreuve plus large que ce qui a pu être éprouvé**
+(voir la correction 2 ci-dessus).
+
+**NB-4 — un commentaire emphatique sur une distinction inexistante.** Le compose
+écrit que `${VAR:-}` contre `${VAR-}` « n'est pas cosmétique » ; l'auditeur mesure
+par `docker compose config`, sur une copie en projet isolé, que **les deux formes
+coïncident sur tout le domaine** — le repli étant la chaîne vide, elles ne
+peuvent pas se séparer. **Il avoue la mutation ÉQUIVALENTE au lieu d'en faire une
+trouvaille.**
+
+#### Les faux résultats de l'auditeur, et deux entrent au corpus
+
+- **Son compteur de rouges comptait les journaux** : `grep -cE '^(FAILED|ERROR) '`
+  attrapait une ligne de journal capturé commençant par `ERROR    src.agent…`.
+  *La sonde trouvait, elle ne discriminait pas.* Ancré sur `^(FAILED|ERROR) tests/`.
+- **Il a lu une sortie VIDE comme une valeur** : `2>/dev/null` masquait l'échec de
+  `docker compose config`, et sa boucle imprimait six fois une variable vide —
+  ce qui **ressemblait à un résultat cohérent**. Il a failli en conclure une
+  propriété.
+- **Son sélecteur `git grep` a sous-compté** : `'src/**/*.py'` rend 88 `noqa` là
+  où le compte par fichier en rend **93** — sans la magie `:(glob)`, le `**` de
+  git ne fait pas ce qu'on croit.
+- **Il a failli faire entrer dans le dépôt public le nom de l'outil qui
+  l'exécute** : sa première rédaction citait les chemins absolus de ses arbres et
+  son nom de branche. **Sa propre sonde l'a attrapé avant le commit** — 16
+  occurrences —, il les a élidées et rejoué la sonde à zéro. *La consigne le
+  disait ; c'est la sonde qui l'a fait respecter.*
+
