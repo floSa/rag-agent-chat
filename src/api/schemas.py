@@ -1,6 +1,7 @@
+import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 # Identifiant d'élément : hash sha256 tronqué à 10 caractères produit par
 # l'ingestion. Validé strictement car interpolé dans les requêtes nGQL.
@@ -733,6 +734,92 @@ class MoteurLlmHealth(BaseModel):
     releve_le: str | None = None
 
 
+class CodeServiHealth(BaseModel):
+    """QUEL CODE TOURNE, relevé DU BUILD et non d'une constante écrite à la main.
+
+    CE CHAMP EST LA RÉPONSE À LA QUESTION QUE DOUZE LOTS N'ONT PAS PU POSER.
+    L'agent en service a exécuté du code antérieur pendant douze lots sans que
+    rien ne le dise, parce que `/health` publiait l'état de tout SAUF de
+    lui-même — ni sha, ni version, ni date de construction (§4.42 du registre).
+    Le mécanisme est décrit dans `src/api/identite_du_code.py` ; ce qui suit est
+    son CONTRAT, et le contrat est ce qui empêche une image anonyme de passer
+    pour identifiée.
+
+    `etat` RÉPOND À UNE SEULE QUESTION — *puis-je me fier à `sha` pour dire quel
+    code tourne ?* — et c'est pourquoi il a trois positions et non deux :
+
+    - `identifie` : oui. Sha gravé au build, arbre de construction propre.
+    - `arbre_sale` : non, et on sait pourquoi. Le sha est là, mais l'arbre
+      portait des modifications non commitées : **le commit nommé ne contient
+      pas ce qui tourne.** Un sha publié sans cette réserve serait CRU, ce qui
+      est pire que l'anonymat.
+    - `anonyme` : non, et rien n'est publié. `sha` y est nécessairement nul.
+
+    LES INVARIANTS SONT TENUS PAR LE VALIDATEUR, PAS PAR LA POLITESSE DES
+    APPELANTS, et c'est tout l'objet de ce modèle. Une image anonyme qui se
+    présenterait avec un sha, ou un `etat: "identifie"` sans sha, LÈVE à la
+    construction — donc aussi à la lecture d'un corps de `/health` venu d'un
+    autre agent, puisque c'est le même modèle qui valide dans les deux sens.
+    Sans ce validateur, un appelant distrait pourrait fabriquer les deux états
+    incohérents, et un lecteur qui teste `if sha:` croirait l'image identifiée.
+
+    `construite_le` VIT HORS DE L'INVARIANT, et délibérément : il est la seule
+    chose qu'une image anonyme peut encore porter honnêtement, et il vaut mieux
+    que rien quand il faut retrouver quelle construction tourne.
+    """
+
+    etat: Literal["identifie", "arbre_sale", "anonyme"]
+    # Le sha COMPLET du commit, 40 hexadécimaux minuscules, ou `null`. Complet et
+    # non abrégé : ce dépôt porte 448 commits aujourd'hui et en portera plus, et
+    # un sha court est une identité qui peut cesser d'être unique — alors qu'il
+    # coûte la même chose à écrire. Le tronquer pour l'affichage est le travail
+    # du lecteur, jamais celui du champ.
+    sha: str | None = None
+    # QUAND l'image a été construite, en ISO-8601 UTC. Il ne remplace pas le sha
+    # et ne prétend pas à l'exactitude d'un verrou : deux images du même sha à
+    # deux mois d'écart n'embarquent pas les mêmes roues, et c'est le seul fait
+    # publié ici qui permette de les séparer.
+    construite_le: str | None = None
+    # POURQUOI on ne peut pas se fier au sha, en clair, ou `null` quand on le
+    # peut. Un code d'état que personne ne sait interpréter est un code que
+    # personne ne lit : les trois chemins vers `anonyme` ne se soignent pas
+    # pareil — rien de gravé, un relevé qui a échoué, un build à moitié
+    # instrumenté — et seule cette phrase les distingue.
+    avertissement: str | None = None
+
+    @model_validator(mode="after")
+    def _l_anonymat_ne_se_negocie_pas(self) -> "CodeServiHealth":
+        """Les trois invariants du contrat, et ce que chacun ferme.
+
+        Ils sont écrits ici plutôt que confiés au constructeur parce que ce
+        modèle valide AUSSI ce qui arrive du dehors : `scripts/evaluate.py` et
+        le pipeline d'ingestion lisent `/health` d'un agent qu'ils n'ont pas
+        construit, et un agent trafiqué ou à moitié déployé ne doit pas pouvoir
+        leur faire croire à une identité.
+        """
+        if (self.sha is None) != (self.etat == "anonyme"):
+            raise ValueError(
+                "identité de code incohérente : `sha` nul et `etat` autre "
+                "qu'`anonyme`, ou l'inverse. Une image sans sha est anonyme, et "
+                "une image anonyme ne publie pas de sha — c'est la borne que ce "
+                "modèle existe pour tenir."
+            )
+        if (self.avertissement is None) != (self.etat == "identifie"):
+            raise ValueError(
+                "identité de code incohérente : tout état autre qu'`identifie` "
+                "doit dire POURQUOI on ne peut pas se fier au sha, et "
+                "`identifie` ne s'assortit d'aucune réserve."
+            )
+        if self.sha is not None and not re.fullmatch(r"[0-9a-f]{40}", self.sha):
+            raise ValueError(
+                f"`sha` n'est pas un sha de commit : {self.sha!r}. Attendu 40 "
+                "caractères hexadécimaux minuscules — une chaîne vide, un sha "
+                "abrégé ou un `unknown` passeraient pour une identité auprès "
+                "d'un lecteur pressé."
+            )
+        return self
+
+
 class HealthResponse(BaseModel):
     status: str                       # "ok" | "degraded"
     ollama_model: str
@@ -769,3 +856,15 @@ class HealthResponse(BaseModel):
     # répondu — et un agent ANTÉRIEUR à ce lot ne publie pas la clé du tout.
     # `scripts/evaluate.py` distingue les deux cas de la même façon : muet.
     moteur_llm: MoteurLlmHealth | None = None
+    # QUEL CODE TOURNE. NON OPTIONNEL, pour la MÊME raison que `embedding_model`
+    # et `torch_device` : une réponse muette sur l'identité du code se lit comme
+    # une réponse rassurante, et c'est exactement la lecture qui a laissé douze
+    # lots croire qu'ils mesuraient les gardes qu'ils venaient de livrer. Le
+    # non-savoir a donc un nom — `anonyme` — plutôt qu'un null.
+    #
+    # ET LA DISTINCTION AVEC UN AGENT ANTÉRIEUR EST À LA CHARGE DU LECTEUR, non
+    # de ce champ : un agent d'avant ce lot ne publie pas la clé du tout, ce qui
+    # se lit `absente` là où un agent d'après publie au moins `anonyme`. Les deux
+    # veulent dire « je ne sais pas quel code tourne » ; seule la seconde prouve
+    # qu'on a posé la question.
+    code_servi: CodeServiHealth

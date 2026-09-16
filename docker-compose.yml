@@ -15,6 +15,33 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.agent
+      # L'IDENTITÉ DU CODE ENTRE DANS L'IMAGE ICI, ET NULLE PART AILLEURS.
+      #
+      # `${VAR:-}` — DEUX-POINTS-TIRET, et le détail n'est pas cosmétique :
+      # `${VAR-}` ne se replie que sur une variable ABSENTE, quand `${VAR:-}` se
+      # replie aussi sur une variable PRÉSENTE ET VIDE. Sans les deux-points, un
+      # `RAG_AGENT_CODE_SHA=` traînant dans le `.env` ferait entrer une chaîne
+      # vide là où la forme retenue fait entrer la même chaîne vide — mais par
+      # un chemin qui reste vrai quand la valeur est un espace ou un reliquat.
+      # Dans les deux cas l'image se déclare ANONYME, et c'est la position à
+      # tenir : une image non instrumentée ne doit jamais passer pour
+      # identifiée.
+      #
+      # POURQUOI UN REPLI PLUTÔT QU'UNE ERREUR. Sans repli, `docker compose
+      # build` échouerait dans un shell où ces variables ne sont pas exportées —
+      # y compris pour un `docker compose up -d` qui reconstruit. Faire échouer
+      # le build n'aurait pas rendu l'identité plus sûre : elle aurait poussé à
+      # exporter n'importe quoi pour débloquer. L'anonymat déclaré est plus
+      # honnête qu'un build qu'on contourne.
+      #
+      # LE GESTE QUI LES REMPLIT EST `make image`. Il relève le sha ET la
+      # propreté de l'arbre, puis appelle ce build. Un `docker compose build` nu
+      # reste licite et produit une image anonyme, qui le dit dans `/health`.
+      # Garde : `tests/unit/test_identite_du_code.py`.
+      args:
+        CODE_SHA: ${RAG_AGENT_CODE_SHA:-}
+        CODE_ARBRE: ${RAG_AGENT_CODE_ARBRE:-}
+        CODE_CONSTRUITE_LE: ${RAG_AGENT_CODE_CONSTRUITE_LE:-}
     container_name: rag-agent-api
     ports:
       - "8011:8000"

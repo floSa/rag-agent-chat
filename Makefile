@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs eval eval-controle verifier-les-ancrages
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -77,6 +77,38 @@ test-integration:
 
 audit:
 	pip-audit -r requirements.txt
+
+# LE SEUL GESTE QUI CONSTRUISE UNE IMAGE IDENTIFIEE, et c'est celui que le
+# redeploiement doit jouer. Sans lui, `docker compose build` construit une image
+# ANONYME — licite, fonctionnelle, et qui le declare dans `/health`.
+#
+# CE QU'IL RELEVE, ET POURQUOI LES DEUX. Le sha seul ne suffit pas : un sha
+# releve dans un arbre qui porte des modifications non commitees NOMME UN COMMIT
+# QUI NE CONTIENT PAS CE QUI TOURNE. Ce build grave donc AUSSI la proprete de
+# l'arbre, et `/health` publie alors `etat: arbre_sale` avec le sha et sa
+# reserve, au lieu d'un `identifie` qu'on croirait.
+#
+# `[ -z "$$S" ]` ET NON LE CODE DE RETOUR DE `git status` : `git status
+# --porcelain` rend 0 qu'il ait de la sortie ou non, et un auditeur de ce
+# chantier s'est fait annoncer « arbre propre » AU-DESSUS d'un fichier mute. La
+# chaine est ce qui porte le fait, jamais le `rc`.
+#
+# `git -C` ET NON UN `cd` : cette cible s'execute depuis le clone principal, et
+# c'est SON depot qui doit etre releve. Le `.` est le repertoire de make, donc
+# le contexte de build lui-meme — les deux ne peuvent pas diverger.
+#
+# CE QU'IL NE FAIT PAS : demarrer quoi que ce soit. Construire et deployer sont
+# deux gestes, et les confondre est ce qui rend un retour arriere impossible.
+# La marche a suivre complete — etiqueter AVANT de construire, verifier a quoi
+# l'etiquette pend, revenir — est dans
+# `documentation/identite_du_code_servi.md`.
+# Garde : tests/unit/test_identite_du_code.py.
+image:
+	S="$$(git -C . status --porcelain)"; \
+	RAG_AGENT_CODE_SHA="$$(git -C . rev-parse HEAD)" \
+	RAG_AGENT_CODE_ARBRE="$$([ -z "$$S" ] && echo propre || echo sale)" \
+	RAG_AGENT_CODE_CONSTRUITE_LE="$$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+	docker compose build agent-api
 
 up:
 	docker compose up -d

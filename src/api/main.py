@@ -53,6 +53,7 @@ from src.agent.state import AgentState
 from src.agent.usage import initialiser as usage_initialiser
 from src.agent.usage import record_completion, record_feedback, record_start
 from src.agent.usage import stats as usage_stats
+from src.api.identite_du_code import identite_du_code
 from src.api.schemas import (
     MAX_HISTORY_MESSAGES,
     AnswerRequest,
@@ -1323,6 +1324,21 @@ async def health() -> HealthResponse:
     # illisible serait une régression, pas une mesure. Le compteur `failures` dit
     # alors ce qui s'est passé.
     chemin, vivantes, purgees, echecs = sessions.stats()
+    # HORS DU PLAFOND, ET POUR LA MÊME RAISON QUE `sessions.stats()` juste
+    # au-dessus : trois lectures de `os.environ`, aucune entrée-sortie, rien qui
+    # puisse attendre. La passer sous le plafond lui ferait partager le sort des
+    # sondes réseau — et une identité de code qui devient `null` parce qu'un
+    # store ne répond pas serait une régression, pas une mesure.
+    #
+    # ET ELLE NE DÉGRADE PAS `status`, ce qui est un arbitrage et non un oubli.
+    # Une image anonyme est un défaut de PROCÉDURE DE DÉPLOIEMENT, pas une panne
+    # du service : elle répond, elle sert, et la faire passer `degraded`
+    # ferait passer `agent-api` `unhealthy` au healthcheck — donc empêcherait
+    # `frontend` de lever au démarrage à froid, pour une image qui fonctionne.
+    # C'est le raisonnement du §1.27, appliqué au cas inverse. Ce qui doit
+    # rougir sur une image anonyme, c'est la CAMPAGNE qui prétend la comparer,
+    # et c'est à elle de lire ce champ.
+    code_servi = identite_du_code()
     return HealthResponse(
         status=status,
         ollama_model=settings.ollama_model,
@@ -1339,6 +1355,7 @@ async def health() -> HealthResponse:
         embedding_model=embedding,
         torch_device=peripherique or _peripherique_inconnu(),
         moteur_llm=moteur,
+        code_servi=code_servi,
     )
 
 
