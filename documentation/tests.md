@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1034 tests, aucune dépendance
+## Unitaire — 1035 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,17 +20,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 15:19 UTC par LOT-25 : **1034** tests sur **50** fichiers,
+> `mesuré` le 16 septembre 2026 à 15:32 UTC par LOT-25 : **1035** tests sur **50** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
 > total que `pytest` annonce — concordent. *(REPAR-23 relevait **1005** sur
 > **49** fichiers à 12:46 UTC ; les **26** de plus sont le fichier neuf
 > `test_dialecte_llm.py`, qui tient l'interrupteur `LLM_ENGINE` — la charge
 > d'Ollama inchangée à l'octet, la bascule, le retour arrière, les deux lectures
-> non-flux, et les trois postes d'appel sur leur URL. **TROIS de ces 29 scènes
+> non-flux, et les trois postes d'appel sur leur URL. **QUATRE de ces 30 scènes
 > sont nées d'une mutation SURVIVANTE** : l'URL du poste de FLUX n'était exercée
-> par rien — alors que c'est elle qui sert chaque réponse de l'agent —, et le
-> réglage de raisonnement n'était mesuré que dans l'état où sa valeur par défaut
-> le rend indiscernable d'une constante.)* *(LOT-22 avait relevé **999** sur les
+> par rien — alors que c'est elle qui sert chaque réponse de l'agent —, et DEUX
+> champs n'étaient mesurés que dans l'état où leur valeur par défaut les rend
+> indiscernables d'une constante : le réglage de raisonnement, et le modèle que
+> `/health` publie.)* *(LOT-22 avait relevé **999** sur les
 > mêmes 49 fichiers à 09:14 UTC ; les **six** de plus ferment deux non bloquantes
 > de l'audit du lot 22. **Trois** dans `test_identite_du_code.py` (NB-1) : la
 > scène du sha illisible est paramétrée sur les **trois bornes** du motif du

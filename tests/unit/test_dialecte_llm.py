@@ -524,3 +524,42 @@ async def test_le_poste_de_flux_transmet_le_reglage_de_raisonnement(monkeypatch)
     async for _ in llm.generate_stream("Quel est le taux ?", []):
         pass
     assert vus[1][1]["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+@pytest.mark.asyncio
+async def test_health_publie_le_modele_du_moteur_courant(monkeypatch) -> None:
+    """LE TEXTE QUI SÉPARE LE CODE SERVI D'UN MUTANT ÉQUIVALENT (seconde fois).
+
+    `ollama_model=dialecte_courant().modele` remplacé par
+    `settings.ollama_model` survivait à toute la campagne : sous le défaut, les
+    deux valent la même chose. Le seul état où ils diffèrent est la bascule, et
+    c'est celui que cette scène pose.
+
+    Le champ garde son nom — il est publié depuis toujours — mais sa valeur doit
+    suivre le moteur, sans quoi `/health` annoncerait un modèle que personne n'a
+    demandé.
+    """
+    from src.api import main
+
+    monkeypatch.setattr(main.settings, "api_key", "")
+    monkeypatch.setattr(main.settings, "torch_device", "cpu")
+    monkeypatch.setattr(main, "chroma_ping", lambda: True)
+    monkeypatch.setattr(main, "nebula_ping", lambda: True)
+    monkeypatch.setattr(main, "lexical_ready", lambda: True)
+    # Aucune sortie réseau : ni la sonde booléenne, ni la sonde du moteur.
+    monkeypatch.setattr(main, "_sonder_ollama", lambda: _vrai())
+    monkeypatch.setattr(main, "_sonder_moteur_llm", lambda: _rien())
+
+    assert (await main.health()).ollama_model == settings.ollama_model
+
+    monkeypatch.setattr(settings, "llm_engine", "vllm")
+    monkeypatch.setattr(settings, "vllm_model", "org/modele-essai")
+    assert (await main.health()).ollama_model == "org/modele-essai"
+
+
+async def _vrai() -> bool:
+    return True
+
+
+async def _rien() -> None:
+    return None

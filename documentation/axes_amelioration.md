@@ -9698,8 +9698,8 @@ mauvais réglage.
 #### Ce que la campagne de mutation a trouvé contre le lot
 
 Témoin inerte à **zéro rouge** et **au compte attendu** à chacune des cinq
-invocations. **Vingt-six mutations, vingt-quatre mortes du premier coup, DEUX
-SURVIVANTES**, et les deux ont produit une scène :
+invocations. **Vingt-six mutations, vingt-trois mortes du premier coup, TROIS
+SURVIVANTES**, et les trois ont produit une scène :
 
 - **l'URL du poste de FLUX n'était exercée par rien.** Les deux postes non-flux
   l'étaient ; le poste de flux — celui qui sert CHAQUE réponse de l'agent — ne
@@ -9708,7 +9708,16 @@ SURVIVANTES**, et les deux ont produit une scène :
   `thinking=settings.llm_thinking` remplacé par `thinking=False` survivait parce
   que `LLM_THINKING` vaut `False` par défaut : la règle était inversée là où le
   domaine mesuré ne pouvait pas la distinguer. Le texte séparateur est l'état
-  `LLM_THINKING=true`, et il est désormais posé pour les deux dialectes.
+  `LLM_THINKING=true`, et il est désormais posé pour les deux dialectes ;
+- **le modèle publié par `/health` était mesuré sur la même constante.**
+  `ollama_model=dialecte_courant().modele` remplacé par `settings.ollama_model`
+  survivait pour la raison exacte qui précède : sous le défaut les deux valent
+  la même chose. Le seul état séparateur est la bascule, et il est posé.
+
+**Ces trois survivantes disent la même chose du lot, et c'est la leçon à en
+retenir : une campagne menée SOUS LE DÉFAUT ne peut pas mesurer ce qui ne varie
+qu'à la bascule.** Chaque scène neuve porte donc les DEUX états, et non le seul
+qui sert aujourd'hui.
 
 #### Ce que ce lot NE ferme pas
 
