@@ -9814,3 +9814,230 @@ panne aurait été **muette**.
   propre campagne à la place — 19 mutations, témoin inerte à zéro **au compte
   attendu**, 7 survivantes toutes traitées.
 
+
+---
+
+### 4.61 → REPAR-26 : la table des champs du dialecte, et les sept non bloquantes du lot 25
+
+**Mesures prises le 16 septembre 2026 entre 19:20 et 20:53 UTC**, `date -u`
+relevé avant chaque bloc. Branche `repar-26-champs-du-dialecte`, partie de
+`main` = `e55725c` (471 commits, remesuré). **Aucune bascule, aucun
+redéploiement** : `LLM_ENGINE` reste `ollama`, l'image n'est pas reconstruite,
+`rag-agent-api` n'est pas redémarré — `RestartCount=0` et
+`StartedAt=2026-09-16T13:40:14Z` **identiques avant et après**, `code_servi.sha`
+toujours `b7337a3`.
+
+#### CE QUI A ÉTÉ FAIT DE LA CAUSE, ET C'EST L'ESSENTIEL DE CE LOT
+
+Le lot 25 avait écrit : *« une campagne menée sous le défaut ne peut pas mesurer
+ce qui ne varie qu'à la bascule »*. Son audit l'a retournée contre lui et a
+trouvé **trois champs de plus**. Quatre des sept non bloquantes sont des
+instances de ce seul problème.
+
+**La réponse n'est pas sept rustines.** `tests/unit/test_champs_du_dialecte.py`
+pose une **TABLE** — `_ATTENDU` — qui donne, pour **chaque** champ de
+`MoteurLlmHealth` et pour **chacun des deux dialectes**, la valeur que le relevé
+doit porter. Quatre gardes la tiennent, et c'est leur conjonction qui rend
+l'oubli impossible :
+
+1. **exhaustive** contre `MoteurLlmHealth.model_fields` — un champ neuf non
+   classé rougit *(mutation M23 : 1 rouge)* ;
+2. **paritaire** — les deux dialectes portent les mêmes clés ;
+3. **séparante** — un champ portant la même valeur des deux côtés est REFUSÉ au
+   niveau de la table, donc avant qu'une scène soit écrite. C'est le garde
+   anti-« mesuré sous le défaut », et c'est l'erreur exacte que `num_ctx` avait
+   payée *(mutation M21 : 2 rouges)* ;
+4. **jouée** par une SEULE scène paramétrée sur (champ × dialecte).
+
+**IL N'Y A RIEN À ÉCRIRE DEUX FOIS** : ajouter une ligne à la table ajoute deux
+scènes. C'est la leçon du lot 19 — deux gardes qu'il faut penser à écrire tous
+les deux divergeront — appliquée à la MESURE et non plus au seul code.
+
+**Le double route par (hôte, chemin)** et non par le seul chemin : deux serveurs
+à deux adresses, comme le poste en tient deux. `_ClientSimule` de
+`test_moteur_llm.py` répond identiquement aux deux hôtes, et une sonde qui
+interroge le mauvais y resterait invisible — c'est précisément ce qui laissait
+vivre M09.
+
+#### L'INVENTAIRE DES CHAMPS QUI DÉPENDENT DU DIALECTE
+
+Relevé par balayage de `src/` sur `ollama_host|ollama_model|vllm_host|vllm_model|llm_engine`,
+recoupé par les appelants de `dialecte_courant`. **Aucun `settings.ollama_*`
+résiduel hors de `dialecte_llm.py`.**
+
+| Champ du chemin de production | Gardé sous les DEUX dialectes ? |
+|---|---|
+| `dialecte.hote` — hôte interrogé par `_sonder_moteur_llm` | **oui, depuis ce lot** (était non) |
+| `moteur_llm.modele_demande` | **oui, depuis ce lot** (était non) |
+| `moteur_llm.modele_servi` (appariement) | **oui, depuis ce lot** (était non) |
+| `moteur_llm.endpoint` (+ son expurgation) | **oui, depuis ce lot** (était non) |
+| `moteur_llm.serveur`, `version`, `empreinte_du_modele`, `quantification`, `fenetre_servie` | **oui, depuis ce lot** — relevés du serveur, et la bascule change le serveur joint |
+| `moteur_llm.options` (5 réglages) | **oui, depuis ce lot**, et hors de leur valeur par défaut |
+| `/health` racine `ollama_model` | oui (lot 25), **et son accord avec les deux autres sites depuis ce lot** |
+| `usage.configuration()["ollama_model"]` | oui (lot 25), **et son accord depuis ce lot** |
+| `url_chat` des trois postes de génération | oui (lot 25) |
+| `url_sonde` (sonde booléenne) | oui (lot 25) |
+| forme de la charge, `stream_options`, raisonnement | oui (lot 25) |
+| `seed` et format contraint des deux scripts | **oui, depuis ce lot** (n'existaient pas au site unique) |
+
+#### LA CAMPAGNE, ÉCRITE POUR ÊTRE REJOUÉE
+
+*Le lot 25 avait livré 26 mutations dont la liste n'était nulle part, et son
+auditeur a dû monter la sienne. Celle-ci est écrite.*
+
+**Harnais** : posé hors de l'arbre, une mutation par invocation, jamais en fond.
+Six gardes — porcelaine testée SUR LA CHAÎNE avant, unicité de l'ancre par
+comptage d'**occurrences exactes** (jamais par lignes, jamais par numéro de
+ligne), SHA-256 avant/après (sha inchangé ⇒ mutation **INERTE**, abandonnée),
+contrôle de **chargement** des quatre modules (une mutation qui casse l'import ne
+mesure aucun garde), `pytest` lancé **depuis l'arbre** avec le `rc` du programme
+nommé (`pytest` rend 1, pas `make` qui rend 2), puis restauration, SHA-256
+recontrôlé égal à l'avant et porcelaine revue sur la chaîne.
+
+**TÉMOIN INERTE** : un commentaire seul au-dessus de `dialecte_courant`.
+SHA-256 `2805efb9…` → `f1812c1f…` (le fichier a bien changé), `rc(pytest)=0`,
+**1086 passés — le compte attendu**. Le harnais mesure donc l'arbre qu'il croit.
+
+**Les mutations sont posées PAR MOTIF.** `rc` = celui de `pytest`.
+
+| # | Cible | Ce qu'elle change | avant | après | Ce qui meurt |
+|---|---|---|---|---|---|
+| M09 | `main.py` | `hote = dialecte.hote` → `settings.ollama_host` | **0** | **6** | `test_chaque_champ_du_releve_suit_le_dialecte[…-vllm]` (5) + `test_la_sonde_n_interroge_que_l_hote_du_dialecte[vllm]` |
+| M10 | `main.py` | `modele_demande=dialecte.modele` → `settings.ollama_model` | **0** | **3** | `…suit_le_dialecte[modele_demande-vllm]`, `…[modele_servi-vllm]`, `test_les_trois_sites_du_modele_demande_s_accordent[vllm]` |
+| M12 | `main.py` | appariement `/v1/models` sur `settings.ollama_model` | **0** | **2** | `…suit_le_dialecte[modele_servi-vllm]`, `test_les_trois_sites…[vllm]` |
+| M15 | `main.py` | appariement `/api/tags` sur `settings.ollama_model` | **0** | **2** | `test_une_mesconfiguration_ne_se_rattrape_pas_sur_l_autre_reglage`, `test_le_releve_partiel_n_est_toujours_pas_memorise` |
+| M16 | `main.py` | `endpoint=_endpoint_expurge(hote)` → `hote` | **0** | **1** | `test_l_endpoint_publie_reste_expurge_a_travers_le_releve` |
+| M01 | `dialecte_llm.py` | `num_ctx: settings.llm_num_ctx` → `8192` | **0** | **1** | `test_la_fenetre_demandee_a_ollama_est_le_reglage_et_non_huit_mille_cent_quatre_vingt_douze` |
+| M03 | `llm.py` | `Timeout(30.0, read=None)` → `read=30.0` | **0** | **1** | `test_le_delai_de_lecture_du_flux_n_est_pas_borne` |
+| M18 | `tests.md` | `les **N** de plus` → `les **99** de plus` | **0** | **1** | `test_l_arithmetique_interne_de_la_note_est_juste` |
+| M06 | `main.py` | `/health` `ollama_model` → `settings.ollama_model` *(contrôle positif)* | **1** | **2** | `test_les_trois_sites…[vllm]`, `test_health_publie_le_modele_du_moteur_courant` |
+| M19 | `.env.example` | `LLM_ENGINE` mis en commentaire | — | **1** | `test_tout_reglage_du_code_est_nomme_dans_le_fichier_d_exemple` |
+| M24 | `.env.example` | `VLLM_MODEL` mis en commentaire | — | **1** | idem |
+| M20 | `tests.md` | part du fichier neuf `38` → `12` | — | **0 PUIS 1** | **SURVIVANTE, voir ci-dessous** |
+| M21 | `test_champs_du_dialecte.py` | `fenetre_servie` vLLM ramenée à celle d'Ollama | — | **2** | `…suit_le_dialecte[fenetre_servie-vllm]`, `test_la_table_separe_reellement_les_deux_dialectes` |
+| M22 | `test_champs_du_dialecte.py` | valeur d'épreuve `llm_num_ctx` ramenée au défaut | — | **1** | `test_aucune_valeur_d_epreuve_n_est_la_valeur_par_defaut` |
+| M23 | `schemas.py` | un champ NEUF ajouté à `MoteurLlmHealth` | — | **1** | `test_la_table_couvre_tous_les_champs_du_releve` |
+| M25 | `generate_golden.py` | retour à `response.json()["message"]["content"]` | — | **1** | `test_la_graine_atteint_la_charge_reellement_postee[vllm]` |
+
+**16 mutations posées, 15 mordantes du premier coup, UNE survivante.** Toutes
+ont passé le contrôle de chargement : aucune ne mesure une panne d'import.
+
+##### LA SURVIVANTE, ET ELLE A TROUVÉ UN DÉFAUT DANS LE GARDE QUI LA POSAIT
+
+**M20 a survécu**, et la cause n'était pas le code : `_MOTIF_DU_FICHIER_NEUF`
+portait une **espace littérale** entre `**N**` et `dans`, or la note passe à la
+ligne exactement là. Le motif ne trouvait donc **rien** sur la page du dépôt, le
+garde retournait sans mesurer, et une part annoncée à 12 pour 38 collectés
+restait **VERTE**. *C'est la forme de défaut que ce chantier poursuit depuis dix
+audits, et elle était dans le garde qui la poursuit.* Corrigé, M20 rejouée :
+**1 rouge**. Deux gardes ferment le silence — une mention de fichier neuf que la
+lecture ne sait pas extraire est désormais un ROUGE, et le témoin inerte exige
+que la part de la page réelle soit lisible.
+
+#### LES SEPT NON BLOQUANTES, ET CE QUI LES FERME
+
+- **NB-2** — les trois champs de `_sonder_moteur_llm` sont gardés sous les deux
+  dialectes (M09, M10, M12). La **mésconfiguration** que l'audit avait seulement
+  *raisonnée* est désormais **jouée** (M15). `_releve_est_complet` n'est pas
+  touché et il est **prouvé encore debout après ce lot**.
+- **NB-6** — `LLM_ENGINE`, `VLLM_HOST`, `VLLM_MODEL` entrent dans
+  `.env.example`, avec `TORCH_MAX_CONCURRENCY` qui manquait depuis plus
+  longtemps. La correspondance `Settings`/`.env.example` est gardée **dans les
+  deux sens et SANS EXEMPTION** — `mesuré` : les deux ensembles se recouvrent
+  exactement, 57 alias contre 57 clés. *Une liste d'exemptions se remplit ; la
+  première dispense en appelle une seconde.* **Aucune valeur du `.env` réel n'est
+  recopiée** : les valeurs écrites sont les **défauts des champs**, déjà
+  versionnés dans `settings.py`. Le défaut connu de `TORCH_DEVICE` n'est **pas**
+  touché.
+- **NB-3** — les **TROIS** sites qui publient le modèle demandé sont confrontés
+  **dans le même état**, sous les deux dialectes. *Le champ n'est pas supprimé*,
+  et le choix est mesuré : `ollama_model` de `/health` est listé comme clé du
+  contrat dans `moteur_llm.md` ; `moteur_llm.modele_demande` est lu par
+  `evaluate.py` (`_CHAMPS_DU_MOTEUR`) ; `usage.configuration()["ollama_model"]`
+  est lu par une requête SQL **publiée** dans `capture_usage.md`. Supprimer l'un
+  des trois est un changement de contrat envers des lecteurs hors dépôt, pour un
+  gain qu'un garde d'accord donne sans le coût.
+- **NB-4** — un réglage n'est plus éprouvé à sa valeur par défaut, et c'est
+  gardé **en famille** : les cinq réglages publiés dans `moteur_llm.options` ont
+  une valeur d'épreuve, un garde refuse qu'elle égale le défaut du champ
+  (`Settings(_env_file=None)`, jamais le `.env` du poste), et un garde
+  d'exhaustivité refuse qu'un réglage soit publié sans valeur d'épreuve.
+- **NB-1** — `tests.md` annonçait **26** là où `pytest` en collecte **30**.
+  L'arithmétique interne de la note est gardée, **ancrée sur la parenthèse de
+  tête** (la page porte une dizaine de parenthèses de la même forme), et le
+  compte du fichier neuf est **COLLECTÉ, pas déduit**.
+  **UN SECOND CHIFFRE FAUX A ÉTÉ TROUVÉ ET CORRIGÉ**, que ni le lot ni son audit
+  n'avaient vu : *« les quarante-huit de plus »* entre 954 et 999, quand la
+  collecte sur les deux têtes (`04501f1` et `0a57787`, deux arbres détachés)
+  rend **45 ajoutés et ZÉRO test disparu**, tous dans `test_identite_du_code.py`.
+  La ventilation mesurée est 16/13/**10**/3/3, et le document annonçait 13 là où
+  il y en a 10. *Le document confondait « ajoutés » et « de plus ».*
+  **BORNE DU GARDE, ÉCRITE PLUTÔT QUE TUE** : il ne couvre que le maillon de
+  tête. Vérifier les maillons plus anciens demanderait un arbre détaché par
+  commit historique, ce qu'un test unitaire ne fait pas.
+- **NB-5** — `generate_golden.py` et `sweep_retrieval.py` passent par le site
+  unique. `Dialecte.charge` porte désormais `graine` et `format_json`, **traduits
+  dans les deux dialectes** (`options.seed` contre `seed` à plat ;
+  `format: "json"` contre `response_format`) : *un site unique qui ne porte pas
+  toute la forme n'est pas unique, il est majoritaire.* Les deux sont **nuls sur
+  le chemin qui sert**, donc la charge de production ne bouge pas d'un octet.
+  Leur repli n'écarte plus rien en silence — les pannes absorbées sont comptées
+  et imprimées **même à zéro**, *un compteur qui ne s'affiche qu'au-dessus de
+  zéro ne se lit jamais comme « zéro »*. Un garde par **arbre syntaxique**
+  (docstrings exclues, parce que trois commentaires du dépôt NOMMENT le défaut)
+  refuse qu'un troisième poste réécrive le chemin en dur, avec son contrôle
+  discriminant. **Changement de comportement assumé** : la fenêtre de
+  `generate_golden` vient désormais de `LLM_NUM_CTX` et non d'un 8192 écrit au
+  site ; poser `LLM_NUM_CTX=8192` reproduit à l'octet ce qu'il envoyait.
+- **NB-7** — les deux lacunes préexistantes sont **fermées**, pas seulement
+  signalées : l'expurgation de l'endpoint est gardée **à travers le relevé** (M16
+  meurt), et le délai de lecture du flux est asserté non borné **sur l'objet
+  réellement construit**, intercepté à la frontière `httpx` (M03 meurt). Ce
+  dernier garde n'assert **aucun** des trois autres délais — les borner est une
+  décision d'exploitation, et un garde qui épinglerait 30.0 rougirait sur un
+  réglage légitime.
+
+#### UN GARDE EXISTANT A ÉTÉ RÉÉCRIT, ET C'EST UNE TROUVAILLE CONTRE CE LOT
+
+`test_la_graine_est_transmise_au_generateur_de_texte` lisait l'**arbre
+syntaxique** et cherchait un `options` littéral portant `seed`. Il tenait la
+bonne propriété par le mauvais moyen : le jour où le poste est passé par le site
+unique, le dict littéral a disparu, la charge est restée juste, et **le garde
+s'est mis à rougir sur du code sain**. *Un garde qui rougit sur du code sain est
+retiré par le lot suivant, donc désarmé.* Il mesure désormais la charge
+**réellement postée**, sous les deux dialectes — plus fort, parce qu'il ne dépend
+d'aucune forme d'écriture et qu'il tient les deux places de la graine.
+
+Et il manquait une moitié : le garde du site unique tient le CHEMIN posté, rien
+ne tenait la **LECTURE**. Les deux doubles répondent maintenant dans le dialecte
+du moteur éprouvé, et les deux postes sont assertés sur ce qu'ils **rendent**
+(M25 meurt). `sweep_retrieval.traduire` n'avait aucun test : il en a deux.
+
+#### LA PORTE, ET L'HYGIÈNE
+
+| Grandeur | Valeur |
+|---|---|
+| `rc(make lint)` | **0** |
+| `rc(make test)` | **0** |
+| Tests | **1089 passés sur 51 fichiers**, somme par fichier et total `pytest` concordants |
+| `git status --porcelain` | **chaîne vide**, testée SUR LA CHAÎNE |
+| `type: ignore` | 3 → **3** |
+| `xfail` | 0 → **0** |
+| `pytest.skip` | 2 → **2** |
+| `noqa` | 93 → **99**, recoupé fichier par fichier ; **les six ajouts sont justifiés AU SITE** (2 × `E402` pour des imports après `sys.path.insert`, 2 × `BLE001` pour des absorptions larges assumées ET DITES, 2 × `A002` pour le paramètre `json` imposé par `httpx.post`) |
+
+#### CE QUI N'A PAS ÉTÉ MESURÉ, ET CE QUI RESTE OUVERT
+
+- **Aucune génération réelle n'a été faite par ce lot** : il ne change aucune
+  charge du chemin qui sert, et son audit a déjà mesuré la génération complète
+  sous les deux moteurs. *Rien ici n'est éprouvé à travers l'agent servi*, qui
+  exécute un code antérieur — c'est normal, et le redéploiement est le lot
+  d'après.
+- **Le séparateur réel de M03 n'est pas joué** : il faudrait un préfill de plus
+  de trente secondes. Le garde assert la propriété sur l'objet construit, pas la
+  génération lente.
+- **Le tableau des fichiers de `tests.md` est PARTIEL** : il ne portait pas
+  `test_dialecte_llm.py` (lot 25). La ligne de `test_champs_du_dialecte.py` est
+  écrite ; celle du lot 25 **reste manquante**, et rien ne garde cet inventaire.
+- **Les maillons anciens de la chaîne de relevés de `tests.md`** au-delà de
+  954 → 999 n'ont pas été vérifiés.

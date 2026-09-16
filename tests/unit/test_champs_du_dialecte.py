@@ -762,6 +762,9 @@ def test_la_traduction_du_balayage_poste_et_lit_dans_le_dialecte(
         def json(self) -> dict[str, Any]:
             return corps
 
+    # `json` OMBRE LE MODULE, et le nom est imposé : c'est celui du paramètre
+    # de `httpx.post`, que ce double remplace. Le renommer ferait passer la
+    # charge en positionnel et le double cesserait de ressembler à `httpx`.
     def _post(url: str, json: Any = None, **_k: Any) -> "_Reponse":  # noqa: A002
         postes.append(url)
         return _Reponse()
