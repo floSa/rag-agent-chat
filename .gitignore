@@ -27,6 +27,17 @@ scratch/
 tmp/
 *.log
 
+# Outillage de session (arbres de travail) — NON VERSIONNÉ, ET CE N'EST PAS
+# COSMÉTIQUE : `make image` décide de `code.arbre` sur `git status --porcelain`,
+# qui compte les fichiers NON SUIVIS. Un arbre de travail posé ici faisait donc
+# graver `arbre=sale` dans l'image, et `/health` rendait `etat: "arbre_sale"` —
+# donc « ne pas comparer » — pour un arbre dont AUCUN fichier suivi ne s'écartait
+# de HEAD, et dont rien n'entre dans l'image (`Dockerfile.agent` ne copie que
+# `requirements.txt`, `src/agent` et `src/api`).
+# Le cas, le geste de contournement du lot 24 et la correction de fond sont au
+# §4 bis de `documentation/identite_du_code_servi.md`.
+.claude/
+
 # IDE
 .idea/
 .vscode/

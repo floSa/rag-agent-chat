@@ -106,6 +106,34 @@ confondre est ce qui rend un retour arrière impossible.
 Tout autre chemin — `docker compose build` nu, `docker build` à la main — reste
 licite et produit une image **anonyme**, qui le déclare dans `/health`.
 
+**CE QUE LE CHIFFRE « transferring context » MESURE — ET CE QU'IL NE MESURE
+PAS.** Le build affiche une ligne `#N [internal] load build context /
+transferring context: …`. **Ce n'est pas la taille du contexte de ce dépôt.**
+`mesuré` le 16 septembre 2026 à 13:39 UTC par le lot 24 : `make image` annonce
+**278,38 kB**, alors que le clone principal pèse **2,0 Go hors `.git`**
+(`du -sb --exclude=.git --exclude=.claude` → 1 999 480 836 o, dont `.venv`
+1,84 Go, `.mypy_cache` 145 Mo) **et qu'il n'existe aucun `.dockerignore`**
+(`transferring context: 2B` à l'étape `load .dockerignore` : la liste est vide).
+
+Deux réductions se composent, et il faut les distinguer :
+
+1. **BuildKit ne transfère que les chemins que les `COPY` réclament.**
+   *Éprouvé* le 16 septembre 2026 à 13:45 UTC sur un nom d'image jetable, à
+   risque nul pour l'état servi : même contexte — le clone principal —, un
+   Dockerfile ne portant qu'un `COPY requirements.txt`, résultat
+   **`transferring context: 38B`**. Deux gigaoctets de `.venv` dans le contexte
+   ne coûtent rien tant qu'aucun `COPY` ne les réclame.
+2. **Le transfert est incrémental** contre le cliché que BuildKit garde du build
+   précédent. Les chemins que ce Dockerfile réclame — `requirements.txt`,
+   `src/agent`, `src/api` — pèsent **874,92 kB** avec leurs `__pycache__` et
+   **504,56 kB** sans (`du -sb`, 16 septembre 2026). Le **914 ko** relevé par
+   l'audit du lot 22 concorde avec le premier chiffre ; les **278,38 kB** du
+   lot 24 sont un delta contre ce même cliché.
+
+**La conséquence pratique :** ne lis pas ce chiffre comme un budget de contexte,
+et n'en déduis pas qu'un `.dockerignore` est inutile ici — il l'est *pour le
+coût de transfert*, il ne l'est pas pour qui ajouterait un jour un `COPY . .`.
+
 ---
 
 ## 4. Redéployer, et pouvoir revenir — la marche exacte
@@ -116,33 +144,38 @@ licite et produit une image **anonyme**, qui le déclare dans `/health`.
 
 > **CE QUI A ÉTÉ ÉPROUVÉ, ET CE QUI NE L'A PAS ÉTÉ. LA DISTINCTION EST ÉCRITE
 > ICI PARCE QU'ELLE DOIT SURVIVRE À LA CONVERSATION QUI L'A ÉTABLIE.**
-> Les gestes (a), (b), (c) et (f) sont **éprouvés** : ils ne font que lire ou
-> étiqueter, et ils ont été exercés sur les images réelles de ce poste. Le geste
-> (d), `make image`, est **éprouvé** — l'audit du lot 22 l'a appelé pour de vrai,
-> sur un arbre propre puis sur un arbre sali, et a relevé les `LABEL` produits
-> dans les deux cas.
+> Les gestes (a), (b), (c), (d) et (f) sont **éprouvés**. Et **(e) l'est
+> désormais aussi** : la réserve qui occupait ce site — *« ces deux lignes sont
+> ÉCRITES et non ÉPROUVÉES »* — a été levée le **16 septembre 2026 à 13:40 UTC**
+> par le lot 24, qui a recréé le conteneur en service pour la première fois
+> depuis le 15 septembre 21:21 UTC.
 >
-> **LES DEUX `docker compose up -d --no-build agent-api` — celui du (e) et celui
-> de la section *Revenir* — N'ONT PAS ÉTÉ ÉPROUVÉS, ET NE POUVAIENT PAS L'ÊTRE.**
-> Ils recréent le conteneur en service, et aucun lot n'a été autorisé à y
-> toucher. La preuve est dans l'état du conteneur lui-même, `mesuré` le
-> 16 septembre 2026 à 12:43 UTC — et le lot 22 l'avait déjà relevé à 11:45 :
+> **CE QUE `docker compose up -d --no-build agent-api` A RÉELLEMENT FAIT**,
+> `mesuré` le 16 septembre 2026 à 13:40:12–13:40:15 UTC, depuis le clone
+> principal, `rc(docker compose)=0`, durée **3 s** :
 >
 > ```
-> docker inspect rag-agent-api --format 'StartedAt={{.State.StartedAt}} RestartCount={{.RestartCount}}'
-> StartedAt=2026-09-15T21:21:05.169520372Z   RestartCount=0
+> Container rag-agent-api Recreate / Recreated / Starting / Started
 > ```
 >
-> Le conteneur n'a été ni recréé ni redémarré depuis le 15 septembre 21:21 UTC,
-> soit **avant** les travaux du lot 22. **Ces deux lignes sont donc ÉCRITES et
-> non ÉPROUVÉES** : elles reposent sur la documentation de `docker compose`, pas
-> sur une exécution de ce poste. En particulier, **que `--no-build` empêche
-> effectivement `up` de reconstruire n'a pas été vérifié ici**, ni que le retour
-> arrière rende le conteneur à l'image relevée en (a).
+> | la question que la réserve posait | la réponse, mesurée |
+> |---|---|
+> | `--no-build` empêche-t-il `up` de reconstruire ? | **OUI.** Aucune étape de build dans la sortie, et `rag-agent-chat-agent-api:latest` désigne le **même** identifiant avant et après le `up` — `sha256:48b00a43…`, `Created=2026-09-16T13:39:21Z`, celui que (d) venait de produire |
+> | `up` recrée-t-il bien le conteneur ? | **OUI**, il le RECRÉE et n'en redémarre pas l'ancien : identifiant de conteneur neuf (`52472b83…` contre `fc727600…`), PID neuf, `RestartCount` **remis à 0** |
+> | le conteneur sert-il l'image neuve ? | **OUI.** `docker inspect -f '{{.Image}}'` rend `sha256:48b00a43…` |
+> | `frontend` est-il emporté par son `depends_on` ? | **NON.** `rag-frontend` garde le **même identifiant de conteneur**, le même `StartedAt=2026-09-15T14:06:07Z` et `RestartCount=0` de part et d'autre du `up`. Un `up` nommant `agent-api` ne touche pas ses dépendants |
+> | combien de temps avant `healthy` ? | **21 s** — `Started` à 13:40:14, `Health=healthy` à 13:40:35, `FailingStreak=0`. Le `start_period` de 30 s n'a pas été consommé en entier |
 >
-> Une commande éprouvée et une commande écrite ne portent pas le même poids.
-> Celui qui jouera (e) pour de bon est donc **le premier à le faire** : qu'il
-> relève (f) avec attention, et qu'il vienne corriger cette réserve ici même.
+> **CE QUI RESTE NON ÉPROUVÉ, ET IL FAUT LE DIRE EXACTEMENT.** Le lot 24 n'a pas
+> eu besoin de revenir en arrière — le déploiement a tenu —, donc **la section
+> *Revenir* n'a PAS été jouée de bout en bout**. Sa réserve est *réduite*, pas
+> *levée* : son ingrédient risqué, `up --no-build`, est maintenant mesuré
+> ci-dessus, et le `docker image tag` qui le précède l'était déjà. Ce qui reste
+> cru sur la documentation, c'est **leur composition** — que reposer `latest` sur
+> l'ancienne image PUIS `up --no-build` rende effectivement le conteneur à
+> l'image relevée en (a). Le chemin du retour a été **armé** ce jour-là et
+> vérifié à sa source (l'étiquette pend bien à l'image servie, §4 (c)) ; il n'a
+> pas été parcouru.
 
 ```bash
 # (a) Ce qui sert MAINTENANT. On tranche par le conteneur.
@@ -178,11 +211,10 @@ make image
 # (e) Déployer. `--no-build` est une ceinture : il interdit à `up` de
 #     reconstruire par surprise l'image que (d) vient de produire.
 #
-#     ⚠ CETTE LIGNE EST ÉCRITE, PAS ÉPROUVÉE. Elle recrée le conteneur en
-#     service, et aucun lot n'a été autorisé à le faire : `RestartCount=0` et
-#     `StartedAt=2026-09-15T21:21:05Z` le prouvent (voir l'encadré du §4). Le
-#     comportement de `--no-build` est ici cru sur la documentation de
-#     `docker compose`, pas mesuré sur ce poste.
+#     ✅ CETTE LIGNE EST ÉPROUVÉE SUR CE POSTE, le 16 septembre 2026 à
+#     13:40 UTC par le lot 24 : `rc=0`, 3 s, le conteneur est RECRÉÉ, RIEN n'est
+#     reconstruit, `latest` ne bouge pas, `frontend` n'est pas touché, et la
+#     santé revient en 21 s. Le détail est dans l'encadré du §4.
 docker compose up -d --no-build agent-api
 ```
 
@@ -209,12 +241,15 @@ ETIQUETTE="<celle que (b) a affichée, recopiée telle quelle>"
 docker image inspect -f '{{.Id}}' "$ETIQUETTE"
 docker image tag "$ETIQUETTE" "$NOM:latest"
 
-# ⚠ MÊME RÉSERVE QU'AU (e), ET ELLE EST PLUS GÊNANTE ICI : c'est la ligne d'un
-#   RETOUR ARRIÈRE, donc celle qu'on joue sous pression. Elle est ÉCRITE et non
-#   ÉPROUVÉE — voir l'encadré du §4. Les deux lignes qui l'encadrent, elles, le
-#   sont : vérifier à quoi l'étiquette pend AVANT, et relever l'image du
-#   conteneur APRÈS. Si le `up` ne fait pas ce qu'on attend, c'est la dernière
-#   ligne de ce bloc qui le dira.
+# ⚠ RÉSERVE RÉDUITE, PAS LEVÉE, et c'est plus gênant ici qu'au (e) : c'est la
+#   ligne d'un RETOUR ARRIÈRE, donc celle qu'on joue sous pression. Ce que fait
+#   `up --no-build` est désormais MESURÉ (encadré du §4, 16 septembre 2026) : il
+#   recrée le conteneur sur l'image que `latest` désigne, sans rien
+#   reconstruire. Ce qui reste NON ÉPROUVÉ est la COMPOSITION de ce `up` avec le
+#   `docker tag` qui le précède — aucun lot n'a eu à revenir en arrière. Les deux
+#   lignes qui l'encadrent, elles, sont éprouvées : vérifier à quoi l'étiquette
+#   pend AVANT, et relever l'image du conteneur APRÈS. Si le `up` ne fait pas ce
+#   qu'on attend, c'est la dernière ligne de ce bloc qui le dira.
 docker compose up -d --no-build agent-api
 
 # Et contrôler que le retour a eu lieu, par le conteneur.
@@ -222,6 +257,69 @@ docker inspect -f '{{.Image}}' rag-agent-api
 ```
 
 Le dernier identifiant doit être celui relevé en (a).
+
+---
+
+## 4 bis. LE GARDE DE PROPRETÉ COMPTE DES FICHIERS QUI N'ENTRENT JAMAIS DANS L'IMAGE
+
+**Ceci a failli coûter au lot 24 son objectif principal, et ce n'est pas un cas
+limite : c'est l'état par défaut de ce poste dès qu'une session d'outillage y
+travaille.**
+
+`make image` décide de `code.arbre` ainsi :
+
+```make
+S="$(git -C . status --porcelain)"
+RAG_AGENT_CODE_ARBRE="$([ -z "$S" ] && echo propre || echo sale)"
+```
+
+`git status --porcelain` liste **aussi les fichiers NON SUIVIS**. Or
+`Dockerfile.agent` ne copie que `requirements.txt`, `src/agent` et `src/api` :
+**un fichier non suivi hors de ces trois chemins ne peut pas changer l'image**,
+et pourtant il fait graver `arbre=sale` — donc `/health` rend
+`etat: "arbre_sale"`, donc le §1 de ce document ordonne *« Ne pas comparer »*, et
+la campagne appariée refuse un agent parfaitement identifiable.
+
+**L'état trouvé le 16 septembre 2026 à 13:33 UTC**, `mesuré` sur le clone
+principal :
+
+```
+$ git status --porcelain -uall
+?? .claude/worktrees/audit-rag-agent-chat-eefc61/
+?? .claude/worktrees/redeploy-rag-agent-chat-f942ec/
+
+$ git status --porcelain --untracked-files=no
+(vide — AUCUN fichier suivi ne s'écarte de HEAD)
+```
+
+Les deux seules saletés étaient les **arbres de travail de l'outillage de
+session**, `.claude/worktrees/` n'étant couvert par aucun `.gitignore` du dépôt.
+Le lot qui redéploie salit donc l'arbre **par sa seule présence**.
+
+**CE QUE LE LOT 24 A FAIT, ET IL LE DIT PLUTÔT QUE DE LE TAIRE.** Il a ajouté
+`/.claude/worktrees/` à `.git/info/exclude` — **local, non versionné, et retiré
+juste après le déploiement**, le fichier étant restauré à son SHA-256 d'origine
+(`6671fe83…`, vérifié). Motif volontairement **ÉTROIT** : toute AUTRE saleté doit
+continuer à faire graver `sale`. *Contrôle positif posé avant de construire* : un
+fichier témoin créé à la racine fait bien ressortir `?? ZZ_temoin…` — le garde
+mordait encore.
+
+**Ce que cette manœuvre ne prouve pas, et ce qui le prouve.** Écrire
+`arbre=propre` ne garantit pas que l'image contienne le code de ce commit ; c'est
+le §6 qui le tranche, en comparant le contenu du conteneur au dépôt. C'est ce
+qui a été fait, et `18/18` fichiers concordent au SHA-256.
+
+**LA CORRECTION DURABLE N'EST PAS CELLE-LÀ.** Deux chemins, et le second est le
+bon :
+
+- ajouter `.claude/` au `.gitignore` **versionné** — le lot 24 le propose sur sa
+  branche ; il ferme le cas précis, pas la classe ;
+- faire porter la sonde de propreté **sur les chemins que le `COPY` réclame**,
+  par exemple `git status --porcelain -- requirements.txt src/agent src/api`.
+  C'est la sonde qui répond à la question posée — *le commit nommé décrit-il ce
+  qui tourne ?* — plutôt qu'à une question plus large. **Ce changement touche le
+  `Makefile` et mérite son lot, avec son garde et son audit** : il n'a pas été
+  fait sous un redéploiement.
 
 ---
 
@@ -253,8 +351,21 @@ retirer la variable du `.env` et recréer le conteneur.
   ```
   puis un rapprochement fichier par fichier. C'est ce geste qui a établi, le
   16 septembre 2026 à 09:02 UTC, que le service exécutait alors le code de
-  `8209e68` — **27 commits en arrière de `main`** — alors que la seule chose qui
-  le disait était une étiquette posée à la main.
+  `8209e68`, alors que la seule chose qui le disait était une étiquette posée à
+  la main. **La propriété est `8209e68` ; le retard en commits est un
+  instantané et il périme.** Ce site a d'abord écrit « 27 commits en arrière de
+  `main` » ; le lot 24 a remesuré le 16 septembre 2026 à 13:33 UTC, sur
+  `main` = `b7337a3` : `git rev-list --count 8209e68..b7337a3` rend **38**. Le
+  27 n'était pas faux, il avait **vieilli de onze commits de registre** entre sa
+  mesure et sa relecture. *Nomme la révision, pas la distance.*
+
+  Le même geste, rejoué par le lot 24 le 16 septembre 2026 à 13:41 UTC APRÈS le
+  redéploiement, rend **18 fichiers sur 18 identiques au SHA-256**, `0`
+  différent, `0` manquant, `0` en trop, contre `b7337a3`. **Et ce zéro est
+  doublé d'un contrôle positif** — la même méthode rend `rc=1` sur chacun des
+  quatre modes de défaut : référence différente (`8209e68`), un seul octet
+  ajouté à un fichier, un fichier retiré, un fichier ajouté. Un « tout est
+  identique » qu'on n'a pas su faire rougir ne dit rien.
 - **Il ne surveille rien.** Il publie. C'est à la campagne appariée, au pipeline
   et à l'exploitant de lire `code_servi` et de refuser de comparer deux mesures
   qui ne viennent pas du même code.
