@@ -900,10 +900,21 @@ def test_une_fuite_ecrite_sur_plusieurs_lignes_est_retiree_et_rend_sa_query() ->
     le `.` du motif ne franchit pas le retour à la ligne : la fuite RESTE À
     L'ÉCRAN et la sous-question est perdue — les deux effets à la fois, qui
     sont exactement ceux que ce module existe pour rendre indissociables.
+
+    CE QUE CETTE SCÈNE A DÛ CORRIGER CONTRE ELLE-MÊME. Sa première rédaction
+    posait les retours à la ligne AUTOUR du bloc d'accolades, entre le nom
+    d'outil et l'accolade ouvrante puis entre la fermante et la sentinelle. Ils
+    y sont absorbés par les `\\s*` du motif, que `re.S` ne concerne pas — la
+    scène passait donc au vert SOUS la mutation, et ne mesurait rien de ce
+    qu'elle annonçait. Le retour à la ligne doit être À L'INTÉRIEUR du bloc,
+    là où seul le `.` peut le franchir. C'est le piège d'une scène verte pour
+    une raison qui n'est pas la sienne.
     """
     fuite = (
         "<|tool_call>call:search_vectors\n"
-        '{"query": "conge parental"}\n'
+        "{\n"
+        '  "query": "conge parental"\n'
+        "}\n"
         "<tool_call|>"
     )
     query, sortie = lire_et_retirer(f"Avant.\n\n{fuite}\n\nApres.")
