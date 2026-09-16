@@ -9,7 +9,8 @@ from typing import Any, NamedTuple
 import httpx
 from jinja2 import Environment, FileSystemLoader, TemplateError, select_autoescape
 
-from src.agent.flux_llm import LecteurDeFlux
+from src.agent.dialecte_llm import dialecte_courant
+from src.agent.flux_llm import LecteurDeFlux, charge_du_corps
 from src.agent.settings import settings
 from src.api.schemas import Message, SectionContext
 
@@ -704,7 +705,7 @@ _MAX_REWRITE_CHARS = 400
 
 
 def _contenu_message(corps: Any) -> str:
-    """Extrait `message.content` d'une réponse Ollama, "" si la forme diffère.
+    """Extrait le contenu d'une réponse NON-FLUX, "" si la forme diffère.
 
     **Nomme la forme acceptée** — objet, puis objet, puis chaîne — au lieu
     d'élargir l'absorption qui entoure l'appel. Un corps peut être du JSON
@@ -734,8 +735,18 @@ def _contenu_message(corps: Any) -> str:
     une traduction vide entrerait dans la fusion RRF : strictement pire que le
     500 qu'on corrige.
     """
-    message = corps.get("message") if isinstance(corps, dict) else None
-    contenu = message.get("content") if isinstance(message, dict) else None
+    # LA FORME EST DÉLÉGUÉE, ET C'EST LA CORRECTION DU LOT 25. Ce site lisait
+    # `corps["message"]["content"]`, qui est le dialecte d'Ollama et rien
+    # d'autre : sous vLLM, dont le corps non-flux porte
+    # `choices[0].message.content`, il aurait rendu `""` sur une réponse
+    # parfaitement valide, et les deux appelants seraient tombés sur leur repli
+    # sans qu'une seule ligne de journal accuse autre chose que le serveur.
+    # `charge_du_corps` est le SEUL site qui connaisse les deux formes en
+    # entrée ; tout ce qui suit — la vérification de la feuille, le "" rendu —
+    # est inchangé, et c'est délibéré : ce lot change QUI lit la forme, pas ce
+    # qu'on accepte comme contenu.
+    charge = charge_du_corps(corps) if isinstance(corps, dict) else {}
+    contenu = charge.get("content")
     return contenu.strip() if isinstance(contenu, str) else ""
 
 
@@ -765,17 +776,25 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
         logger.warning("Gabarit de réécriture introuvable, question d'origine conservée.")
         return question
 
-    payload = {
-        "model": settings.ollama_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "think": False,
-        "options": {"temperature": 0.0, "num_predict": 120, "num_ctx": settings.llm_num_ctx},
-    }
+    # `temperature=0.0` et `think=False` sont propres à CE poste et ne suivent
+    # pas `LLM_TEMPERATURE` / `LLM_THINKING` : une réécriture doit être
+    # reproductible et ne rien réfléchir. Le dialecte, lui, est celui du
+    # réglage — et c'est le seul de ces deux appels non-flux à ne pas l'avoir
+    # été : `options` et `think` envoyés à vLLM sont acceptés en HTTP 200 puis
+    # IGNORÉS (mesuré, voir `dialecte_llm`), donc la réécriture serait partie à
+    # la température du serveur sans plafond, sans un mot.
+    dialecte = dialecte_courant()
+    payload = dialecte.charge(
+        [{"role": "user", "content": prompt}],
+        stream=False,
+        temperature=0.0,
+        max_tokens=120,
+        thinking=False,
+    )
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
+            resp = await client.post(dialecte.url_chat, json=payload)
             resp.raise_for_status()
             rewritten = _contenu_message(resp.json())
     except (httpx.HTTPError, ValueError):
@@ -918,17 +937,20 @@ async def translate_question(question: str) -> str | None:
         logger.warning("Gabarit de traduction introuvable, recherche monolingue.")
         return None
 
-    payload = {
-        "model": settings.ollama_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "think": False,
-        "options": {"temperature": 0.0, "num_predict": 150, "num_ctx": settings.llm_num_ctx},
-    }
+    # Même arbitrage qu'à la réécriture : température et raisonnement sont
+    # propres au poste, le dialecte vient du réglage.
+    dialecte = dialecte_courant()
+    payload = dialecte.charge(
+        [{"role": "user", "content": prompt}],
+        stream=False,
+        temperature=0.0,
+        max_tokens=150,
+        thinking=False,
+    )
 
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(60.0)) as client:
-            resp = await client.post(f"{settings.ollama_host}/api/chat", json=payload)
+            resp = await client.post(dialecte.url_chat, json=payload)
             resp.raise_for_status()
             traduction = _contenu_message(resp.json())
     except (httpx.HTTPError, ValueError):
@@ -957,12 +979,17 @@ async def generate_stream(
     on_fit: Callable[[PromptFit], None] | None = None,
     on_measure: Callable[[PromptMeasure], None] | None = None,
 ) -> AsyncIterator[str]:
-    """Génère la réponse en streaming via l'API native Ollama.
+    """Génère la réponse en streaming, dans le dialecte que le réglage désigne.
 
-    On utilise /api/chat (et non l'endpoint OpenAI-compatible) pour piloter
-    `think` : Gemma 4 est un modèle à raisonnement et, sans ce flag, il peut
-    consommer tout le budget num_predict en réflexion avant le premier token
-    de réponse — prohibitif en CPU.
+    LE CHEMIN N'EST PLUS ÉCRIT ICI, ET C'EST LE LOT 25. Ce site postait sur
+    `/api/chat` en dur, et sa raison — « pour piloter `think` » — était juste :
+    l'endpoint OpenAI-compatible d'Ollama n'a pas ce champ, et Gemma 4 peut
+    consommer tout le budget de génération en réflexion avant le premier token
+    de réponse, prohibitif en CPU. Elle reste juste, et elle a simplement
+    déménagé : `dialecte_llm` pilote le raisonnement DES DEUX CÔTÉS — `think`
+    chez Ollama, `chat_template_kwargs` chez vLLM — et le défaut de
+    `LLM_ENGINE` reste `ollama`, donc ce poste envoie aujourd'hui exactement ce
+    qu'il envoyait hier.
 
     `on_fit` reçoit le budget tel qu'il a été appliqué. Sans ce rappel, /answer
     devait refaire `fit_prompt` pour chiffrer ses `dropped_contexts` : chaque
@@ -979,30 +1006,35 @@ async def generate_stream(
         on_fit(fit)
     estimated_tokens = estimate_prompt_tokens(messages)
 
+    # UN SEUL APPEL À `dialecte_courant()` PAR GÉNÉRATION, et le journal lit le
+    # MÊME objet que la charge. Le relire pour journaliser laisserait la fenêtre
+    # — étroite mais réelle — où le réglage change entre les deux lectures : le
+    # journal annoncerait alors un modèle que la requête n'a pas demandé, et
+    # c'est précisément la ligne qu'on relit pour savoir qui a répondu.
+    dialecte = dialecte_courant()
+
     logger.debug(
         "LLM generate : model=%s, messages=%d, contexte=%d sections, think=%s",
-        settings.ollama_model,
+        dialecte.modele,
         len(messages),
         len(contexts),
         settings.llm_thinking,
     )
 
-    payload: dict[str, Any] = {
-        "model": settings.ollama_model,
-        "messages": messages,
-        "stream": True,
-        "think": settings.llm_thinking,
-        "options": {
-            "temperature": settings.llm_temperature,
-            "num_predict": settings.llm_max_tokens,
-            # Explicite : sans ce champ la fenêtre dépend de l'OLLAMA_CONTEXT_LENGTH
-            # du serveur, qui diffère entre l'Ollama embarqué (8192) et le service
-            # central (32768). Le même prompt donnait deux comportements.
-            "num_ctx": settings.llm_num_ctx,
-        },
-    }
-    if settings.native_tool_calling:
-        payload["tools"] = [SEARCH_TOOL]
+    # SEARCH_TOOL EST PASSÉ TEL QUEL AUX DEUX MOTEURS, et ce n'est pas une
+    # supposition tirée de son format : les deux l'ont accepté et ont produit un
+    # appel sur la même déclaration, `mesuré` le 16 septembre 2026 à 14:13 UTC —
+    # Ollama en UN événement (`done_reason: stop`), vLLM en QUATRE
+    # (`finish_reason: tool_calls`). C'est le lecteur qui recolle, et il est
+    # commun.
+    payload = dialecte.charge(
+        messages,
+        stream=True,
+        temperature=settings.llm_temperature,
+        max_tokens=settings.llm_max_tokens,
+        thinking=settings.llm_thinking,
+        outils=[SEARCH_TOOL] if settings.native_tool_calling else None,
+    )
 
     timeout = httpx.Timeout(30.0, read=None)  # le premier token peut tarder (prefill CPU)
     # UN client par appel, construit ici et fermé par l'`async with`. Ce n'est
@@ -1015,7 +1047,7 @@ async def generate_stream(
     lecteur = LecteurDeFlux()
     async with (
         httpx.AsyncClient(timeout=timeout) as client,
-        client.stream("POST", f"{settings.ollama_host}/api/chat", json=payload) as resp,
+        client.stream("POST", dialecte.url_chat, json=payload) as resp,
     ):
         resp.raise_for_status()
         async for line in resp.aiter_lines():

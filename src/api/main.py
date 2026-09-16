@@ -23,6 +23,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from src.agent import sessions
 from src.agent.chronometrie import decomposer
+from src.agent.dialecte_llm import dialecte_courant
 from src.agent.graph import (
     answer_graph,
     build_checkpointer,
@@ -975,7 +976,21 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
     global _moteur_releve
     if _moteur_releve is not None:
         return _moteur_releve
-    hote = settings.ollama_host
+    # CE QUI EST SONDÉ EST CE QUI SERT, ET C'EST TOUT CE QUE LE LOT 25 CHANGE
+    # ICI. L'hôte et le nom du modèle viennent du dialecte courant et non de
+    # `settings.ollama_*` : sinon, basculer `LLM_ENGINE` ferait sonder un
+    # serveur auquel l'agent ne parle plus, et `/health` publierait la version
+    # et le modèle du MAUVAIS moteur — une affirmation fausse, pas une absence.
+    # Sous le défaut (`ollama`), `dialecte.hote` EST `settings.ollama_host` et
+    # `dialecte.modele` EST `settings.ollama_model` : ce relevé est inchangé.
+    #
+    # Ce qui ne change pas : le discriminant reste relevé DU SERVEUR. Il ne lit
+    # pas `dialecte.nom` pour décider qui il interroge — il le demande, et exige
+    # une version des deux côtés pour conclure. Un réglage qui désignerait vLLM
+    # devant un Ollama rendrait donc `serveur: "ollama"`, et c'est EXACTEMENT ce
+    # qu'un exploitant doit voir.
+    dialecte = dialecte_courant()
+    hote = dialecte.hote
     serveur: str | None = None
     version: str | None = None
     servi: str | None = None
@@ -1003,7 +1018,7 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
             for modele in (catalogue or {}).get("models") or []:
                 if not isinstance(modele, dict):
                     continue
-                if settings.ollama_model in (modele.get("name"), modele.get("model")):
+                if dialecte.modele in (modele.get("name"), modele.get("model")):
                     servi = modele.get("name")
                     # Tronqué à 16 : assez pour séparer deux poids, assez court
                     # pour qu'on ne le prenne pas pour une empreinte complète.
@@ -1030,7 +1045,7 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
                 identifiant = entree.get("id")
                 if not isinstance(identifiant, str):
                     continue
-                if not _le_serveur_sert_ce_que_nous_demandons(identifiant, settings.ollama_model):
+                if not _le_serveur_sert_ce_que_nous_demandons(identifiant, dialecte.modele):
                     continue
                 servi = identifiant
                 # La fenêtre est celle de NOTRE entrée, jamais celle d'une autre.
@@ -1041,7 +1056,7 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
         serveur=serveur,
         endpoint=_endpoint_expurge(hote),
         version=version,
-        modele_demande=settings.ollama_model,
+        modele_demande=dialecte.modele,
         modele_servi=servi,
         empreinte_du_modele=empreinte,
         quantification=quantification,
@@ -1092,7 +1107,7 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
         "introuvable dans ce que ce serveur sert) — la sonde repartira à CHAQUE battement "
         "de /health, jusqu'à %d requêtes par battement vers un serveur PARTAGÉ",
         serveur,
-        settings.ollama_model,
+        dialecte.modele,
         _MOTEUR_REQUETES_MAX,
     )
     return releve
@@ -1108,12 +1123,24 @@ async def _sonder_ollama() -> bool:
     plafond global n'en tient pas lieu.
 
     `httpx.InvalidURL` n'est pas rattrapée, et c'est la décision écrite dans
-    `llm.py` : elle n'hérite pas de `HTTPError`, un OLLAMA_HOST mal formé est une
+    `llm.py` : elle n'hérite pas de `HTTPError`, un hôte de LLM mal formé est une
     erreur de configuration et non une panne de service. Elle remonte donc à
     `_relever`, qui la journalise en nommant son type au lieu de la taire.
+
+    L'ADRESSE ET LE CHEMIN VIENNENT DU DIALECTE COURANT (lot 25). Laisser
+    `/api/tags` en dur ferait passer cette sonde à `false` dès qu'on bascule sur
+    vLLM — qui n'a pas cette route —, donc `/health` à `degraded` et le
+    healthcheck du compose à `unhealthy`, pour un service qui répond et génère.
+    Une panne ANNONCÉE là où il n'y en a pas est du même ordre qu'une panne tue.
+    Sous le défaut, `url_sonde` vaut `{OLLAMA_HOST}/api/tags` : inchangé.
+
+    Le NOM de la fonction ne bouge pas, et c'est délibéré : il est la clé
+    publiée sous `services` dans `/health`, donc un contrat lu par le
+    healthcheck et par le frontend. Le renommer pour l'élégance casserait des
+    lecteurs hors de ce dépôt.
     """
     async with httpx.AsyncClient(timeout=5.0) as client:
-        resp = await client.get(f"{settings.ollama_host}/api/tags")
+        resp = await client.get(dialecte_courant().url_sonde)
         return resp.status_code == 200
 
 
@@ -1341,7 +1368,12 @@ async def health() -> HealthResponse:
     code_servi = identite_du_code()
     return HealthResponse(
         status=status,
-        ollama_model=settings.ollama_model,
+        # Le modèle DEMANDÉ, qui n'est plus forcément `OLLAMA_MODEL` : sous
+        # `LLM_ENGINE=vllm` c'est `VLLM_MODEL`. Le nom du CHAMP ne bouge pas —
+        # il est publié depuis toujours et `schemas.py` en fait le mode d'emploi
+        # — mais sa valeur suit le moteur, sans quoi `/health` annoncerait un
+        # modèle que personne n'a demandé.
+        ollama_model=dialecte_courant().modele,
         services=services,
         services_unknown=inconnues,
         usage=_relever("usage", tache_usage, si_levee=None),

@@ -52,6 +52,7 @@ import aiosqlite
 # n'existe pas et llm.py se replie sur celui du dépôt. Réimplémenter ce repli
 # ici produirait une empreinte qui affirme « prompt inchangé » alors que le
 # prompt a changé — exactement le défaut que ce champ existe pour empêcher.
+from src.agent.dialecte_llm import dialecte_courant
 from src.agent.llm import _prompts_dir
 from src.agent.settings import settings
 from src.api.schemas import ChunkResult, Citation, ImageRef, SectionContext, UsageStats
@@ -232,7 +233,21 @@ def configuration() -> tuple[str, dict[str, Any]]:
         "translation_weight": settings.translation_weight,
         "llm_num_ctx": settings.llm_num_ctx,
         "llm_max_tokens": settings.llm_max_tokens,
-        "ollama_model": settings.ollama_model,
+        # LE MODÈLE DEMANDÉ AU MOTEUR COURANT, et non `OLLAMA_MODEL` en propre
+        # (lot 25). Sans cela, une campagne menée sous `LLM_ENGINE=vllm`
+        # s'enregistrerait sous l'empreinte de configuration d'Ollama et se
+        # regrouperait avec les campagnes d'un AUTRE moteur — la comparaison
+        # appariée qui vient s'en servirait sans le savoir.
+        #
+        # LA CLÉ GARDE SON NOM, ET IL N'Y EN A PAS DE NOUVELLE : ajouter
+        # `llm_engine` au détail changerait l'empreinte de TOUTES les campagnes
+        # à venir, y compris sous Ollama, et les dégrouperait de celles de
+        # `runs/` qui sont déjà enregistrées. Ce qui sépare les deux moteurs est
+        # donc la VALEUR de ce champ, et elle suffit ici : les deux noms sont
+        # disjoints par mesure (404 des deux côtés, 16 septembre 2026 14:14
+        # UTC). RÉSERVE ÉCRITE : elle ne les séparerait plus si un jour les deux
+        # serveurs servaient un modèle du même nom.
+        "ollama_model": dialecte_courant().modele,
         "prompts_sha256": _condensat_prompts(),
     }
     serialise = json.dumps(detail, sort_keys=True, ensure_ascii=False)

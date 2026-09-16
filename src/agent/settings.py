@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -33,8 +35,40 @@ class Settings(BaseSettings):
     restrict_media_to_graph: bool = Field(default=True, alias="RESTRICT_MEDIA_TO_GRAPH")
 
     # Ollama / LLM
+    #
+    # L'INTERRUPTEUR DU DIALECTE, ET SON DÉFAUT EST OLLAMA.
+    #
+    # Il ne désigne pas une adresse : il désigne le CHEMIN, la FORME de la
+    # charge, le NOM du modèle et la façon de demander le raisonnement — quatre
+    # choses qui changent ensemble et dont aucune ne se déduit des autres. Le
+    # seul site qui les décide est `src/agent/dialecte_llm.py` ; celui-ci ne
+    # fait que nommer la valeur.
+    #
+    # `Literal` ET NON `str`, ET C'EST LA DÉCISION DE CE CHAMP. Une valeur
+    # inconnue — une faute de frappe dans un `.env` — est refusée par pydantic
+    # AU DÉMARRAGE, avec le nom du champ et les valeurs admises. Un `str` la
+    # ferait retomber sur Ollama sans un mot, et l'exploitant croirait avoir
+    # basculé : c'est la panne muette que tout ce lot existe pour empêcher, à
+    # l'endroit même où elle serait la plus facile à laisser passer.
+    llm_engine: Literal["ollama", "vllm"] = Field(default="ollama", alias="LLM_ENGINE")
     ollama_host: str = Field(default="http://ollama:11434", alias="OLLAMA_HOST")
     ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
+    # Le versant vLLM. DEUX RÉGLAGES ET NON UN, parce que les deux noms de
+    # modèle sont DISJOINTS par mesure et non par convention : le 16 septembre
+    # 2026 à 14:14 UTC, `gemma4:e4b` demandé à vLLM rend 404 « does not exist »,
+    # et `google/gemma-4-E4B-it-qat-w4a16-ct` demandé à Ollama rend 404 « not
+    # found ». Un réglage unique n'aurait donc pu servir qu'un moteur à la fois,
+    # et la bascule aurait exigé d'éditer DEUX lignes du `.env` au lieu d'une —
+    # dont une qu'on oublie.
+    #
+    # Ces défauts ne sont PAS ceux du poste : ce sont des noms de service
+    # compose, symétriques de `http://ollama:11434`, et ils ne valent que si le
+    # `.env` ne dit rien. Le port 8000 est celui que vLLM écoute DANS son
+    # conteneur ; la correspondance vers l'hôte appartient au compose.
+    vllm_host: str = Field(default="http://vllm:8000", alias="VLLM_HOST")
+    vllm_model: str = Field(
+        default="google/gemma-4-E4B-it-qat-w4a16-ct", alias="VLLM_MODEL"
+    )
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
     # Fenêtre de contexte demandée à Ollama. Doit être passée explicitement :
