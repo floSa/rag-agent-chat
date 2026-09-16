@@ -2297,12 +2297,36 @@ def test_le_garde_de_la_promesse_distingue_une_citation_d_une_affirmation() -> N
 # est le contrôle, pas une coquetterie.
 _MARQUE_D_UN_MOTIF_DE_REPLI = "search_vectors" + "\\("
 
+# LA SECONDE MARQUE, ET ELLE MANQUAIT. Le rideau a deux formes depuis le lot 20
+# — l'appel écrit dans la prose, et l'appel qui FUIT entre sentinelles — et ce
+# garde n'en cherchait qu'une. Mesuré : une copie du motif des sentinelles
+# collée dans `src/agent/graph.py` laissait les 937 tests du dépôt au vert,
+# tandis qu'une copie du motif de la prose au même endroit faisait rougir. La
+# phrase écrite au site — « un second site voudrait dire deux motifs libres de
+# diverger, ce que ce module existe précisément pour empêcher » — dépassait donc
+# ce que ce garde rend, et DEUX audits de suite l'ont relevé au même endroit.
+#
+# Ce qui trahit un motif posé sur la sentinelle : la barre verticale ÉCHAPPÉE.
+# Une prose qui parle de `<|tool_call>` écrit la barre telle quelle ; une
+# expression régulière DOIT l'échapper, sans quoi elle signifie l'alternative.
+# C'est donc la marque qui discrimine le motif du propos — et c'est ce que
+# `test_le_garde_du_site_unique_saurait_voir_une_copie_en_sentinelles` établit.
+#
+# Assemblée par concaténation pour la même raison que la première : un garde qui
+# écrit littéralement ce qu'il cherche se trouve lui-même.
+_MARQUE_D_UN_MOTIF_DE_SENTINELLES = "\\|" + "tool_call"
+
 # Le seul fichier autorisé à en porter un. Il l'expose, tout le reste l'importe.
 _SITE_DU_REPLI = "src/agent/repli_outil.py"
 
 
 def _fichiers_de_code_portant_un_motif_de_repli() -> list[str]:
-    """Les fichiers de code qui construisent leur propre motif de repli."""
+    """Les fichiers de code qui construisent leur propre motif de repli.
+
+    LES DEUX FORMES sont cherchées, et un fichier qui porte l'UNE OU L'AUTRE est
+    un second site. Ne chercher que la première laissait la moitié du rideau
+    libre de se faire recopier.
+    """
     porteurs = []
     for relatif in _fichiers_suivis():
         if not _est_du_code(relatif):
@@ -2314,7 +2338,10 @@ def _fichiers_de_code_portant_un_motif_de_repli() -> list[str]:
             texte = chemin.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             continue
-        if _MARQUE_D_UN_MOTIF_DE_REPLI in texte:
+        if (
+            _MARQUE_D_UN_MOTIF_DE_REPLI in texte
+            or _MARQUE_D_UN_MOTIF_DE_SENTINELLES in texte
+        ):
             porteurs.append(relatif)
     return porteurs
 
@@ -2368,3 +2395,31 @@ def test_le_garde_du_site_unique_saurait_voir_une_copie() -> None:
 
     assert _MARQUE_D_UN_MOTIF_DE_REPLI not in ordinaire
     assert _MARQUE_D_UN_MOTIF_DE_REPLI in un_motif
+
+
+def test_le_garde_du_site_unique_saurait_voir_une_copie_en_sentinelles() -> None:
+    """LE CONTRÔLE POSITIF DE LA SECONDE MARQUE, et il ne se déduit pas du premier.
+
+    La marque de la prose prouve son pouvoir de discrimination sur ses propres
+    textes ; celle des sentinelles doit prouver le sien sur les siens. Un zéro
+    non doublé d'un contrôle positif ne dit rien : une sonde de secrets de ce
+    chantier a rendu 280 occurrences dont aucune n'était un secret, et son
+    contrôle positif ne prouvait que la moitié qui TROUVE.
+
+    Les deux textes ci-dessous sont construits pour être aussi proches que
+    possible l'un de l'autre : ils ne diffèrent que par la barre échappée.
+    """
+    ordinaire = (
+        "Le serveur fait parfois fuir son appel entre <|tool_call> et "
+        "<tool_call|>, et c'est ce que le second rideau retire."
+    )
+    un_motif = 're.compile(r"<' + '\\|' + 'tool_call>\\s*call:", re.S)'
+
+    assert _MARQUE_D_UN_MOTIF_DE_SENTINELLES not in ordinaire, (
+        "la marque attrape une phrase qui PARLE de la sentinelle sans en poser "
+        "le motif : elle trouverait, mais ne discriminerait pas"
+    )
+    assert _MARQUE_D_UN_MOTIF_DE_SENTINELLES in un_motif, (
+        "la marque ne voit pas un motif posé sur la sentinelle : le garde du "
+        "site unique rendrait alors zéro par impuissance"
+    )

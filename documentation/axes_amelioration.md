@@ -8906,3 +8906,169 @@ comportement, mais la phrase est inexacte.
   la porte du rapport**, les noms mêmes que le refus écarte. Il les décrit, et
   établit leur pouvoir de discrimination par un contrôle positif.
 
+---
+
+### 4.56 → REPAR-21 : les huit gardes qui manquaient au lecteur de flux, et la mesure qui ne s'efface plus
+
+**Livré le 16 septembre 2026**, base `main` = `27c0821` (442 commits). Ferme les **huit trouvailles non
+bloquantes** du §4.55 et ses **deux déclarations qui ne se reproduisaient pas**.
+Il n'y avait **aucune ligne fausse** à corriger — sauf une, et c'est (1).
+
+**CE LOT NE BASCULE RIEN.** `.env`, `.env.example`, `docker-compose.yml` et
+`OLLAMA_HOST` sont **hors du diff**, vérifié par `git diff --name-only` et
+`git diff | grep`.
+
+#### La campagne, et elle se juge à ses témoins
+
+**Quatorze mutations, posées PAR MOTIF** — `assert` d'unicité de l'ancre et
+`assert` que le SHA-256 a bougé, refus sinon — **jouées DEUX FOIS sur la suite
+unitaire entière**, avant puis après correction. Le `rc` relevé est toujours
+celui de **`pytest`**, jamais d'un tube. Restauration par `git checkout --`,
+`git status --porcelain` contrôlé **sur la chaîne** (`[ -z "$S" ]`) et doublé
+d'un `sha256sum -c` des quatre fichiers source : **l'arbre est resté propre aux
+28 passages**.
+
+**DEUX TÉMOINS INERTES, ET ILS RENDENT ZÉRO DANS LES DEUX PASSES** — une
+réécriture équivalente dans `flux_llm.py`, une autre dans `repli_outil.py` :
+`rc(pytest)=0`, 937 puis 954 passés. Le banc ne rougit pas tout seul.
+
+| point | mutation | AVANT (937 tests) | APRÈS (954 tests) — ce qui MEURT |
+|---|---|---|---|
+| (1) T4 | écrasement inconditionnel restauré | *le défaut était dans le code servi* | **3 rouges** — `…usage_partiel_n_efface_pas…`, `…usage_vide…`, `…done_sans_compteurs…` |
+| (1) T4 | règle de conflit inversée (« le premier gagne ») | — | **1 rouge** — `…usage_cumulatif_rend_le_dernier_compte…` |
+| (2) T2 | motif du rideau rendu glouton | `rc=0`, 937 passed | **2 rouges** — `…sentinelles_ne_sont_pas_touches`, `…fuite_ecrite_sur_plusieurs_lignes…` |
+| (2) T2 | `re.S` retiré | `rc=0`, 937 passed | **1 rouge** — `…fuite_ecrite_sur_plusieurs_lignes…` |
+| (3) T1 | copie du motif **sentinelles** dans `graph.py` | `rc=0`, 937 passed | **1 rouge** — `test_le_motif_du_second_rideau_n_a_qu_un_site` |
+| (3) T1 | copie du motif **prose** *(contrôle positif)* | `rc=1`, 1 rouge | `rc=1`, 1 rouge |
+| (4) T5 | garde d'erreur limité à la 1re ligne lue | `rc=0`, 937 passed | **2 rouges** — les deux scènes d'erreur après tokens |
+| (5) T7 | priorité prose/sentinelles inversée | `rc=0`, 937 passed | **1 rouge** — `…prose_garde_la_priorite…` |
+| (6) T3 | `break` de `generate_stream` neutralisé | `rc=0`, 937 passed | **1 rouge** — `…ligne_emise_apres_done_true…` |
+| (7) | `and nom` retiré | `rc=0`, 937 passed | **1 rouge** — `…nom_vide_n_ecrase_pas…` |
+| (7) | `self._ordre` remplacé par un tri | `rc=0`, 937 passed | **1 rouge** — `…ordre_d_apparition_prime…` |
+| (7) | `isinstance(usage, dict)` affaibli | `rc=0`, 937 passed | **1 rouge** — `…usage_qui_n_est_pas_un_objet…` |
+| (8) | `tool_calls` ignorés si `content` non vide | `rc=0`, 937 passed | **1 rouge** — `…texte_et_un_appel_ne_perd_pas_l_appel` |
+
+**AUCUNE MUTATION NE SURVIT.**
+
+#### (1) LA MESURE QUI DEVENAIT UNE ABSENCE DÉCLARÉE — et la règle de conflit est MESURÉE
+
+Le défaut du §4.55 (a) se reproduit intégralement sous ma main sur le code servi
+(`mesuré` 16/09 07:48 UTC) : `(108, 27)` seul, mais `(None, None)` dès qu'un
+`usage` — même **vide** — accompagne le `done`, et `(None, None)` dans l'autre
+sens. Chaque branche ne remplace désormais que ce qu'elle **renseigne**.
+
+**LE CLASSEMENT « NON REPRÉSENTABLE » SE REPRODUIT, VÉRIFIÉ DANS LES DEUX SENS**
+(`mesuré` 16/09 07:26 UTC, deux requêtes, prompts distincts) : `ollama-central`
+émet **61** événements dont **0** portant `usage` ; `vllm-central` émet **62**
+événements JSON dont **0** portant `done`. Aucun moteur du poste ne mêle les
+deux dialectes.
+
+**MAIS LE CONFLIT A UNE FORME REPRÉSENTABLE QUE L'AUDIT N'AVAIT PAS VUE, ET ELLE
+RENVERSE LE PREMIER RÉFLEXE.** La règle qui paraît la plus sûre — « une mesure
+acquise ne bouge plus », le premier renseigné gagne — est **fausse, et c'est
+mesuré** : `vllm-central` accepte `stream_options: {"include_usage": true,
+"continuous_usage_stats": true}` et émet alors un `usage` **cumulatif sur chaque
+événement** (`mesuré` 16/09 07:49 UTC : **42** événements, `completion_tokens`
+de **0** à **40**). Garder le premier renseigné y figerait le compte à **zéro
+token généré** — la mesure fausse même que ce garde existe pour empêcher. **La
+règle servie est donc : le DERNIER renseigné gagne, champ par champ**, elle est
+écrite au site avec sa base, et la scène qui la tranche est **RELEVÉE** de cette
+capture. Le code servi rendait déjà `(29, 40)` sur ce flux ; la correction le
+préserve.
+
+#### (2) LA BORNE DU RIDEAU, TENUE DES DEUX CÔTÉS
+
+Cinq scènes neuves. Le côté « ne doit pas être touché » : prose ordinaire,
+accolades JSON légitimes, sentinelle ouvrante seule, paragraphe entier entre les
+deux sentinelles → **0 caractère retiré** (`mesuré` 16/09 07:54 UTC). Le côté
+« doit l'être » : la fuite multiligne, et deux fuites dont **le milieu est
+conservé** (118 caractères retirés, `LE MILIEU QUI COMPTE` intact).
+
+**LE CAS DE LA RÉPONSE QUI CITE LA SYNTAXE EST TRANCHÉ, ET IL EST ACCEPTÉ.** Le
+rideau la traite comme une fuite : **57 caractères** partent et une recherche
+réelle part sur la sous-question citée (`mesuré`, et ce chiffre **se reproduit**
+exactement sur celui de l'audit). Les quatre raisons sont écrites au site — le
+risque exige les deux sentinelles littérales dans la même réponse ; la
+conséquence est une recherche **supplémentaire**, pas une réponse remplacée ; le
+fermer demanderait de **deviner** à quoi ressemble une vraie fuite, que personne
+ici n'a mesurée ; et l'erreur symétrique coûte plus cher. Une scène fixe ce
+choix pour qu'il ne change pas en silence.
+
+#### (3) LE GARDE DU SITE UNIQUE CHERCHE DÉSORMAIS LA SECONDE MARQUE
+
+La réserve **R1 de l'audit du lot 19**, relevée une seconde fois par l'audit du
+lot 20 sur la même phrase, est **fermée**. La marque ajoutée est la **barre
+verticale échappée** : une prose qui parle de la sentinelle l'écrit telle
+quelle, un motif **doit** l'échapper. Assemblée par concaténation, comme la
+première, pour que le garde ne se trouve pas lui-même. **Elle a SON propre
+contrôle positif** — la marque de la prose prouve sa discrimination sur ses
+textes, pas sur ceux des sentinelles.
+
+#### (4) à (8)
+
+- **(4)** deux scènes d'erreur arrivant **après** des tokens, dont une en
+  enveloppe SSE.
+- **(5)** la première scène du dépôt où **les deux formes** apparaissent dans le
+  même texte.
+- **(6)** une ligne émise **après** `done: true`, qui ne doit pas atteindre
+  l'écran. Le garde de l'angle que le pilote craignait **n'a pas été refait** :
+  il existe, et le §4.55 l'établit.
+- **(7)** les trois lignes défensives sont gardées **ET dites défensives au
+  site**, chacune avec la mesure qui explique pourquoi les moteurs du poste ne
+  l'exercent pas.
+- **(8)** l'événement mêlant `content` et `tool_calls` est gardé sur une forme
+  **CONSTRUITE, déclarée comme telle au site**. **JE CONFIRME L'AVEU DE
+  L'AUDITEUR au lieu de le renverser** : trois requêtes supplémentaires,
+  prompts distincts, sur les **deux** moteurs (`mesuré` 16/09 07:26–07:27 UTC),
+  n'ont pas su produire la forme. Ollama rend `content: ""` sur l'événement
+  porteur, vLLM rend `content: null` sur les quatre fragments, et les trois
+  réponses se terminent sur `done_reason: "stop"` ou
+  `finish_reason: "tool_calls"` — **donc pas sur une troncature de ma borne**.
+
+#### Ce que devient le SECOND appel d'outil — la borne est écrite, pas supposée
+
+Écrit au site d'`extract_tool_query` : le second appel est **accumulé,
+disponible, et lu par personne**. Le comportement ne change pas, et les trois
+raisons sont écrites : servir les deux appels du même tour doublerait la
+consommation de `max_search_iterations`, dimensionné sur « un tour, une
+recherche », et c'est une politique d'**agent** ; le second n'est pas jeté en
+silence, il est non sélectionné à un endroit **unique et nommé** ; et rien ne
+mesure aujourd'hui qu'il serve mieux l'utilisateur. **Ce qui ferait
+reconsidérer** est écrit aussi : une campagne qui mesure ce que la seconde
+sous-question aurait ramené.
+
+#### Les deux déclarations, corrigées
+
+**L'INVENTAIRE DE PROVENANCE EST REFAIT À LA MAIN**, scène par scène, sur les 27
+scènes d'alors. L'heuristique « s'appuie sur l'une des quatre constantes
+capturées » rend **12 / 15** — **le chiffre de l'auditeur se reproduit**. Ma
+relecture l'affine en **quatre** cases plutôt que deux, et ce n'est pas un
+renversement : **12 RELEVÉES, 1 RECOPIÉE** (une ligne relevée écrite en
+littéral), **1 MIXTE**, **13 CONSTRUITES**. L'en-tête le dit désormais ainsi, et
+les deux docstrings qui disaient « Mesuré » sur des lignes **reconstruites**
+distinguent maintenant le FAIT mesuré des LIGNES construites.
+
+**LA JUSTIFICATION FAUSSE EST CORRIGÉE, ET JE L'AI REMESURÉE AU LIEU DE LA
+CROIRE.** L'ancienne boucle de `main` (`2102f2a`), extraite telle quelle et
+rejouée sur les deux événements d'Ollama, émet **2 rappels**, pas un
+(`mesuré` 16/09 07:53 UTC). C'est bien `graph.py:308` qui n'en retient qu'un
+(`tool_queries[0]`, vérifié au site).
+
+#### La porte, les comptes, et ce qui entre au corpus des pièges
+
+`documentation/tests.md` : **954** tests sur **48** fichiers, **COMPTÉS** par la
+recette que le document publie (`mesuré` 16/09 07:58 UTC), aux deux sites que le
+garde confronte. Les quatorze de plus par rapport au lot 20 ne sont pas calculés
+depuis 937 : le chiffre est celui de la collecte.
+
+- **UNE DE MES SCÈNES ÉTAIT VERTE POUR UNE RAISON QUI N'ÉTAIT PAS LA SIENNE.**
+  La scène écrite pour tuer « `re.S` retiré » posait ses retours à la ligne
+  **autour** du bloc d'accolades, là où les `\s*` du motif les absorbent et où
+  `re.S` ne joue aucun rôle. La mutation a **survécu à la scène écrite pour la
+  tuer**, et c'est le banc qui me l'a dit, pas ma relecture. Le retour à la
+  ligne est désormais **à l'intérieur** du bloc. *Une scène qui passe n'est pas
+  une scène qui mesure.*
+- **Un `type(x) is str` en témoin inerte n'est pas équivalent à
+  `isinstance(x, str)`** en général — il l'est sur le domaine mesuré ici, et
+  c'est à ce titre seulement qu'il sert de témoin.
+

@@ -20,6 +20,14 @@ la divergence n'est plus représentable. Le garde qui reste
 (`tests/unit/test_coherence_depot.py`) tient l'unicité du site, pas l'accord de
 deux copies.
 
+ET IL LA TIENT POUR LES DEUX FORMES DE CE MODULE, ce qui n'a pas toujours été
+vrai. Le garde ne cherchait que la marque de la forme en prose : une copie du
+motif EN SENTINELLES posée dans un second fichier laissait les 937 tests du
+dépôt au vert, et la phrase ci-dessus dépassait donc ce qu'elle promettait —
+deux audits de suite l'ont relevée. Le garde cherche désormais les deux
+marques, et chacune a SON contrôle positif, parce qu'une marque qui trouve
+n'est pas encore une marque qui discrimine.
+
 Ce module ne dépend ni de LangGraph, ni de `llm.py`, ni du moteur d'inférence :
 `scripts/banc_vllm.py` l'importe sans tirer le graphe entier, et mesure donc
 le rideau que la production sert, au lieu d'une copie recollée pour l'occasion.
@@ -109,6 +117,38 @@ APPEL_DANS_LA_PROSE = re.compile(
 # se retire toujours ; seul `search_vectors` a une place où servir la
 # sous-question, donc lui seul en rend une.
 _NOM_DE_L_OUTIL_SERVI = "search_vectors"
+#
+# CE QUE CE MOTIF PEUT EFFACER, ET CE QU'IL NE PEUT PAS. La question importe
+# plus ici qu'ailleurs : un rideau qui efface du texte utile est PLUS GRAVE
+# qu'un rideau qui laisse fuir, parce que la fuite se voit à l'écran et
+# l'effacement non. `mesuré` le 16 septembre 2026 à 07:54 UTC :
+#
+#     prose ordinaire ..............................  0 caractère retiré
+#     accolades JSON légitimes dans la réponse .....  0
+#     sentinelle OUVRANTE seule, sans fermante .....  0
+#     un paragraphe entre les deux sentinelles ......  0
+#     deux fuites séparées par du texte utile ......  118, LE MILIEU CONSERVÉ
+#     une fuite écrite sur trois lignes ............  retirée, sa query rendue
+#
+# La borne est donc : ne part que ce qui est encadré par les DEUX sentinelles
+# littérales et ne contient, entre le nom d'outil et la fermante, qu'un bloc
+# d'accolades et des espaces. Le `.*?` est non-glouton et `re.S` le fait
+# franchir les retours à la ligne : rendre le premier glouton effacerait un
+# paragraphe entier, retirer le second laisserait la fuite multiligne à
+# l'écran ET perdrait sa sous-question. Les deux sont tenus par des scènes de
+# `tests/unit/test_lecteur_de_flux.py`, section « LA BORNE DU RIDEAU ».
+#
+# LE CAS ACCEPTÉ, ÉCRIT PLUTÔT QUE SUBI : une réponse qui CITE cette syntaxe
+# pour l'expliquer écrit exactement les mêmes caractères qu'une fuite, et le
+# rideau la traite donc comme une fuite — l'exemple part de l'écran (57
+# caractères, `mesuré`) et une recherche réelle part sur la sous-question
+# citée. Nous l'acceptons : le risque exige les deux sentinelles littérales
+# dans la même réponse, la conséquence est une recherche SUPPLÉMENTAIRE et non
+# une réponse remplacée, et le fermer demanderait de deviner à quoi ressemble
+# une vraie fuite — que personne ici n'a mesurée. C'est la devinette que ce
+# module refuse déjà pour les guillemets non appariés. La scène
+# `test_une_reponse_qui_cite_la_syntaxe_de_fuite_est_traitee_comme_une_fuite`
+# fixe ce choix pour qu'il ne change pas en silence.
 APPEL_EN_SENTINELLES = re.compile(
     r"<\|tool_call>\s*call:\s*([A-Za-z_]\w*)\s*(\{.*?\})?\s*<tool_call\|>",
     re.S,
@@ -156,7 +196,13 @@ def lire_et_retirer(reponse: str) -> tuple[str | None, str]:
     # La seconde forme, lue et retirée par le MÊME objet de motif — la
     # propriété qui fait ce module tient forme par forme, pas globalement.
     # La prose garde la priorité : c'est elle qui a quatre relevés derrière
-    # elle, les sentinelles n'en ont aucun.
+    # elle, les sentinelles n'en ont aucun. Cette priorité était écrite ici et
+    # tenue par rien — aucune scène ne faisait apparaître les DEUX formes dans
+    # le même texte, et l'inverser passait les 937 tests. Elle est désormais
+    # tenue par
+    # `test_la_prose_garde_la_priorite_sur_les_sentinelles_dans_le_meme_texte`.
+    # Les deux blocs partent de l'écran dans les deux cas : ce qui se décide
+    # ici est uniquement LAQUELLE des deux sous-questions est servie.
     sentinelles = APPEL_EN_SENTINELLES.search(reponse)
     if sentinelles is not None:
         if sous_question is None:
