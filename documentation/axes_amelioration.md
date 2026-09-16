@@ -8910,8 +8910,7 @@ comportement, mais la phrase est inexacte.
 
 ### 4.56 → REPAR-21 : les huit gardes qui manquaient au lecteur de flux, et la mesure qui ne s'efface plus
 
-**Livré le 16 septembre 2026**, branche `claude/lot-20-gardes-manquantes-b4ee0b`,
-base `main` = `27c0821` (442 commits). Ferme les **huit trouvailles non
+**Livré le 16 septembre 2026**, base `main` = `27c0821` (442 commits). Ferme les **huit trouvailles non
 bloquantes** du §4.55 et ses **deux déclarations qui ne se reproduisaient pas**.
 Il n'y avait **aucune ligne fausse** à corriger — sauf une, et c'est (1).
 
