@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 910 tests, aucune dépendance
+## Unitaire — 934 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,14 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 15 septembre 2026 à 23:00 UTC par LOT-19 : **910** tests sur **47** fichiers,
+> `mesuré` le 16 septembre 2026 à 04:11 UTC par LOT-20 : **934** tests sur **48** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(REPAR-20 avait relevé **892** sur **46**
+> total que `pytest` annonce — concordent. *(LOT-19 avait relevé **910** sur **47**
+> fichiers le 15/09 à 23:00 UTC ; les **vingt-quatre** de plus sont ceux du lecteur
+> de flux — tous dans le fichier neuf `test_lecteur_de_flux.py`, qui éprouve les
+> deux dialectes sur des lignes capturées sur les deux moteurs du poste, la
+> fragmentation de l'appel d'outil et le rappel qui ne part qu'une fois. Avant lui,
+> REPAR-20 avait relevé **892** sur **46**
 > fichiers à 20:57 UTC ; les **dix-huit** de plus sont ceux du second rideau — seize
 > dans le fichier neuf `test_repli_dans_la_prose.py`, qui éprouve les quatre formes
 > d'appel mesurées sur les deux moteurs et les six proses ordinaires qui ne
