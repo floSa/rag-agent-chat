@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 937 tests, aucune dépendance
+## Unitaire — 954 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,9 +20,23 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 04:45 UTC par LOT-20 : **937** tests sur **48** fichiers,
+> `mesuré` le 16 septembre 2026 à 07:58 UTC par REPAR-21 : **954** tests sur **48** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(LOT-19 avait relevé **910** sur **47**
+> total que `pytest` annonce — concordent. *(LOT-20 avait relevé **937** sur les
+> mêmes 48 fichiers à 04:45 UTC ; les **dix-sept** de plus sont les gardes de
+> REPAR-21, qui ferme les huit trouvailles non bloquantes de l'audit du lot 20 —
+> seize dans `test_lecteur_de_flux.py` (quatre sur les décomptes qu'une branche
+> n'efface plus, dont celle qui TRANCHE la règle de conflit sur un `usage`
+> cumulatif relevé le 16/09 à 07:49 UTC ; trois qui nomment les lignes
+> DÉFENSIVES du lecteur ; cinq qui tiennent la borne du rideau en sentinelles
+> des DEUX côtés, dont le cas tranché de la réponse qui cite la syntaxe ; une
+> sur la priorité prose/sentinelles dans le même texte ; deux sur l'erreur qui
+> arrive APRÈS des tokens ; une sur la ligne émise après `done: true` ; une sur
+> l'événement qui porte du texte ET un appel, forme CONSTRUITE et déclarée comme
+> telle), plus le contrôle positif de la seconde marque du garde du site unique
+> dans `test_coherence_depot.py`, dont le balayage cherche désormais AUSSI le
+> motif en sentinelles. Aucun test n'a été ajouté par REPAR-21 sans qu'une
+> mutation l'ait fait rougir d'abord.)* *(LOT-19 avait relevé **910** sur **47**
 > fichiers le 15/09 à 23:00 UTC ; les **vingt-sept** de plus sont ceux du lecteur
 > de flux — tous dans le fichier neuf `test_lecteur_de_flux.py`, qui éprouve les
 > deux dialectes sur des lignes capturées sur les deux moteurs du poste, la

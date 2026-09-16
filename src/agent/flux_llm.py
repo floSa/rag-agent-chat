@@ -150,6 +150,14 @@ class LecteurDeFlux:
         # demandé ses appels. Trier sur l'index supposerait qu'ils sont
         # comparables entre eux ; la position de repli, elle, ne l'est pas
         # forcément avec un entier.
+        #
+        # CETTE LISTE EST DÉFENSIVE et elle est dite telle : les deux moteurs du
+        # poste émettent leurs index dans l'ordre croissant (mesuré sur les
+        # deux, 0 puis 1), donc un `sorted()` rendrait aujourd'hui exactement la
+        # même chose. Ce qu'elle évite n'est pas une erreur visible : c'est que
+        # l'agent parte chercher L'AUTRE sous-question que celle demandée en
+        # premier, sans que rien ne le signale.
+        # Tenue par `test_l_ordre_d_apparition_prime_sur_l_ordre_des_index`.
         self._ordre: list[Any] = []
         self.decomptes = Decomptes()
         # Passe à True sur `done: true` (Ollama) ou `[DONE]` (SSE). L'appelant
@@ -243,18 +251,63 @@ class LecteurDeFlux:
         return {}
 
     def _lire_decomptes(self, data: dict[str, Any]) -> None:
-        """Deux dialectes, deux places, un seul champ de sortie."""
+        """Deux dialectes, deux places, un seul champ de sortie.
+
+        CHAQUE BRANCHE NE REMPLACE QUE CE QU'ELLE RENSEIGNE, et c'est tout ce
+        que cette fonction a de délicat. Les deux branches s'exécutaient
+        auparavant l'une après l'autre sans condition, chacune écrivant un
+        `Decomptes` NEUF : un événement portant `done: true`, ses compteurs, ET
+        un `usage` — même vide — rendait alors `(None, None)`. Une mesure
+        RÉELLE devenait une absence DÉCLARÉE, et `mesure_prompt_exploitable` la
+        croyait honnête, alors que `None` est censé vouloir dire « le serveur ne
+        l'a pas dit » et rien d'autre.
+
+        AUCUN MOTEUR DU POSTE N'ÉCRIT LES DEUX DIALECTES, et c'est mesuré dans
+        les deux sens le 16 septembre 2026 à 07:26 UTC : `ollama-central` n'émet
+        aucun `usage` (61 événements, 0 occurrence), `vllm-central` n'émet aucun
+        `done` (62 événements JSON, 0 occurrence). Le chemin réparé ici est donc
+        celui d'un PROXY qui mêle les deux, pas celui d'un serveur du poste — ce
+        module se présentant comme lisant « la FORME, pas un réglage », il doit
+        tenir devant la forme mêlée au lieu d'y perdre ses décomptes en silence.
+
+        CE QUE LA RÈGLE DÉCIDE QUAND LES DEUX DIALECTES RENSEIGNENT LE MÊME
+        CHAMP AVEC DES VALEURS DIFFÉRENTES : le DERNIER lu gagne. Ce n'est pas
+        l'arbitraire qu'il paraît, et le premier réflexe — « une mesure acquise
+        ne bouge plus » — est FAUX, mesuré : `vllm-central` accepte
+        `stream_options: {"include_usage": true, "continuous_usage_stats":
+        true}` et émet alors un `usage` CUMULATIF sur chaque événement (`mesuré`
+        16/09 07:49 UTC : 42 événements, `completion_tokens` de 0 à 40). Garder
+        le premier renseigné y figerait le compte à zéro token généré —
+        c'est-à-dire précisément la mesure fausse que ce garde existe pour
+        empêcher. Le dernier lu est le seul qui soit le compte FINAL sur le seul
+        conflit que le poste sait produire.
+        """
         if data.get("done"):
-            self.decomptes = Decomptes(
-                prompt_eval_count=data.get("prompt_eval_count"),
-                eval_count=data.get("eval_count"),
-            )
+            self._renseigner(data.get("prompt_eval_count"), data.get("eval_count"))
         usage = data.get("usage")
         if isinstance(usage, dict):
-            self.decomptes = Decomptes(
-                prompt_eval_count=usage.get("prompt_tokens"),
-                eval_count=usage.get("completion_tokens"),
-            )
+            # `isinstance` et non `usage is not None` : un `usage` qui n'est pas
+            # un objet — `42`, une chaîne — ferait lever `.get` au milieu du
+            # flux. Ligne DÉFENSIVE : aucun moteur du poste ne l'écrit ainsi.
+            self._renseigner(usage.get("prompt_tokens"), usage.get("completion_tokens"))
+
+    def _renseigner(self, prompt_eval_count: Any, eval_count: Any) -> None:
+        """Écrit les décomptes SANS effacer ceux qu'un autre dialecte a donnés.
+
+        `None` en entrée veut dire « cette branche ne dit rien de ce champ » —
+        ce qui n'est pas la même chose que « le serveur a dit qu'il ne sait
+        pas », et surtout pas la même chose que zéro.
+        """
+        self.decomptes = Decomptes(
+            prompt_eval_count=(
+                self.decomptes.prompt_eval_count
+                if prompt_eval_count is None
+                else prompt_eval_count
+            ),
+            eval_count=(
+                self.decomptes.eval_count if eval_count is None else eval_count
+            ),
+        )
 
     def _accumuler(self, appels: Any) -> None:
         """Range les fragments PAR index, sans rien décider."""
@@ -287,6 +340,15 @@ class LecteurDeFlux:
             if isinstance(nom, str) and nom:
                 # Un seul événement porte le nom, et les suivants n'en ont pas :
                 # ne l'écraser qu'avec un nom non vide.
+                #
+                # `and nom` EST DÉFENSIF, et c'est dit pour qu'un refactor ne le
+                # prenne pas pour du bruit : vLLM OMET `name` dans les fragments
+                # suivants (mesuré, capture `VLLM_OUTIL`), il ne le met pas à
+                # `""`. Aucun moteur du poste n'exerce donc cette garde — mais
+                # sans elle, un `""` reçu après le nom le ferait retomber à la
+                # chaîne vide et `extract_tool_query` rendrait `None` : la
+                # recherche disparaîtrait sans erreur ni log.
+                # Tenu par `test_un_nom_vide_n_ecrase_pas_le_nom_acquis`.
                 fragment["name"] = nom
 
             arguments = fonction.get("arguments")

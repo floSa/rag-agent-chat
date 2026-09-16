@@ -836,7 +836,41 @@ SEARCH_TOOL = {
 
 
 def extract_tool_query(message: dict[str, Any]) -> str | None:
-    """Extrait la sous-question d'un appel d'outil natif, None s'il n'y en a pas."""
+    """Extrait la sous-question d'un appel d'outil natif, None s'il n'y en a pas.
+
+    CE QUE DEVIENT LE SECOND APPEL QUAND LE MODÈLE EN DEMANDE DEUX : il est
+    accumulé, il est disponible, ET IL N'EST LU PAR PERSONNE. Cette borne est
+    écrite ici parce qu'elle a changé de nature sans changer de comportement.
+
+    Avant le lot 20, la lecture était ligne à ligne et le rappel partait depuis
+    la boucle : sur Ollama, qui porte un appel entier par événement, DEUX
+    rappels partaient et `graph.py` retenait le premier (`tool_queries[0]`).
+    Depuis, `LecteurDeFlux` accumule les deux appels SÉPARÉMENT, sous deux clés
+    d'index — c'est une scène nommée,
+    `test_deux_appels_vllm_accumules_separement_par_index` — puis cette
+    fonction rend le PREMIER dont le nom et les arguments sont exploitables, et
+    `generate_stream` n'émet qu'un rappel. Le second appel existe dans
+    `message_outils()` et s'arrête là.
+
+    POURQUOI CE COMPORTEMENT EST CONSERVÉ, ET CE N'EST PAS PAR INERTIE :
+
+    - servir les deux appels du même tour doublerait la consommation de
+      `max_search_iterations` sur un tour, alors que ce plafond est dimensionné
+      sur l'hypothèse « un tour, une recherche ». Le relever ou le partager est
+      une politique d'AGENT, pas une règle de lecture de flux, et elle se
+      décide là où le plafond est écrit ;
+    - le second appel n'est pas PERDU au sens du défaut que ce chantier
+      poursuit : il n'est jeté nulle part en silence, il est simplement non
+      sélectionné, à un endroit unique et nommé — ici ;
+    - rien ne mesure aujourd'hui qu'un modèle qui demande deux recherches d'un
+      coup serve mieux l'utilisateur qu'un modèle qui en demande une puis
+      l'autre au tour suivant. Changer la sélection sur cette absence de mesure
+      serait deviner.
+
+    CE QUI FERAIT RECONSIDÉRER : une campagne qui mesure, sur le corpus, ce que
+    la seconde sous-question aurait ramené. Tant qu'elle n'existe pas, la borne
+    servie est celle-ci, et elle est écrite plutôt que supposée.
+    """
     for call in message.get("tool_calls") or []:
         function = call.get("function") or {}
         if function.get("name") != "search_vectors":
