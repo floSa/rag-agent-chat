@@ -498,3 +498,29 @@ async def test_le_poste_de_flux_bascule_avec_le_reglage(monkeypatch) -> None:
     assert charge["max_tokens"] == settings.llm_max_tokens
     assert charge["stream_options"] == {"include_usage": True}
     assert "options" not in charge
+
+
+@pytest.mark.asyncio
+async def test_le_poste_de_flux_transmet_le_reglage_de_raisonnement(monkeypatch) -> None:
+    """LE TEXTE QUI SÉPARE LE CODE SERVI D'UN MUTANT ÉQUIVALENT.
+
+    `thinking=settings.llm_thinking` remplacé par `thinking=False` survivait à
+    toute la campagne : `LLM_THINKING` vaut `False` par défaut, donc la règle
+    était inversée sur un champ CONSTANT dans le domaine mesuré, et la mutation
+    ne pouvait pas se voir. Cette scène pose le seul état où les deux diffèrent.
+
+    Les deux dialectes sont assertés, parce que le champ n'a pas le même nom des
+    deux côtés et qu'un mutant pourrait n'en casser qu'un.
+    """
+    vus: list[tuple[str, dict]] = []
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_espion(vus))
+    monkeypatch.setattr(settings, "llm_thinking", True)
+
+    async for _ in llm.generate_stream("Quel est le taux ?", []):
+        pass
+    assert vus[0][1]["think"] is True
+
+    monkeypatch.setattr(settings, "llm_engine", "vllm")
+    async for _ in llm.generate_stream("Quel est le taux ?", []):
+        pass
+    assert vus[1][1]["chat_template_kwargs"] == {"enable_thinking": True}

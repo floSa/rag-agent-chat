@@ -486,3 +486,50 @@ print('relevé le', pris, '— il y a',
 # Combien de campagnes du disque sont muettes
 python3 -c "import json,glob; f=glob.glob('runs/*.json'); print(sum(1 for x in f if json.load(open(x)).get('moteur_llm') is None), 'muettes sur', len(f))"
 ```
+
+## 8. L'interrupteur `LLM_ENGINE` (lot 25) — ce qu'il commande, et ce qu'il ne commande pas
+
+**LE DÉFAUT EST `ollama`, ET CE LOT NE BASCULE RIEN.** Les trois réglages :
+
+| clé | défaut | rôle |
+|---|---|---|
+| `LLM_ENGINE` | `ollama` | `ollama` ou `vllm`. **Toute autre valeur est refusée au démarrage** — jamais rabattue en silence sur le défaut |
+| `VLLM_HOST` | `http://vllm:8000` | l'hôte du serveur OpenAI-compatible, ignoré tant que `LLM_ENGINE=ollama` |
+| `VLLM_MODEL` | `google/gemma-4-E4B-it-qat-w4a16-ct` | le nom du modèle **côté vLLM**, qui n'est pas celui d'Ollama |
+
+**CE QUI BASCULE, EN UN SEUL SITE** — `src/agent/dialecte_llm.py`, et nulle part
+ailleurs : il n'y a aucun `if moteur == …` chez les appelants.
+
+| | `ollama` | `vllm` |
+|---|---|---|
+| chemin de génération | `/api/chat` | `/v1/chat/completions` |
+| chemin sondé par `/health` | `/api/tags` | `/v1/models` |
+| température / plafond | `options: {temperature, num_predict}` | `temperature`, `max_tokens` à plat |
+| fenêtre de contexte | `options.num_ctx` | **rien** — fixée au lancement du serveur |
+| raisonnement | `think` | `chat_template_kwargs: {enable_thinking}` |
+| décomptes en flux | toujours émis | `stream_options: {include_usage: true}` **exigé** |
+| déclaration d'outil | `SEARCH_TOOL` tel quel | `SEARCH_TOOL` tel quel *(mesuré sur les deux)* |
+
+**CE QUE `LLM_ENGINE` NE COMMANDE PAS, ET C'EST VOULU** : la clé `moteur_llm`
+de `/health` reste relevée **DU SERVEUR**. Elle demande sa version et exige une
+réponse positive pour conclure. Un réglage qui désignerait vLLM devant un Ollama
+publierait donc `serveur: "ollama"` — et c'est **exactement** ce qu'un exploitant
+doit voir. Le réglage dit où l'on parle ; la clé dit qui a répondu.
+
+**DEUX AVERTISSEMENTS MESURÉS, à lire avant de basculer :**
+
+1. **`LLM_THINKING=true` n'est pas exploitable** sur un serveur vLLM sans
+   `--reasoning-parser` — et `vllm-central` n'en a pas. Hors flux la réponse est
+   `null` pour 278 tokens facturés ; en flux le raisonnement brut part à l'écran
+   de l'utilisateur. Aucune des deux ne lève. (`mesuré` le 16 septembre 2026 à
+   14:13 et 14:14 UTC.)
+2. **Une charge du mauvais dialecte ne se plaint pas.** Seul le NOM DU MODÈLE
+   rend 404. `options`, `num_predict`, `num_ctx` et `think` envoyés à vLLM sont
+   acceptés en HTTP 200 puis ignorés : la génération part alors aux valeurs par
+   défaut du serveur. C'est la raison d'être du site unique, et le §4.60 du
+   registre porte la mesure.
+
+**CE QUE CE LOT N'A PAS MESURÉ** : aucune génération de bout en bout n'a été
+faite à travers ce code sous `LLM_ENGINE=vllm`. Les dix requêtes qui fondent ces
+tableaux ont été passées à la main. Ce qui est gardé est la CHARGE et l'URL ;
+la réponse complète appartient à la campagne appariée qui suit.

@@ -9637,3 +9637,87 @@ réponse servie, et le lot ne s'en est pas contenté.
 - **Son premier réflexe a été de lire le prompt comme à jour** : les deux
   chiffres périmés ont survécu à sa première lecture.
 
+
+### 4.60 → LOT-25 : l'interrupteur du dialecte, et le défaut qui ne bouge pas d'un octet
+
+**Lot 7 du découpage vLLM, et le dernier avant la campagne appariée.** Il ne
+bascule RIEN en service : `LLM_ENGINE` vaut `ollama` par défaut, aucun conteneur
+n'a été redémarré, `.env` et `.env.example` sont hors du diff. Il pose
+l'interrupteur ; personne ne l'actionne ici.
+
+#### Ce que le lot a trouvé et qui renverse le cadrage
+
+**LA CHARGE D'OLLAMA ENVOYÉE À vLLM N'ÉCHOUE PAS — ELLE EST ACCEPTÉE ET
+IGNORÉE.** Le cadrage annonçait que les deux appels non-flux « échoueraient
+bruyamment mais ailleurs ». `mesuré` le 16 septembre 2026 à 14:12 UTC sur
+`vllm-central`, quatre requêtes en lecture :
+
+| requête | charge | résultat |
+|---|---|---|
+| V2 | `{"think":false,"options":{…,"num_predict":120}}` | **HTTP 200**, `finish_reason=stop` |
+| V4 | `{"options":{"num_predict":5}}` | **HTTP 200**, `finish_reason=stop`, **77** tokens générés |
+| V3 | `{"max_tokens":5}` *(contrôle positif)* | HTTP 200, `finish_reason=length`, **5** tokens |
+
+`options`, `num_predict`, `num_ctx` et `think` passent sans erreur, sans
+avertissement, sans journal. Un lot qui n'aurait basculé que le CHEMIN aurait
+donc généré à la température et au plafond par défaut du serveur, et rien ne
+l'aurait dit. **Le défaut est pire que celui qui était annoncé, et il est
+silencieux.**
+
+**UN QUATRIÈME POSTE, ABSENT DU CADRAGE ET EN LECTURE.** Les trois postes
+d'ÉCRITURE étaient bien relevés. Mais `llm._contenu_message`, qui lit les DEUX
+réponses non-flux, ne connaissait que `message.content` à la racine — le
+dialecte d'Ollama. vLLM écrit `choices[0].message.content` hors flux (`mesuré`
+14:12 UTC). Sous vLLM, la réécriture de question et la traduction seraient
+tombées sur leur repli — « question d'origine conservée », « recherche
+monolingue » — **en HTTP 200, sur une réponse parfaitement valide**, avec un
+journal qui accuse le serveur. La recherche aurait été dégradée dans les deux
+langues sans qu'aucune erreur ne paraisse.
+
+**`LLM_THINKING=true` SOUS vLLM N'EST PAS EXPLOITABLE SUR CE SERVEUR**, qui n'a
+pas de `--reasoning-parser` (`mesuré` 14:13 et 14:14 UTC, trois requêtes) :
+hors flux, `content: null` ET `reasoning: null` pour **278** tokens facturés —
+la réponse est perdue ; en flux, **659** caractères cédés commençant par
+« thought\nThinking Process: » — le raisonnement brut part à l'écran. Aucune des
+deux ne lève. Le module transmet le réglage fidèlement et **écrit la mesure au
+site** plutôt que de corriger en douce : un réglage qui ment est pire qu'un
+mauvais réglage.
+
+#### Les décisions, et où elles sont écrites
+
+| question | décision | site |
+|---|---|---|
+| `num_ctx` | **pas envoyé** à vLLM (aucun champ équivalent ; la fenêtre est fixée au lancement) ; reste le budget CLIENT — `context_budget_chars`, `fit_prompt`, la suspicion de troncature | `dialecte_llm._charge_vllm` (a) |
+| nom du modèle | **deux réglages**, `OLLAMA_MODEL` et `VLLM_MODEL` : les deux noms sont **disjoints par mesure**, 404 dans les deux sens (14:14 UTC) | `settings.py` |
+| lecture du réglage | **à chaque appel**, jamais mémorisée — le retour arrière EST le réglage, et ce chantier a déjà payé une mémorisation à vie | `dialecte_llm.dialecte_courant` |
+| raisonnement | **par requête**, `chat_template_kwargs` — jamais un drapeau de lancement (bogue vLLM #39130 sur un serveur partagé) | `dialecte_llm._charge_vllm` (b) |
+| décomptes | `stream_options.include_usage` **en flux seulement** ; `continuous_usage_stats` non demandé | `dialecte_llm._charge_vllm` (c) |
+| `LLM_ENGINE` inconnu | **refusé au démarrage** par `Literal`, jamais rabattu en silence sur Ollama | `settings.py` |
+| client HTTP | **non touché** — un par appel, dans son `async with` | `llm.generate_stream` |
+
+#### Ce que la campagne de mutation a trouvé contre le lot
+
+Témoin inerte à **zéro rouge** et **au compte attendu** à chacune des cinq
+invocations. **Vingt-six mutations, vingt-quatre mortes du premier coup, DEUX
+SURVIVANTES**, et les deux ont produit une scène :
+
+- **l'URL du poste de FLUX n'était exercée par rien.** Les deux postes non-flux
+  l'étaient ; le poste de flux — celui qui sert CHAQUE réponse de l'agent — ne
+  l'était pas. Remettre `{OLLAMA_HOST}/api/chat` en dur passait toute la suite ;
+- **le réglage de raisonnement était mesuré sur un champ CONSTANT.**
+  `thinking=settings.llm_thinking` remplacé par `thinking=False` survivait parce
+  que `LLM_THINKING` vaut `False` par défaut : la règle était inversée là où le
+  domaine mesuré ne pouvait pas la distinguer. Le texte séparateur est l'état
+  `LLM_THINKING=true`, et il est désormais posé pour les deux dialectes.
+
+#### Ce que ce lot NE ferme pas
+
+- **aucune génération n'a été faite à travers le code du lot sous vLLM.** Les
+  dix requêtes de mesure ont été passées à la main, par `curl` ; ce que le lot
+  garde est la CHARGE et l'URL, pas une réponse de bout en bout sous
+  `LLM_ENGINE=vllm`. C'est le poste de la campagne appariée qui suit.
+- **l'empreinte de configuration ne porte pas `llm_engine`.** Ce qui sépare les
+  deux moteurs dans `runs/` est la VALEUR du champ `ollama_model`. Elle suffit
+  tant que les deux serveurs servent des modèles de noms différents, ce qui est
+  mesuré aujourd'hui et n'est pas une propriété. Ajouter la clé aurait dégroupé
+  rétroactivement toutes les campagnes déjà enregistrées.
