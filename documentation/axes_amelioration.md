@@ -9730,3 +9730,87 @@ qui sert aujourd'hui.
   tant que les deux serveurs servent des modèles de noms différents, ce qui est
   mesuré aujourd'hui et n'est pas une propriété. Ajouter la clé aurait dégroupé
   rétroactivement toutes les campagnes déjà enregistrées.
+
+#### Ce que l'AUDIT-25 ajoute à cette section, et ce que le pilote a vérifié
+
+[`audits/2026-09-16-audit-lot-25.md`](audits/2026-09-16-audit-lot-25.md), versé
+sur `main` en **`7e66291`** *avant* d'être cité. **AUCUNE BLOQUANTE.**
+
+**LE PILOTE S'ÉTAIT TROMPÉ, ET IL L'A REMESURÉ.** Le prompt du lot disait que la
+charge d'Ollama envoyée à vLLM « échouerait bruyamment mais ailleurs ». `mesuré`
+par le pilote le **16 septembre 2026 à 15:42 UTC**, deux prompts distincts :
+
+| charge postée à `vllm-central` | HTTP | `finish_reason` | tokens générés |
+|---|---|---|---|
+| `{"options": {"num_predict": 5, "num_ctx": 8192}}` | **200** | `stop` | **42** |
+| `{"max_tokens": 5}` *(contrôle positif)* | **200** | `length` | **5** |
+
+**LE BORNAGE EST ACCEPTÉ ET IGNORÉ EN SILENCE**, et le contrôle positif prouve
+que le serveur *sait* borner — donc que la sonde discrimine. **C'est la troisième
+instance du motif du §12 : affirmer un comportement non mesuré**, ici celui d'un
+serveur tiers. Le lot avait raison ; c'est cette mesure qui fonde l'architecture
+retenue — **le chemin et la forme se décident au même endroit**.
+
+**L'ANGLE QUI MANQUAIT À TOUT LE CHANTIER EST FERMÉ.** Le lot avouait, *dans un
+fichier versionné*, qu'aucune génération de bout en bout n'avait été faite sous
+`LLM_ENGINE=vllm`. L'auditeur l'a faite : **en flux, hors flux, avec appel
+d'outil, sur les DEUX moteurs**, décomptes présents, **citation `[src:…]`
+produite**, raisons de fin relevées, aucune réponse tronquée. **Et il a monté
+l'agent COMPLET** sur un port à lui : `services.ollama: true` **contre un serveur
+vLLM**, **six requêtes vers `:8100` et ZÉRO vers `:11434`** — la bascule est
+**étanche au niveau du service entier**.
+
+**LE DÉFAUT, ÉPROUVÉ PLUS DUREMENT QUE PAR LE LOT.** Le lot comparait ses charges
+à des **littéraux recopiés** — or *un garde de COPIE CONFORME est vert sur deux
+exemplaires tous deux faux*, et ce dépôt l'a déjà payé au lot 19. L'auditeur a
+comparé au **comportement d'exécution de `main`** : `httpx` intercepté dans les
+deux arbres, ce que chacun **poste réellement** capturé, **ordre d'insertion
+compris** — **SHA-256 identique, 3 POST sur 3**, avec contrôle positif.
+
+**LE QUATRIÈME POSTE, CONFIRMÉ CONTRE LE SERVEUR RÉEL.** Le corps non-flux de
+`vllm-central` ne porte **aucune clé `message`** : sur ce **même corps**, le
+lecteur de `main` rend une chaîne **VIDE**, celui du lot **195 caractères**. La
+panne aurait été **muette**.
+
+##### Les sept non bloquantes
+
+1. **`documentation/tests.md` annonce 26 là où il y en a 30, ET SE CONTREDIT DEUX
+   LIGNES PLUS BAS.** Le garde du compte mord sur les deux chiffres du total mais
+   **ne regarde pas l'arithmétique interne de la parenthèse** — mutation du total
+   rouge, mutation du 26 verte. *Vraisemblablement le nombre de MUTATIONS recopié
+   à la place du nombre de TESTS.*
+2. **Trois champs de `_sonder_moteur_llm` que rien ne garde À LA BASCULE**, avec
+   leurs séparateurs construits : l'hôte interrogé, le modèle demandé, le modèle
+   confronté. **La plus coûteuse rend `modele_servi: None`**, donc un relevé
+   incomplet, donc **non mémorisé** — et la sonde repart **à chaque battement de
+   `/health`, jusqu'à trois requêtes par battement, vers le serveur PARTAGÉ de
+   l'équipe voisine**. *En creux : `_releve_est_complet` tient toujours, et
+   l'auditeur l'a vu refuser de figer un relevé partiel sous la mutation.*
+3. **`/health` publie le modèle demandé à DEUX endroits, un seul gardé** : sous
+   vLLM, une régression les ferait **diverger dans la même réponse**.
+4. **`num_ctx` est indiscernable de sa constante sous le défaut** — le réglage
+   vaut 8192 et les trois témoins comparent à 8192. Séparateur :
+   `LLM_NUM_CTX=16384`.
+5. **Deux scripts d'outillage hors du site unique**, préexistants, dont le repli
+   est `except Exception: return None` : pointés vers un vLLM, **ils écarteraient
+   des questions en silence**.
+6. **Les trois clés neuves sont absentes de `.env.example`**, contrôle positif à
+   l'appui : *le réglage existe et ne se voit pas là où on le cherche d'abord.*
+7. **Deux lacunes PRÉEXISTANTES**, signalées **sans être imputées au lot** : le
+   `read=None` du délai d'attente, que rien ne garde, et l'expurgation de
+   l'endpoint publié, non gardée **à travers le relevé** — *dépôt public,
+   `runs/*.json` versionné.*
+
+##### Les faux résultats de l'auditeur, et deux comptent
+
+- **Son « contrôle positif » A SURVÉCU**, le faisant conclure à tort qu'une
+  fonction n'était pas exercée : **elle l'est, quinze fois**. *Un contrôle positif
+  qui ne rougit pas n'invalide pas le code — il invalide le contrôle.*
+- **Ses propres sondes, passées sur son propre rapport, l'ont attrapé** à faire
+  entrer le préfixe d'outillage dans le dépôt. Expurgé, et la rédaction
+  **déclarée** dans le document.
+- **Il laisse CRU SUR PAROLE les 26 mutations du lot** : *le résultat est
+  versionné, la liste ne l'est pas, donc rien n'est rejouable.* Il a monté sa
+  propre campagne à la place — 19 mutations, témoin inerte à zéro **au compte
+  attendu**, 7 survivantes toutes traitées.
+
