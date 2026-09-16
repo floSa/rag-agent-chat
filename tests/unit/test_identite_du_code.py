@@ -227,13 +227,29 @@ class TestCeQueLeBuildAGraveEstCeQuiSePublie:
         monkeypatch.setenv(VAR_SHA, "")
         monkeypatch.setenv(VAR_ARBRE, "")
         monkeypatch.setenv(VAR_CONSTRUITE_LE, "")
-        assert identite_du_code().etat == "anonyme"
+        identite = identite_du_code()
+        assert identite.etat == "anonyme"
+        # L'ÉTAT SEUL NE SUFFISAIT PAS, ET LA MUTATION L'A DIT. `mesuré` le
+        # 16 septembre 2026 : en retirant le `or None` de `_lire`, ce test
+        # RESTAIT VERT — la chaîne vide se propageait jusqu'à `_UN_SHA`, qui la
+        # refusait, et l'image finissait `anonyme` par un AUTRE chemin. Le test
+        # mesurait alors une position que deux codes différents atteignent, donc
+        # rien. L'avertissement est ce qui sépare les deux chemins : « rien n'a
+        # été gravé » n'est pas « le relevé a échoué », et les deux ne se
+        # soignent pas pareil.
+        assert identite.avertissement is not None
+        assert "construite sans" in identite.avertissement
 
     def test_des_blancs_ne_font_pas_une_identite(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Un `--build-arg CODE_SHA=" "` est le même non-savoir, autrement écrit."""
         monkeypatch.setenv(VAR_SHA, "   ")
         monkeypatch.setenv(VAR_ARBRE, " propre ")
-        assert identite_du_code().etat == "anonyme"
+        identite = identite_du_code()
+        assert identite.etat == "anonyme"
+        # Même motif que la scène précédente : l'état seul ne distingue pas le
+        # code servi d'un code qui aurait cessé de dépouiller ses variables.
+        assert identite.avertissement is not None
+        assert "construite sans" in identite.avertissement
 
     def test_un_sha_illisible_laisse_l_image_anonyme_et_le_dit(
         self, monkeypatch: pytest.MonkeyPatch
