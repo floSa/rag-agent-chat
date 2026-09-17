@@ -533,3 +533,29 @@ doit voir. Le réglage dit où l'on parle ; la clé dit qui a répondu.
 faite à travers ce code sous `LLM_ENGINE=vllm`. Les dix requêtes qui fondent ces
 tableaux ont été passées à la main. Ce qui est gardé est la CHARGE et l'URL ;
 la réponse complète appartient à la campagne appariée qui suit.
+
+## L'ÉTAT SERVI DEPUIS LE 17 SEPTEMBRE 2026
+
+**L'agent sert vLLM.** `mesuré` le 17 septembre 2026 à 07:45 UTC, relevé
+**du serveur** par `/health` et non du réglage :
+
+| | |
+|---|---|
+| `moteur_llm.serveur` | `vllm`, version **0.28.0** |
+| `endpoint` | `vllm-central:8000`, joint depuis `llm-net` |
+| `modele_demande` / `modele_servi` | identiques, et c'est le modèle attendu |
+| `fenetre_servie` | **32768** |
+| `code_servi.sha` | `7b0edb0`, `arbre=propre` |
+| une réponse réelle | HTTP 200 en **17,3 s**, 1 314 caractères, **7 citations ancrées** |
+
+*Pour mémoire, la veille sous Ollama, une question comparable : 43,0 s.*
+
+**LE RETOUR ARRIÈRE**, si jamais : l'image d'avant porte l'étiquette
+`rag-agent-chat-agent-api:2026-09-17-avant-bascule-vllm` — vérifiée pendante au
+bon identifiant avant la construction —, et `LLM_ENGINE=ollama` dans le `.env`
+du clone principal suffit à revenir sans reconstruire. La marche complète est au
+§4 de `identite_du_code_servi.md`.
+
+**CE QUI N'A PAS ÉTÉ MESURÉ, ET C'EST DIT** : aucune campagne comparative n'a été
+faite. Le choix du moteur est une décision du propriétaire, pas le résultat d'un
+banc. Les chiffres ci-dessus sont **deux réponses**, pas une distribution.
