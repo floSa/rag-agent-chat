@@ -1,6 +1,6 @@
 # RAG Agent Chat
 
-Ce projet est l'agent conversationnel qui consomme les données produites par [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline). Il interroge **ChromaDB** (recherche vectorielle), reconstruit le contexte structurel des documents via **NebulaGraph**, récupère les médias depuis **MinIO**, et génère les réponses avec un LLM local servi par **Ollama** — le tout orchestré par une machine à états **LangGraph** avec sélection des sources par l'utilisateur (*human-in-the-loop*).
+Ce projet est l'agent conversationnel qui consomme les données produites par [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline). Il interroge **ChromaDB** (recherche vectorielle), reconstruit le contexte structurel des documents via **NebulaGraph**, récupère les médias depuis **MinIO**, et génère les réponses avec un LLM local servi par **vLLM** — le tout orchestré par une machine à états **LangGraph** avec sélection des sources par l'utilisateur (*human-in-the-loop*).
 
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![uv](https://img.shields.io/badge/uv-package_manager-DE5FE9?logo=uv&logoColor=white)
@@ -8,7 +8,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)
 ![LangGraph](https://img.shields.io/badge/LangGraph-1.2-1C3C3C?logo=langchain&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.60-FF4B4B?logo=streamlit&logoColor=white)
-![Ollama](https://img.shields.io/badge/Ollama-service_central-000000?logo=ollama&logoColor=white)
+![vLLM](https://img.shields.io/badge/vLLM-0.28-FF6B35)
 
 > Contrairement au RAG classique qui injecte des chunks isolés, l'agent utilise le **graphe de connaissances pour reconstruire la section complète** autour de chaque passage trouvé : fil des titres jusqu'au document, éléments voisins, fin de la section précédente et début de la suivante, illustrations avec leur légende.
 
@@ -21,7 +21,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
 - **Recherche** : hybride — dense (`paraphrase-multilingual-MiniLM-L12-v2`, le **même modèle** que l'ingestion, obligatoire) et lexicale BM25, sur la question **et sa traduction**, fusionnées par Reciprocal Rank Fusion. Reranking par cross-encoder multilingue `mmarco-mMiniLMv2-L12-H384-v1`, local.
 - **Évaluation** : **deux** jeux de questions et aucun ne remplace l'autre — 138 questions générées depuis le corpus pour le *réglage* (`make eval`), 30 questions écrites à la main par le pipeline d'ingestion pour le *contrôle* (`make eval-controle`). Campagne déterministe sans juge LLM, et un antécédent obligatoire : `make verifier-les-ancrages` prouve que les jeux désignent des passages qui existent, en lecture seule, avant toute mesure. Plus un banc de réglage rapide pour les paramètres de recherche.
-- **LLM** : servi par le projet [`llm-service`](https://github.com/floSa/llm-service) (conteneur `ollama-central`, réseau `llm-net`). Ce projet n'embarque aucune instance Ollama : il consomme le service central.
+- **LLM** : **vLLM depuis le 17 septembre 2026** (conteneur `vllm-central`, réseau `llm-net`). Ce projet n'embarque aucun serveur d'inférence : il consomme un service central. Le moteur se choisit par `LLM_ENGINE` — `ollama` reste servi par le projet [`llm-service`](https://github.com/floSa/llm-service) et le retour arrière ne demande pas de reconstruction — [moteur_llm.md](documentation/moteur_llm.md).
 - **Stores en lecture** : ChromaDB, NebulaGraph et MinIO du projet d'ingestion, joints via le réseau Docker externe `rag_network`.
 
 ### Schéma du flux agent
@@ -34,7 +34,7 @@ flowchart TD
     K --> S["await_source_selection<br/>interrupt LangGraph"]
     S -- "sélection des sources<br/>(UI Streamlit -> /chat/resume)" --> G["reconstruct_context<br/>NebulaGraph : fil des titres, fenêtre, sections voisines"]
     G --> M["MinIO<br/>illustrations et leurs légendes"]
-    M --> L["generate<br/>LLM Ollama (streaming)"]
+    M --> L["generate<br/>LLM vLLM (streaming)"]
     L --> P["postprocess<br/>citations [src:ID] + images [img:ID]"]
     P -- "search_vectors(query)<br/>max 3 itérations" --> R
     P --> F["Réponse finale<br/>texte + citations + images"]
@@ -51,7 +51,7 @@ L'étape clé est la **reconstruction par le graphe** : pour chaque passage sél
 Deux stacks doivent tourner :
 
 - [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline) — crée le réseau `rag_network`, héberge ChromaDB, NebulaGraph et MinIO, et doit avoir ingéré au moins un document ;
-- [llm-service](https://github.com/floSa/llm-service) — crée le réseau `llm-net` et sert les modèles via `ollama-central` (`make up` dans ce projet).
+- un serveur d'inférence sur le réseau `llm-net` : **`vllm-central`** (servi depuis le 17 septembre 2026), ou [llm-service](https://github.com/floSa/llm-service) pour `ollama-central` si `LLM_ENGINE=ollama`.
 
 ### 1. Configurer l'environnement
 ```bash
@@ -72,7 +72,8 @@ docker compose up -d --build
 | :--- | :--- | :--- |
 | **Frontend (Streamlit)** | [http://localhost:8506](http://localhost:8506) | Interface de chat avec sélection des sources. |
 | **API (FastAPI)** | [http://localhost:8011/docs](http://localhost:8011/docs) | Swagger UI — tous les endpoints. |
-| **Ollama** | `http://ollama-central:11434` | Servi par `llm-service`, sur le réseau `llm-net`. |
+| **vLLM** | `http://vllm-central:8000` | Moteur servi depuis le 17 septembre 2026, sur le réseau `llm-net`. |
+| **Ollama** | `http://ollama-central:11434` | Moteur de repli, servi par `llm-service`. Atteint par `LLM_ENGINE=ollama`. |
 
 ### 4. Poser une question
 1. Ouvrez le frontend Streamlit et saisissez votre question.
@@ -81,11 +82,30 @@ docker compose up -d --build
 
 ---
 
+## Où accéder au service
+
+**Ce projet est un déploiement local. Il n'est pas hébergé et n'a pas d'URL publique.**
+
+Une fois la pile démarrée, sur la machine qui l'héberge :
+
+| | Adresse par défaut |
+|---|---|
+| Interface (Streamlit) | `http://<hôte>:8506` |
+| API | `http://<hôte>:8011` |
+| Sonde de santé, sans secret | `http://<hôte>:8011/health` |
+
+Depuis une autre machine du même réseau, remplacer `<hôte>` par l'adresse de la
+machine hôte. **Avant d'ouvrir l'accès au-delà du réseau de confiance**, poser
+`API_KEY` dans le `.env` : laissée vide, toutes les routes répondent sans
+authentification — **y compris `POST /reindex`, qui reconstruit l'index**. Seule
+`/health` reste volontairement ouverte, pour qu'une sonde n'ait pas besoin d'un
+secret.
+
 ## API — Endpoints principaux
 
 | Méthode | Route | Rôle |
 | :--- | :--- | :--- |
-| `GET` | `/health` | Statut du service, modèle Ollama **demandé**, et — sous `moteur_llm` — le moteur **réellement servi** : serveur, version, poids et son empreinte. Le premier est un réglage, le second un fait, et ils ont divergé — [moteur_llm.md](documentation/moteur_llm.md). Publie aussi — sous `code_servi` — **quel code cette image contient** : le sha relevé au build, ou `anonyme` quand l'image a été construite hors de `make image` — [identite_du_code_servi.md](documentation/identite_du_code_servi.md). |
+| `GET` | `/health` | Statut du service, modèle **demandé**, et — sous `moteur_llm` — le moteur **réellement servi** : serveur, version, poids et son empreinte. Le premier est un réglage, le second un fait, et ils ont divergé — [moteur_llm.md](documentation/moteur_llm.md). Publie aussi — sous `code_servi` — **quel code cette image contient** : le sha relevé au build, ou `anonyme` quand l'image a été construite hors de `make image` — [identite_du_code_servi.md](documentation/identite_du_code_servi.md). |
 | `POST` | `/search` | Retrieval brut ChromaDB, sans reranking. |
 | `POST` | `/sources` | Retrieval + reranking + groupement par document. |
 | `GET` | `/context/{element_id}` | Reconstruction du contexte enrichi d'un élément. |
@@ -105,8 +125,11 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 
 | Variable | Défaut | Note |
 | :--- | :--- | :--- |
+| `LLM_ENGINE` | `ollama` | Moteur servi : `ollama` ou `vllm`. **Ce poste sert `vllm` depuis le 17 septembre 2026.** Une valeur inconnue est refusée au démarrage, jamais rabattue en silence. |
+| `VLLM_HOST` | — | Serveur vLLM, quand `LLM_ENGINE=vllm`. |
+| `VLLM_MODEL` | — | Modèle demandé à vLLM. **Le nom n'est pas celui d'Ollama** : les deux catalogues sont disjoints, mesuré. |
 | `OLLAMA_HOST` | `http://ollama-central:11434` | Service central du projet `llm-service`. |
-| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération. |
+| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle demandé à Ollama. |
 | `LLM_NUM_CTX` | `8192` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. Le budget de sources en dérive (cf. [llm.md](documentation/llm.md)). |
 | `LLM_MAX_TOKENS` | `4096` | Plafond de génération. Réserve la moitié de la fenêtre : **à mesurer**, cf. [llm.md](documentation/llm.md). |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
@@ -164,7 +187,7 @@ rag-agent-chat/
 │   │   ├── graph_context.py    # Reconstruction de section via NebulaGraph
 │   │   ├── minio_client.py     # URLs présignées des images
 │   │   ├── sessions.py         # Registre durable des sessions et purge du checkpointer
-│   │   ├── llm.py              # Client Ollama (génération streaming)
+│   │   ├── llm.py              # Client LLM (génération streaming, deux dialectes)
 │   │   └── settings.py         # Configuration pydantic-settings
 │   ├── api/                    # Backend FastAPI (main.py, schemas.py)
 │   └── frontend/               # UI Streamlit (app.py)
@@ -211,7 +234,8 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 
 | Composant | Rôle | Licence |
 |---|---|---|
-| Ollama | Serveur LLM local | MIT |
+| vLLM | Serveur d'inférence | Apache-2.0 |
+| Ollama | Serveur LLM local (repli) | MIT |
 | FastAPI / Uvicorn | API / serveur ASGI | MIT / BSD-3-Clause |
 | Streamlit | Frontend | Apache-2.0 |
 | LangGraph / langchain-core | Boucle agentique | MIT |
