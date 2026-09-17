@@ -1,5 +1,14 @@
 # Architecture de l'agent RAG
 
+> **⚠ LE MOTEUR SERVI EST vLLM DEPUIS LE 17 SEPTEMBRE 2026.** Ce document
+> nomme encore Ollama à plusieurs endroits — le réglage `LLM_ENGINE` permet les
+> deux, et le site canonique de ce qui est réellement servi est
+> `documentation/moteur_llm.md`, qui se relit par `GET /health`. Les mentions
+> d'Ollama restant ci-dessous décrivent soit l'option, soit un état antérieur ;
+> elles n'ont pas été reprises une par une, et c'est dit plutôt que corrigé à
+> moitié.
+
+
 ## Vue d'ensemble
 
 `rag-agent-chat` est une application de question-réponse documentaire basée sur un agent LangGraph avec interruption humaine (*human-in-the-loop*). Il consomme en lecture seule les données produites par `rag-ingestion-pipeline` (ChromaDB, NebulaGraph, MinIO) et expose une API FastAPI ainsi qu'une interface Streamlit.
@@ -57,7 +66,7 @@
           └────┬──────────────────┘  d'éléments, sections voisines, légendes,
                │                     texte intégral relu dans l'index
           ┌────▼─────┐
-          │ generate │  Ollama, num_ctx explicite, sources bornées, streaming
+          │ generate │  Moteur courant (vLLM ou Ollama), sources bornées, flux
           └────┬─────┘
                │
           ┌────▼───────────┐
@@ -70,6 +79,91 @@
            │ True (≤ 3x)      │ False
            └──▶ retrieve      └──▶ END
 ```
+
+### Parcours d'une question, et la mémoire entre deux questions
+
+Le graphe ci-dessus dit les nœuds ; ces deux diagrammes disent **qui parle à
+qui**, et surtout **où la mémoire conversationnelle entre en jeu** — ce que le
+graphe seul ne montre pas.
+
+#### Première question — aucun historique
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Utilisateur
+    participant F as Frontend
+    participant API as API /answer
+    participant G as Graphe LangGraph
+    participant V as Moteur LLM
+    participant C as ChromaDB + BM25
+    participant N as NebulaGraph
+    U->>F: pose la question
+    F->>API: POST {question, chat_history: [] }
+    API->>G: invoke
+    Note over G: rewrite — historique VIDE :<br/>ne réécrit pas, N'APPELLE PAS le LLM
+    G->>V: traduction de la question
+    V-->>G: version bilingue
+    G->>C: recherche dense + lexicale BM25, fusion RRF
+    C-->>G: passages candidats
+    Note over G: rerank cross-encoder → top-K<br/>puis auto-sélection des documents
+    G->>N: fenêtre parent/enfant autour des ancres
+    N-->>G: sections reconstruites
+    G->>V: prompt + outil search_vectors (flux)
+    V-->>G: jetons, et parfois un appel d'outil
+    Note over G,C: si le modèle demande une recherche de plus :<br/>retour à retrieve, PLAFOND MAX_SEARCH_ITERATIONS
+    G-->>API: réponse + citations [src:ID]
+    API-->>F: réponse + sources
+    Note over F: le frontend AJOUTE la question<br/>et la réponse à SON historique
+    F-->>U: affiche
+```
+
+#### Deuxième question — c'est ici que la mémoire agit
+
+« Et pour les systèmes à risque limité ? » — une question qui ne veut rien dire
+seule.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as Utilisateur
+    participant F as Frontend
+    participant API as API /answer
+    participant G as Graphe LangGraph
+    participant V as Moteur LLM
+    participant C as ChromaDB + BM25
+    U->>F: pose la question de suivi
+    Note over F: c'est LE CLIENT qui détient l'historique
+    F->>API: POST {question, chat_history: derniers messages}
+    Note over API: tronque à MAX_HISTORY_MESSAGES
+    API->>G: invoke + historique
+    rect rgb(255,237,213)
+    Note over G,V: MÉMOIRE, USAGE N°1 — rendre la question autonome
+    G->>V: rewrite_question(question, historique)
+    V-->>G: question complète, autoportante
+    end
+    G->>C: la recherche porte sur la question RÉÉCRITE
+    C-->>G: les bons passages
+    rect rgb(255,237,213)
+    Note over G,V: MÉMOIRE, USAGE N°2 — situer la réponse
+    G->>V: système + HISTORIQUE (coupé par TOURS) + sources
+    V-->>G: réponse qui tient compte de l'échange
+    end
+    G-->>API: réponse + citations
+    API-->>F: réponse
+    F-->>U: affiche
+```
+
+#### Où vit la mémoire, et où elle ne vit pas
+
+| | |
+|---|---|
+| **Chez le client** | Le frontend garde l'historique et le renvoie dans chaque requête. **Le serveur est sans état là-dessus** : sans historique reçu, l'agent repart de zéro. |
+| **Deux points d'entrée** | La **réécriture** (sans elle, la recherche chercherait littéralement « et pour les systèmes à risque limité »), puis le **prompt de génération**. |
+| **Bornes** | `MAX_HISTORY_MESSAGES`, appliqué **côté serveur** même si le client en envoie plus. La coupe au budget porte sur des **tours**, pas des messages — sinon une réponse d'assistant survit sans la question qui l'a provoquée, et le gabarit de chat reçoit une alternance cassée (`fit_history`). |
+| **`checkpoints.sqlite` n'est PAS cette mémoire** | Il persiste une session **suspendue** entre `/chat/start` et `/chat/resume`, quand l'utilisateur choisit ses sources à la main. Sur disque pour survivre à un redémarrage. |
+| **`usage.sqlite` non plus** | Journal des interactions, pour la mesure. **Jamais relu** pour répondre. |
+| **Une 3ᵉ mémoire, interne à UNE question** | La boucle agentique : le modèle réclame lui-même une recherche de plus, et le graphe reboucle — plafonné par `MAX_SEARCH_ITERATIONS`. |
 
 ### Deux compilations du même graphe
 
