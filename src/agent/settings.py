@@ -50,7 +50,13 @@ class Settings(BaseSettings):
     # ferait retomber sur Ollama sans un mot, et l'exploitant croirait avoir
     # basculé : c'est la panne muette que tout ce lot existe pour empêcher, à
     # l'endroit même où elle serait la plus facile à laisser passer.
-    llm_engine: Literal["ollama", "vllm"] = Field(default="ollama", alias="LLM_ENGINE")
+    # LE DÉFAUT EST `vllm`, ET C'EST LE MOTEUR RÉELLEMENT SERVI depuis le
+    # 17 septembre 2026. Il valait `ollama` jusque-là : un défaut qui ne décrit
+    # pas ce qui tourne fait partir sans bruit sur un autre serveur que celui
+    # qu'on croit mesurer — le dépôt voisin s'y est fait prendre pendant tout un
+    # tour. `ollama` reste une valeur acceptée : c'est le chemin du retour
+    # arrière, et il ne demande aucune reconstruction.
+    llm_engine: Literal["ollama", "vllm"] = Field(default="vllm", alias="LLM_ENGINE")
     ollama_host: str = Field(default="http://ollama:11434", alias="OLLAMA_HOST")
     ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
     # Le versant vLLM. DEUX RÉGLAGES ET NON UN, parce que les deux noms de
@@ -65,7 +71,7 @@ class Settings(BaseSettings):
     # compose, symétriques de `http://ollama:11434`, et ils ne valent que si le
     # `.env` ne dit rien. Le port 8000 est celui que vLLM écoute DANS son
     # conteneur ; la correspondance vers l'hôte appartient au compose.
-    vllm_host: str = Field(default="http://vllm:8000", alias="VLLM_HOST")
+    vllm_host: str = Field(default="http://vllm-central:8000", alias="VLLM_HOST")
     vllm_model: str = Field(
         default="google/gemma-4-E4B-it-qat-w4a16-ct", alias="VLLM_MODEL"
     )

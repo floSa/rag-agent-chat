@@ -39,9 +39,16 @@ def vllm(monkeypatch):
 # ─── LE DÉFAUT NE BOUGE PAS ───────────────────────────────────────────────────
 
 
-def test_le_moteur_par_defaut_est_ollama() -> None:
-    """Le réglage neuf, lu sans `.env` : c'est le défaut du champ qui est mesuré."""
-    assert Settings(_env_file=None).llm_engine == "ollama"
+def test_le_moteur_par_defaut_est_vllm() -> None:
+    """Le défaut du code décrit ce qui est SERVI, pas un état antérieur.
+
+    Un défaut qui ment ne casse rien ICI — les deux hôtes par défaut sont
+    injoignables sur ce poste, donc sans `.env` l'application échoue au lieu de
+    mesurer faux. Mais le dépôt voisin avait un défaut JOIGNABLE sur l'ancien
+    moteur : sa sonde a répondu normalement, sans erreur ni avertissement, et il
+    a cru mesurer son produit pendant tout un tour.
+    """
+    assert Settings(_env_file=None).llm_engine == "vllm"
 
 
 def test_le_dialecte_courant_est_celui_d_ollama() -> None:
