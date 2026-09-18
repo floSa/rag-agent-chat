@@ -51,6 +51,10 @@ def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     Une scène qui veut un autre dialecte le pose après cette fixture, et rien ne
     change pour elle.
     """
+    # `main` est importé DANS les scènes de ce fichier, pas en tête : la fixture
+    # fait de même plutôt que d'ajouter un import de module au chargement.
+    from src.api import main
+
     monkeypatch.setattr(main.settings, "llm_engine", "ollama")
 
 
