@@ -2707,9 +2707,19 @@ _MOTIF_DE_LA_PARENTHESE = r"\*\((.+?)\)\*"
 # L'antécédent et l'écart. `[\s>]*` ET NON `\s*` : la note est un bloc de
 # citation, donc les retours à la ligne y sont suivis de `> `. Un `\s*` seul ne
 # franchirait pas le chevron, et le garde serait MUET sur la page réelle.
+# `de (plus|moins)`, ET LE SENS EST CAPTURÉ — lot 28. Ce motif ne savait lire
+# qu'une HAUSSE, parce que le compte n'avait jamais baissé. Il a baissé : un lot
+# a retiré le support d'un moteur, et le maillon de tête dit « les **24** de
+# moins ». Le motif ne trouvait alors RIEN, donc l'arithmétique ne mesurait plus
+# rien — le garde se serait tu précisément le jour où le chiffre bouge le plus.
+#
+# C'EST UN ÉLARGISSEMENT DU GARDE, PAS UN RELÂCHEMENT : le sens est CAPTURÉ et
+# l'arithmétique s'y conforme, donc un « de moins » qui ferait monter le total
+# rougit toujours. `TestLaLectureDuMaillonEstAncree` l'éprouve dans les deux
+# sens.
 _MOTIF_DU_MAILLON = (
     r"relev\w* \*\*(\d+)\*\* sur[\s>]*\*\*?(\d+)\*\*? fichiers"
-    r"[^;]*; les \*\*(\d+)\*\* de plus"
+    r"[^;]*; les \*\*(\d+)\*\* de (plus|moins)"
 )
 # La part portée par un fichier NEUF, qui est la seule part COLLECTABLE : un
 # fichier qui existait déjà porte aussi ses tests d'avant, et « N de plus dans
@@ -2756,8 +2766,8 @@ def _maillon_de_tete(texte: str) -> tuple[int, int]:
         "elle a changé de forme et ce garde ne mesurerait plus rien. Plusieurs : "
         "l'arithmétique porterait sur un maillon choisi en silence."
     )
-    antecedent, _fichiers, ecart = trouves[0]
-    return int(antecedent), int(ecart)
+    antecedent, _fichiers, ecart, sens = trouves[0]
+    return int(antecedent), int(ecart) if sens == "plus" else -int(ecart)
 
 
 def test_l_arithmetique_interne_de_la_note_est_juste() -> None:
@@ -2771,9 +2781,10 @@ def test_l_arithmetique_interne_de_la_note_est_juste() -> None:
     texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
     antecedent, ecart = _maillon_de_tete(texte)
     total, _ = _comptes_collectes()
+    sens = "de plus" if ecart >= 0 else "de moins"
     assert antecedent + ecart == total, (
         f"{_PAGE_DES_TESTS} annonce {antecedent} tests au relevé précédent et "
-        f"{ecart} « de plus », soit {antecedent + ecart}, quand `pytest` en "
+        f"{abs(ecart)} « {sens} », soit {antecedent + ecart}, quand `pytest` en "
         f"collecte {total}. Écris le chiffre mesuré : c'est un décompte, pas "
         "une décision."
     )
@@ -2897,6 +2908,38 @@ class TestLaLectureDuMaillonEstAncree:
         """
         assert _maillon_de_tete(self._PAGE) == (80, 20)
 
+    _PAGE_EN_BAISSE = (
+        "> `mesuré` le 2 janvier : **60** tests sur **9** fichiers,\n"
+        "> et les comptes concordent. *(LOT-X relevait **80** sur\n"
+        "> **9** fichiers à 01:00 UTC ; les **20** de moins sont le retrait\n"
+        "> d'un moteur.)*\n"
+    )
+
+    def test_le_motif_lit_aussi_une_baisse(self) -> None:
+        """LE SENS AJOUTÉ AU LOT 28, ET IL EST ÉPROUVÉ PLUTÔT QU'AFFIRMÉ.
+
+        Le motif ne savait lire qu'une hausse, parce que le compte n'avait jamais
+        baissé. Il a baissé de 24 le 18 septembre 2026. Sans cette lecture, le
+        garde de l'arithmétique ne trouvait plus son maillon et se taisait —
+        précisément le jour où le chiffre bouge le plus.
+        """
+        assert _maillon_de_tete(self._PAGE_EN_BAISSE) == (80, -20)
+
+    def test_le_sens_du_maillon_n_est_pas_ignore(self) -> None:
+        """LE CONTRÔLE DISCRIMINANT DE L'ÉLARGISSEMENT.
+
+        Sans lui, lire « de moins » comme « de plus » passerait : les deux pages
+        ci-dessous portent le même antécédent et le même écart, et seul le SENS
+        les sépare. Un motif qui ne capturerait pas le sens rendrait la même
+        chose pour les deux, et l'arithmétique accepterait alors un total faux
+        de deux fois l'écart.
+        """
+        hausse = _maillon_de_tete(self._PAGE)
+        baisse = _maillon_de_tete(self._PAGE_EN_BAISSE)
+        assert hausse[1] == 20 and baisse[1] == -20, (
+            f"le sens du maillon n'est pas lu : hausse={hausse}, baisse={baisse}"
+        )
+
     def test_seule_la_parenthese_de_tete_est_lue(self) -> None:
         """LA SECONDE DIRECTION : la chaîne historique ne doit pas être lue.
 
@@ -2952,7 +2995,12 @@ class TestLaLectureDuMaillonEstAncree:
         """
         texte = (_RACINE / _PAGE_DES_TESTS).read_text(encoding="utf-8")
         antecedent, ecart = _maillon_de_tete(texte)
-        assert antecedent > 0 and ecart > 0
+        # `ecart != 0` ET NON `ecart > 0` — lot 28. Un écart NUL voudrait dire que
+        # le maillon n'a pas été lu, ou qu'il ne relie rien ; un écart NÉGATIF est
+        # un fait, arrivé le 18 septembre 2026 quand le retrait d'un moteur a fait
+        # baisser le compte. Exiger le signe positif ferait rougir ce témoin sur
+        # une page parfaitement juste.
+        assert antecedent > 0 and ecart != 0
         tete = _parenthese_de_tete(texte)
         if "fichier neuf" in tete:
             parts = re.findall(_MOTIF_DU_FICHIER_NEUF, tete)

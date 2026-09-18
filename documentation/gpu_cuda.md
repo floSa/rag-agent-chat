@@ -264,8 +264,8 @@ df -h /var/lib/docker
 ## 7. Ce que le GPU rapporte ici — MESURÉ le 11 septembre 2026
 
 **La question n'était pas « peut-on mettre le GPU » mais « est-ce que ça vaut le
-coup ».** Le GPU de ce poste n'est pas libre : Ollama y sert les LLM du projet et
-porte l'essentiel du temps d'une réponse, donc mettre torch sur la même carte
+coup ».** Le GPU de ce poste n'est pas libre : le serveur LLM y sert les modèles
+du projet et porte l'essentiel du temps d'une réponse, donc mettre torch sur la même carte
 optimise une petite part du temps en risquant d'en ralentir une grande.
 
 ### 7.1 Ce qu'on craignait
@@ -275,8 +275,8 @@ Partition d'une réponse **AVANT**, `citée` de
 
 | étage | p50 | où ça tournait |
 |---|---|---|
-| `generation` | **4 616 ms** (67 %) | GPU — Ollama |
-| `translation` | 1 196 ms (17 %) | GPU — Ollama |
+| `generation` | **4 616 ms** (67 %) | GPU — le serveur LLM |
+| `translation` | 1 196 ms (17 %) | GPU — le serveur LLM |
 | `rerank` | 622 ms (9 %) | CPU — le cross-encoder |
 | `dense` | 115 ms (1,7 %) | CPU — l'embedder |
 | **total** | **6 846 ms** | |
@@ -340,7 +340,7 @@ place de cet agent de la mémoire libre observée pendant qu'il est au repos.*
 **Et le GPU est surtout beaucoup plus RÉGULIER.** Les p95 sont l'information la
 plus utile ici : `rerank_ms` passe de 2 943 à 68 ms. Sur CPU, le cross-encoder est
 en concurrence avec tout ce qui tourne sur la machine ; sur la carte, il ne l'est
-qu'avec Ollama. Pour un service qui doit répondre à plusieurs utilisateurs, c'est
+qu'avec le serveur LLM. Pour un service qui doit répondre à plusieurs utilisateurs, c'est
 la queue de distribution qui décide du ressenti, pas la médiane.
 
 ### 7.3 Le rappel ne bouge pas — à une question près, et elle est écrite
@@ -461,7 +461,7 @@ curl -s http://localhost:8011/health | python3 -c "import json,sys; print(json.l
 
 ## 10bis. Ce que cet agent PREND sur la carte, et ce qui le plafonne
 
-**À lire si vous partagez cette carte avec autre chose** — vLLM, Ollama, un autre
+**À lire si vous partagez cette carte avec autre chose** — vLLM, un autre
 agent. `--gpu-memory-utilization` est une option de **lancement** de vLLM : le
 chiffre doit être bon **avant**.
 
@@ -567,7 +567,7 @@ disent pas qu'on s'en sert. Trois preuves, et il en faut plus d'une :
    ```bash
    nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
    ```
-   Un **second** processus doit y apparaître à côté de celui d'Ollama.
+   Un **second** processus doit y apparaître à côté de celui du serveur LLM.
 
 Un garde présent mais jamais atteint est la forme dominante des défauts trouvés
 sur ce chantier — neuf fois. Ne vous contentez pas de la première preuve.

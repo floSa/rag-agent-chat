@@ -1,12 +1,13 @@
-# Ollama — service central
+# Le moteur LLM — service central
 
-Ce projet **n'embarque aucune instance Ollama**. Les modèles sont servis par le
-projet [`llm-service`](https://github.com/floSa/llm-service), qui expose le
-conteneur `ollama-central` sur le réseau Docker `llm-net`.
+Ce projet **n'embarque aucun serveur d'inférence**. Les modèles sont servis par
+le projet [`llm-service`](https://github.com/floSa/llm-service), qui expose le
+conteneur `vllm-central` sur le réseau Docker `llm-net`, **servi depuis le
+17 septembre 2026**.
 
 ## Pourquoi
 
-Une instance Ollama vivait dans le `docker-compose.yml` de ce projet, avec son
+Un serveur d'inférence vivait dans le `docker-compose.yml` de ce projet, avec son
 propre volume de modèles. Elle faisait doublon avec le service central : un
 `docker compose up -d` la recréait et retéléchargeait plusieurs gigaoctets d'un
 modèle déjà servi à côté. Un seul serveur d'inférence pour tous les projets
@@ -16,17 +17,23 @@ modèle déjà servi à côté. Un seul serveur d'inférence pour tous les proje
 
 | Variable | Valeur | Rôle |
 |---|---|---|
-| `OLLAMA_HOST` | `http://ollama-central:11434` | Endpoint du service central |
-| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle de génération |
-| `LLM_NUM_CTX` | `8192` | Fenêtre de contexte demandée par requête |
-| `LLM_MAX_TOKENS` | `4096` | Plafond de génération (`num_predict`) |
+| `LLM_HOST` | `http://vllm-central:8000` | Endpoint du service central |
+| `LLM_MODEL` | `google/gemma-4-E4B-it-qat-w4a16-ct` | Modèle de génération |
+| `LLM_NUM_CTX` | `8192` | Budget de prompt que le **client** s'autorise |
+| `LLM_MAX_TOKENS` | `4096` | Plafond de génération |
 | `LLM_TEMPERATURE` | `0.1` | Température |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4, coûteux en CPU |
 | `HISTORY_WINDOW_SHARE` | `0.25` | Part de la fenêtre de prompt laissée à l'historique — **forfait**, cf. plus bas |
 
-`LLM_NUM_CTX` est passé explicitement dans chaque requête. Sans lui, la fenêtre
-dépendrait de l'`OLLAMA_CONTEXT_LENGTH` du serveur, et le même prompt
-produirait deux comportements selon le serveur interrogé.
+`LLM_NUM_CTX` **n'est pas envoyé au serveur** : le dialecte OpenAI n'a pas de
+champ de fenêtre, et celle de `vllm-central` est fixée à son lancement
+(`--max-model-len 32768`). Il borne ce que le client s'autorise à envoyer, et
+`/health` publie en regard la fenêtre réellement servie (`fenetre_servie`) — de
+sorte qu'un écart entre les deux se voie au lieu de se deviner.
+
+**Les deux premières clés ont remplacé cinq autres au lot 28**, et un `.env`
+antérieur doit être migré : la marche à suivre exacte est dans
+[moteur_llm.md](moteur_llm.md), section « la migration du `.env` ».
 
 Ce tableau annonçait `32768`, alors que `.env.example` et `settings.py` valent
 `8192` — un facteur quatre sur la capacité annoncée, dont le budget de sources
@@ -82,7 +89,7 @@ désormais mesuré source par source, par décomposition
 (`rendu([source]) − rendu([]) − len(markdown)`) : le gabarit n'a aucune dépendance
 entre ses sources, donc la décomposition est exacte — vérifié sur douze sources.
 
-`tools` n'est pas un canal séparé pour le modèle : Ollama le rend **dans** le
+`tools` n'est pas un canal séparé pour le modèle : le serveur le rend **dans** le
 prompt via le gabarit de chat. Ne pas le compter laissait le même trou que le
 forfait, à plus petite échelle — 417 caractères, soit ~119 tokens.
 
@@ -95,8 +102,8 @@ est mesuré à l'exécution :
 | Balises de tour du gabarit de chat, par message | 34 | Dépend du modèle. C'est le décompte du gabarit Gemma — `<start_of_turn>user\n` 20 caractères, `<end_of_turn>\n` 14 — appliqué à tous |
 | Part de la fenêtre laissée à l'historique (`HISTORY_WINDOW_SHARE`) | 25 % | Demande une mesure de la qualité multi-tour, qui n'existe pas |
 | Part minimale d'une source tronquée (`TRUNCATION_FLOOR_SHARE`) | 1/3 | La valeur elle-même : le prix du réglage est **continu**, aucun palier ne la désigne. La mesure établit que le plancher doit exister (sans lui, un fragment tombe à 1 % de sa source) et que le réglage veut dire ce qu'il dit (la plus petite part retenue le suit de près) ; elle ne tranche pas entre 0,25 et 0,40. Ce qui trancherait est une mesure de la QUALITÉ des réponses, qui demande une campagne |
-| Marge sous `num_ctx` au-delà de laquelle on suspecte une troncature d'Ollama | 8 tokens | Dépend du gabarit de chat, qui ne retombe pas pile sur la borne. Se resserrerait sur des `prompt_eval_count` réels |
-| Fraction de l'estimation sous laquelle une mesure est imputée au cache KV | 0,6 | Choisi assez bas pour ne pas écarter une simple erreur d'estimation, assez haut pour attraper un préfixe caché. Se réglerait sur la distribution observée |
+| Marge sous `num_ctx` au-delà de laquelle on avertit que le prompt affleure le budget | 8 tokens | Dépend du gabarit de chat, qui ne retombe pas pile sur la borne. Se resserrerait sur des `prompt_eval_count` réels |
+| Fraction de l'estimation sous laquelle une mesure est imputée à un cache de préfixe | 0,6 | Choisi assez bas pour ne pas écarter une simple erreur d'estimation, assez haut pour attraper un préfixe caché. Se réglerait sur la distribution observée |
 
 Le budget précédent valait 12 544 caractères, **constant** : un forfait de 512
 tokens tenait lieu de provision pour « le prompt système, le gabarit et
@@ -106,7 +113,7 @@ n'avait aucune borne : mesuré sur six messages de 3 000 caractères et deux
 sources de 12 000, le prompt faisait **31 380 caractères pour une fenêtre utile
 de 14 336**, soit 2,2 fois la fenêtre.
 
-Ce qui se passait alors est le mode de panne le plus coûteux du projet : Ollama
+Ce qui se passait alors est le mode de panne le plus coûteux du projet : le serveur
 tronque **par le début** du prompt. Il jette donc le message système — « cite
 chaque affirmation », « ne réponds jamais au-delà des sources », « dis-le si tu
 ne trouves pas ». Le garde-fou disparaissait exactement quand la conversation
@@ -128,7 +135,7 @@ côté frontend plutôt que la moins pertinente.
 | Sources | Les moins bien classées | Remplissage **au mieux** : une petite source qui suit une grosse écartée est conservée |
 | La marge de fenêtre restante | Donnée à la **mieux classée des écartées**, tronquée | Elle restait vide : 1 355 caractères de fenêtre inutilisés en moyenne et 7 970 au maximum sur 88 configurations, ramenés à 408 en moyenne — 70 % de la marge reprise, 38 configurations gagnées et aucune perdue. Une seule source la reçoit — il n'y a qu'une marge. Si elle est refusée par le plancher, la suivante est essayée : plus petite, elle a plus de chances d'atteindre sa part |
 | Fragment sous `TRUNCATION_FLOOR_SHARE` | La source est écartée entière | Le modèle en verrait assez pour la citer, pas assez pour savoir ce qu'elle dit. Un défaut silencieux vaut moins qu'une abstention visible. Sans plancher, la grille descend à **1 %** d'une source |
-| Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt qu'Ollama tronque par le début. Le plancher et l'exigence de marqueur sont **relâchés** dans ce seul cas : il n'y a rien à arbitrer quand il n'y a rien d'autre. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
+| Source unique trop grosse | Tronquée par la **fin**, sur une frontière d'élément, avec une marque dans le markdown | Mieux vaut une source amputée que zéro source — mais pas au prix d'un prompt que le serveur refuserait entier. Le plancher et l'exigence de marqueur sont **relâchés** dans ce seul cas : il n'y a rien à arbitrer quand il n'y a rien d'autre. La coupe recule jusqu'à la fin du dernier `[src:ID]` complet : un fragment sans marqueur n'est pas attribuable alors que le prompt système exige de citer chaque affirmation |
 | Historique | Les **tours** les plus anciens, entiers | C'est le dernier échange qui situe la question. La coupe porte sur des tours et non des messages : couper par message laissait passer une réponse sans la question à laquelle elle répondait, soit un prompt `['system', 'assistant', 'user']` qu'un gabarit strict sur l'alternance refuse |
 | Tour trop gros à lui seul | Écarté, pas tronqué | `node_rewrite` a déjà rendu la question de suivi autonome avant l'encodage : l'historique est du confort, pas un prérequis |
 
@@ -148,8 +155,8 @@ Les bornes d'entrée correspondantes sont dans `src/api/schemas.py` :
 
 ### L'instrumentation : `prompt_eval_count`
 
-Le dernier événement du flux Ollama — celui qui porte `done: true` — contient
-`prompt_eval_count` : le nombre **réel** de tokens du prompt. Personne ne le
+L'événement d'usage du flux — celui qui porte `"choices": []` — contient les
+décomptes du serveur, dont le nombre **réel** de tokens du prompt. Personne ne le
 lisait. Le ratio caractères/token restait une devinette qu'aucune mesure ne
 corrigeait, et un prompt qui dépassait `num_ctx` ne laissait **aucune trace**.
 
@@ -175,22 +182,31 @@ Comment la lire :
   sur la distribution observée en campagne, pas sur une valeur posée au jugé.
 
 Deux `WARNING` encadrent la zone dangereuse. Ils ne portent PAS sur
-`prompt_eval_count > num_ctx` : Ollama tronque le prompt **avant** de l'évaluer,
-donc ce décompte est majoré par `num_ctx` par construction, et une première
-version guettait ainsi une condition inatteignable — le détecteur ne pouvait pas
-voir ce qu'il cherchait.
+`prompt_eval_count > num_ctx` : l'ancien moteur tronquait le prompt **avant** de
+l'évaluer, donc ce décompte était majoré par `num_ctx` par construction, et une
+première version guettait ainsi une condition inatteignable — le détecteur ne
+pouvait pas voir ce qu'il cherchait.
 
 | Zone | Signal |
 |---|---|
-| `prompt_eval_count` à moins de 8 tokens de `num_ctx` | Troncature très probable, **par le début** : le message système, donc les règles de citation et d'abstention, a pu ne pas encadrer la réponse. C'est la seule trace observable de l'événement |
+| `prompt_eval_count` à moins de 8 tokens de `num_ctx` | Le prompt **affleure le budget que le client se donne**. Le serveur ne tronque pas — il refuse au-delà de SA fenêtre, en HTTP 400 (`mesuré` le 18 septembre 2026 à 12:35 UTC) —, mais une source de plus et la borne client coupe. Le signal a changé de sens au lot 28 : il annonce, il ne constate plus un dommage subi |
 | `prompt_eval_count` au-delà de la fenêtre de prompt (`num_ctx − num_predict`) | La génération n'a plus ses `num_predict` tokens et sera rognée sans le dire. Le budget a sous-estimé le prompt |
 
-### Le cache KV fausse la mesure
+### Un cache de préfixe peut fausser la mesure — mais pas sur ce poste
 
-Ollama ne réévalue que le préfixe **absent de son cache KV**. Au deuxième tour
-d'une conversation, `prompt_eval_count` ne mesure donc plus le prompt mais son
-suffixe non caché — il peut valoir quelques dizaines de tokens pour un prompt de
-plusieurs milliers.
+Un serveur qui ne réévaluerait que le préfixe **absent de son cache** rapporterait,
+au deuxième tour d'une conversation, un décompte qui ne mesure plus le prompt mais
+son suffixe non caché — quelques dizaines de tokens pour un prompt de plusieurs
+milliers.
+
+**`vllm-central` ne fait pas cela**, et c'est mesuré plutôt que supposé : le
+18 septembre 2026 à 12:42 UTC, deux requêtes identiques à la suite rendent
+`prompt_tokens = 616` toutes les deux. Il a bien un cache de préfixe, mais il
+rapporte le prompt **entier**. La garde décrite ci-dessous est donc **défensive
+et non exercée par ce poste** : elle est gardée parce qu'elle protège la
+calibration contre tout serveur qui rapporterait un compte amputé, et parce que
+retirer une protection qu'on vient de mesurer endormie ne se justifie par aucune
+mesure. Borne écrite, non fermée.
 
 Une telle mesure est écartée de la calibration : en deçà de 60 % de l'estimation,
 le log dit que la valeur est ignorée et pourquoi. **Ne recalibrez jamais
@@ -211,7 +227,7 @@ gardait trace. Depuis le lot 4, `/answer` publie les décomptes réels sous
 
 | Champ | Ce qu'il porte |
 |---|---|
-| `prompt_eval_count` | Décompte réel du prompt, tel qu'Ollama l'a rendu |
+| `prompt_eval_count` | Décompte réel du prompt, tel que le serveur l'a rendu |
 | `prompt_tokens_estimated` | Notre estimation du même prompt, avec le ratio qui a décidé de la coupe |
 | `prompt_tokens_reliable` | Faux = échantillon pollué par le cache KV, à écarter de la calibration |
 | `eval_count` | Tokens **générés** |
@@ -230,7 +246,7 @@ jugé.
 ### Remesurer la marge de fenêtre
 
 Sans stack : la grille est un calcul pur sur `fit_contexts`, elle ne demande ni
-Ollama ni les stores. Elle mesure l'**avant** et l'**après** dans la même
+le serveur LLM ni les stores. Elle mesure l'**avant** et l'**après** dans la même
 exécution — l'algorithme d'avant y est réimplémenté, sinon les deux colonnes
 sortent de deux montages différents et ne se comparent pas.
 
@@ -353,7 +369,7 @@ présomption, pas un fait. C'est exactement ce que le protocole ci-dessous
 mesure.
 
 **La valeur n'a pas été ajustée, faute de pouvoir la mesurer** : ni
-`ollama-central` ni les stores n'étaient joignables. Un chiffre inventé est pire
+`vllm-central` ni les stores n'étaient joignables. Un chiffre inventé est pire
 que pas de chiffre.
 
 Les campagnes passées ne permettent pas de reconstituer la distribution après
@@ -370,7 +386,7 @@ campagne l'enregistre, et le protocole n'est plus un script à part : c'est
 
 `eval_count` est le décompte du **serveur**, pas une estimation en caractères
 divisés par 3,5 : c'est le seul qui puisse dire si la génération a buté sur son
-plafond, puisque Ollama s'arrête pile à `num_predict` quand il l'atteint.
+plafond, puisque le serveur s'arrête pile au plafond demandé quand il l'atteint.
 
 Un plafond atteint tronque la réponse, ce qui est un défaut visible ; un plafond
 trop haut ne coûte « que » du budget de sources. Le `WARNING` sur
@@ -397,6 +413,6 @@ make models
 
 | Symptôme | Cause probable |
 |---|---|
-| `/health` renvoie `ollama: false` | `llm-service` n'est pas démarré, ou le réseau `llm-net` n'existe pas |
+| `/health` renvoie `services.llm: false` | `llm-service` n'est pas démarré, ou le réseau `llm-net` n'existe pas |
 | `network llm-net not found` | Lancer `make up` dans `llm-service` d'abord |
-| Réponse vide ou tronquée | `LLM_NUM_CTX` supérieur à l'`OLLAMA_CONTEXT_LENGTH` du serveur central |
+| HTTP 400 « maximum context length » | `LLM_NUM_CTX` supérieur à la fenêtre que le serveur central sert — `/health` la publie sous `moteur_llm.fenetre_servie` |

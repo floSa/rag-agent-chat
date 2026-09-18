@@ -17,14 +17,15 @@ l'évaluation.
 | frontend  | Dockerfile.frontend | 8501         | 8506      | UI Streamlit                         |
 
 **Aucun serveur d'inférence n'est embarqué.** Les LLM viennent du conteneur
-`ollama-central` du projet `llm-service`. Une instance Ollama vivait ici : elle
-faisait doublon et retéléchargeait plusieurs gigaoctets d'un modèle déjà servi.
+`vllm-central` du projet `llm-service`, **servi depuis le 17 septembre 2026**.
+Un serveur d'inférence vivait ici : il faisait doublon et retéléchargeait
+plusieurs gigaoctets d'un modèle déjà servi.
 
 Trois réseaux :
 
 - `rag_network` (externe, créé par `rag-ingestion-pipeline`) : accès aux stores
   `chromadb:8000`, `graphd:9669`, `minio:9000` ;
-- `llm-net` (externe, créé par `llm-service`) : accès à `ollama-central:11434` ;
+- `llm-net` (externe, créé par `llm-service`) : accès à `vllm-central:8000` ;
 - `internal` (bridge) : frontend ↔ agent-api.
 
 Volumes : `rag_hf_cache` (modèles HuggingFace — embedding et cross-encoder,
@@ -75,9 +76,9 @@ mesurer le système.
    de l'ancre, fin de la section précédente et début de la suivante, légendes
    rattachées aux illustrations via `DESCRIBES`, texte intégral relu dans
    l'index quand celui du graphe frôle sa troncature.
-6. **Génération** (`node_generate`) : Ollama `/api/chat`, `num_ctx` explicite,
-   historique puis sources bornés au budget de fenêtre avec un log, prompt
-   estimé confronté au `prompt_eval_count` réel, tokens streamés en SSE.
+6. **Génération** (`node_generate`) : `POST /v1/chat/completions` par le site
+   unique `dialecte_llm`, historique puis sources bornés au budget de fenêtre
+   avec un log, prompt estimé confronté au décompte réel, tokens streamés en SSE.
 7. **Post-processing** (`node_postprocess`) : citations `[src:ID]` résolues vers
    document, ouvrage, page et section ; images `[img:ID]` servies par `/media`.
    La résolution est restreinte à ce qui a été **réellement soumis** au modèle,
@@ -252,16 +253,16 @@ cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
   Mesuré : un cross-encoder anglais rendait une étendue de scores de 0,0 % sur
   une question française — un classement au hasard, qui défaisait le travail de
   l'embedder multilingue.
-- **`num_ctx` explicite** dans chaque requête : sans lui la fenêtre dépend du
-  serveur interrogé, et le même prompt produit deux comportements. Les sources
-  qui dépassent le budget sont écartées **ici**, avec un log ; Ollama, lui,
-  tronque par le début, donc le message système puis les sources les mieux
-  classées.
+- **`LLM_NUM_CTX` borne le CLIENT**, et n'est plus envoyé au serveur : le
+  dialecte OpenAI n'a pas de champ de fenêtre, celle du serveur est fixée à son
+  lancement. Les sources qui dépassent le budget sont écartées **ici**, avec un
+  log, par la FIN et sur une frontière d'élément ; le serveur, lui, refuse la
+  requête entière au-delà de SA fenêtre (HTTP 400, mesuré le 18 septembre 2026).
 - **Le budget se calcule sur ce qui est réellement dans le prompt** — système,
   gabarit, historique, sources — et non sur les sources seules. Un forfait
   couvrait le reste ; il ignorait l'historique, et le prompt dépassait la fenêtre
   dès le troisième tour. Le prompt estimé est confronté au `prompt_eval_count`
-  d'Ollama à chaque génération : une devinette instrumentée vaut mieux qu'une
+  du serveur à chaque génération : une devinette instrumentée vaut mieux qu'une
   devinette.
 - **Tool-calling natif, repli par regex.** `search_vectors` est déclaré comme
   outil ; le repérage de l'appel dans la prose reste actif pour les modèles sans
@@ -271,9 +272,11 @@ cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
   reconnaît de l'autre. Les formes reconnues sont celles que les moteurs
   écrivent réellement, mesurées le 15 septembre 2026 ; voir
   `documentation/agent_architecture.md`, « Boucle agentique ».
-- **API native Ollama + thinking désactivé** (`LLM_THINKING=false`) : sans ce
-  flag, la réflexion peut consommer tout le budget `num_predict` avant le
-  premier token. L'endpoint OpenAI-compatible ne permet pas de piloter `think`.
+- **Raisonnement désactivé** (`LLM_THINKING=false`) : sans ce réglage, la
+  réflexion peut consommer tout le budget de génération avant le premier token.
+  Il passe par `chat_template_kwargs`, **par requête et jamais côté serveur** —
+  posé au lancement, il contourne silencieusement la sortie structurée des deux
+  autres équipes qui partagent l'instance (bogue vLLM #39130).
 - **Proxy `/media`** : les URLs MinIO internes ne sont pas résolvables par le
   navigateur ; l'API sert les objets, chemin validé contre le path traversal.
 - **Sessions persistées sur disque** (SQLite) : en mémoire, une session en
@@ -308,8 +311,9 @@ cohérence tombe si sa liste d'étages s'écarte de celle de `chronometrie`.
   CPU-only dans l'image : pas de libs CUDA embarquées » — c'était vrai, et le
   motif écrit était la taille de l'image (2,92 Go, contre 10,5 Go aujourd'hui).
   La campagne du 11 septembre a tranché : `rerank_ms` p50 498 → 58, `total_ms`
-  p50 7 298 → 6 481 (−11,2 %), et la contention avec Ollama — qui partage la
-  carte et porte 67 % du temps — chiffrée à **+40 ms**, contre 817 gagnés.
+  p50 7 298 → 6 481 (−11,2 %), et la contention avec le serveur LLM — qui
+  partage la carte et porte 67 % du temps — chiffrée à **+40 ms**, contre 817
+  gagnés.
   **Trois conditions indépendantes** décident qu'un calcul part réellement sur
   la carte : le build de torch dans l'image, la réservation du GPU au conteneur,
   et le réglage `TORCH_DEVICE`. Chacune suffit à tout ramener sur le CPU **sans

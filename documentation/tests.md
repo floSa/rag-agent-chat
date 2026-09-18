@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1089 tests, aucune dépendance
+## Unitaire — 1067 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,29 +20,43 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 16 septembre 2026 à 20:37 UTC par REPAR-26 : **1089** tests sur **51** fichiers,
-> et les deux comptes de la recette — la somme par fichier et le
-> total que `pytest` annonce — concordent. *(LOT-25 relevait **1035** sur
-> **50** fichiers à 15:32 UTC ; les **54** de plus se répartissent en **38**
-> dans le fichier neuf `test_champs_du_dialecte.py`, **14** dans
-> `test_coherence_depot.py` et **2** dans `test_jeux_de_questions.py`.
-> Les **38** tiennent LA CAUSE des sept non bloquantes de l'audit du lot 25, et
-> non leurs symptômes : une TABLE qui dit, pour chaque champ de
-> `MoteurLlmHealth` et pour chacun des deux dialectes, la valeur que le relevé
-> doit porter — exhaustive contre le schéma, paritaire entre les deux colonnes,
-> et refusant qu'un champ porte la même valeur des deux côtés, ce qui est le
-> garde anti-« mesuré sous le défaut ». Une seule scène la joue, paramétrée sur
-> (champ × dialecte) : **il n'y a rien à écrire deux fois**, et un champ neuf
-> non classé fait rougir. Les **14** ferment la correspondance
-> `Settings`/`.env.example` dans les deux sens, l'arithmétique interne de cette
-> note même, et le chemin de génération hors du site unique. Les **2** viennent
-> d'un garde de la graine réécrit : il lisait l'arbre syntaxique et rougissait
-> sur du code sain dès que le poste est passé par le site unique ; il mesure
-> désormais la charge RÉELLEMENT postée, sous les deux dialectes.)*
+> `mesuré` le 18 septembre 2026 à 13:34 UTC par LOT-28 : **1067** tests sur **51** fichiers,
+> et les deux comptes de la recette — la somme par fichier et le total
+> que `pytest` annonce — concordent.
+>
+> **CE COMPTE BAISSE, ET C'EST LA PREMIÈRE FOIS.** *(REPAR-26 relevait **1089** sur
+> **51** fichiers le 16 septembre à 20:37 UTC ; les **22** de moins sont le retrait
+> du support d'un moteur, et il n'y a pas d'autre cause — le témoin a été
+> recollecté sur `main` dans un arbre à part pour l'établir. Le solde est NET :
+> vingt-quatre scènes partent de cinq fichiers — **12** de
+> `test_champs_du_dialecte.py`, **6** de `test_lecteur_de_flux.py`, **4** de
+> `test_dialecte_llm.py`, **1** de `test_jeux_de_questions.py`, **1** de
+> `test_moteur_llm.py` — et deux arrivent dans `test_coherence_depot.py`, qui
+> éprouvent la lecture d'une BAISSE par le garde de cette note même : il ne savait
+> lire qu'une hausse, et il se serait tu le jour où le chiffre bouge le plus.)*
+>
+> **CE QUI PART N'EST PAS CE QUI EST SUPPRIMÉ** : le solde est net. Trente scènes
+> sont arrivées, dont trois **contrôles négatifs** du retrait — la forme de
+> l'ancien moteur ne cède plus de texte, n'accumule plus d'appel d'outil, et aucun
+> réglage ne nomme plus un moteur —, sans lesquelles sa lecture pourrait revenir
+> sans que rien ne le dise. Ce qui part vraiment : les scènes qui figeaient la
+> charge de l'autre dialecte « à l'octet près », celles qui lisaient ses captures
+> NDJSON, celle du `Literal` d'un réglage qui n'existe plus, et le paramétrage
+> « × deux dialectes », qui n'a plus qu'une valeur.
+>
+> **DEUX GARDES SONT TRANSPOSÉS PLUTÔT QUE RETIRÉS**, et c'est ce qui évite que ce
+> lot désarme le suivant. La TABLE de `test_champs_du_dialecte.py` tenait deux
+> colonnes dont le garde central exigeait qu'elles **diffèrent** ; la colonne
+> disparaît, la cause reste, et chaque valeur attendue doit désormais différer du
+> **défaut du code**. Et les scènes qui exerçaient leur discrimination en assertant
+> « les deux versants d'un coup » **posent** maintenant un hôte et un modèle
+> d'essai, distincts des défauts : une URL ou un nom écrit en dur y rougit
+> toujours.
+>
 > *(REPAR-23 relevait **1005** sur
-> **49** fichiers à 12:46 UTC ; les **30** de plus sont le fichier neuf
-> `test_dialecte_llm.py`, qui tient l'interrupteur `LLM_ENGINE` — la charge
-> d'Ollama inchangée à l'octet, la bascule, le retour arrière, les deux lectures
+> **49** fichiers à 12:46 UTC ; les **30** de plus étaient le fichier
+> `test_dialecte_llm.py`, qui tenait alors l'interrupteur du moteur — la charge
+> inchangée à l'octet, la bascule, le retour arrière, les deux lectures
 > non-flux, et les trois postes d'appel sur leur URL. **QUATRE de ces 30 scènes
 > sont nées d'une mutation SURVIVANTE** : l'URL du poste de FLUX n'était exercée
 > par rien — alors que c'est elle qui sert chaque réponse de l'agent —, et DEUX

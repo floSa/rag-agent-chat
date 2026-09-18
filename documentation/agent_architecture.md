@@ -1,14 +1,5 @@
 # Architecture de l'agent RAG
 
-> **⚠ LE MOTEUR SERVI EST vLLM DEPUIS LE 17 SEPTEMBRE 2026.** Ce document
-> nomme encore Ollama à plusieurs endroits — le réglage `LLM_ENGINE` permet les
-> deux, et le site canonique de ce qui est réellement servi est
-> `documentation/moteur_llm.md`, qui se relit par `GET /health`. Les mentions
-> d'Ollama restant ci-dessous décrivent soit l'option, soit un état antérieur ;
-> elles n'ont pas été reprises une par une, et c'est dit plutôt que corrigé à
-> moitié.
-
-
 ## Vue d'ensemble
 
 `rag-agent-chat` est une application de question-réponse documentaire basée sur un agent LangGraph avec interruption humaine (*human-in-the-loop*). Il consomme en lecture seule les données produites par `rag-ingestion-pipeline` (ChromaDB, NebulaGraph, MinIO) et expose une API FastAPI ainsi qu'une interface Streamlit.
@@ -26,7 +17,7 @@
 ┌────────────────────────────▼────────────────────────────────────┐
 │                       rag-agent-chat                            │
 │                                                                 │
-│  Streamlit (8501) ◀──▶ FastAPI/LangGraph (8001) ◀──▶ Ollama   │
+│  Streamlit (8501) ◀──▶ FastAPI/LangGraph (8001) ◀──▶ vLLM     │
 │                                │                                │
 │              ChromaDB │ NebulaGraph │ MinIO (lecture seule)    │
 └─────────────────────────────────────────────────────────────────┘
@@ -36,7 +27,7 @@
 - ChromaDB `:8080` — recherche vectorielle (lecture)
 - NebulaGraph `:9669` — reconstruction contextuelle (lecture)
 - MinIO `:9000` — URLs présignées pour images/tableaux (lecture)
-- Ollama `:11434` — inférence LLM (appels locaux)
+- vLLM `:8000` — inférence LLM (service central, réseau `llm-net`)
 
 ---
 
@@ -66,7 +57,7 @@
           └────┬──────────────────┘  d'éléments, sections voisines, légendes,
                │                     texte intégral relu dans l'index
           ┌────▼─────┐
-          │ generate │  Moteur courant (vLLM ou Ollama), sources bornées, flux
+          │ generate │  vLLM, sources bornées, flux
           └────┬─────┘
                │
           ┌────▼───────────┐
@@ -208,7 +199,7 @@ par `GET /health` sous `sessions`.
 |---------------------|-----------------------------------------------------------------|
 | `graph.py`          | Nœuds, arêtes, conditions, compilation du graphe, résolution des citations |
 | `graph_context.py`  | Reconstruction via NebulaGraph : fil des titres, fenêtre d'éléments, sections voisines, légendes |
-| `llm.py`            | Client Ollama (API native), réécriture et traduction de requête, budget de contexte, outil `search_vectors` |
+| `llm.py`            | Client du moteur (dialecte OpenAI, via `dialecte_llm`), réécriture et traduction de requête, budget de contexte, outil `search_vectors` |
 | `retriever.py`      | Recherche dense + lexicale, reranking, déduplication, texte intégral |
 | `lexical.py`        | Index BM25 en mémoire et fusion Reciprocal Rank Fusion          |
 | `minio_client.py`   | Lecture des objets MinIO servis par le proxy `/media`           |
@@ -289,7 +280,7 @@ class AgentState(TypedDict):
     needs_more_info: bool
     next_query: str | None
     dropped_contexts: int               # écartées par le budget de fenêtre
-    generation_measure: PromptMeasure | None  # décomptes réels d'Ollama
+    generation_measure: PromptMeasure | None  # décomptes réels du serveur
     _metadata: dict                     # chronométrage par étage
 ```
 
@@ -367,7 +358,7 @@ celui de l'image Docker ; hors conteneur, repli sur celui du dépôt.
 
 ### Boucle agentique
 
-`search_vectors` est déclaré comme **outil natif** Ollama : le modèle répond par
+`search_vectors` est déclaré comme **outil natif** : le modèle répond par
 un `tool_calls` structuré, capté au fil du flux et jamais rendu à l'utilisateur.
 Le repérage de l'appel dans la prose reste actif en **second rideau**, pour les
 modèles qui n'en font pas ; le log indique lequel des deux canaux a parlé.
@@ -388,19 +379,22 @@ positionnelle — et les deux moteurs du poste écrivent aussi la forme nommée.
 `mesuré` le 15 septembre 2026 entre 22:35 et 22:50 UTC, en lecture, une requête
 à la fois, sans déclarer l'outil nativement :
 
-| forme écrite par le modèle | moteur |
-|---|---|
-| `search_vectors("…")` | Ollama |
-| `search_vectors(query="…")` | vLLM |
-| `search_vectors(sous_question="…")` | vLLM |
-| `search_vectors(sous-question="…")` | Ollama |
+Deux moteurs étaient alors servis, et les quatre formes sont gardées ensemble :
+c'est le **modèle** qui les écrit, pas le serveur qui le sert.
+
+| forme écrite par le modèle |
+|---|
+| `search_vectors("…")` |
+| `search_vectors(query="…")` |
+| `search_vectors(sous_question="…")` |
+| `search_vectors(sous-question="…")` |
 
 Le nom d'argument n'est pas comparé à une liste : trois noms désignent la même
 place, et un modèle en inventera un quatrième. C'est la FORME qui est exigée —
 un identifiant, un `=`, une chaîne entre guillemets — parce que c'est elle qui
 distingue un appel d'une phrase. L'exigence de la parenthèse ET des guillemets
 est ce qui empêche le rideau d'attraper « Je vais lancer une recherche
-complémentaire avec l'outil `search_vectors`. », qu'Ollama écrit sans jamais
+complémentaire avec l'outil `search_vectors`. », que le modèle écrit sans jamais
 appeler l'outil (mesuré, deux essais sur deux) : un motif plus large ne rend pas
 le rideau plus solide, il lui fait inventer des recherches.
 
@@ -410,20 +404,24 @@ qui fait l'appel natif ET l'écrit dans son texte laissait donc la seconde moiti
 
 ### Budget de contexte
 
-`num_ctx` est passé explicitement à chaque requête. Sans lui, la fenêtre dépend
-de l'`OLLAMA_CONTEXT_LENGTH` du serveur interrogé — 8192 ou 32768 selon le
-déploiement — et le même prompt produit deux comportements.
+`LLM_NUM_CTX` n'est **pas** envoyé au serveur : le dialecte OpenAI n'a pas de
+champ de fenêtre, et celle de `vllm-central` est fixée à son lancement
+(`--max-model-len 32768`). Il borne ce que le **client** s'autorise à envoyer, et
+`/health` publie en regard la fenêtre réellement servie (`fenetre_servie`), de
+sorte qu'un écart entre les deux se voie au lieu de se deviner.
 
 Le budget de sources vaut la fenêtre **moins la génération, moins tout ce que le
 prompt contient déjà** : prompt système, gabarit rendu, historique retenu,
 encadrement des sources. L'historique n'y entrait pas — un forfait de 512 tokens
 en tenait lieu — et le prompt dépassait `num_ctx` dès le troisième tour d'une
-conversation. Ollama tronque alors par le **début** du prompt, donc il jette le
-message système et ses règles de citation, puis les sources les mieux classées —
-en silence.
+conversation. Le serveur **refuse** alors la requête : HTTP 400, « maximum
+context length is 32768 tokens » (`mesuré` le 18 septembre 2026 à 12:35 UTC sur
+`vllm-central`). Le dépassement est donc bruyant, et cette borne existe pour ne
+pas l'atteindre — l'ancien moteur, à sa place, tronquait par le **début** et
+jetait le message système et ses règles de citation, en silence.
 
 Ce qui dépasse est écarté **ici**, avec un log qui dit combien et pourquoi ;
-`prompt_eval_count`, rendu par Ollama sur l'événement final du flux, confronte
+`prompt_eval_count`, rendu par le serveur dans l'événement d'usage du flux, confronte
 l'estimation au décompte réel. Formule, chiffres et lecture des logs dans
 [llm.md](llm.md).
 
@@ -443,7 +441,7 @@ l'estimation au décompte réel. Formule, chiffres et lecture des logs dans
 | `TRANSLATION_WEIGHT`       | `1.0`  | Poids de la traduction dans la fusion RRF          |
 | `RERANK_TOP_K`             | `10`   | Éléments distincts conservés après reranking      |
 | `QUERY_REWRITE`            | `true` | Réécriture des questions de suivi                 |
-| `NATIVE_TOOL_CALLING`      | `true` | Outil Ollama plutôt que repli par regex           |
+| `NATIVE_TOOL_CALLING`      | `true` | Outil natif plutôt que repli par regex            |
 | `AUTO_SELECT_TOP_K`        | `3`    | Sources reconstruites sans sélection humaine      |
 | `CONTEXT_WINDOW_BEFORE/AFTER` | `6`  | Éléments retenus autour de l'ancre                |
 | `ADJACENT_SECTION_ELEMENTS`| `3`    | Éléments repris des sections voisines (0 désactive) |
@@ -476,17 +474,10 @@ fantôme avait enfreinte.
 ```
 docker-compose.yml
 │
-├── ollama          (ollama/ollama:latest)
-│   ├── Volumes     : models_cache → /root/.ollama
-│   ├── Entrypoint  : ollama_entrypoint.sh (pull modèle si absent)
-│   ├── Réseaux     : rag_network + internal
-│   └── Healthcheck : ollama list | grep -q '.'
-│
 ├── agent-api       (Dockerfile.agent — python:3.12-slim multi-stage)
-│   ├── Ports       : 8001:8000
+│   ├── Ports       : 8011:8000
 │   ├── Volumes     : ./prompts:/app/prompts:ro
-│   ├── Réseaux     : rag_network + internal
-│   ├── Depends     : ollama (healthy)
+│   ├── Réseaux     : rag_network + llm-net + internal
 │   └── Healthcheck : curl /health
 │
 └── frontend        (Dockerfile.frontend — python:3.12-slim multi-stage)
@@ -500,7 +491,7 @@ docker-compose.yml
 | Réseau      | Type     | Rôle                                                     |
 |-------------|----------|----------------------------------------------------------|
 | `rag_network` | external | Réseau partagé avec `rag-ingestion-pipeline` — accès ChromaDB, NebulaGraph, MinIO |
-| `internal`  | bridge   | Réseau interne : Streamlit → agent-api → Ollama          |
+| `internal`  | bridge   | Réseau interne : Streamlit → agent-api                    |
 
 Le frontend n'est pas connecté au réseau `rag_network` (il ne communique qu'avec `agent-api`).
 
@@ -510,10 +501,10 @@ Le frontend n'est pas connecté au réseau `rag_network` (il ne communique qu'av
 rag-ingestion-pipeline (prérequis externe, déjà démarré)
     └── ChromaDB, NebulaGraph, MinIO disponibles sur rag_network
 
-ollama (pull modèle ~3,3 Go au premier démarrage)
-    └── healthy après ~5-10 min (premier démarrage)
+vllm-central (monté par le projet llm-service, hors de ce dépôt)
+    └── réseau llm-net disponible
 
-agent-api (attend ollama healthy)
+agent-api
     └── healthy après ~30s
 
 frontend (attend agent-api healthy)
@@ -526,7 +517,7 @@ frontend (attend agent-api healthy)
 
 | Méthode | Route                    | Description                                          |
 |---------|--------------------------|------------------------------------------------------|
-| GET     | `/health`                | Statut API + modèle Ollama actif                    |
+| GET     | `/health`                | Statut API + modèle LLM demandé et servi             |
 | POST    | `/search`                | Retrieval brut ChromaDB (sans reranking)             |
 | POST    | `/sources`               | Retrieval + reranking + groupement par document      |
 | GET     | `/context/{element_id}`  | Contexte enrichi NebulaGraph (breadcrumbs + section) |
