@@ -581,14 +581,12 @@ _HEALTH = {
     # dans le faux, un test de bout en bout ne pourrait pas distinguer « la clé
     # n'est pas écrite » de « il n'y avait rien à écrire ».
     "moteur_llm": {
-        "serveur": "ollama",
-        "endpoint": "http://ollama:11434",
-        "version": "0.30.10",
-        "modele_demande": "gemma4:e4b",
-        "modele_servi": "gemma4:e4b",
-        "empreinte_du_modele": "c6eb396dbd5992bb",
-        "quantification": "Q4_K_M",
-        "fenetre_servie": None,
+        "serveur": "vllm",
+        "endpoint": "http://serveur-d-essai:8000",
+        "version": "0.28.0",
+        "modele_demande": "org/modele-d-essai",
+        "modele_servi": "org/modele-d-essai",
+        "fenetre_servie": 32768,
         "options": {"thinking": False, "outils_natifs": True},
     },
 }
@@ -880,11 +878,11 @@ def test_la_campagne_ecrit_bien_le_moteur_llm_dans_son_artefact(tmp_path) -> Non
     ecrite = json.loads(sortie.read_text(encoding="utf-8"))
     assert "moteur_llm" in ecrite, (
         f"l'artefact ne consigne pas le moteur : clés = {sorted(ecrite)}. Deux "
-        "campagnes séparées par une bascule Ollama/vLLM se compareront sans que "
-        "rien ne dise qu'elles n'ont pas été générées par le même moteur"
+        "campagnes séparées par une bascule de moteur se compareront sans que "
+        "rien ne dise qu'elles n'ont pas été générées par le même"
     )
-    assert ecrite["moteur_llm"]["serveur"] == "ollama"
-    assert ecrite["moteur_llm"]["empreinte_du_modele"] == "c6eb396dbd5992bb", (
+    assert ecrite["moteur_llm"]["serveur"] == "vllm"
+    assert ecrite["moteur_llm"]["modele_servi"] == "org/modele-d-essai", (
         f"la clé porte autre chose que le fait : {ecrite['moteur_llm']}"
     )
     # LES DEUX CLÉS COEXISTENT : la neuve s'AJOUTE, elle ne remplace pas.

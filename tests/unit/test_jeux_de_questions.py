@@ -277,9 +277,8 @@ def _generate_golden():
     return module
 
 
-@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
-def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str) -> None:
-    """LA GRAINE DANS LA CHARGE QUI PART, ET SOUS LES DEUX DIALECTES.
+def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch) -> None:
+    """LA GRAINE DANS LA CHARGE QUI PART.
 
     LA FORME PRÉCÉDENTE DE CE GARDE LISAIT L'ARBRE SYNTAXIQUE et cherchait un
     `options` littéral portant `seed`. Elle tenait la bonne propriété par le
@@ -288,42 +287,36 @@ def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str)
     **le garde s'est mis à rougir sur du code sain**. Un garde qui rougit sur du
     code sain est retiré par le lot suivant, donc désarmé.
 
-    IL MESURE MAINTENANT CE QUI PART, en interceptant `httpx.post`. C'est plus
-    fort à deux titres : il ne dépend d'aucune forme d'écriture, et il tient
-    **les deux dialectes** — où la graine n'a ni la même place ni le même nom,
-    `options.seed` chez Ollama et `seed` à plat chez vLLM. Un poste qui
-    basculerait le chemin sans basculer la place de la graine la verrait
-    ACCEPTÉE ET IGNORÉE, sans erreur ni journal, et la reproductibilité du jeu
-    doré serait perdue en silence.
+    IL MESURE MAINTENANT CE QUI PART, en interceptant `httpx.post` : il ne dépend
+    d'aucune forme d'écriture. Il tenait en plus **les deux dialectes**, où la
+    graine n'avait ni la même place ni le même nom ; le lot 28 retire le second,
+    et ce que la scène garde est ce qui reste vrai — un champ que ce serveur ne
+    reconnaît pas est ACCEPTÉ ET IGNORÉ, sans erreur ni journal, et la
+    reproductibilité du jeu doré serait perdue en silence.
     """
-    from src.agent.settings import settings
 
     module = _generate_golden()
-    monkeypatch.setattr(settings, "llm_engine", moteur)
     postes: list[dict] = []
 
-    # LE DOUBLE REPOND DANS LE DIALECTE DU MOTEUR, et c'est ce qui rend ce test
-    # capable de voir une régression de LECTURE. Un double qui répondrait
-    # toujours à la forme d'Ollama laisserait passer un retour à
+    # LE DOUBLE RÉPOND DANS LE DIALECTE DU SERVEUR, et c'est ce qui rend ce test
+    # capable de voir une régression de LECTURE. Un double qui répondrait dans la
+    # forme de l'ancien moteur laisserait passer un retour à
     # `response.json()["message"]["content"]` : la charge partirait juste, la
-    # réponse serait illisible sous vLLM, et CHAQUE question serait écartée en
-    # silence par le repli — le défaut même que NB-5 signalait.
+    # réponse serait illisible, et CHAQUE question serait écartée en silence par
+    # le repli — le défaut même que NB-5 signalait.
     reponse_json = json.dumps(
         {
             "question": "Quelle est la cadence de purge du collecteur ?",
             "preuve": "Le collecteur est purgé toutes les 19 minutes.",
         }
     )
-    corps = {
-        "ollama": {"message": {"content": reponse_json}},
-        "vllm": {"choices": [{"message": {"content": reponse_json}}]},
-    }
+    corps = {"choices": [{"message": {"content": reponse_json}}]}
 
     class _Reponse:
         def raise_for_status(self) -> None: ...
 
         def json(self) -> dict:
-            return corps[moteur]
+            return corps
 
     def _post(url, json=None, **_k):  # noqa: A002 — le nom du paramètre de httpx
         postes.append({"url": url, "charge": json})
@@ -333,14 +326,14 @@ def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str)
     rendue = module.demander_question(
         {"texte": "Le collecteur est purgé toutes les 19 minutes.", "language": "fr"},
         "fr",
-        "http://serveur-d-essai:11434",
+        "http://serveur-d-essai:8000",
         "modele-d-essai",
         5.0,
         4242,
     )
 
     assert rendue is not None, (
-        f"sous `LLM_ENGINE={moteur}`, la réponse du serveur n'a pas été LUE, et "
+        "la réponse du serveur n'a pas été LUE, et "
         "la question a été écartée par le repli — sans erreur, sans journal. "
         f"Pannes absorbées : {module._PANNES}. C'est le défaut de NB-5 : un "
         "poste qui bascule le chemin sans basculer la lecture rend un jeu vide "
@@ -353,20 +346,18 @@ def test_la_graine_atteint_la_charge_reellement_postee(monkeypatch, moteur: str)
         "la charge qu'il croit"
     )
     charge = postes[0]["charge"]
-    # La graine, là où CE dialecte la porte. Les deux places sont écrites ici
-    # plutôt que déduites : c'est le fait mesuré, pas une convention.
-    vue = charge["options"]["seed"] if moteur == "ollama" else charge["seed"]
-    assert vue == 4242, (
-        f"sous `LLM_ENGINE={moteur}`, la charge postée porte une graine "
-        f"{vue!r} au lieu de celle reçue en paramètre : `--seed` est décoratif, "
-        "et deux exécutions du générateur rendent deux jeux différents"
+    # La graine, là où CE dialecte la porte : à plat. La place est écrite ici
+    # plutôt que déduite — c'est le fait mesuré, pas une convention.
+    assert charge["seed"] == 4242, (
+        f"la charge postée porte une graine {charge.get('seed')!r} au lieu de "
+        "celle reçue en paramètre : `--seed` est décoratif, et deux exécutions "
+        "du générateur rendent deux jeux différents"
     )
     # ET LE FORMAT CONTRAINT SUIT AUSSI, car sans lui le modèle rend de la prose
     # et `json.loads` écarte la question — silencieusement, par le repli.
-    if moteur == "ollama":
-        assert charge["format"] == "json"
-    else:
-        assert charge["response_format"] == {"type": "json_object"}
+    assert charge["response_format"] == {"type": "json_object"}
+    # Le champ du dialecte retiré ne revient pas : il serait accepté et ignoré.
+    assert "format" not in charge
 
 
 def test_le_jeu_du_pipeline_nomme_son_site_canonique() -> None:

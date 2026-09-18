@@ -488,7 +488,7 @@ def _corps_de_health(monkeypatch: pytest.MonkeyPatch, peripherique: str) -> dict
     """Le corps de `/health` avec les QUATRE sondes au vert et le réglage donné.
 
     LES QUATRE, ET C'EST LE PIÈGE QUE CETTE FONCTION EXISTE POUR FERMER. L'audit
-    a écrit sa première sonde sans brancher Ollama : `services["ollama"]` était
+    a écrit sa première sonde sans brancher le moteur : `services["llm"]` était
     faux, le statut dégradait POUR CETTE RAISON-LÀ, et la sonde était verte en
     mesurant une voisine. *Le `rc` juste, la raison fausse — huitième fois dans
     ce chantier.* Tout ce qui peut dégrader pour une autre raison est donc
@@ -501,7 +501,7 @@ def _corps_de_health(monkeypatch: pytest.MonkeyPatch, peripherique: str) -> dict
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _ollama_vert)
     # `unknown` ne dégrade pas — c'est la décision écrite au site pour la sonde
     # de concordance. Le témoin ci-dessous éprouve la position qui dégrade.
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
@@ -533,7 +533,7 @@ def test_controle_positif_le_service_sain_reste_ok(monkeypatch: pytest.MonkeyPat
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }, f"une sonde voisine n'est pas verte, la scène ne mesure pas ce qu'on croit : {corps}"
     assert corps["services_unknown"] == [], (
         f"une sonde n'est pas revenue, la scène est instable : {corps}"
@@ -660,7 +660,7 @@ def test_temoin_la_concordance_refusee_degrade_toujours(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _ollama_vert)
     monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
     monkeypatch.setattr(
         main,
@@ -707,7 +707,7 @@ def test_une_sonde_qui_n_est_pas_revenue_ne_degrade_pas_le_statut(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _ollama_vert)
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
     monkeypatch.setattr(retriever.settings, "torch_device", "cuda", raising=False)
 
@@ -755,7 +755,7 @@ def test_temoin_un_peripherique_bien_sonde_ne_figure_pas_dans_les_inconnues(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _ollama_vert)
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)

@@ -116,7 +116,7 @@ def _client(tmp_path, monkeypatch, capture: bool):
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
     # Adresse qui refuse immédiatement, plutôt qu'un nom qui attend sa résolution.
-    monkeypatch.setattr(main.settings, "ollama_host", "http://127.0.0.1:1")
+    monkeypatch.setattr(main.settings, "llm_host", "http://127.0.0.1:1")
     monkeypatch.setattr(usage.settings, "usage_db_path", str(tmp_path / "usage.sqlite"))
     monkeypatch.setattr(usage.settings, "usage_capture", capture)
     monkeypatch.setattr(usage, "_echecs", 0)

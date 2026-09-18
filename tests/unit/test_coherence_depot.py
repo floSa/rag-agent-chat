@@ -2984,12 +2984,16 @@ class TestLaLectureDuMaillonEstAncree:
 # sain est retiré par le lot suivant, donc désarmé. Seules les chaînes
 # littérales du CODE sont lues ; les docstrings sont écartées nommément.
 
-_CHEMINS_DE_GENERATION = ("/api/chat", "/v1/chat/completions")
-# `dialecte_llm.py` EST le site : il doit les porter, et un test plus bas exige
-# qu'il les porte encore. `banc_vllm.py` est le banc BI-DIALECTE — sa raison
-# d'être est de parler aux deux serveurs côte à côte sans passer par le réglage,
-# et le faire passer par le site unique le priverait de ce qu'il mesure.
-_HORS_DU_SITE_UNIQUE = {"src/agent/dialecte_llm.py", "scripts/banc_vllm.py"}
+# LE CHEMIN DE GÉNÉRATION, ET IL N'Y EN A PLUS QU'UN depuis le lot 28. Celui de
+# l'ancien moteur est retiré de ce tuple avec son support : un garde qui
+# chercherait encore une route que le dépôt ne poste plus rendrait zéro par
+# construction, et ce zéro ne dirait rien.
+_CHEMINS_DE_GENERATION = ("/v1/chat/completions",)
+# `dialecte_llm.py` EST le site : il doit le porter, et un test plus bas exige
+# qu'il le porte encore. L'EXEMPTION DU BANC BI-DIALECTE A ÉTÉ RETIRÉE avec le
+# banc lui-même (lot 28) : sa raison d'être était de parler aux deux serveurs
+# côte à côte, et il n'y a plus deux serveurs.
+_HORS_DU_SITE_UNIQUE = {"src/agent/dialecte_llm.py"}
 
 
 def _chaines_du_code(source: str) -> list[str]:
@@ -3050,7 +3054,7 @@ def test_aucun_poste_n_ecrit_le_chemin_de_generation_hors_du_site_unique() -> No
 def test_le_site_unique_porte_bien_les_deux_chemins() -> None:
     """LE CONTRÔLE DISCRIMINANT : un zéro doit vouloir dire quelque chose.
 
-    Si `dialecte_llm.py` cessait de porter les deux chemins — réécrits par
+    Si `dialecte_llm.py` cessait de porter le chemin — réécrit par
     concaténation, par exemple —, le garde ci-dessus rendrait zéro **par
     impuissance** et non par propreté. Ce test dit que la lecture sait voir ces
     chaînes-là quand elles sont présentes.

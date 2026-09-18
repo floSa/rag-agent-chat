@@ -37,7 +37,7 @@ def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
     TROIS DES QUATRE SONDES SONT NEUTRALISÉES, PAS QUATRE, et cette phrase disait
     « les dépendances sont neutralisées » — trouvaille NB-4 de l'audit du lot 3,
     §4.23. `chroma_ping`, `nebula_ping` et `lexical_ready` sont substituées
-    ci-dessous ; `_sonder_ollama` ne l'est pas, et fait une VRAIE résolution de
+    ci-dessous ; `_sonder_moteur` ne l'est pas, et fait une VRAIE résolution de
     `ollama:11434` depuis un fil du réservoir.
 
     Ce test ne tient donc pas tout à fait par construction, et ce qui le borne est
@@ -51,7 +51,7 @@ def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
     LA QUATRIÈME N'EST PAS NEUTRALISÉE ICI, ET C'EST DÉLIBÉRÉ. Le remède n'est pas
     un branchement dans ce test : un branchement ne couvre que les tests déjà
     écrits, et la barrière de `tests/unit/conftest.py` ne couvre que `chromadb`.
-    L'étendre à `httpx` demande de décider ce que `_sonder_ollama` doit voir — une
+    L'étendre à `httpx` demande de décider ce que `_sonder_moteur` doit voir — une
     décision, pas un geste — et ce trou est consigné ouvert au §4.21, avec le
     compte EXACT de ses deux sites. Le corriger ici en muet rendrait ce compte
     faux sans refermer la classe de défaut.

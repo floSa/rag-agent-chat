@@ -1,4 +1,4 @@
-"""L'INVENTAIRE DES CHAMPS QUI DÉPENDENT DU DIALECTE, ET LA TABLE QUI LES TIENT.
+"""L'INVENTAIRE DES CHAMPS QUI DÉPENDENT DU MOTEUR, ET LA TABLE QUI LES TIENT.
 
 LA CAUSE QUE CE FICHIER TRAITE, ET ELLE EST ÉCRITE PAR LE LOT 25 LUI-MÊME
 -------------------------------------------------------------------------
@@ -9,57 +9,49 @@ LA CAUSE QUE CE FICHIER TRAITE, ET ELLE EST ÉCRITE PAR LE LOT 25 LUI-MÊME
 Le lot 25 l'a écrite après que trois de ses mutations eurent survécu. Son audit
 indépendant l'a retournée contre lui et a trouvé **trois champs de plus** :
 `_sonder_moteur_llm` prend l'hôte, le modèle demandé et le modèle confronté du
-dialecte, et **aucune scène ne le vérifiait ailleurs que sous le défaut**, où
-`dialecte.hote` EST `settings.ollama_host`. Trois mutations qui inversent la
-décision du lot passaient les 1035 tests sans un rouge — NB-2 de
-`documentation/audits/2026-09-16-audit-lot-25.md`, et les trois sont rejouées
-mortes par la campagne de REPAR-26 au §4.61 du registre.
+dialecte, et **aucune scène ne le vérifiait ailleurs que sous le défaut**. Trois
+mutations qui inversent la décision du lot passaient les 1035 tests sans un
+rouge — NB-2 de `documentation/audits/2026-09-16-audit-lot-25.md`.
 
-CE QUI EST FAIT ICI N'EST PAS TROIS SCÈNES DE PLUS
----------------------------------------------------
+CE QUE LE LOT 28 CHANGE ICI, ET CE QU'IL NE CHANGE PAS
+-------------------------------------------------------
 
-Trois scènes de plus refermeraient les trois champs connus et laisseraient le
-QUATRIÈME s'ajouter en silence. Ce qui est posé ici est une **table dont
-l'exhaustivité est gardée** : `_ATTENDU` donne, pour **chaque** champ de
-`MoteurLlmHealth` et pour **chacun des deux dialectes**, la valeur que le relevé
-doit porter. Quatre gardes la tiennent, et c'est leur conjonction qui rend
-l'oubli impossible :
+Ce fichier tenait une table à DEUX COLONNES — un champ, deux dialectes — et son
+garde central exigeait que les deux colonnes DIFFÈRENT : une scène dont les deux
+côtés portent la même valeur ne distingue pas le code servi d'un mutant qui
+ignore le dialecte, et elle a l'air verte.
+
+Le lot 28 retire le second moteur. La colonne disparaît ; **la cause, non**. Elle
+est exactement celle qu'elle a toujours été — « une scène qui hérite du défaut ne
+mesure pas le site, elle mesure le défaut » — et le garde est TRANSPOSÉ, pas
+retiré : chaque valeur de la table doit différer du DÉFAUT DU CODE, et chaque
+adresse et chaque nom de modèle que les doubles servent sont POSÉS par ce
+fichier, jamais hérités. Un mutant qui remplacerait `dialecte.hote` par une
+constante, ou `dialecte.modele` par le défaut du champ, rougit ici.
+
+LA TABLE ET SES GARDES
+-----------------------
 
 1. **elle est EXHAUSTIVE** — `test_la_table_couvre_tous_les_champs_du_releve`
    confronte ses clés à `MoteurLlmHealth.model_fields`. Un champ neuf au schéma
    qui n'est pas classé fait rougir, et le message dit quoi faire ;
-2. **elle est PARITAIRE** — les deux dialectes portent exactement les mêmes
-   clés. On ne peut pas décrire un champ d'un seul côté ;
-3. **elle SÉPARE** — `test_la_table_separe_reellement_les_deux_dialectes` exige
-   que la valeur attendue diffère entre les deux colonnes. C'est le garde
-   anti-« mesuré sous le défaut » : une scène dont les deux côtés portent la
-   même valeur ne mesure RIEN, et elle a l'air verte. C'est l'erreur exacte que
-   `num_ctx` a payée (NB-4), où les trois témoins comparaient à 8192 quand le
-   défaut du réglage vaut 8192 ;
-4. **elle est JOUÉE** — une seule scène, paramétrée sur (champ × dialecte), lit
-   la table. Ajouter une ligne suffit à ajouter deux scènes.
+2. **elle ÉCARTE LES DÉFAUTS** — `test_aucune_valeur_attendue_n_est_un_defaut`
+   refuse qu'une valeur attendue coïncide avec un défaut de `Settings`. C'est le
+   garde anti-« mesuré sous le défaut », transposé du garde de parité ;
+3. **elle est JOUÉE** — une seule scène, paramétrée sur le champ, lit la table.
+   Ajouter une ligne suffit à ajouter une scène.
 
-**LE POINT QUI COMPTE : IL N'Y A RIEN À ÉCRIRE DEUX FOIS.** La scène est unique
-et jouée sous les deux dialectes ; ce qui varie est une entrée de table. C'est la
-leçon du lot 19 appliquée à la MESURE elle-même — deux gardes qu'il faut penser
-à écrire tous les deux finiront par diverger, exactement comme deux sites de
-décision.
+LE DOUBLE ROUTE PAR (HÔTE, CHEMIN), ET C'EST CE QUI LE REND MORDANT
+--------------------------------------------------------------------
 
-LE DOUBLE ROUTE PAR (HÔTE, CHEMIN), ET C'EST CE QUI REND M09 MORDANTE
-----------------------------------------------------------------------
-
-`_ClientSimule` de `test_moteur_llm.py` route sur le seul CHEMIN : il répond
-donc identiquement à `serveur-ollama` et à `serveur-vllm`, et une sonde qui
-interroge le mauvais hôte y reste invisible. Le double d'ici tient **deux
-serveurs à deux adresses**, comme le poste réel en tient deux. Une sonde qui
-part sur l'hôte d'Ollama en croyant parler à vLLM y reçoit les réponses
-d'Ollama — et tout le relevé bascule, ce qui est exactement ce qui se passerait
-en production. Un hôte qu'aucun serveur ne sert LÈVE, comme lèverait une vraie
-connexion refusée.
+Un double qui route sur le seul CHEMIN répond identiquement à toute adresse, et
+une sonde qui interroge le mauvais hôte y reste invisible. Celui d'ici tient ses
+serveurs **à leurs adresses** : se tromper d'hôte fait recevoir la réponse d'un
+autre serveur, ou lever comme lèverait une connexion refusée.
 
 CE FICHIER NE MESURE AUCUN INSTANTANÉ. Les versions, les noms et la fenêtre sont
 ceux des doubles, jamais ceux des serveurs du poste : ce qui est asserté est la
-RELATION « ce champ suit le dialecte », pas la valeur du jour.
+RELATION « ce champ vient du serveur qu'on interroge », pas la valeur du jour.
 """
 
 import asyncio
@@ -68,94 +60,59 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from src.agent.dialecte_llm import dialecte_courant
 from src.agent.settings import Settings, settings
 from src.api.schemas import MoteurLlmHealth
 
-
-@pytest.fixture(autouse=True)
-def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
-
-    Ces scènes héritaient du défaut de `LLM_ENGINE`, qui valait `ollama`. Le
-    défaut décrit désormais ce qui est SERVI — vLLM —, et vingt-quatre scènes
-    sont devenues rouges d'un coup : elles ne DEMANDAIENT pas le dialecte
-    qu'elles mesuraient, elles le SUPPOSAIENT.
-
-    Une scène qui veut le dialecte d'Ollama le demande, comme les scènes vLLM
-    posent déjà le leur. Celles-ci surchargent cette fixture après elle, et rien
-    ne change pour elles.
-    """
-    monkeypatch.setattr(settings, "llm_engine", "ollama")
-
-
-# ─── Les deux postes de la scène, DISJOINTS SUR TOUT ─────────────────────────
+# ─── CE QUE CE FICHIER POSE, ET QUI N'EST AUCUN DÉFAUT ───────────────────────
 #
-# Hôtes, ports et noms de modèle sont distincts des deux côtés. C'est la
-# condition pour qu'une mutation qui confond les deux réglages SE VOIE : sous
-# `OLLAMA_HOST == VLLM_HOST`, `hote = settings.ollama_host` serait strictement
-# équivalent au code servi, et la scène serait verte sur un code faux.
-_HOTE = {"ollama": "http://serveur-ollama:11434", "vllm": "http://serveur-vllm:8000"}
+# L'hôte, le modèle et la version sont ceux des doubles. Aucun n'est le défaut du
+# code : c'est la condition pour qu'une mutation qui remplace `dialecte.hote` ou
+# `dialecte.modele` par une constante SE VOIE. Sous un hôte égal au défaut, le
+# mutant serait strictement équivalent au code servi, et la scène serait verte
+# sur un code faux. `test_aucune_valeur_attendue_n_est_un_defaut` le tient.
+_HOTE = "http://serveur-d-essai:8000"
+_AUTRE_HOTE = "http://serveur-etranger:8000"
+_MODELE = "org/moteur-d-essai-e4b-w4a16"
 
-# LES DEUX NOMS SONT CHOISIS POUR QUE L'APPARIEMENT LES SÉPARE, et ce n'est pas
-# cosmétique : `_le_serveur_sert_ce_que_nous_demandons` apparie par INFIXE après
-# réduction (voir son site). Réduits, ils donnent `moteurollamae4b` et
-# `orgmoteurvllme4bw4a16` — aucun n'est infixe de l'autre, donc demander l'un au
-# serveur de l'autre rend bien `modele_servi: None`.
+# Le modèle qu'un AUTRE serveur sert — celui de l'équipe voisine sur une instance
+# partagée. Choisi pour ne PAS s'apparier au nôtre : `le_serveur_sert_ce_que_nous
+# _demandons` apparie par INFIXE après réduction, et
 # `test_les_deux_noms_de_modele_ne_s_apparient_pas_l_un_a_l_autre` le vérifie
 # plutôt que de le croire sur parole.
-_MODELE = {"ollama": "moteur-ollama:e4b", "vllm": "org/moteur-vllm-e4b-w4a16"}
+_MODELE_ETRANGER = "autre-equipe/modele-tiers-q8"
 
-_VERSION = {"ollama": "0.30.10", "vllm": "0.28.0"}
-_EMPREINTE_COMPLETE = "c6eb396dbd5992bbe3f5cdb947e8bbc0ee413d7c17e2beaae69f5d569cf982eb"
-_FENETRE_VLLM = 32768
+_VERSION = "0.28.0-essai"
+_FENETRE = 32768
 
 
 # ─── LA TABLE, ET C'EST ELLE QUE CE FICHIER EXISTE POUR TENIR ────────────────
 #
-# Chaque champ du relevé, sous chaque dialecte, et la valeur que le relevé doit
-# porter quand la bascule est faite ET que le serveur d'en face est celui que le
-# réglage désigne. C'est le seul endroit à modifier quand un champ s'ajoute.
-_ATTENDU: dict[str, dict[str, Any]] = {
-    "ollama": {
-        "serveur": "ollama",
-        "endpoint": _HOTE["ollama"],
-        "version": _VERSION["ollama"],
-        "modele_demande": _MODELE["ollama"],
-        "modele_servi": _MODELE["ollama"],
-        "empreinte_du_modele": _EMPREINTE_COMPLETE[:16],
-        "quantification": "Q4_K_M",
-        "fenetre_servie": None,
-    },
-    "vllm": {
-        "serveur": "vllm",
-        "endpoint": _HOTE["vllm"],
-        "version": _VERSION["vllm"],
-        "modele_demande": _MODELE["vllm"],
-        "modele_servi": _MODELE["vllm"],
-        # vLLM ne publie NI empreinte de poids NI quantification en champ : c'est
-        # une borne mesurée sur les sept routes GET de l'instance de ce poste, et
-        # elle est écrite au site de `MoteurLlmHealth.empreinte_du_modele`.
-        "empreinte_du_modele": None,
-        "quantification": None,
-        "fenetre_servie": _FENETRE_VLLM,
-    },
+# Chaque champ du relevé, et la valeur que le relevé doit porter quand le serveur
+# d'en face est celui que le réglage désigne. C'est le seul endroit à modifier
+# quand un champ s'ajoute.
+_ATTENDU: dict[str, Any] = {
+    "serveur": "vllm",
+    "endpoint": _HOTE,
+    "version": _VERSION,
+    "modele_demande": _MODELE,
+    "modele_servi": _MODELE,
+    "fenetre_servie": _FENETRE,
 }
 
-# CE QUI NE SUIT PAS LE DIALECTE, ET POURQUOI — la seconde moitié de la
+# CE QUI NE VIENT PAS DU SERVEUR, ET POURQUOI — la seconde moitié de la
 # partition. Un champ est dans l'une ou dans l'autre, jamais dans les deux ni
 # dans aucune, et le garde d'exhaustivité l'exige.
-_INVARIANTS_DU_DIALECTE: dict[str, str] = {
-    # NOS drapeaux d'appel : ils viennent de `settings`, pas du dialecte. Leur
+_INVARIANTS: dict[str, str] = {
+    # NOS drapeaux d'appel : ils viennent de `settings`, pas du serveur. Leur
     # propre lacune — n'être mesurés qu'à leur valeur PAR DÉFAUT — est traitée
     # plus bas, par `_REGLAGES_EPROUVES` et son garde.
-    "options": "du réglage, pas du dialecte",
-    # L'instant du relevé : il ne dépend ni du moteur ni du serveur joint.
+    "options": "du réglage, pas du serveur",
+    # L'instant du relevé : il ne dépend pas du serveur joint.
     "releve_le": "l'instant de la mesure",
 }
 
 
-# ─── Le double : DEUX serveurs, à DEUX adresses ──────────────────────────────
+# ─── Le double : des serveurs, À LEURS ADRESSES ──────────────────────────────
 
 
 class _Reponse:
@@ -166,52 +123,38 @@ class _Reponse:
         return self._charge
 
 
-_ROUTES_OLLAMA: dict[str, _Reponse] = {
-    "/api/version": _Reponse(200, {"version": _VERSION["ollama"]}),
-    "/api/tags": _Reponse(
-        200,
-        {
-            "models": [
-                {
-                    "name": _MODELE["ollama"],
-                    "model": _MODELE["ollama"],
-                    "digest": _EMPREINTE_COMPLETE,
-                    "details": {"quantization_level": "Q4_K_M"},
-                }
-            ]
-        },
-    ),
-}
+def _routes(modele: str, *, version: str = _VERSION) -> dict[str, _Reponse]:
+    """Les deux routes que la sonde interroge, sur un serveur qui sert `modele`."""
+    return {
+        "/version": _Reponse(200, {"version": version}),
+        "/v1/models": _Reponse(200, {"data": [{"id": modele, "max_model_len": _FENETRE}]}),
+    }
 
-# `/api/version` est ABSENTE, et c'est le fait qui discrimine : le vrai
-# `vllm-central` y rend 404 (`mesuré` le 15 septembre 2026). Un double qui y
-# répondrait ferait conclure « ollama » sur un serveur vLLM.
-_ROUTES_VLLM: dict[str, _Reponse] = {
-    "/version": _Reponse(200, {"version": _VERSION["vllm"]}),
-    "/v1/models": _Reponse(
-        200, {"data": [{"id": _MODELE["vllm"], "max_model_len": _FENETRE_VLLM}]}
-    ),
-}
 
 _SERVEURS: dict[str, dict[str, _Reponse]] = {
-    _HOTE["ollama"]: _ROUTES_OLLAMA,
-    _HOTE["vllm"]: _ROUTES_VLLM,
+    _HOTE: _routes(_MODELE),
+    # UN SECOND SERVEUR, QUI RÉPOND PARFAITEMENT ET NE SERT PAS NOTRE MODÈLE.
+    # C'est le cas de ce poste : `vllm-central` est partagé avec deux autres
+    # équipes. Une sonde qui part sur le mauvais hôte y reçoit 200 sur tout, et
+    # c'est précisément pour cela qu'un double qui LÈVE partout ne mesurerait
+    # rien — il transformerait une mutation en panne au lieu d'un relevé faux.
+    _AUTRE_HOTE: _routes(_MODELE_ETRANGER),
 }
 
 
-class _DeuxServeurs:
-    """Le poste, avec ses DEUX serveurs d'inférence à leurs DEUX adresses.
+class _Poste:
+    """Le poste, avec ses serveurs d'inférence à leurs adresses.
 
-    Router sur le seul chemin rendrait `hote = settings.ollama_host` invisible :
-    les deux hôtes répondraient pareil. Ici, se tromper d'hôte fait recevoir les
-    réponses de l'autre serveur — ce qui est le comportement réel.
+    Router sur le seul chemin rendrait une constante d'hôte invisible : toutes
+    les adresses répondraient pareil. Ici, se tromper d'hôte fait recevoir la
+    réponse de l'autre serveur — ce qui est le comportement réel.
     """
 
     def __init__(self, serveurs: dict[str, dict[str, _Reponse]]) -> None:
         self.serveurs = serveurs
         self.demandes: list[str] = []
 
-    async def __aenter__(self) -> "_DeuxServeurs":
+    async def __aenter__(self) -> "_Poste":
         return self
 
     async def __aexit__(self, *_a: Any) -> None:
@@ -230,33 +173,27 @@ class _DeuxServeurs:
         return reponse if reponse is not None else _Reponse(404, {"detail": "Not Found"})
 
 
-def _releve_sous(
+def _releve(
     monkeypatch: pytest.MonkeyPatch,
-    moteur: str,
     *,
     reglages: dict[str, Any] | None = None,
     serveurs: dict[str, dict[str, _Reponse]] | None = None,
-) -> tuple[Any, _DeuxServeurs]:
-    """Joue la sonde de `/health` sous UN dialecte, contre le poste à deux serveurs.
+) -> tuple[Any, _Poste]:
+    """Joue la sonde de `/health` contre le poste, sur des réglages POSÉS.
 
-    LES QUATRE RÉGLAGES DES DEUX MOTEURS SONT POSÉS QUEL QUE SOIT LE MOTEUR
-    ÉPROUVÉ, et c'est ce qui fait mesurer : une mutation vers `settings.ollama_*`
-    y désigne une valeur EXISTANTE et DIFFÉRENTE, donc elle produit un relevé
-    faux plutôt qu'une panne. Un mutant qui lève n'apprend rien sur le garde.
-
-    `reglages` surcharge ensuite, pour les scènes de mésconfiguration.
+    LES DEUX RÉGLAGES DU MOTEUR SONT POSÉS HORS DE LEUR DÉFAUT, et c'est ce qui
+    fait mesurer : une mutation qui les remplacerait par une constante désigne
+    alors une valeur DIFFÉRENTE, donc produit un relevé faux plutôt qu'une
+    panne. Un mutant qui lève n'apprend rien sur le garde.
     """
     from src.api import main
 
-    monkeypatch.setattr(settings, "ollama_host", _HOTE["ollama"])
-    monkeypatch.setattr(settings, "ollama_model", _MODELE["ollama"])
-    monkeypatch.setattr(settings, "vllm_host", _HOTE["vllm"])
-    monkeypatch.setattr(settings, "vllm_model", _MODELE["vllm"])
-    monkeypatch.setattr(settings, "llm_engine", moteur)
+    monkeypatch.setattr(settings, "llm_host", _HOTE)
+    monkeypatch.setattr(settings, "llm_model", _MODELE)
     for champ, valeur in (reglages or {}).items():
         monkeypatch.setattr(settings, champ, valeur)
     monkeypatch.setattr(main, "_moteur_releve", None)
-    client = _DeuxServeurs(serveurs if serveurs is not None else _SERVEURS)
+    client = _Poste(serveurs if serveurs is not None else _SERVEURS)
     monkeypatch.setattr(main.httpx, "AsyncClient", lambda **_k: client)
     return asyncio.run(main._sonder_moteur_llm()), client
 
@@ -269,106 +206,101 @@ def test_la_table_couvre_tous_les_champs_du_releve() -> None:
 
     Un champ ajouté à `MoteurLlmHealth` sans être classé fait rougir ici. Le
     geste attendu au rouge n'est pas d'élargir ce test : c'est de dire, dans
-    `_ATTENDU` ou dans `_INVARIANTS_DU_DIALECTE`, ce que ce champ vaut de chaque
-    côté de la bascule. C'est précisément la question que personne n'avait posée
-    aux trois champs de NB-2.
+    `_ATTENDU` ou dans `_INVARIANTS`, ce que ce champ vaut et d'où il vient.
+    C'est précisément la question que personne n'avait posée aux trois champs de
+    NB-2.
     """
     du_schema = set(MoteurLlmHealth.model_fields)
-    classes = set(_ATTENDU["ollama"]) | set(_INVARIANTS_DU_DIALECTE)
+    classes = set(_ATTENDU) | set(_INVARIANTS)
     assert classes == du_schema, (
         f"champ(s) de `MoteurLlmHealth` non classé(s) : {sorted(du_schema - classes)} ; "
         f"champ(s) classé(s) qui n'existe(nt) plus : {sorted(classes - du_schema)}. "
-        "Tout champ du relevé doit dire ce qu'il vaut SOUS LES DEUX DIALECTES "
-        "(`_ATTENDU`) ou pourquoi il n'en dépend pas (`_INVARIANTS_DU_DIALECTE`). "
-        "Trois champs ont vécu non gardés parce que personne ne leur avait posé "
-        "la question — NB-2 de l'audit du 16 septembre 2026."
+        "Tout champ du relevé doit dire ce qu'il vaut quand le serveur répond "
+        "(`_ATTENDU`) ou pourquoi il n'en vient pas (`_INVARIANTS`). Trois "
+        "champs ont vécu non gardés parce que personne ne leur avait posé la "
+        "question — NB-2 de l'audit du 16 septembre 2026."
     )
-    assert not (set(_ATTENDU["ollama"]) & set(_INVARIANTS_DU_DIALECTE)), (
-        "un champ est à la fois déclaré dépendant du dialecte et invariant : la "
+    assert not (set(_ATTENDU) & set(_INVARIANTS)), (
+        "un champ est à la fois déclaré venu du serveur et invariant : la "
         "partition n'en est plus une, et l'exhaustivité ne prouve plus rien"
     )
 
 
-def test_la_table_decrit_les_deux_dialectes_a_parite() -> None:
-    """Un champ décrit d'un seul côté ne mesure pas la bascule : il mesure un état."""
-    assert set(_ATTENDU) == {"ollama", "vllm"}
-    assert set(_ATTENDU["ollama"]) == set(_ATTENDU["vllm"]), (
-        "les deux colonnes de `_ATTENDU` ne portent pas les mêmes champs : "
-        f"{sorted(set(_ATTENDU['ollama']) ^ set(_ATTENDU['vllm']))}"
-    )
+def test_aucune_valeur_attendue_n_est_un_defaut() -> None:
+    """LE GARDE ANTI-« MESURÉ SOUS LE DÉFAUT », TRANSPOSÉ AU LOT 28.
 
+    Il exigeait que les deux colonnes de la table diffèrent l'une de l'autre.
+    Il n'y a plus qu'une colonne ; la cause est la même et elle s'énonce contre
+    le CODE : une valeur attendue qui coïncide avec un défaut de `Settings` ne
+    peut pas distinguer le code servi d'un mutant qui écrit ce défaut en dur.
 
-def test_la_table_separe_reellement_les_deux_dialectes() -> None:
-    """LE GARDE ANTI-« MESURÉ SOUS LE DÉFAUT », posé sur la table elle-même.
-
-    Une scène dont les deux côtés portent la même valeur pour un champ ne peut
-    pas distinguer le code servi d'un mutant qui ignore le dialecte : elle est
-    verte, et elle ne mesure rien.
-
-    Ce garde l'interdit AU NIVEAU DE LA TABLE, donc avant qu'une scène soit
-    écrite : si un champ neuf ne peut honnêtement pas différer entre les deux
-    dialectes, sa place est dans `_INVARIANTS_DU_DIALECTE`, avec sa raison.
+    Les défauts sont lus sur `Settings(_env_file=None)` — donc sur le CHAMP,
+    jamais sur le `.env` du poste, qui n'est pas versionné et rendrait ce garde
+    dépendant de la machine qui l'exécute.
     """
-    confondus = [c for c in _ATTENDU["ollama"] if _ATTENDU["ollama"][c] == _ATTENDU["vllm"][c]]
+    defauts = Settings(_env_file=None)
+    tous = {getattr(defauts, champ) for champ in Settings.model_fields}
+    confondus = {
+        champ: valeur for champ, valeur in _ATTENDU.items() if valeur in tous
+    }
     assert not confondus, (
-        f"champ(s) portant la MÊME valeur attendue sous les deux dialectes : "
-        f"{confondus}. Une mutation qui ignore le dialecte y resterait "
-        "invisible. Donne-leur deux valeurs distinctes, ou classe-les dans "
-        "`_INVARIANTS_DU_DIALECTE` avec la raison."
+        f"valeur(s) attendue(s) égale(s) à un défaut du code : {confondus}. Une "
+        "scène qui attend ce que le code écrirait de toute façon ne peut pas "
+        "distinguer la variable de la constante."
+    )
+    assert defauts.llm_host != _HOTE and defauts.llm_model != _MODELE, (
+        "l'hôte ou le modèle POSÉ par ce fichier est le défaut du code : la "
+        "sonde serait alors mesurée exactement là où elle ne prouve rien"
     )
 
 
 def test_les_deux_noms_de_modele_ne_s_apparient_pas_l_un_a_l_autre() -> None:
     """PREUVE D'ATTEINTE DES DOUBLES, et elle n'est pas décorative.
 
-    L'appariement de vLLM est un INFIXE après réduction, pas une égalité. Si le
-    nom d'Ollama était par accident infixe du nom vLLM, la mutation « apparier
-    sur `settings.ollama_model` » rendrait le MÊME `modele_servi` que le code
-    servi, et le garde de NB-2 serait vert sur un code faux.
+    L'appariement est un INFIXE après réduction, pas une égalité. Si le nom du
+    modèle étranger était par accident infixe du nôtre, le double du serveur
+    partagé cesserait de séparer quoi que ce soit et les scènes de
+    mésconfiguration seraient vertes sur un code faux.
     """
     from src.api.main import _le_serveur_sert_ce_que_nous_demandons as apparie
 
-    assert apparie(_MODELE["vllm"], _MODELE["vllm"]), (
-        "le double vLLM ne sert même pas ce que la scène demande : elle ne "
+    assert apparie(_MODELE, _MODELE), (
+        "le double ne sert même pas ce que la scène demande : elle ne "
         "mesurerait alors qu'un relevé partiel"
     )
-    assert not apparie(_MODELE["vllm"], _MODELE["ollama"]), (
-        "le nom d'Ollama s'apparie à l'entrée vLLM : la scène ne sépare plus "
-        "les deux réglages"
+    assert not apparie(_MODELE_ETRANGER, _MODELE), (
+        "le modèle d'une autre équipe s'apparie à ce que nous demandons : la "
+        "scène ne sépare plus les deux serveurs"
     )
 
 
-# ─── LA SCÈNE UNIQUE, JOUÉE SOUS LES DEUX DIALECTES ──────────────────────────
+# ─── LA SCÈNE UNIQUE, JOUÉE SUR CHAQUE CHAMP ─────────────────────────────────
 
 
-@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
-@pytest.mark.parametrize("champ", sorted(_ATTENDU["ollama"]))
-def test_chaque_champ_du_releve_suit_le_dialecte(
-    monkeypatch: pytest.MonkeyPatch, champ: str, moteur: str
+@pytest.mark.parametrize("champ", sorted(_ATTENDU))
+def test_chaque_champ_du_releve_vient_du_serveur_interroge(
+    monkeypatch: pytest.MonkeyPatch, champ: str
 ) -> None:
-    """CHAQUE champ de la table, sous CHAQUE dialecte. Une seule scène.
+    """CHAQUE champ de la table. Une seule scène.
 
     C'est ici que meurent les trois survivantes de NB-2 : l'hôte interrogé, le
     modèle demandé et le modèle confronté. Et c'est ici que mourra la quatrième,
     sans qu'on ait à y penser — elle est dans la table, ou elle fait rougir le
     garde d'exhaustivité.
     """
-    releve, _ = _releve_sous(monkeypatch, moteur)
+    releve, _ = _releve(monkeypatch)
     assert releve is not None, (
-        f"la sonde n'a rien rendu sous `LLM_ENGINE={moteur}` : le double ne "
-        "ressemble à aucun serveur réel, ou la sonde interroge le mauvais hôte"
+        "la sonde n'a rien rendu : le double ne ressemble à aucun serveur réel, "
+        "ou la sonde interroge le mauvais hôte"
     )
-    assert getattr(releve, champ) == _ATTENDU[moteur][champ], (
-        f"sous `LLM_ENGINE={moteur}`, `/health` publie "
-        f"`moteur_llm.{champ} = {getattr(releve, champ)!r}` quand le dialecte "
-        f"désigne {_ATTENDU[moteur][champ]!r}. Ce champ ne suit plus la bascule."
+    assert getattr(releve, champ) == _ATTENDU[champ], (
+        f"`/health` publie `moteur_llm.{champ} = {getattr(releve, champ)!r}` "
+        f"quand le serveur interrogé dit {_ATTENDU[champ]!r}. Ce champ ne vient "
+        "plus de ce qu'on a joint."
     )
 
 
-@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
-def test_la_sonde_n_interroge_que_l_hote_du_dialecte(
-    monkeypatch: pytest.MonkeyPatch, moteur: str
-) -> None:
+def test_la_sonde_n_interroge_que_l_hote_du_dialecte(monkeypatch: pytest.MonkeyPatch) -> None:
     """L'HÔTE INTERROGÉ, ASSERTÉ DIRECTEMENT ET NON PAR SES CONSÉQUENCES.
 
     `endpoint` dit quel hôte le relevé PUBLIE ; ceci dit quel hôte il a
@@ -379,43 +311,85 @@ def test_la_sonde_n_interroge_que_l_hote_du_dialecte(
     ET LE COÛT EST RÉEL : `vllm-central` appartient à l'équipe voisine. Une
     sonde qui part sur le mauvais hôte y tape à chaque battement de `/health`.
     """
-    _, client = _releve_sous(monkeypatch, moteur)
+    _, client = _releve(monkeypatch)
     assert client.demandes, "la sonde n'a interrogé aucun hôte : elle ne mesure rien"
-    egares = [u for u in client.demandes if not u.startswith(_HOTE[moteur])]
+    egares = [u for u in client.demandes if not u.startswith(_HOTE)]
     assert not egares, (
-        f"sous `LLM_ENGINE={moteur}`, la sonde a interrogé {egares} — l'hôte du "
-        f"dialecte est {_HOTE[moteur]}. Un relevé pris sur un serveur auquel "
-        "l'agent ne parle plus est une affirmation fausse, pas une absence."
+        f"la sonde a interrogé {egares} — l'hôte du dialecte est {_HOTE}. Un "
+        "relevé pris sur un serveur auquel l'agent ne parle pas est une "
+        "affirmation fausse, pas une absence."
     )
 
 
-def test_une_mesconfiguration_ne_se_rattrape_pas_sur_l_autre_reglage(
+def test_le_releve_ne_coute_que_deux_requetes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DEUX, ET C'ÉTAIT TROIS AVANT LE LOT 28 — la version, puis le catalogue.
+
+    La troisième était la route de version de l'autre moteur, essayée d'abord.
+    Elle part avec lui. Ce compte a un site canonique, `_MOTEUR_REQUETES_MAX`, et
+    cette scène le relit plutôt que de le recopier : deux chiffres qui doivent
+    s'accorder finissent par diverger.
+
+    Le coût n'est pas théorique : `/health` est battu toutes les 20 s contre un
+    serveur PARTAGÉ avec deux autres équipes.
+    """
+    from src.api import main
+
+    _, client = _releve(monkeypatch)
+    assert len(client.demandes) == main._MOTEUR_REQUETES_MAX == 2, (
+        f"le relevé a coûté {len(client.demandes)} requêtes "
+        f"({client.demandes}) quand le site canonique en annonce "
+        f"{main._MOTEUR_REQUETES_MAX}"
+    )
+
+
+def test_un_serveur_qui_sert_une_autre_equipe_ne_signe_pas_pour_nous(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`LLM_ENGINE=vllm` POINTÉ VERS UN OLLAMA : le relevé doit le DIRE.
+    """LE RÉGLAGE POINTÉ VERS UN SERVEUR QUI RÉPOND ET NE NOUS SERT PAS.
 
-    Le séparateur que l'audit du 16 septembre 2026 a raisonné sans le jouer
-    (sa mutation M15). Le serveur se déclare Ollama — c'est un fait, et il est
-    relevé de lui —, mais il ne porte pas le modèle que NOUS demandons, qui est
-    `VLLM_MODEL`. `modele_servi` doit donc être nul.
+    C'est le cas de ce poste, et il n'est pas théorique : `vllm-central` est
+    partagé. Le serveur se déclare, sa version est lue — ce sont des faits, et ils
+    sont relevés de lui — mais il ne sert pas le modèle que NOUS demandons.
+    `modele_servi` doit donc être nul.
 
-    Apparier sur `settings.ollama_model` ferait publier `modele_servi` = le
-    modèle d'Ollama sur un relevé dont `modele_demande` est celui de vLLM : deux
-    champs qui se contredisent dans la même réponse, et un relevé mémorisé à vie
-    sous un nom que personne n'a demandé. REPAR-18 a payé exactement cette
-    phrase-là, dans l'autre sens.
+    Publier `entrees[0]["id"]` ferait signer une campagne sous le nom du modèle
+    d'une autre équipe, mémorisé à vie : non bloquante §2 de l'audit du
+    15 septembre 2026.
     """
-    releve, _ = _releve_sous(monkeypatch, "vllm", reglages={"vllm_host": _HOTE["ollama"]})
+    releve, _ = _releve(monkeypatch, reglages={"llm_host": _AUTRE_HOTE})
     assert releve is not None
-    assert releve.serveur == "ollama", (
-        "le discriminant doit rester relevé DU SERVEUR : c'est ce qu'un "
-        "exploitant a besoin de voir quand son réglage désigne l'autre moteur"
+    assert releve.serveur == "vllm", (
+        "le discriminant doit rester relevé DU SERVEUR : ce serveur-là répond, "
+        "et c'est un fait qu'un exploitant doit voir"
     )
-    assert releve.modele_demande == _MODELE["vllm"]
+    assert releve.modele_demande == _MODELE
     assert releve.modele_servi is None, (
         f"`modele_servi = {releve.modele_servi!r}` : ce serveur ne sert PAS ce "
         "que nous demandons, et le relevé l'affirme pourtant."
     )
+
+
+def test_un_serveur_qui_ne_dit_pas_son_nom_laisse_le_releve_muet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LE RELEVÉ NE DEVINE PAS, ET IL NE NOMME PLUS L'AUTRE MOTEUR.
+
+    Avant le lot 28, un serveur qui ne répondait pas à la route de version de ce
+    moteur-ci était interrogé sur celle de l'autre, et pouvait être NOMMÉ. Ce
+    n'est plus possible : le dépôt ne supporte plus qu'un moteur, donc il ne sait
+    plus reconnaître les autres — seulement dire que ce n'est pas celui-là.
+
+    Ce que cette scène tient : le champ ENTIER est muet, et rien n'est inventé.
+    Un relevé qui rangerait un serveur muet dans « vllm » serait une affirmation
+    positive fausse, et elle serait mémorisée à vie.
+    """
+    muet = {_HOTE: {"/v1/models": _Reponse(200, {"data": [{"id": _MODELE}]})}}
+    releve, client = _releve(monkeypatch, serveurs=muet)
+    assert releve is None, (
+        f"un serveur sans route de version a été rangé sous {releve!r} : le "
+        "relevé devine au lieu de se taire"
+    )
+    assert client.demandes, "la sonde n'a rien interrogé : la scène ne mesure rien"
 
 
 def test_le_releve_partiel_n_est_toujours_pas_memorise(
@@ -426,13 +400,10 @@ def test_le_releve_partiel_n_est_toujours_pas_memorise(
     `_releve_est_complet` refuse de figer un relevé sans `modele_servi`. C'est ce
     qui empêche qu'un nom faux soit publié pour la vie du processus — et le prix
     est connu, écrit et journalisé : la sonde repart à chaque battement.
-
-    REPAR-26 ne touche pas ce prédicat ; ce test le prouve encore debout après
-    lui, plutôt que de l'affirmer.
     """
     from src.api import main
 
-    releve, _ = _releve_sous(monkeypatch, "vllm", reglages={"vllm_host": _HOTE["ollama"]})
+    releve, _ = _releve(monkeypatch, reglages={"llm_host": _AUTRE_HOTE})
     assert releve is not None and releve.modele_servi is None
     assert main._moteur_releve is None, (
         "un relevé INCOMPLET a été mémorisé : il serait republié à l'identique "
@@ -448,21 +419,20 @@ def test_l_endpoint_publie_reste_expurge_a_travers_le_releve(
     `_endpoint_expurge` a ses propres scènes ; ce qui n'en avait aucune est le
     fait que `/health` publie bien son RÉSULTAT et non l'hôte brut. **Ce dépôt
     est public et `runs/*.json` y est versionné** : un déploiement qui met des
-    identifiants dans `OLLAMA_HOST` les verrait recopiés dans une campagne
-    commitée. Le sujet n'est pas neutre, et il ne se garde pas par lecture.
+    identifiants dans `LLM_HOST` les verrait recopiés dans une campagne commitée.
+    Le sujet n'est pas neutre, et il ne se garde pas par lecture.
 
     Le mot de passe de cette scène est FABRIQUÉ pour elle et ne désigne aucun
     secret de ce poste.
     """
-    hote_avec_secret = "http://exploitant:mot-de-passe-fabrique@serveur-ollama:11434"
-    releve, _ = _releve_sous(
+    hote_avec_secret = "http://exploitant:mot-de-passe-fabrique@serveur-d-essai:8000"
+    releve, _ = _releve(
         monkeypatch,
-        "ollama",
-        reglages={"ollama_host": hote_avec_secret},
-        serveurs={**_SERVEURS, hote_avec_secret: _ROUTES_OLLAMA},
+        reglages={"llm_host": hote_avec_secret},
+        serveurs={**_SERVEURS, hote_avec_secret: _routes(_MODELE)},
     )
     assert releve is not None, "le double n'a pas répondu : la scène ne mesure rien"
-    assert releve.endpoint == _HOTE["ollama"]
+    assert releve.endpoint == _HOTE
     assert "mot-de-passe-fabrique" not in (releve.endpoint or ""), (
         "l'endpoint publié par `/health` porte le secret de l'URL du serveur, "
         "et `runs/*.json` est versionné dans un dépôt public"
@@ -472,18 +442,17 @@ def test_l_endpoint_publie_reste_expurge_a_travers_le_releve(
 # ─── LES TROIS SITES QUI PUBLIENT LE MODÈLE DEMANDÉ ──────────────────────────
 #
 # NB-3 : `/health` le publie DEUX fois, et `usage.configuration()` une
-# troisième. Un seul des trois était gardé à la bascule.
+# troisième. Un seul des trois était gardé.
 #
 # POURQUOI GARDER L'ACCORD PLUTÔT QUE SUPPRIMER LA DUPLICATION, et le choix est
 # mesuré, pas confortable. Les trois clés ont des LECTEURS :
 #
-#   - `/health` racine `ollama_model` est listé comme clé publique du contrat
-#     dans `documentation/moteur_llm.md` (§ « clés de /health ») ;
+#   - `/health` racine `llm_model` est listé comme clé publique du contrat dans
+#     `documentation/moteur_llm.md` (§ « clés de /health ») ;
 #   - `moteur_llm.modele_demande` est lu par `scripts/evaluate.py`, qui en fait
 #     une ligne de `--compare` (`_CHAMPS_DU_MOTEUR`) ;
-#   - `usage.configuration()["ollama_model"]` est lu par une requête SQL
-#     PUBLIÉE dans `documentation/capture_usage.md`, et son NOM est délibérément
-#     conservé pour ne pas dégrouper les campagnes déjà dans `runs/`.
+#   - `usage.configuration()["llm_model"]` est lu par une requête SQL PUBLIÉE
+#     dans `documentation/capture_usage.md`, et il entre dans `config_hash`.
 #
 # Supprimer l'une des trois est donc un changement de contrat envers des
 # lecteurs hors de ce dépôt, pour un gain qu'un garde d'accord donne sans le
@@ -491,46 +460,44 @@ def test_l_endpoint_publie_reste_expurge_a_travers_le_releve(
 # garde : c'est cela qui est fermé ici.
 
 
-@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
 def test_les_trois_sites_du_modele_demande_s_accordent(
-    monkeypatch: pytest.MonkeyPatch, moteur: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Trois publications du même fait, confrontées DANS LE MÊME ÉTAT.
 
-    Sous `LLM_ENGINE=vllm`, une régression sur l'un des trois les ferait
-    diverger — deux modèles demandés différents dans la même réponse `/health`,
-    et une campagne enregistrée sous une empreinte qui n'est pas la sienne.
+    Une régression sur l'un des trois les ferait diverger — deux modèles demandés
+    différents dans la même réponse `/health`, et une campagne enregistrée sous
+    une empreinte qui n'est pas la sienne.
+
+    Le modèle est POSÉ hors du défaut : un site qui lirait le défaut du champ au
+    lieu du dialecte rougit ici.
     """
     from src.agent import usage
     from src.api import main
 
-    monkeypatch.setattr(settings, "ollama_host", _HOTE["ollama"])
-    monkeypatch.setattr(settings, "ollama_model", _MODELE["ollama"])
-    monkeypatch.setattr(settings, "vllm_host", _HOTE["vllm"])
-    monkeypatch.setattr(settings, "vllm_model", _MODELE["vllm"])
-    monkeypatch.setattr(settings, "llm_engine", moteur)
+    monkeypatch.setattr(settings, "llm_host", _HOTE)
+    monkeypatch.setattr(settings, "llm_model", _MODELE)
     monkeypatch.setattr(main.settings, "api_key", "")
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
     monkeypatch.setattr(main, "_moteur_releve", None)
-    monkeypatch.setattr(main.httpx, "AsyncClient", lambda **_k: _DeuxServeurs(_SERVEURS))
+    monkeypatch.setattr(main.httpx, "AsyncClient", lambda **_k: _Poste(_SERVEURS))
 
     reponse = asyncio.run(main.health())
-    attendu = _MODELE[moteur]
 
-    assert reponse.ollama_model == attendu, (
-        f"`/health` publie `ollama_model = {reponse.ollama_model!r}` sous "
-        f"`LLM_ENGINE={moteur}` : il annonce un modèle que personne n'a demandé"
+    assert reponse.llm_model == _MODELE, (
+        f"`/health` publie `llm_model = {reponse.llm_model!r}` : il annonce un "
+        "modèle que personne n'a demandé"
     )
     assert reponse.moteur_llm is not None, (
         "le relevé du moteur est muet dans cette scène : la confrontation des "
         "trois sites ne mesure alors que deux d'entre eux"
     )
-    assert reponse.moteur_llm.modele_demande == reponse.ollama_model, (
+    assert reponse.moteur_llm.modele_demande == reponse.llm_model, (
         f"LA MÊME RÉPONSE `/health` annonce DEUX modèles demandés : "
-        f"`ollama_model = {reponse.ollama_model!r}` et "
+        f"`llm_model = {reponse.llm_model!r}` et "
         f"`moteur_llm.modele_demande = {reponse.moteur_llm.modele_demande!r}`. "
         "Deux endroits qui doivent s'accorder finissent par diverger — c'est la "
         "leçon du lot 19, et ici la divergence se lit par un exploitant."
@@ -538,10 +505,10 @@ def test_les_trois_sites_du_modele_demande_s_accordent(
     # `configuration()` rend (empreinte, detail) : c'est le DÉTAIL qui porte la
     # clé, et l'empreinte n'en est que le condensat.
     _, detail = usage.configuration()
-    assert detail["ollama_model"] == attendu, (
-        "l'empreinte qui REGROUPE les campagnes ne suit pas le moteur : une "
-        "campagne menée sous vLLM s'enregistrerait sous l'empreinte d'Ollama, "
-        "et la comparaison appariée s'en servirait sans le savoir"
+    assert detail["llm_model"] == _MODELE, (
+        "l'empreinte qui REGROUPE les campagnes ne suit pas le modèle demandé : "
+        "une campagne s'enregistrerait sous l'empreinte d'un autre moteur, et la "
+        "comparaison appariée s'en servirait sans le savoir"
     )
 
 
@@ -604,7 +571,7 @@ def test_la_table_des_reglages_couvre_tout_ce_que_health_publie(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Un réglage publié sans valeur d'épreuve serait indiscernable d'une constante."""
-    releve, _ = _releve_sous(monkeypatch, "ollama")
+    releve, _ = _releve(monkeypatch)
     assert releve is not None
     publies = set(releve.options)
     couverts = set(_NOM_PUBLIE.values())
@@ -622,7 +589,7 @@ def test_chaque_reglage_publie_est_celui_du_reglage_et_non_sa_constante(
     monkeypatch: pytest.MonkeyPatch, champ: str
 ) -> None:
     """`/health` publie la VALEUR DU RÉGLAGE, éprouvée hors de son défaut."""
-    releve, _ = _releve_sous(monkeypatch, "ollama", reglages=_REGLAGES_EPROUVES)
+    releve, _ = _releve(monkeypatch, reglages=_REGLAGES_EPROUVES)
     assert releve is not None
     publie = releve.options[_NOM_PUBLIE[champ]]
     assert publie == _REGLAGES_EPROUVES[champ], (
@@ -632,30 +599,31 @@ def test_chaque_reglage_publie_est_celui_du_reglage_et_non_sa_constante(
     )
 
 
-def test_la_fenetre_demandee_a_ollama_est_le_reglage_et_non_huit_mille_cent_quatre_vingt_douze(
+def test_la_fenetre_publiee_est_le_reglage_et_non_huit_mille_cent_quatre_vingt_douze(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """LA SCÈNE QUI SÉPARE `settings.llm_num_ctx` DE LA CONSTANTE 8192.
 
-    Le séparateur que l'audit a construit : `LLM_NUM_CTX=16384`. Le code servi
-    envoie alors `options.num_ctx = 16384` à Ollama ; le mutant envoie 8192, et
-    `LLM_NUM_CTX` cesse silencieusement d'être transmis au serveur — la fenêtre
-    dépend alors de l'`OLLAMA_CONTEXT_LENGTH` du serveur, qui diffère entre
-    l'Ollama embarqué et le service central. Le même prompt donnerait deux
-    comportements, ce que ce champ existe précisément pour empêcher.
+    Le séparateur que l'audit a construit : `LLM_NUM_CTX=16384`.
+
+    ELLE A CHANGÉ DE SITE AU LOT 28, ET PAS DE SUJET. Elle mesurait ce réglage
+    dans la CHARGE envoyée au serveur ; le dialecte servi n'a pas de champ de
+    fenêtre — l'y mettre le ferait ignorer en silence — et `LLM_NUM_CTX` est
+    désormais un budget CLIENT. Ce qu'il commande encore et qui se voit de
+    l'extérieur est ce que `/health` PUBLIE sous `options.num_ctx`, en regard de
+    la fenêtre RÉELLEMENT servie. Un mutant qui y écrirait 8192 en dur ferait
+    croire à un écart nul entre les deux, ou à un écart qui n'existe pas.
     """
-    monkeypatch.setattr(settings, "llm_num_ctx", _REGLAGES_EPROUVES["llm_num_ctx"])
-    charge = dialecte_courant().charge(
-        [{"role": "user", "content": "Quelle est la cadence de purge du collecteur ?"}],
-        stream=True,
-        temperature=0.1,
-        max_tokens=4096,
-        thinking=False,
-    )
-    assert charge["options"]["num_ctx"] == _REGLAGES_EPROUVES["llm_num_ctx"], (
-        f"la charge d'Ollama porte `num_ctx = {charge['options']['num_ctx']!r}` "
+    releve, _ = _releve(monkeypatch, reglages={"llm_num_ctx": _REGLAGES_EPROUVES["llm_num_ctx"]})
+    assert releve is not None
+    assert releve.options["num_ctx"] == _REGLAGES_EPROUVES["llm_num_ctx"], (
+        f"`/health` publie `options.num_ctx = {releve.options['num_ctx']!r}` "
         f"quand `LLM_NUM_CTX` vaut {_REGLAGES_EPROUVES['llm_num_ctx']!r} : la "
-        "fenêtre demandée est une CONSTANTE, et le réglage ne part plus"
+        "fenêtre publiée est une CONSTANTE, et le réglage ne se lit plus"
+    )
+    assert releve.fenetre_servie == _FENETRE, (
+        "la fenêtre SERVIE n'est plus celle du serveur : l'écart entre ce qu'on "
+        "demande et ce qu'on sert cesse alors d'être visible"
     )
 
 
@@ -737,17 +705,16 @@ def test_le_delai_de_lecture_du_flux_n_est_pas_borne(monkeypatch: pytest.MonkeyP
 # ─── LE SECOND POSTE D'OUTILLAGE, LUI AUSSI HORS DU SITE UNIQUE ─────────────
 
 
-@pytest.mark.parametrize("moteur", ["ollama", "vllm"])
 def test_la_traduction_du_balayage_poste_et_lit_dans_le_dialecte(
-    monkeypatch: pytest.MonkeyPatch, moteur: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """NB-5, SECOND POSTE : `scripts/sweep_retrieval.py`.
 
-    Il postait `/api/chat` en dur et lisait `message.content` à la racine.
-    Pointé vers un serveur vLLM, il rendait `None` pour CHAQUE question — en
-    silence, par `except Exception: return None` — et le balayage comparait
-    ensuite ses configurations sur un jeu **sans aucune traduction**, en
-    concluant. Une traduction manquante ne fait pas lever ce script : elle
+    Il postait sa route en dur et lisait le corps dans le dialecte de l'ancien
+    moteur. Pointé vers le serveur qui sert, il rendait `None` pour CHAQUE
+    question — en silence, par `except Exception: return None` — et le balayage
+    comparait ensuite ses configurations sur un jeu **sans aucune traduction**,
+    en concluant. Une traduction manquante ne fait pas lever ce script : elle
     DÉPLACE le rappel translinguistique mesuré.
 
     Les DEUX moitiés sont éprouvées ici, parce qu'une seule ne suffit pas : le
@@ -758,22 +725,16 @@ def test_la_traduction_du_balayage_poste_et_lit_dans_le_dialecte(
     import importlib.util
     import pathlib
 
-    from src.agent.settings import settings as reglages
-
     chemin = pathlib.Path(__file__).resolve().parents[2] / "scripts" / "sweep_retrieval.py"
     spec = importlib.util.spec_from_file_location("sweep_retrieval", chemin)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    monkeypatch.setattr(reglages, "llm_engine", moteur)
-    corps = {
-        "ollama": {"message": {"content": "What is the purge rate of the collector?"}},
-        "vllm": {"choices": [{"message": {"content": "What is the purge rate of the collector?"}}]},
-    }[moteur]
+    corps = {"choices": [{"message": {"content": "What is the purge rate of the collector?"}}]}
     postes: list[str] = []
 
-    class _Reponse:
+    class _ReponsePost:
         def raise_for_status(self) -> None: ...
 
         def json(self) -> dict[str, Any]:
@@ -782,24 +743,21 @@ def test_la_traduction_du_balayage_poste_et_lit_dans_le_dialecte(
     # `json` OMBRE LE MODULE, et le nom est imposé : c'est celui du paramètre
     # de `httpx.post`, que ce double remplace. Le renommer ferait passer la
     # charge en positionnel et le double cesserait de ressembler à `httpx`.
-    def _post(url: str, json: Any = None, **_k: Any) -> "_Reponse":  # noqa: A002
+    def _post(url: str, json: Any = None, **_k: Any) -> "_ReponsePost":  # noqa: A002
         postes.append(url)
-        return _Reponse()
+        return _ReponsePost()
 
     monkeypatch.setattr(module.httpx, "post", _post)
     rendue = module.traduire(
         "Quelle est la cadence de purge du collecteur ?",
-        "http://serveur-d-essai:11434",
+        "http://serveur-d-essai:8000",
         "modele-d-essai",
     )
 
-    chemin_attendu = "/api/chat" if moteur == "ollama" else "/v1/chat/completions"
-    assert postes == [f"http://serveur-d-essai:11434{chemin_attendu}"], (
-        f"sous `LLM_ENGINE={moteur}`, le balayage a posté sur {postes} : le "
-        "chemin ne suit pas le dialecte"
+    assert postes == ["http://serveur-d-essai:8000/v1/chat/completions"], (
+        f"le balayage a posté sur {postes} : le chemin ne vient pas du site unique"
     )
     assert rendue == "What is the purge rate of the collector?", (
-        f"sous `LLM_ENGINE={moteur}`, la réponse du serveur n'a pas été LUE et "
-        f"la traduction a été écartée en silence. Pannes absorbées : "
-        f"{module._PANNES_DE_TRADUCTION}"
+        "la réponse du serveur n'a pas été LUE et la traduction a été écartée "
+        f"en silence. Pannes absorbées : {module._PANNES_DE_TRADUCTION}"
     )

@@ -528,7 +528,7 @@ def test_health_publie_ses_stores_vrais_quand_le_reservoir_des_recherches_est_pl
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }, (
         f"/health publie {corps['services']} alors que les quatre dépendances "
         f"répondent en microsecondes (rendu en {corps['duree']} s). Un `false` ici "
@@ -572,7 +572,7 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
         "chromadb": False,
         "nebulagraph": False,
         "index_lexical": False,
-        "ollama": False,
+        "llm": False,
     }
     # L'exécution n'est plus ordonnée, la RÉPONSE doit l'être : les deux champs
     # sont publiés dans l'ordre de la table des sondes, pas dans celui des
@@ -581,7 +581,7 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
         "chromadb",
         "nebulagraph",
         "index_lexical",
-        "ollama",
+        "llm",
     ]
 
 
@@ -960,7 +960,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
     # processus. La scène reste donc celle d'un agent en marche.
     monkeypatch.setattr(main, "_moteur_releve", main.MoteurLlmHealth(modele_demande="épinglé"))
 
-    sonde_ollama = sonde("ollama")
+    sonde_llm = sonde("llm")
 
     class Client:
         async def __aenter__(self):
@@ -970,7 +970,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
             return False
 
         async def get(self, *_args, **_kwargs):
-            joint = await to_thread.run_sync(sonde_ollama)
+            joint = await to_thread.run_sync(sonde_llm)
 
             class Reponse:
                 status_code = 200 if joint else 503
@@ -986,7 +986,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }
     assert corps["status"] == "ok"
 
@@ -1015,7 +1015,7 @@ def test_une_sonde_non_revenue_est_publiee_fausse_et_nommee(monkeypatch) -> None
 
     assert corps["services"]["chromadb"] is False
     assert corps["services"]["nebulagraph"] is True
-    assert corps["services_unknown"] == ["chromadb", "ollama"]
+    assert corps["services_unknown"] == ["chromadb", "llm"]
     assert corps["status"] == "degraded"
 
 
@@ -1207,15 +1207,15 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.settings, "ollama_host", host)
+    monkeypatch.setattr(main.settings, "llm_host", host)
 
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
 
     assert reponse.status_code == 200
-    assert reponse.json()["services"]["ollama"] is False
+    assert reponse.json()["services"]["llm"] is False
     assert reponse.json()["status"] == "degraded"
-    assert any("ollama" in message.lower() for message in caplog.messages)
+    assert any("llm" in message.lower() for message in caplog.messages)
 
 
 # ─── Ce qui reste hors du plafond ─────────────────────────────────────────────
