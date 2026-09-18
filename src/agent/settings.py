@@ -1,4 +1,4 @@
-from typing import Literal
+
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -34,53 +34,55 @@ class Settings(BaseSettings):
     # d'y fouiller.
     restrict_media_to_graph: bool = Field(default=True, alias="RESTRICT_MEDIA_TO_GRAPH")
 
-    # Ollama / LLM
+    # LE MOTEUR LLM. IL N'Y EN A QU'UN, ET C'EST vLLM.
     #
-    # L'INTERRUPTEUR DU DIALECTE, ET SON DÉFAUT EST OLLAMA.
+    # CE BLOC PORTAIT UN INTERRUPTEUR, ET IL N'EN PORTE PLUS (lot 28).
+    # `LLM_ENGINE` choisissait entre deux dialectes — chemin, forme de la
+    # charge, nom du modèle, façon de demander le raisonnement. Le service tourne
+    # sous vLLM depuis le 17 septembre 2026 et l'autre moteur n'est plus servi :
+    # un interrupteur à une seule position n'est pas un réglage, c'est une
+    # branche morte qu'un `.env` peut encore actionner. Il est retiré, et avec
+    # lui les deux réglages de l'autre versant.
     #
-    # Il ne désigne pas une adresse : il désigne le CHEMIN, la FORME de la
-    # charge, le NOM du modèle et la façon de demander le raisonnement — quatre
-    # choses qui changent ensemble et dont aucune ne se déduit des autres. Le
-    # seul site qui les décide est `src/agent/dialecte_llm.py` ; celui-ci ne
-    # fait que nommer la valeur.
+    # POURQUOI `LLM_HOST` ET `LLM_MODEL`, ET PAS `VLLM_HOST` / `VLLM_MODEL`.
+    # Les deux noms d'avant portaient un MOTEUR dans leur préfixe parce qu'il
+    # fallait les distinguer d'une autre paire. Cette autre paire n'existe plus,
+    # et le préfixe ne distingue donc plus rien : il ne ferait que redire dans le
+    # NOM du réglage ce que le dépôt entier dit déjà, et il mentirait le jour où
+    # le serveur change — un `VLLM_HOST` pointant un serveur qui n'est pas vLLM
+    # est exactement la panne muette que ce bloc a passé deux lots à fermer.
+    # `LLM_` est en outre le préfixe que portent DÉJÀ les quatre réglages voisins
+    # de ce même bloc (`LLM_TEMPERATURE`, `LLM_MAX_TOKENS`, `LLM_NUM_CTX`,
+    # `LLM_THINKING`) : le bloc devient homogène au lieu de mêler deux familles
+    # de noms.
     #
-    # `Literal` ET NON `str`, ET C'EST LA DÉCISION DE CE CHAMP. Une valeur
-    # inconnue — une faute de frappe dans un `.env` — est refusée par pydantic
-    # AU DÉMARRAGE, avec le nom du champ et les valeurs admises. Un `str` la
-    # ferait retomber sur Ollama sans un mot, et l'exploitant croirait avoir
-    # basculé : c'est la panne muette que tout ce lot existe pour empêcher, à
-    # l'endroit même où elle serait la plus facile à laisser passer.
-    # LE DÉFAUT EST `vllm`, ET C'EST LE MOTEUR RÉELLEMENT SERVI depuis le
-    # 17 septembre 2026. Il valait `ollama` jusque-là : un défaut qui ne décrit
-    # pas ce qui tourne fait partir sans bruit sur un autre serveur que celui
-    # qu'on croit mesurer — le dépôt voisin s'y est fait prendre pendant tout un
-    # tour. `ollama` reste une valeur acceptée : c'est le chemin du retour
-    # arrière, et il ne demande aucune reconstruction.
-    llm_engine: Literal["ollama", "vllm"] = Field(default="vllm", alias="LLM_ENGINE")
-    ollama_host: str = Field(default="http://ollama:11434", alias="OLLAMA_HOST")
-    ollama_model: str = Field(default="gemma4:e4b", alias="OLLAMA_MODEL")
-    # Le versant vLLM. DEUX RÉGLAGES ET NON UN, parce que les deux noms de
-    # modèle sont DISJOINTS par mesure et non par convention : le 16 septembre
-    # 2026 à 14:14 UTC, `gemma4:e4b` demandé à vLLM rend 404 « does not exist »,
-    # et `google/gemma-4-E4B-it-qat-w4a16-ct` demandé à Ollama rend 404 « not
-    # found ». Un réglage unique n'aurait donc pu servir qu'un moteur à la fois,
-    # et la bascule aurait exigé d'éditer DEUX lignes du `.env` au lieu d'une —
-    # dont une qu'on oublie.
+    # CE QUE CE RENOMMAGE COÛTE, ET C'EST ÉCRIT PARCE QU'UN `.env` EXISTANT LE
+    # PAIE. `extra="ignore"` (voir `model_config`) fait que les anciennes clés
+    # laissées en place sont ignorées SANS UN MOT, et les nouvelles absentes
+    # retombent sur les défauts ci-dessous. Sur CE poste les défauts sont
+    # justement les valeurs servies, donc un `.env` non migré continuerait de
+    # fonctionner — mais sur un déploiement dont l'hôte diffère du défaut, il
+    # partirait silencieusement sur `http://vllm-central:8000`. La migration est
+    # écrite, clé par clé, dans `documentation/moteur_llm.md`, section
+    # « la migration du `.env` », et c'est le seul site qui la porte.
     #
     # Ces défauts ne sont PAS ceux du poste : ce sont des noms de service
-    # compose, symétriques de `http://ollama:11434`, et ils ne valent que si le
-    # `.env` ne dit rien. Le port 8000 est celui que vLLM écoute DANS son
-    # conteneur ; la correspondance vers l'hôte appartient au compose.
-    vllm_host: str = Field(default="http://vllm-central:8000", alias="VLLM_HOST")
-    vllm_model: str = Field(
-        default="google/gemma-4-E4B-it-qat-w4a16-ct", alias="VLLM_MODEL"
+    # compose. Le port 8000 est celui que vLLM écoute DANS son conteneur ; la
+    # correspondance vers l'hôte appartient au compose.
+    llm_host: str = Field(default="http://vllm-central:8000", alias="LLM_HOST")
+    llm_model: str = Field(
+        default="google/gemma-4-E4B-it-qat-w4a16-ct", alias="LLM_MODEL"
     )
     llm_temperature: float = Field(default=0.1, alias="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=4096, alias="LLM_MAX_TOKENS")
-    # Fenêtre de contexte demandée à Ollama. Doit être passée explicitement :
-    # sinon elle dépend de l'OLLAMA_CONTEXT_LENGTH du serveur, qui diffère
-    # entre l'Ollama embarqué (8192) et le service central (32768) — le même
-    # prompt produisait donc deux comportements selon le mode de déploiement.
+    # Le budget de prompt que le CLIENT s'autorise, et il n'est plus envoyé au
+    # serveur. Le dialecte OpenAI n'a aucun champ de fenêtre : celle de
+    # `vllm-central` est fixée à son LANCEMENT (`--max-model-len 32768`), et ce
+    # dépôt n'a pas le droit d'y toucher. Ce réglage borne donc ce qu'on
+    # s'autorise à ENVOYER — `llm.context_budget_chars`, `llm.fit_prompt` — et
+    # `/health` publie en regard la fenêtre RÉELLEMENT servie (`fenetre_servie`),
+    # de sorte qu'un écart entre les deux se voie au lieu de se deviner. Voir
+    # `dialecte_llm._charge_vllm`, décision (a).
     llm_num_ctx: int = Field(default=8192, alias="LLM_NUM_CTX")
     # Gemma 4 = modèle à raisonnement ; thinking désactivé par défaut (en CPU,
     # la réflexion peut consommer tout le budget avant le 1er token de réponse)
@@ -89,8 +91,12 @@ class Settings(BaseSettings):
     # FORFAIT, pas une mesure : arbitrer entre historique et sources demanderait
     # une mesure de la qualité multi-tour, qui n'existe pas ici. Sans plafond,
     # une conversation longue affame les sources ; à 1.0, six messages à la borne
-    # de Message.content dépassent à eux seuls num_ctx, et c'est Ollama qui
-    # tranche — par le DÉBUT, donc en jetant le message système.
+    # de Message.content dépassent à eux seuls num_ctx, et le serveur REFUSE la
+    # requête : `mesuré` le 18 septembre 2026 à 12:35 UTC sur `vllm-central`
+    # (0.28.0), un prompt de 32 764 jetons rend **HTTP 400 BadRequestError**,
+    # « maximum context length is 32768 tokens ». Le dépassement est donc
+    # bruyant, et ce plafond existe pour ne pas l'atteindre — l'ancien moteur, à
+    # sa place, tronquait par le DÉBUT et jetait le message système en silence.
     history_window_share: float = Field(default=0.25, alias="HISTORY_WINDOW_SHARE",
                                         ge=0.0, le=1.0)
     # Part de sa source qu'un fragment tronqué doit atteindre pour valoir la
@@ -175,8 +181,9 @@ class Settings(BaseSettings):
     #       total −365 ms (−5,3 %)    contention +106 ms   rapport  3,4 pour 1
     #
     # LE RISQUE QUI JUSTIFIAIT LA PRUDENCE EST MESURÉ, ET IL EST PETIT SUR LES
-    # DEUX LECTURES. Partager la carte avec Ollama — qui porte 67 % du temps
-    # d'une réponse — coûte de 40 à 106 ms sur la génération, contre 365 à 817 ms
+    # DEUX LECTURES. Partager la carte avec l'ancien moteur — qui portait 67 %
+    # du temps
+    # d'une réponse — coûtait de 40 à 106 ms sur la génération, contre 365 à 817 ms
     # gagnés au total : de 3,4 à 20,4 pour 1. La décision tient sur l'une comme
     # sur l'autre base.
     #
@@ -184,8 +191,9 @@ class Settings(BaseSettings):
     # pour l'agent le 14 septembre 2026 à 09:08 UTC
     # (`nvidia-smi --query-compute-apps` croisé avec le PID du conteneur), contre
     # 1 266 écrits ici le 11. La carte fait 23 034 MiB — mais elle n'est plus
-    # partagée avec le seul Ollama : **vLLM y tient 14 264 MiB** à cette heure,
-    # Ollama 4 584, et il reste **2 892 MiB**. Voir le §4.50 du registre.
+    # partagée avec le seul ancien moteur : **vLLM y tient 14 264 MiB** à cette
+    # heure, l'ancien 4 584, et il reste **2 892 MiB**. Voir le §4.50 du
+    # registre.
     #
     # ET LE RAPPEL NE BOUGE PAS — à une question près, écrite plutôt que tue :
     # sur les 138, `rang_reciproque` baisse sur **G-006** seule (1,0 → 0,5, le bon
@@ -257,7 +265,7 @@ class Settings(BaseSettings):
     # rendu le domaine dans lequel cette valeur peut bouger. Sa base, `calculé`
     # par lui et recopiée ici sans être rejouée : `réservation(N) = 1 362 +
     # (N − 1) × 68,0 Mio`, contre **3 199 Mio** libres à
-    # `--gpu-memory-utilization 0.76`, **Ollama retiré**.
+    # `--gpu-memory-utilization 0.76`, **l'ancien moteur retiré**.
     #
     # CE QUE LE DOMAINE DIT :
     #   — au-delà de **16**, le PRÉVENIR AVANT de changer la valeur ;
@@ -297,8 +305,8 @@ class Settings(BaseSettings):
     # rattrape pas.
     #
     # LA CONDITION N'EST PAS TENUE AUJOURD'HUI, et les deux seuils ne valent
-    # donc encore RIEN comme autorisation : les 3 199 Mio supposent **Ollama
-    # retiré**, or `llama-server` occupait toujours **3 598 MiB** — `mesuré` le
+    # donc encore RIEN comme autorisation : les 3 199 Mio supposent **l'ancien
+    # moteur retiré**, or `llama-server` occupait toujours **3 598 MiB** — `mesuré` le
     # 14 septembre 2026 à 15:13:30 UTC par
     # `nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv`.
     # Tant qu'il est là, le domaine ci-dessus décrit un poste qui n'existe pas
@@ -398,7 +406,7 @@ class Settings(BaseSettings):
     rrf_k: int = Field(default=60, alias="RRF_K")
     rerank_top_k: int = Field(default=10, alias="RERANK_TOP_K")
     max_search_iterations: int = Field(default=3, alias="MAX_SEARCH_ITERATIONS")
-    # Déclare search_vectors comme outil natif Ollama. Le repli — repérer
+    # Déclare search_vectors comme outil natif du moteur. Le repli — repérer
     # `search_vectors("…")` dans la prose du modèle — reste actif en second
     # rideau, pour les modèles sans tool-calling.
     native_tool_calling: bool = Field(default=True, alias="NATIVE_TOOL_CALLING")
@@ -436,7 +444,8 @@ class Settings(BaseSettings):
     # Fenêtre d'éléments retenus autour de l'élément trouvé, à l'intérieur de
     # sa section. Sans borne, un document sans SectionHeader rattache tous ses
     # éléments au nœud Document : la « section » reconstruite est alors le
-    # document entier, et Ollama tronque le prompt en silence.
+    # document entier, et le prompt dépasse alors la fenêtre — que le serveur
+    # refuse en HTTP 400 (mesuré le 18 septembre 2026, voir `llm_num_ctx`).
     context_window_before: int = Field(default=6, alias="CONTEXT_WINDOW_BEFORE")
     context_window_after: int = Field(default=6, alias="CONTEXT_WINDOW_AFTER")
     # Éléments repris de la section précédente (queue) et de la suivante

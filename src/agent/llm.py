@@ -60,7 +60,7 @@ def _build_context_message(
 # modèle ; ~3.5 est prudent pour du français, plus dense en tokens que l'anglais.
 # C'est une estimation, mais elle s'applique à TOUTES les parties du prompt :
 # l'appliquer aux seules sources était le défaut. `log_prompt_measure` la
-# confronte au décompte réel d'Ollama à chaque génération, de quoi la calibrer.
+# confronte au décompte réel du serveur à chaque génération, de quoi la calibrer.
 _CHARS_PER_TOKEN = 3.5
 
 # Balises de tour que le gabarit de chat du modèle ajoute autour de CHAQUE
@@ -76,17 +76,35 @@ _MESSAGE_FRAMING_CHARS = 34
 # texte tronqué comme s'il était complet.
 _TRUNCATION_MARKER = "\n\n[…] Section tronquée : elle dépasse à elle seule la fenêtre."
 
-# Tolérance sous num_ctx en deçà de laquelle on considère qu'Ollama a tronqué le
-# prompt. Il tronque AVANT d'évaluer, donc `prompt_eval_count` ne peut jamais
-# dépasser num_ctx : un décompte qui affleure la fenêtre est la seule trace
-# observable de l'événement. Quelques tokens de jeu, le gabarit de chat pouvant
-# ne pas retomber pile sur la borne.
+# Tolérance sous num_ctx en deçà de laquelle le prompt AFFLEURE le budget que
+# nous nous sommes donné. Quelques tokens de jeu, le gabarit de chat pouvant ne
+# pas retomber pile sur la borne.
+#
+# CE QUE CETTE BORNE SIGNIFIE A CHANGÉ AVEC LE MOTEUR (lot 28). Elle cherchait
+# la trace d'une troncature SILENCIEUSE : l'ancien moteur coupait avant
+# d'évaluer, donc un décompte qui affleurait la fenêtre était le seul indice
+# observable. `vllm-central` ne tronque pas — il REFUSE, en HTTP 400
+# « maximum context length is 32768 tokens » (`mesuré` le 18 septembre 2026 à
+# 12:35 UTC, un prompt de 32 764 jetons). Ce que cette borne signale est donc
+# désormais un AVERTISSEMENT AVANT la borne, et non la trace d'un dommage déjà
+# subi : `LLM_NUM_CTX` (8192) est très en deçà de la fenêtre servie (32768), de
+# sorte qu'on l'atteint bien avant que le serveur ne refuse quoi que ce soit.
 _TRUNCATION_SUSPICION_TOKENS = 8
 
-# En dessous de cette fraction de l'estimation, `prompt_eval_count` ne mesure
-# plus le prompt : Ollama ne réévalue que le préfixe absent de son cache KV.
-# Calibrer `_CHARS_PER_TOKEN` sur une telle mesure le ferait fondre à chaque
+# En dessous de cette fraction de l'estimation, le décompte du serveur ne mesure
+# plus le prompt, et calibrer `_CHARS_PER_TOKEN` dessus le ferait fondre à chaque
 # tour de conversation.
+#
+# LIGNE DÉFENSIVE DEPUIS LE LOT 28, ET C'EST DIT POUR QU'UN REFACTOR NE LA PRENNE
+# PAS POUR UNE MESURE VIVE. Elle gardait le cache KV de l'ancien moteur, qui ne
+# réévaluait que le préfixe absent de son cache et rapportait donc un compte
+# AMPUTÉ. `vllm-central` a bien un cache de préfixe, mais il rapporte le prompt
+# ENTIER : `mesuré` le 18 septembre 2026 à 12:42 UTC, deux requêtes identiques à
+# la suite, `prompt_tokens = 616` aux deux, invariant. Cette garde n'est donc plus
+# exercée par ce poste. Elle est gardée plutôt que retirée parce qu'elle protège
+# la calibration contre TOUT serveur qui rapporterait un compte amputé, et que
+# retirer une protection qu'on vient de mesurer endormie ne se justifie par
+# aucune mesure. **Borne écrite, non fermée.**
 _CACHE_HIT_RATIO = 0.6
 
 # Marqueurs que `_render_element` intercale dans le markdown, un par élément.
@@ -193,8 +211,8 @@ def source_framing_chars(question: str, contexts: Sequence[SectionContext]) -> l
 def tools_overhead_chars() -> int:
     """Caractères de la déclaration d'outil, quand elle est envoyée.
 
-    `tools` n'est pas un canal séparé pour le modèle : Ollama le rend DANS le
-    prompt via le gabarit de chat, donc il consomme la fenêtre comme le reste.
+    `tools` n'est pas un canal séparé pour le modèle : le serveur le rend DANS
+    le prompt via le gabarit de chat, donc il consomme la fenêtre comme le reste.
     417 caractères, soit ~119 tokens, que rien ne comptait — le même trou que le
     forfait qu'on vient de retirer, à plus petite échelle.
     """
@@ -393,7 +411,7 @@ def _truncate(
     logger.warning(
         "Source %s tronquée : %d caractères conservés sur %d (%.0f %%) — elle ne tenait "
         "pas entière dans les %d restants. La coupe se fait ici, par la FIN et sur une "
-        "frontière d'élément ; laissée à Ollama, elle se ferait par le DÉBUT du prompt.",
+        "frontière d'élément ; laissée au serveur, la requête serait refusée entière.",
         ctx.element_id,
         len(garde),
         len(ctx.markdown),
@@ -410,10 +428,13 @@ def fit_contexts(
 ) -> tuple[list[SectionContext], int]:
     """Fait entrer dans la fenêtre ce qui y entre, et tronque ce qui la remplit.
 
-    Sans cette borne, Ollama tronque le prompt lui-même — silencieusement, et
-    par le DÉBUT, donc en jetant le message système puis les premières sources.
-    Le système pouvait répondre « je n'ai pas trouvé » sur une information
-    qu'il avait reçue.
+    Sans cette borne, le prompt part tel quel et le serveur le REFUSE : HTTP 400,
+    « maximum context length is 32768 tokens » (`mesuré` le 18 septembre 2026 à
+    12:35 UTC sur `vllm-central`). L'utilisateur n'aurait alors aucune réponse du
+    tout. C'est le dommage d'aujourd'hui ; celui d'hier était pire parce qu'il
+    était muet — l'ancien moteur tronquait lui-même, par le DÉBUT, donc en jetant
+    le message système puis les premières sources, et le système répondait « je
+    n'ai pas trouvé » sur une information qu'il avait reçue.
 
     Deux passes, et la seconde est ce que ce lot ajoute.
 
@@ -463,7 +484,7 @@ def fit_contexts(
     """
     if budget_chars <= 0:
         # Plus rien ne tient : ni garder ni tronquer n'a de sens. Mieux vaut une
-        # abstention qu'un prompt dont Ollama ampute le message système.
+        # abstention qu'une requête que le serveur refusera entière.
         return [], len(contexts)
 
     framing = list(framing_chars) if framing_chars is not None else [0] * len(contexts)
@@ -601,11 +622,12 @@ def mesure_prompt_exploitable(estimated_tokens: int, prompt_eval_count: int | No
     échantillons pollués. Deux prédicats séparés dériveraient, et la campagne
     publierait un ratio caractères/token que le journal aurait refusé.
 
-    Ollama ne réévalue que le préfixe absent de son cache KV : au deuxième tour
-    d'une conversation — et, pour une campagne, à chaque question, le message
-    système étant identique — le décompte ne mesure plus le prompt. En dessous de
-    `_CACHE_HIT_RATIO` fois l'estimation, l'écart est trop grand pour être une
-    erreur d'estimation.
+    Un serveur qui ne réévaluerait que le préfixe absent de son cache KV
+    rapporterait, au deuxième tour d'une conversation — et, pour une campagne, à
+    chaque question, le message système étant identique — un décompte qui ne
+    mesure plus le prompt. En dessous de `_CACHE_HIT_RATIO` fois l'estimation,
+    l'écart est trop grand pour être une erreur d'estimation. Voir
+    `_CACHE_HIT_RATIO` : ce poste ne produit pas ce cas, mesuré.
     """
     if not prompt_eval_count or estimated_tokens <= 0:
         return False
@@ -613,27 +635,28 @@ def mesure_prompt_exploitable(estimated_tokens: int, prompt_eval_count: int | No
 
 
 def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> None:
-    """Confronte l'estimation du prompt au décompte réel rendu par Ollama.
+    """Confronte l'estimation du prompt au décompte réel rendu par le serveur.
 
-    `prompt_eval_count` arrive dans le dernier événement du flux (celui qui
-    porte `done: true`) : c'est le nombre RÉEL de tokens du prompt. Personne ne
-    le lisait — le ratio caractères/token restait une devinette, et un prompt
-    trop long ne laissait aucune trace, Ollama le tronquant sans rien dire.
+    `prompt_eval_count` arrive dans l'événement d'usage du flux : c'est le nombre
+    RÉEL de tokens du prompt. Personne ne le lisait — le ratio caractères/token
+    restait une devinette, et un prompt trop long ne laissait aucune trace.
 
-    Deux pièges, tous deux dus à la façon dont Ollama compte.
+    LES DEUX PIÈGES DE CETTE FONCTION SONT HÉRITÉS DE L'ANCIEN MOTEUR, et ils
+    sont écrits ici parce que les deux gardes qu'ils ont produits sont toujours
+    en place — voir `_TRUNCATION_SUSPICION_TOKENS` et `_CACHE_HIT_RATIO`, qui
+    portent chacun la mesure de ce qu'il vaut aujourd'hui.
 
     La première version avertissait sur `prompt_eval_count > num_ctx`, condition
-    structurellement inatteignable : Ollama tronque le prompt AVANT de l'évaluer,
-    donc le décompte est majoré par num_ctx par construction. Le détecteur ne
-    pouvait pas voir ce qu'il cherchait. Ce sont les deux zones en dessous de la
-    borne qui parlent : un décompte qui affleure num_ctx (troncature très
-    probable) et un décompte au-delà de la fenêtre de prompt (la génération se
-    fait rogner son `num_predict`, en silence).
+    alors structurellement inatteignable : l'ancien moteur tronquait le prompt
+    AVANT de l'évaluer, donc le décompte était majoré par num_ctx par
+    construction. Le détecteur ne pouvait pas voir ce qu'il cherchait. Ce sont
+    les deux zones EN DESSOUS de la borne qui parlent, et elles parlent encore :
+    un décompte qui affleure num_ctx, et un décompte au-delà de la fenêtre de
+    prompt — la génération se fait alors rogner son plafond de sortie.
 
-    Second piège : le cache KV. Ollama ne réévalue que le préfixe absent de son
-    cache, donc au deuxième tour d'une conversation `prompt_eval_count` ne
-    mesure plus le prompt. Une telle valeur est écartée de la calibration, sans
-    quoi le ratio fondrait à chaque tour.
+    Second piège : un décompte amputé par un cache de préfixe ne mesure plus le
+    prompt. Une telle valeur est écartée de la calibration, sans quoi le ratio
+    fondrait à chaque tour.
     """
     if not prompt_eval_count or estimated_tokens <= 0:
         return
@@ -641,8 +664,8 @@ def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> 
     if not mesure_prompt_exploitable(estimated_tokens, prompt_eval_count):
         logger.info(
             "Prompt : réel %d tokens pour %d estimés — écart trop grand pour être une "
-            "erreur d'estimation. Ollama n'a réévalué que le préfixe absent de son "
-            "cache KV : mesure écartée de la calibration de _CHARS_PER_TOKEN.",
+            "erreur d'estimation : le serveur n'a probablement réévalué que le préfixe "
+            "absent de son cache. Mesure écartée de la calibration de _CHARS_PER_TOKEN.",
             prompt_eval_count,
             estimated_tokens,
         )
@@ -663,10 +686,10 @@ def log_prompt_measure(estimated_tokens: int, prompt_eval_count: int | None) -> 
 
     if prompt_eval_count >= settings.llm_num_ctx - _TRUNCATION_SUSPICION_TOKENS:
         logger.warning(
-            "Prompt réel de %d tokens, à %d tokens de num_ctx=%d : Ollama tronque avant "
-            "d'évaluer, donc un décompte qui affleure la fenêtre signale une troncature "
-            "PAR LE DÉBUT — le message système, et avec lui les règles de citation et "
-            "d'abstention, a pu ne pas encadrer cette réponse.",
+            "Prompt réel de %d tokens, à %d tokens de num_ctx=%d : le prompt affleure le "
+            "budget que nous nous donnons. Le serveur ne tronque pas — il refuse au-delà "
+            "de SA fenêtre —, mais une source de plus et la borne client coupe, par la "
+            "FIN et sur une frontière d'élément.",
             prompt_eval_count,
             settings.llm_num_ctx - prompt_eval_count,
             settings.llm_num_ctx,
@@ -711,7 +734,7 @@ def _contenu_message(corps: Any) -> str:
     d'élargir l'absorption qui entoure l'appel. Un corps peut être du JSON
     parfaitement VALIDE sans avoir cette forme : `{"message": null}`,
     `{"message": "…"}`, `{"message": []}`, ou un corps qui n'est pas un objet.
-    C'est ce qu'un changement de version d'Ollama, un proxy en erreur, ou un
+    C'est ce qu'un changement de version du serveur, un proxy en erreur, ou un
     backend « compatible » produit — et `.get("message", {}).get("content", "")`
     lève alors `AttributeError`. `node_rewrite` n'ayant aucun try/except,
     l'exception traversait le graphe jusqu'à la route : /chat/start et /answer
@@ -736,8 +759,8 @@ def _contenu_message(corps: Any) -> str:
     500 qu'on corrige.
     """
     # LA FORME EST DÉLÉGUÉE, ET C'EST LA CORRECTION DU LOT 25. Ce site lisait
-    # `corps["message"]["content"]`, qui est le dialecte d'Ollama et rien
-    # d'autre : sous vLLM, dont le corps non-flux porte
+    # `corps["message"]["content"]`, qui est le dialecte de l'ancien moteur et
+    # rien d'autre : le corps non-flux du serveur portant
     # `choices[0].message.content`, il aurait rendu `""` sur une réponse
     # parfaitement valide, et les deux appelants seraient tombés sur leur repli
     # sans qu'une seule ligne de journal accuse autre chose que le serveur.
@@ -807,7 +830,7 @@ async def rewrite_question(question: str, chat_history: list[Message] | None) ->
         # ramènerait les erreurs de programmation que le resserrement écarte.
         #
         # `httpx.InvalidURL` n'y entre pas non plus, et c'est délibéré : elle
-        # hérite directement d'`Exception`, et un OLLAMA_HOST mal formé est une
+        # hérite directement d'`Exception`, et un `LLM_HOST` mal formé est une
         # erreur de CONFIGURATION. Elle casse aussi `generate_stream` : la
         # rattraper ici dégraderait la recherche en monolingue en laissant croire
         # que le service fonctionne, au lieu de dire qu'il est mal configuré.
@@ -862,8 +885,8 @@ def extract_tool_query(message: dict[str, Any]) -> str | None:
     écrite ici parce qu'elle a changé de nature sans changer de comportement.
 
     Avant le lot 20, la lecture était ligne à ligne et le rappel partait depuis
-    la boucle : sur Ollama, qui porte un appel entier par événement, DEUX
-    rappels partaient et `graph.py` retenait le premier (`tool_queries[0]`).
+    la boucle : sur l'ancien moteur, qui portait un appel entier par événement,
+    DEUX rappels partaient et `graph.py` retenait le premier (`tool_queries[0]`).
     Depuis, `LecteurDeFlux` accumule les deux appels SÉPARÉMENT, sous deux clés
     d'index — c'est une scène nommée,
     `test_deux_appels_vllm_accumules_separement_par_index` — puis cette
@@ -895,7 +918,7 @@ def extract_tool_query(message: dict[str, Any]) -> str | None:
         if function.get("name") != "search_vectors":
             continue
         arguments = function.get("arguments")
-        # Ollama rend un objet ; certains modèles rendent une chaîne JSON.
+        # Le serveur rend une chaîne JSON ; d'autres formes rendent un objet.
         if isinstance(arguments, str):
             try:
                 arguments = json.loads(arguments)
@@ -981,15 +1004,12 @@ async def generate_stream(
 ) -> AsyncIterator[str]:
     """Génère la réponse en streaming, dans le dialecte que le réglage désigne.
 
-    LE CHEMIN N'EST PLUS ÉCRIT ICI, ET C'EST LE LOT 25. Ce site postait sur
-    `/api/chat` en dur, et sa raison — « pour piloter `think` » — était juste :
-    l'endpoint OpenAI-compatible d'Ollama n'a pas ce champ, et Gemma 4 peut
-    consommer tout le budget de génération en réflexion avant le premier token
-    de réponse, prohibitif en CPU. Elle reste juste, et elle a simplement
-    déménagé : `dialecte_llm` pilote le raisonnement DES DEUX CÔTÉS — `think`
-    chez Ollama, `chat_template_kwargs` chez vLLM — et le défaut de
-    `LLM_ENGINE` reste `ollama`, donc ce poste envoie aujourd'hui exactement ce
-    qu'il envoyait hier.
+    LE CHEMIN N'EST PLUS ÉCRIT ICI, ET C'EST LE LOT 25. Ce site postait sa route
+    en dur, et sa raison — piloter le raisonnement — était juste : Gemma 4 peut
+    consommer tout le budget de génération en réflexion avant le premier token de
+    réponse, prohibitif en CPU. Elle reste juste, et elle a simplement déménagé :
+    `dialecte_llm` est le seul site qui décide de l'adresse et de la forme, et il
+    pilote le raisonnement par `chat_template_kwargs`.
 
     `on_fit` reçoit le budget tel qu'il a été appliqué. Sans ce rappel, /answer
     devait refaire `fit_prompt` pour chiffrer ses `dropped_contexts` : chaque
@@ -1021,12 +1041,10 @@ async def generate_stream(
         settings.llm_thinking,
     )
 
-    # SEARCH_TOOL EST PASSÉ TEL QUEL AUX DEUX MOTEURS, et ce n'est pas une
-    # supposition tirée de son format : les deux l'ont accepté et ont produit un
-    # appel sur la même déclaration, `mesuré` le 16 septembre 2026 à 14:13 UTC —
-    # Ollama en UN événement (`done_reason: stop`), vLLM en QUATRE
-    # (`finish_reason: tool_calls`). C'est le lecteur qui recolle, et il est
-    # commun.
+    # SEARCH_TOOL EST PASSÉ TEL QUEL, et ce n'est pas une supposition tirée de
+    # son format : le serveur l'a accepté et a produit un appel sur cette
+    # déclaration, `mesuré` le 16 septembre 2026 à 14:13 UTC — QUATRE événements,
+    # `finish_reason: tool_calls`. C'est le lecteur qui recolle.
     payload = dialecte.charge(
         messages,
         stream=True,

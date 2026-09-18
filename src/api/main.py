@@ -628,7 +628,7 @@ async def _sonder[T](
 
 # Combien de temps on accorde au serveur LLM pour dire QUI il est, PAR REQUÊTE.
 # Ce relevé est une COMMODITÉ de traçabilité, pas une sonde de santé :
-# `_sonder_ollama` dit déjà si le service répond ; celui-ci dit ce qu'il est.
+# `_sonder_moteur` dit déjà si le service répond ; celui-ci dit ce qu'il est.
 #
 # CE DÉLAI NE BORNE PAS `/health`, ET LE COMMENTAIRE QU'IL PORTAIT LE LAISSAIT
 # CROIRE — réserve R1 de l'audit du 15 septembre 2026, corrigée ici. Il vaut
@@ -643,10 +643,12 @@ async def _sonder[T](
 _MOTEUR_TIMEOUT_S = 3.0
 
 # Le nombre MAXIMAL de requêtes qu'un relevé coûte, et c'est une propriété, pas
-# le compte d'une scène : version Ollama, version vLLM si la première a échoué,
-# puis le catalogue du serveur reconnu. Le site canonique de ce chiffre est ici ;
-# les deux tests qui le tiennent le relisent plutôt que de le recopier.
-_MOTEUR_REQUETES_MAX = 3
+# le compte d'une scène : la version du serveur, puis son catalogue. Il valait
+# **3** tant que le dépôt savait parler à deux moteurs — la route de version de
+# l'un était essayée avant celle de l'autre ; le lot 28 retire cette première
+# requête avec le moteur qu'elle interrogeait. Le site canonique de ce chiffre
+# est ici ; les deux tests qui le tiennent le relisent plutôt que de le recopier.
+_MOTEUR_REQUETES_MAX = 2
 
 # Le relevé, mémorisé pour la vie du processus après un premier relevé COMPLET.
 #
@@ -784,54 +786,43 @@ def _marqueurs_de_derivation_ajoutes(identifiant: str, demande: str) -> set[str]
 def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bool:
     """L'`id` d'une entrée de catalogue vLLM est-il celui du modèle que NOUS demandons ?
 
-    POURQUOI CE N'EST PAS UNE ÉGALITÉ, ET POURQUOI CE N'EST PAS « NON FERMABLE ».
-    La réserve R2 de l'audit du 15 septembre 2026 posait que les deux noms ne
-    vivent pas dans le même espace de nommage et ne se confrontent donc pas.
-    **Mesuré le 15 septembre 2026 à 18:45 UTC contre l'instance de ce poste**,
-    en lecture seule : `GET /v1/models` sert **une** entrée, d'`id`
-    `google/gemma-4-E4B-it-qat-w4a16-ct`, quand le réglage versionné demande
-    `gemma4:e4b`. Les deux ne sont pas ÉGAUX — R2 avait raison là-dessus — mais
-    réduits par `_forme_comparable`, le demandé est un **infixe exact** du servi :
-    `gemma4e4b` dans `googlegemma4e4bitqatw4a16ct`. La confrontation est donc
-    possible, et c'est une mesure de ce serveur, pas une hypothèse sur les noms.
+    CE PRÉDICAT EST DEVENU LARGE POUR SON CAS NOMINAL, ET IL EST GARDÉ —
+    lot 28. Il est né quand le nom DEMANDÉ et le nom SERVI vivaient dans deux
+    espaces de nommage différents : le réglage demandait un tag de l'ancien
+    moteur, le serveur servait un `id`, et seule une inclusion pouvait les
+    confronter. `LLM_MODEL` porte désormais l'`id` EXACT que le serveur sert, de
+    sorte que le cas nominal de ce poste est une ÉGALITÉ, que l'inclusion
+    satisfait trivialement.
 
-    LE SENS DE LA RELATION EST DÉLIBÉRÉ, ET LA PHRASE QUI LE JUSTIFIAIT ÉTAIT
-    FAUSSE — non bloquante §3 de l'audit du 15 septembre 2026. Ce site écrivait :
-    « le nom servi est plus LONG que le nom demandé, **jamais l'inverse** », au
-    motif qu'un tag Ollama ne nommerait que le modèle et sa taille. Un tag Ollama
-    nomme couramment les quatre — modèle, taille, variante d'instruction,
-    quantification — et l'audit a nommé trois formes publiées qui prennent la
-    phrase en défaut :
+    IL N'EST PAS RESSERRÉ EN ÉGALITÉ POUR AUTANT, et c'est un choix écrit. vLLM
+    peut servir sous un nom d'emprunt (`--served-model-name`) : un déploiement
+    qui demande l'alias court et lit l'`id` long est sain, et l'égalité le
+    publierait en `modele_servi: null`, donc en re-sondage permanent contre un
+    serveur PARTAGÉ. Resserrer serait un durcissement que rien ici ne mesure ;
+    élargir est ce que la suite refuse.
 
-    | tag demandé | `id` servi | reconnu ? |
-    | `llama3:8b-instruct-q8_0` | `meta-llama/Llama-3-8B-Instruct` | non |
-    | `gemma4:e4b-it-q4_K_M` | `google/gemma-4-E4B` | non |
-    | `hf.co/google/gemma-4-E4B-it-qat-w4a16-ct:Q4_K_M` | l'`id` réel | non |
+    LE SENS DE LA RELATION EST DÉLIBÉRÉ : le demandé est cherché DANS le servi,
+    réduits l'un et l'autre par `_forme_comparable`, et **l'inclusion inverse
+    n'est pas tentée**. Un nom demandé plus spécifique que l'`id` servi n'est
+    donc PAS reconnu.
 
-    LA PHRASE EXACTE EST DONC CELLE-CI : le sens choisi est celui du cas MESURÉ
-    sur cette instance — `gemma4:e4b` demandé, `google/gemma-4-E4B-it-qat-w4a16-ct`
-    servi —, où le servi prolonge le demandé. Ce n'est pas une loi des deux
-    écosystèmes, c'est le sens d'UNE inclusion, et **l'inclusion inverse n'est pas
-    tentée**. Un tag plus spécifique que l'`id` servi n'est donc PAS reconnu.
-
-    CE QUE ÇA COÛTE, CHIFFRÉ, ET CE QUE ÇA NE COÛTE PAS. Un tag non reconnu rend
-    `modele_servi` nul, donc le relevé n'est jamais mémorisé : **3 requêtes par
-    battement, indéfiniment**, contre 3 en tout pour un tag reconnu — mesuré par
-    l'audit à 9 requêtes sur 3 battements contre 3. À 20 s d'intervalle, c'est
-    près de treize mille lectures quotidiennes vers un serveur PARTAGÉ, et
+    CE QUE ÇA COÛTE, CHIFFRÉ, ET CE QUE ÇA NE COÛTE PAS. Un nom non reconnu rend
+    `modele_servi` nul, donc le relevé n'est jamais mémorisé : **2 requêtes par
+    battement, indéfiniment**, contre 2 en tout pour un nom reconnu — mesuré par
+    l'audit du 15 septembre à 9 requêtes sur 3 battements contre 3, quand le
+    relevé en coûtait encore 3. À 20 s d'intervalle, c'est
+    près de neuf mille lectures quotidiennes vers un serveur PARTAGÉ, et
     `signature_du_moteur` imprime alors « modèle ABSENT DU SERVEUR » sur un
     serveur qui sert exactement ce qu'on lui demande. Le coût est **inchangé par
     cette correction** : ce qui change est qu'il n'est plus justifié par une
     phrase fausse, qu'il est GARDÉ par des scènes qui comptent ces requêtes, et
     qu'il est ANNONCÉ à chaque battement par le `warning` de R-4.
 
-    POURQUOI L'INCLUSION INVERSE N'A PAS ÉTÉ AJOUTÉE, et c'est mesuré et non
-    supposé : des trois formes ci-dessus, elle n'en règle qu'**une** — la
-    troisième, où l'`id` servi est bien un infixe du tag. Les deux autres ne sont
-    dans aucun sens d'inclusion l'une de l'autre. Elle élargirait donc
-    l'acceptation dans la direction exacte que garde la mutation M1 de l'audit —
-    « la relation accepte tout » — pour un tiers du défaut. Borne écrite,
-    mesurée, non fermée.
+    POURQUOI L'INCLUSION INVERSE N'A PAS ÉTÉ AJOUTÉE : elle élargirait
+    l'acceptation dans la direction exacte que garde la mutation M1 de l'audit du
+    15 septembre 2026 — « la relation accepte tout » —, et elle n'a plus de cas
+    connu à régler depuis que le nom demandé est l'`id` servi. Borne écrite, non
+    fermée.
 
     ELLE REFUSE LES MODÈLES DÉRIVÉS DU NÔTRE — non bloquante §2 du même audit, et
     c'est le cas PROBABLE, pas le cas improbable. Voir `_MARQUEURS_DE_DERIVATION`
@@ -850,14 +841,16 @@ def _le_serveur_sert_ce_que_nous_demandons(identifiant: str, demande: str) -> bo
     CE QU'ELLE NE SAIT PAS, ET C'EST UNE BORNE, PAS UN OUBLI. Elle ne sépare pas
     deux QUANTIFICATIONS DE L'ÉDITEUR du même modèle : `…-qat-w4a16-ct` et un
     hypothétique `…-fp8` la satisfont tous deux. C'est la borne déjà écrite au §6 de
-    `documentation/moteur_llm.md` — côté vLLM, rien de ce que les sept routes GET
-    de l'instance exposent ne distingue deux poids, et `empreinte_du_modele` y
-    reste nulle. Cette relation ferme la question du MODÈLE ; celle du POIDS
-    reste ouverte, et elle ne se fermera pas ici.
+    `documentation/moteur_llm.md` — rien de ce que les sept routes GET de
+    l'instance exposent ne distingue deux poids servis sous un même `id`. Cette
+    relation ferme la question du MODÈLE ; celle du POIDS reste ouverte, et elle
+    ne se fermera pas ici. C'est pourquoi le lot 28 a retiré `empreinte_du_modele`
+    et `quantification` du relevé : le seul catalogue qui savait les renseigner
+    était celui de l'ancien moteur.
 
     UN NOM DEMANDÉ VIDE NE RECONNAÎT RIEN, et c'est le défaut que j'ai trouvé
     contre ma propre relation : la chaîne vide est un infixe de **tout**. Sans ce
-    refus, un `OLLAMA_MODEL` absent ou fait de seuls séparateurs aurait reconnu
+    refus, un `LLM_MODEL` absent ou fait de seuls séparateurs aurait reconnu
     le premier modèle venu — le défaut qu'on ferme ici, en pire. Un réglage
     dégénérément court mais non vide (`g`) reste, lui, satisfait par presque
     tout : aucun seuil de longueur ne se justifierait sans arbitraire, et c'est
@@ -877,26 +870,24 @@ def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
 
     LE PRÉDICAT EST `modele_servi`, DES DEUX CÔTÉS, et il est unique par choix :
     c'est le champ qui sépare « le serveur a dit son nom » de « le serveur a dit
-    ce qu'il porte ». Tout ce qui manque quand il manque — l'empreinte, la
-    quantification côté Ollama, la fenêtre servie côté vLLM — est lu au même
-    endroit et dans la même requête, donc un seul champ suffit à décider.
+    ce qu'il sert ». Tout ce qui manque quand il manque — la fenêtre servie — est
+    lu au même endroit et dans la même requête, donc un seul champ suffit à
+    décider.
 
-    IL EST DÉSORMAIS SYMÉTRIQUE, ET CETTE PHRASE ÉTAIT VRAIE À LA LETTRE SANS
-    L'ÊTRE EN FAIT — non bloquante §2 de l'audit du 15 septembre 2026. Côté vLLM,
-    `modele_servi` valait `entrees[0]["id"]`, jamais confronté à quoi que ce
+    CETTE PHRASE ÉTAIT VRAIE À LA LETTRE SANS L'ÊTRE EN FAIT — non bloquante §2
+    de l'audit du 15 septembre 2026. `modele_servi` valait `entrees[0]["id"]`,
+    jamais confronté à quoi que ce
     soit : le prédicat ne pouvait y être faux que sur un catalogue **vide**, donc
     un serveur servant le modèle d'une autre équipe était mémorisé à vie sous un
     nom faux. Le symétrique exact, en pire, de la bloquante que ce prédicat
     venait de fermer : une affirmation POSITIVE fausse là où le défaut d'origine
     figeait un silence. Les deux côtés confrontent maintenant le catalogue à ce
-    que NOUS demandons — `settings.ollama_model` dans `/api/tags`,
-    `_le_serveur_sert_ce_que_nous_demandons` dans `/v1/models` — et c'est de là
-    que le prédicat tire son sens.
+    que NOUS demandons, par `_le_serveur_sert_ce_que_nous_demandons` sur
+    `/v1/models` — et c'est de là que le prédicat tire son sens.
 
-    LES DEUX SCÈNES QU'IL ÉCARTE SONT TRANSITOIRES, et le code les nommait déjà :
-    le catalogue qui ne répond pas encore, et le tag demandé qui n'y est pas
-    encore — « il sera tiré au premier appel ». Un fait transitoire ne se fige
-    pas ; il se redemande au battement suivant, vingt secondes plus tard.
+    LA SCÈNE QU'IL ÉCARTE EST TRANSITOIRE, et le code la nommait déjà : le
+    catalogue qui ne répond pas encore. Un fait transitoire ne se fige pas ; il
+    se redemande au battement suivant, vingt secondes plus tard.
 
     CE N'EST PAS UN REFUS DE RENDRE : le relevé partiel est rendu à l'appelant
     tel quel, avec ce qu'on sait déjà du serveur. `signature_du_moteur` le tient
@@ -926,9 +917,9 @@ def _releve_est_complet(releve: MoteurLlmHealth) -> bool:
 def _endpoint_expurge(hote: str) -> str:
     """L'URL du serveur LLM, sans ce qu'elle pourrait porter de secret.
 
-    CE DÉPÔT EST PUBLIC ET `runs/*.json` Y EST VERSIONNÉ. `OLLAMA_HOST` est un
+    CE DÉPÔT EST PUBLIC ET `runs/*.json` Y EST VERSIONNÉ. `LLM_HOST` est un
     nom de service docker sur ce poste, mais rien n'empêche un déploiement d'y
-    mettre `http://utilisateur:motdepasse@hote:11434`, et ce champ finirait
+    mettre `http://utilisateur:motdepasse@hote:8000`, et ce champ finirait
     recopié dans une campagne commitée. On ne garde donc que schéma, hôte et
     port — ce qui suffit à dire « ce n'est pas le même serveur qu'hier », qui est
     tout ce qu'on lui demande.
@@ -947,7 +938,7 @@ async def _lire_json(client: httpx.AsyncClient, url: str) -> dict[str, Any] | No
 
     L'ABSORPTION EST LARGE ET ASSUMÉE : transport, délai, statut, décodage — ici
     ils disent tous la même chose, « je n'ai pas pu lire ». La distinction
-    servirait un diagnostic que ce relevé ne rend pas ; `_sonder_ollama` porte
+    servirait un diagnostic que ce relevé ne rend pas ; `_sonder_moteur` porte
     déjà la santé du service, et c'est elle qu'un exploitant regarde.
     """
     try:
@@ -963,103 +954,76 @@ async def _lire_json(client: httpx.AsyncClient, url: str) -> dict[str, Any] | No
 async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
     """QUI génère réellement, relevé du serveur. `None` si on n'a pas pu lire.
 
-    LE DISCRIMINANT PORTE UN FAIT DES DEUX CÔTÉS, et ce n'est pas un détail de
-    forme : `GET /api/version` rend 200 et un `version` sur Ollama, et **404 sur
-    vLLM** — `mesuré` le 15 septembre 2026 à 15:25 UTC sur les deux serveurs de
-    ce poste. Un discriminant qui ne saurait dire que « ce n'est pas Ollama »
-    rangerait n'importe quel serveur muet dans « vLLM » ; celui-ci exige une
-    version des deux côtés, donc une réponse positive pour conclure.
+    LE RELEVÉ EXIGE UNE RÉPONSE POSITIVE, ET IL N'EN DÉDUIT RIEN DE PLUS. `GET
+    /version` rend 200 et un `version` sur vLLM (`mesuré` le 18 septembre 2026 à
+    12:35 UTC sur l'instance de ce poste : `{"version":"0.28.0"}`). Un serveur
+    qui ne répond pas à cette route laisse le champ ENTIER muet : ce relevé ne
+    range pas un silence dans un nom.
 
-    Au plus TROIS requêtes, toutes en LECTURE : aucune génération, aucun jeton.
+    CE QUE LE LOT 28 RETIRE ICI. Le dépôt savait parler à deux moteurs et
+    essayait donc la route de version de l'autre AVANT celle-ci, pour dire lequel
+    des deux répondait. Cette première requête part avec le moteur qu'elle
+    interrogeait, et le relevé passe de trois requêtes à DEUX. Ce que ça change
+    pour un exploitant qui aurait l'autre moteur en face : `moteur_llm` est
+    désormais `null` au lieu de le nommer — le dépôt ne sait plus dire de qui il
+    s'agit, il sait seulement que ce n'est pas celui auquel il parle, et la sonde
+    `llm` de `services` porte déjà la panne. Ne pas le nommer est le prix assumé
+    de ne plus le supporter ; l'inventer serait pire.
+
+    Au plus DEUX requêtes, toutes en LECTURE : aucune génération, aucun jeton.
     Le serveur vLLM de ce poste appartient à une autre équipe.
     """
     global _moteur_releve
     if _moteur_releve is not None:
         return _moteur_releve
-    # CE QUI EST SONDÉ EST CE QUI SERT, ET C'EST TOUT CE QUE LE LOT 25 CHANGE
-    # ICI. L'hôte et le nom du modèle viennent du dialecte courant et non de
-    # `settings.ollama_*` : sinon, basculer `LLM_ENGINE` ferait sonder un
-    # serveur auquel l'agent ne parle plus, et `/health` publierait la version
-    # et le modèle du MAUVAIS moteur — une affirmation fausse, pas une absence.
-    # Sous le défaut (`ollama`), `dialecte.hote` EST `settings.ollama_host` et
-    # `dialecte.modele` EST `settings.ollama_model` : ce relevé est inchangé.
-    #
-    # Ce qui ne change pas : le discriminant reste relevé DU SERVEUR. Il ne lit
-    # pas `dialecte.nom` pour décider qui il interroge — il le demande, et exige
-    # une version des deux côtés pour conclure. Un réglage qui désignerait vLLM
-    # devant un Ollama rendrait donc `serveur: "ollama"`, et c'est EXACTEMENT ce
-    # qu'un exploitant doit voir.
+    # CE QUI EST SONDÉ EST CE QUI SERT. L'hôte et le nom du modèle viennent du
+    # dialecte courant, donc du même site que celui auquel l'agent POSTE ses
+    # générations : sonder ailleurs ferait publier la version et le modèle d'un
+    # serveur auquel personne ne parle — une affirmation fausse, pas une absence.
     dialecte = dialecte_courant()
     hote = dialecte.hote
     serveur: str | None = None
     version: str | None = None
     servi: str | None = None
-    empreinte: str | None = None
-    quantification: str | None = None
     fenetre: int | None = None
     async with httpx.AsyncClient(timeout=_MOTEUR_TIMEOUT_S) as client:
-        charge = await _lire_json(client, f"{hote}/api/version")
+        charge = await _lire_json(client, f"{hote}/version")
         if charge is not None and isinstance(charge.get("version"), str):
-            serveur, version = "ollama", charge["version"]
-        else:
-            charge = await _lire_json(client, f"{hote}/version")
-            if charge is not None and isinstance(charge.get("version"), str):
-                serveur, version = "vllm", charge["version"]
+            serveur, version = "vllm", charge["version"]
         if serveur is None:
-            # Ni l'un ni l'autre n'a dit son nom. On ne DEVINE pas : le champ
-            # entier est muet, et `evaluate.py` le lira « je ne sais pas ».
+            # Le serveur n'a pas dit son nom. On ne DEVINE pas : le champ entier
+            # est muet, et `evaluate.py` le lira « je ne sais pas ».
             return None
-        if serveur == "ollama":
-            # `/api/tags` liste ce que le serveur PORTE. Le tag demandé peut n'y
-            # être pas — il sera tiré au premier appel, ou l'appel échouera — et
-            # c'est un fait qu'on veut voir plutôt que de le remplacer par le
-            # nom demandé.
-            catalogue = await _lire_json(client, f"{hote}/api/tags")
-            for modele in (catalogue or {}).get("models") or []:
-                if not isinstance(modele, dict):
-                    continue
-                if dialecte.modele in (modele.get("name"), modele.get("model")):
-                    servi = modele.get("name")
-                    # Tronqué à 16 : assez pour séparer deux poids, assez court
-                    # pour qu'on ne le prenne pas pour une empreinte complète.
-                    empreinte = (modele.get("digest") or "")[:16] or None
-                    details = modele.get("details")
-                    if isinstance(details, dict):
-                        quantification = details.get("quantization_level")
-                    break
-        else:
-            # `/v1/models` liste ce que le serveur SERT, et on y cherche NOTRE
-            # entrée — exactement comme `/api/tags` ci-dessus. Ce site prenait
-            # `entrees[0]` sans la confronter à quoi que ce soit : non bloquante
-            # §2 de l'audit du 15 septembre 2026, et symétrique exact de la
-            # bloquante que ce lot venait de fermer. Un serveur qui sert le
-            # modèle d'une AUTRE ÉQUIPE — le cas de ce poste, partagé — était
-            # alors mémorisé à vie sous un nom faux, et `signature_du_moteur`
-            # en tirait une ligne ni muette ni vraie que `--compare` traitait
-            # comme un fait. L'ordre de `data` n'est pas un contrat, et
-            # `entrees[0]` n'est pas « notre » entrée.
-            catalogue = await _lire_json(client, f"{hote}/v1/models")
-            for entree in (catalogue or {}).get("data") or []:
-                if not isinstance(entree, dict):
-                    continue
-                identifiant = entree.get("id")
-                if not isinstance(identifiant, str):
-                    continue
-                if not _le_serveur_sert_ce_que_nous_demandons(identifiant, dialecte.modele):
-                    continue
-                servi = identifiant
-                # La fenêtre est celle de NOTRE entrée, jamais celle d'une autre.
-                longueur = entree.get("max_model_len")
-                fenetre = longueur if isinstance(longueur, int) else None
-                break
+        # `/v1/models` liste ce que le serveur SERT, et on y cherche NOTRE
+        # entrée. Ce site prenait
+        # `entrees[0]` sans la confronter à quoi que ce soit : non bloquante
+        # §2 de l'audit du 15 septembre 2026, et symétrique exact de la
+        # bloquante que ce lot venait de fermer. Un serveur qui sert le
+        # modèle d'une AUTRE ÉQUIPE — le cas de ce poste, partagé — était
+        # alors mémorisé à vie sous un nom faux, et `signature_du_moteur`
+        # en tirait une ligne ni muette ni vraie que `--compare` traitait
+        # comme un fait. L'ordre de `data` n'est pas un contrat, et
+        # `entrees[0]` n'est pas « notre » entrée.
+        catalogue = await _lire_json(client, f"{hote}/v1/models")
+        for entree in (catalogue or {}).get("data") or []:
+            if not isinstance(entree, dict):
+                continue
+            identifiant = entree.get("id")
+            if not isinstance(identifiant, str):
+                continue
+            if not _le_serveur_sert_ce_que_nous_demandons(identifiant, dialecte.modele):
+                continue
+            servi = identifiant
+            # La fenêtre est celle de NOTRE entrée, jamais celle d'une autre.
+            longueur = entree.get("max_model_len")
+            fenetre = longueur if isinstance(longueur, int) else None
+            break
     releve = MoteurLlmHealth(
         serveur=serveur,
         endpoint=_endpoint_expurge(hote),
         version=version,
         modele_demande=dialecte.modele,
         modele_servi=servi,
-        empreinte_du_modele=empreinte,
-        quantification=quantification,
         fenetre_servie=fenetre,
         # QUAND ce relevé a été pris, et non quand il est lu. C'est la différence
         # qui compte : mémorisé, il est publié des heures durant, et sans cette
@@ -1113,8 +1077,8 @@ async def _sonder_moteur_llm() -> MoteurLlmHealth | None:
     return releve
 
 
-async def _sonder_ollama() -> bool:
-    """Sonde HTTP d'Ollama.
+async def _sonder_moteur() -> bool:
+    """Sonde HTTP du serveur LLM.
 
     Seule sonde réellement interruptible des quatre : elle fait des
     entrées-sorties asynchrones, donc le plafond la coupe pour de bon, sans
@@ -1127,17 +1091,21 @@ async def _sonder_ollama() -> bool:
     erreur de configuration et non une panne de service. Elle remonte donc à
     `_relever`, qui la journalise en nommant son type au lieu de la taire.
 
-    L'ADRESSE ET LE CHEMIN VIENNENT DU DIALECTE COURANT (lot 25). Laisser
-    `/api/tags` en dur ferait passer cette sonde à `false` dès qu'on bascule sur
-    vLLM — qui n'a pas cette route —, donc `/health` à `degraded` et le
-    healthcheck du compose à `unhealthy`, pour un service qui répond et génère.
-    Une panne ANNONCÉE là où il n'y en a pas est du même ordre qu'une panne tue.
-    Sous le défaut, `url_sonde` vaut `{OLLAMA_HOST}/api/tags` : inchangé.
+    L'ADRESSE ET LE CHEMIN VIENNENT DU DIALECTE COURANT (lot 25), et c'est ce
+    qui garantit que la sonde interroge le serveur auquel l'agent POSTE. Une
+    route écrite en dur ici ferait passer cette sonde à `false` sur un serveur
+    qui répond et génère, donc `/health` à `degraded` et le healthcheck du
+    compose à `unhealthy` : une panne ANNONCÉE là où il n'y en a pas est du même
+    ordre qu'une panne tue. `url_sonde` vaut `{LLM_HOST}/v1/models`.
 
-    Le NOM de la fonction ne bouge pas, et c'est délibéré : il est la clé
-    publiée sous `services` dans `/health`, donc un contrat lu par le
-    healthcheck et par le frontend. Le renommer pour l'élégance casserait des
-    lecteurs hors de ce dépôt.
+    LE NOM DE CETTE FONCTION A CHANGÉ AU LOT 28, ET SA CLÉ PUBLIÉE AUSSI : la
+    sonde s'appelait par le nom de l'ancien moteur, et se publiait sous cette
+    même clé. C'est une RUPTURE DE CONTRAT pour un lecteur hors dépôt,
+    et elle est assumée plutôt que tue : une clé qui nomme un moteur qu'on ne
+    sert plus renseigne faux. Le healthcheck de `docker-compose.yml` ne lit pas
+    cette clé — il ne lit que le code HTTP — et le dépôt ne contient aucun autre
+    lecteur (`git grep`, 18 septembre 2026). La rupture est écrite dans
+    `documentation/moteur_llm.md`, avec la migration du `.env`.
     """
     async with httpx.AsyncClient(timeout=5.0) as client:
         resp = await client.get(dialecte_courant().url_sonde)
@@ -1185,7 +1153,7 @@ def _relever[T](nom: str, tache: asyncio.Task[T], *, si_levee: T | None) -> T | 
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    """Vérifie réellement les trois dépendances (Chroma, Nebula, Ollama).
+    """Vérifie réellement les trois dépendances (Chroma, Nebula, moteur LLM).
 
     Les quatre sondes partent EN PARALLÈLE sous un plafond global : en séquence,
     elles dépassaient le délai du healthcheck et empêchaient le frontend de
@@ -1222,10 +1190,10 @@ async def health() -> HealthResponse:
         nom: asyncio.create_task(_sonder(nom, sonde, appelant="/health"))
         for nom, sonde in sondes.items()
     }
-    taches["ollama"] = asyncio.create_task(_sonder_ollama())
+    taches["llm"] = asyncio.create_task(_sonder_moteur())
     # Sous le MÊME plafond, et hors de `services` pour la même raison que le
     # périphérique : ce n'est pas un booléen. Une panne du serveur LLM est déjà
-    # portée par la sonde `ollama` ci-dessus ; celle-ci ne dit QUE l'identité, et
+    # portée par la sonde `llm` ci-dessus ; celle-ci ne dit QUE l'identité, et
     # son silence ne dégrade donc rien — il se dit dans `services_unknown`.
     tache_moteur = asyncio.create_task(_sonder_moteur_llm())
     # Sous le MÊME plafond : `usage_stats` ouvre SQLite avec un busy_timeout de
@@ -1326,7 +1294,7 @@ async def health() -> HealthResponse:
     # `peripherique_torch` y est inscrit, mais il y est parce qu'il DÉGRADE
     # `status` et qu'un exploitant doit savoir quoi réparer. Le moteur ne dégrade
     # rien — un serveur qui refuse de dire son nom n'est pas un serveur en panne,
-    # et la sonde `ollama` porte déjà la panne s'il y en a une.
+    # et la sonde `llm` porte déjà la panne s'il y en a une.
     #
     # Ce qui resterait est du bruit PERMANENT : sur un déploiement dont le
     # serveur LLM n'expose aucune route de version, cette liste porterait
@@ -1368,12 +1336,10 @@ async def health() -> HealthResponse:
     code_servi = identite_du_code()
     return HealthResponse(
         status=status,
-        # Le modèle DEMANDÉ, qui n'est plus forcément `OLLAMA_MODEL` : sous
-        # `LLM_ENGINE=vllm` c'est `VLLM_MODEL`. Le nom du CHAMP ne bouge pas —
-        # il est publié depuis toujours et `schemas.py` en fait le mode d'emploi
-        # — mais sa valeur suit le moteur, sans quoi `/health` annoncerait un
-        # modèle que personne n'a demandé.
-        ollama_model=dialecte_courant().modele,
+        # Le modèle DEMANDÉ. Le CHAMP portait le nom de l'ancien moteur jusqu'au
+        # lot 28 et il est renommé avec le réglage qu'il publie — voir `schemas.py`,
+        # `HealthResponse`, qui porte ce que la rupture coûte.
+        llm_model=dialecte_courant().modele,
         services=services,
         services_unknown=inconnues,
         usage=_relever("usage", tache_usage, si_levee=None),
@@ -1629,7 +1595,7 @@ async def chat_simple(req: ChatRequest) -> EventSourceResponse | ChatResponse:
 def _mesure_generation(result: dict[str, Any]) -> GenerationMeasure:
     """Décomptes de tokens du serveur d'inférence, tels qu'il les a rendus.
 
-    Les champs restent à `None` quand Ollama ne les a pas rendus. Ce n'est pas
+    Les champs restent à `None` quand le serveur ne les a pas rendus. Ce n'est pas
     zéro : une moyenne qui confondrait « pas de mesure » et « zéro token » serait
     fausse, et c'est précisément ce genre de confusion que ce lot corrige
     ailleurs.

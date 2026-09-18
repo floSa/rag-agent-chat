@@ -592,8 +592,8 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         "reponse_caracteres": len(reponse.get("answer") or ""),
         "eval_count": eval_count,
         "num_predict": num_predict,
-        # La génération a-t-elle buté sur son plafond ? Ollama s'arrête PILE à
-        # num_predict quand il le atteint, donc l'égalité est le signal. `None`
+        # La génération a-t-elle buté sur son plafond ? Le serveur s'arrête PILE
+        # au plafond demandé quand il l'atteint, donc l'égalité est le signal. `None`
         # quand l'un des deux manque — « je ne sais pas » ne doit pas devenir
         # « non ».
         "generation_au_plafond": (
@@ -601,7 +601,7 @@ def evaluer(question: dict, reponse: dict[str, Any]) -> dict[str, Any]:
         ),
         "prompt_eval_count": generation.get("prompt_eval_count"),
         "prompt_tokens_estimated": generation.get("prompt_tokens_estimated") or 0,
-        # Faux = décompte pollué par le cache KV d'Ollama. La décision d'écarter
+        # Faux = décompte pollué par un cache de préfixe. La décision d'écarter
         # ces échantillons appartient à `llm.mesure_prompt_exploitable` ; la
         # campagne l'applique, elle ne la refait pas.
         "prompt_tokens_reliable": bool(generation.get("prompt_tokens_reliable")),
@@ -1004,9 +1004,9 @@ def empreinte_des_ancrages(questions: list[dict]) -> str:
 # `runs/2026-09-11-gpu-cuda-reglage.json` ne se distinguait de son antécédent
 # CPU que par SON NOM DE FICHIER. Deux campagnes séparées par une bascule de
 # périphérique se comparaient donc sans que rien ne dise qu'elles ne mesurent pas
-# le même régime — et la migration vers vLLM est exactement cette bascule :
-# Ollama libère ses ~4,9 Go, vLLM les prend, et si sa réservation ne garde pas la
-# place de cet agent, le périphérique de cet agent change.
+# le même régime — et la migration vers vLLM a été exactement cette bascule :
+# l'ancien moteur libère ses ~4,9 Go, vLLM les prend, et si sa réservation ne
+# garde pas la place de cet agent, le périphérique de cet agent change.
 #
 # LE FAIT, PAS LE RÉGLAGE. `requested` est ce que `TORCH_DEVICE` DEMANDE ;
 # `embedding` et `rerank` sont ce que torch a RÉELLEMENT posé. C'est la
@@ -1154,8 +1154,10 @@ _CHAMPS_DU_MOTEUR = (
     "version",
     "modele_demande",
     "modele_servi",
-    "empreinte_du_modele",
-    "quantification",
+    # `empreinte_du_modele` et `quantification` ont été retirés du relevé au lot
+    # 28 : seul le catalogue de l'ancien moteur savait les renseigner. Ils ne
+    # sont plus EXTRAITS de `/health`, mais `signature_du_moteur` sait toujours
+    # les LIRE dans une campagne archivée qui les porte — c'est écrit à son site.
     "fenetre_servie",
     "options",
     # QUAND l'agent a relevé ce moteur, et non quand la campagne s'est terminée.
@@ -1184,7 +1186,7 @@ def moteur_de_la_campagne(api: str, timeout: float = _SANTE_TIMEOUT_S) -> dict[s
     avant qu'elles partent. La borne est la même et elle est nommée : un serveur
     LLM remplacé EN COURS de campagne serait lu dans son état d'après.
 
-    `None` SE LIT « MUET », JAMAIS « OLLAMA ». Trois causes le produisent et
+    `None` SE LIT « MUET », JAMAIS UN NOM DE MOTEUR. Trois causes le produisent et
     elles disent toutes la même chose ici : `/health` illisible, un agent
     ANTÉRIEUR à ce lot qui ne publie pas la clé, et un serveur LLM qui n'a pas
     dit son nom. Le message de `main` nomme la deuxième, qui est la seule qui se
@@ -1209,14 +1211,19 @@ def signature_du_moteur(moteur: dict[str, Any] | None) -> str | None:
     `modele_demande`, et c'est exactement la leçon de `signature_du_peripherique`.
     Deux campagnes lancées toutes deux sur `gemma4:e4b` contre deux serveurs qui
     portent DEUX POIDS sous ce tag ne sont pas comparables, et leur
-    `modele_demande` est identique. C'est `empreinte_du_modele` qui les sépare,
-    et c'est pour cela qu'elle est dans la signature — **côté Ollama seulement :
-    elle est structurellement NULLE côté vLLM**, réserve R-1 de l'audit du
-    15 septembre 2026, et cette phrase l'affirmait sans le dire. Rien de ce que
-    les sept routes GET de l'instance exposent ne distingue deux poids servis
-    sous un même `id` (§6 de `documentation/moteur_llm.md`). Côté vLLM, ce qui
-    sépare deux moteurs est donc le NOM servi et la FENÊTRE servie, et la
-    position `DIFFÉRENT` sur deux POIDS y reste inatteignable.
+    `modele_demande` est identique. C'est `empreinte_du_modele` qui les
+    séparait, et **elle n'est plus relevée depuis le lot 28** : seul le catalogue
+    de l'ancien moteur la portait, réserve R-1 de l'audit du 15 septembre 2026.
+    Rien de ce que les sept routes GET de l'instance servante exposent ne
+    distingue deux poids servis sous un même `id` (§6 de
+    `documentation/moteur_llm.md`).
+
+    CETTE FONCTION CONTINUE DE LA LIRE, ET C'EST DÉLIBÉRÉ : elle reçoit le dict
+    d'une campagne, y compris une campagne ARCHIVÉE qui porte encore cette clé.
+    La cesser de lire changerait la sortie de `--compare` sur les 20 campagnes de
+    `runs/`, c'est-à-dire réécrirait a posteriori ce qu'un rapport daté signait.
+    Ce qui sépare deux moteurs aujourd'hui est le NOM servi et la FENÊTRE servie,
+    et la position `DIFFÉRENT` sur deux POIDS reste inatteignable.
 
     LE CRITÈRE D'APPARTENANCE À LA SIGNATURE, ET IL TRANCHE DANS LES DEUX SENS.
     **Un champ entre si et seulement s'il est invariant pour un moteur donné et
@@ -1245,15 +1252,16 @@ def signature_du_moteur(moteur: dict[str, Any] | None) -> str | None:
     ferait signer `IDENTIQUE` aux deux campagnes dont l'écart est le sujet même
     du jugement.
 
-    UNE FENÊTRE INCONNUE RESTE MUETTE, ici comme partout. Côté Ollama elle est
-    **toujours** nulle — rien dans `/api/tags` ne la porte — et elle n'est alors
-    pas imprimée : une campagne Ollama ne doit pas signer comme une campagne
-    vLLM, mais pas non plus porter un `None` qu'on lirait comme une valeur.
+    UNE FENÊTRE INCONNUE RESTE MUETTE, ici comme partout — et c'est le cas de
+    TOUTES les campagnes archivées, produites sur un moteur dont le catalogue ne
+    portait pas cette grandeur. Elle n'est alors pas imprimée : une campagne
+    d'avant la bascule ne doit pas signer comme une campagne d'après, mais pas
+    non plus porter un `None` qu'on lirait comme une valeur.
 
-    LE SERVEUR SUFFIT À NE PAS ÊTRE MUET. Un `modele_servi` inconnu — le tag
-    demandé absent du catalogue — laisse quand même savoir qu'Ollama 0.30.10
-    répondait, ce qui est déjà comparable. L'inconnu est alors NOMMÉ dans la
-    ligne au lieu d'effacer ce qu'on sait.
+    LE SERVEUR SUFFIT À NE PAS ÊTRE MUET. Un `modele_servi` inconnu — le nom
+    demandé absent du catalogue — laisse quand même savoir QUEL serveur, dans
+    QUELLE version, répondait, ce qui est déjà comparable. L'inconnu est alors
+    NOMMÉ dans la ligne au lieu d'effacer ce qu'on sait.
 
     `None` QUAND LE SERVEUR EST INCONNU, et rien d'autre ne vaut `None` : « muet »
     n'est pas « différent », ici comme partout ailleurs dans ce module.
@@ -1320,9 +1328,12 @@ def confronter_les_moteurs(
     comparer deux périphériques reste légitime. Le moteur va plus loin — LA
     COMPARAISON ENTRE MOTEURS EST EXACTEMENT CE QUE CETTE CLÉ EXISTE POUR
     PERMETTRE. Le banc go/no-go du 15 septembre 2026 a conclu qu'on ne peut pas
-    trancher la bascule vers vLLM sans une campagne Ollama et une campagne vLLM
-    confrontées l'une à l'autre (§7). Un garde qui refuserait de les comparer
-    interdirait le seul geste pour lequel il a été demandé.
+    trancher une bascule de moteur sans une campagne de chaque côté, confrontées
+    l'une à l'autre (§7). Un garde qui refuserait de les comparer interdirait le
+    seul geste pour lequel il a été demandé — et c'est encore vrai après le lot
+    28 : les campagnes archivées viennent toutes de l'ancien moteur, et les
+    confronter à une campagne d'aujourd'hui est précisément ce qu'on demande à
+    cette clé.
 
     TROIS POSITIONS, ET « IDENTIQUE » EST IMPRIMÉ AUSSI. Un garde qui ne parle
     que lorsqu'il mord ne distingue pas « les deux campagnes ont tourné sur le
@@ -1793,7 +1804,7 @@ def main() -> int:
                     # de `runs/` n'étant comparable à une campagne d'après la
                     # bascule vers vLLM, la question de la qualité n'était pas
                     # tranchable (§7). C'est cette clé qui la rouvre.
-                    # `null` se lit « je n'ai pas pu lire », jamais « Ollama ».
+                    # `null` se lit « je n'ai pas pu lire », jamais un nom de moteur.
                     "moteur_llm": moteur,
                     "resume": resume,
                     "par_langue": langues,

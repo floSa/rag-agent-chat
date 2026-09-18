@@ -55,14 +55,14 @@ def charger_questions(chemin: Path) -> list[dict[str, Any]]:
 _PANNES_DE_TRADUCTION: list[str] = []
 
 
-def traduire(question: str, ollama: str, model: str) -> str | None:
+def traduire(question: str, hote: str, model: str) -> str | None:
     """Traduit une question, en réutilisant le gabarit de production.
 
     CE POSTE EST PASSÉ PAR LE SITE UNIQUE LE 16 SEPTEMBRE 2026 — NB-5 de l'audit
-    du lot 25. Il postait `/api/chat` en dur et lisait `message.content` à la
-    racine : pointé vers un serveur vLLM, il aurait rendu `None` pour CHAQUE
-    question, en silence, et le balayage aurait comparé ses configurations sur
-    un jeu sans aucune traduction — en concluant.
+    du lot 25. Il postait sa route en dur et lisait la réponse dans le dialecte
+    de l'ancien moteur : pointé vers le serveur qui sert aujourd'hui, il aurait
+    rendu `None` pour CHAQUE question, en silence, et le balayage aurait comparé
+    ses configurations sur un jeu sans aucune traduction — en concluant.
 
     L'adresse et le modèle restent ceux des arguments, pour la même raison que
     dans `generate_golden.py` : ce script s'exécute depuis le poste et non
@@ -73,7 +73,7 @@ def traduire(question: str, ollama: str, model: str) -> str | None:
     from src.agent.llm import _get_jinja_env
 
     prompt = _get_jinja_env().get_template("translate_query.j2").render(question=question)
-    dialecte = dialecte_courant()._replace(hote=ollama, modele=model)
+    dialecte = dialecte_courant()._replace(hote=hote, modele=model)
     try:
         reponse = httpx.post(
             dialecte.url_chat,
@@ -100,7 +100,7 @@ def traduire(question: str, ollama: str, model: str) -> str | None:
 
 
 def cache_traductions(
-    questions: list[dict], ollama: str, model: str
+    questions: list[dict], hote: str, model: str
 ) -> dict[str, str]:
     """Traduit ce qui ne l'est pas encore, et conserve le résultat."""
     cache: dict[str, str] = {}
@@ -111,7 +111,7 @@ def cache_traductions(
     if manquantes:
         print(f"Traduction de {len(manquantes)} questions (mises en cache)…")
         for index, q in enumerate(manquantes, 1):
-            traduction = traduire(q["question"], ollama, model)
+            traduction = traduire(q["question"], hote, model)
             if traduction:
                 cache[q["question"]] = traduction
             if index % 20 == 0:
@@ -192,8 +192,10 @@ def main() -> int:
     parser.add_argument(
         "--golden", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
     )
-    parser.add_argument("--ollama", default="http://localhost:11434")
-    parser.add_argument("--model", default="gemma4:e4b")
+    # Le port PUBLIÉ sur l'hôte, ce script tournant depuis le poste — voir la
+    # même note dans `generate_golden.py`.
+    parser.add_argument("--llm-host", default="http://localhost:8100")
+    parser.add_argument("--model", default="google/gemma-4-E4B-it-qat-w4a16-ct")
     parser.add_argument(
         "--param",
         default="translation_weight",
@@ -215,7 +217,7 @@ def main() -> int:
     print(f"{len(questions)} questions avec passage attendu")
 
     traductions = (
-        {} if args.sans_traduction else cache_traductions(questions, args.ollama, args.model)
+        {} if args.sans_traduction else cache_traductions(questions, args.llm_host, args.model)
     )
 
     if args.sans_traduction:

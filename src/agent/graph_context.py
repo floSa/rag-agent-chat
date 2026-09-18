@@ -736,8 +736,9 @@ def _window_around(
 
     Un document dépourvu de SectionHeader rattache tous ses éléments au nœud
     Document : sans borne, la « section » reconstruite est le document entier,
-    et Ollama tronque le prompt en silence, par le début — donc en jetant les
-    premières sources.
+    et le prompt dépasse alors le budget de la fenêtre — la borne de `fit_prompt`
+    écarte des sources, et au-delà de la fenêtre SERVIE le serveur refuse la
+    requête entière (HTTP 400, mesuré le 18 septembre 2026).
 
     Args:
         rows: Enfants de la section, déjà ordonnés par `sequence`.

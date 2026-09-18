@@ -29,24 +29,26 @@ marques, et chacune a SON contrôle positif, parce qu'une marque qui trouve
 n'est pas encore une marque qui discrimine.
 
 Ce module ne dépend ni de LangGraph, ni de `llm.py`, ni du moteur d'inférence :
-`scripts/banc_vllm.py` l'importe sans tirer le graphe entier, et mesure donc
+un outil de mesure peut l'importer sans tirer le graphe entier, et éprouver donc
 le rideau que la production sert, au lieu d'une copie recollée pour l'occasion.
 
 LES FORMES RECONNUES, ET POURQUOI CELLES-LÀ
 -------------------------------------------
 
-Chacune a été relevée sur un des deux moteurs du poste le 15 septembre 2026,
-entre 22:35 et 22:50 UTC, en lecture, une requête à la fois, sans déclarer
-l'outil nativement :
+Chacune a été relevée sur un moteur du poste le 15 septembre 2026, entre 22:35
+et 22:50 UTC, en lecture, une requête à la fois, sans déclarer l'outil
+nativement. Deux moteurs étaient alors servis, et les quatre formes sont gardées
+ensemble : c'est le MODÈLE qui les écrit, pas le serveur qui le sert, et
+`gemma4:e4b` est le même poids des deux côtés.
 
-    search_vectors("contrat cadre")                 positionnelle    ollama
-    search_vectors(query="…")                       nommée           vllm
-    search_vectors(sous_question="…")               nommée, _        vllm
-    search_vectors(sous-question="…")               nommée, -        ollama
+    search_vectors("contrat cadre")                 positionnelle
+    search_vectors(query="…")                       nommée
+    search_vectors(sous_question="…")               nommée, _
+    search_vectors(sous-question="…")               nommée, -
 
 Le motif d'origine n'acceptait que la PREMIÈRE — une parenthèse immédiatement
-suivie d'un guillemet — et les deux moteurs écrivent les autres. C'est le défaut
-que ce module ferme.
+suivie d'un guillemet — et le modèle écrit les autres. C'est le défaut que ce
+module ferme.
 
 Le nom d'argument n'est pas comparé à une liste : `query`, `sous_question` et
 `sous-question` sont trois noms pour la même place, et un modèle en inventera un
@@ -58,7 +60,7 @@ CE QUI N'EST PAS RECONNU, ET C'EST VOULU
 ----------------------------------------
 
 La parenthèse ET la chaîne entre guillemets sont toutes deux obligatoires. Sans
-cette exigence, le rideau attrape ce qu'Ollama écrit quand il parle de l'outil
+cette exigence, le rideau attrape ce que le modèle écrit quand il parle de l'outil
 au lieu de l'appeler — « Je vais lancer une recherche complémentaire avec
 l'outil `search_vectors`. » , mesuré deux essais sur deux — et l'agent part alors
 en recherche sur une phrase qui n'a rien demandé. Un motif trop large ne rend pas

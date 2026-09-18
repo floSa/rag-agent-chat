@@ -21,7 +21,7 @@ Ce projet est l'agent conversationnel qui consomme les données produites par [r
 - **Frontend (Streamlit)** : UI de chat en 3 phases — question, sélection des sources (cases à cocher groupées par document), réponse avec citations et images.
 - **Recherche** : hybride — dense (`paraphrase-multilingual-MiniLM-L12-v2`, le **même modèle** que l'ingestion, obligatoire) et lexicale BM25, sur la question **et sa traduction**, fusionnées par Reciprocal Rank Fusion. Reranking par cross-encoder multilingue `mmarco-mMiniLMv2-L12-H384-v1`, local.
 - **Évaluation** : **deux** jeux de questions et aucun ne remplace l'autre — 138 questions générées depuis le corpus pour le *réglage* (`make eval`), 30 questions écrites à la main par le pipeline d'ingestion pour le *contrôle* (`make eval-controle`). Campagne déterministe sans juge LLM, et un antécédent obligatoire : `make verifier-les-ancrages` prouve que les jeux désignent des passages qui existent, en lecture seule, avant toute mesure. Plus un banc de réglage rapide pour les paramètres de recherche.
-- **LLM** : **vLLM depuis le 17 septembre 2026** (conteneur `vllm-central`, réseau `llm-net`). Ce projet n'embarque aucun serveur d'inférence : il consomme un service central. Le moteur se choisit par `LLM_ENGINE` — `ollama` reste servi par le projet [`llm-service`](https://github.com/floSa/llm-service) et le retour arrière ne demande pas de reconstruction — [moteur_llm.md](documentation/moteur_llm.md).
+- **LLM** : **vLLM depuis le 17 septembre 2026** (conteneur `vllm-central`, réseau `llm-net`). Ce projet n'embarque aucun serveur d'inférence : il consomme un service central. **Un seul moteur est supporté depuis le lot 28** : le réglage qui en choisissait un parmi deux a été retiré, et le retour arrière passe désormais par l'image étiquetée d'avant la bascule — [moteur_llm.md](documentation/moteur_llm.md), [identite_du_code_servi.md](documentation/identite_du_code_servi.md).
 - **Stores en lecture** : ChromaDB, NebulaGraph et MinIO du projet d'ingestion, joints via le réseau Docker externe `rag_network`.
 
 ### Schéma du flux agent
@@ -51,7 +51,7 @@ L'étape clé est la **reconstruction par le graphe** : pour chaque passage sél
 Deux stacks doivent tourner :
 
 - [rag-ingestion-pipeline](https://github.com/floSa/rag-ingestion-pipeline) — crée le réseau `rag_network`, héberge ChromaDB, NebulaGraph et MinIO, et doit avoir ingéré au moins un document ;
-- un serveur d'inférence sur le réseau `llm-net` : **`vllm-central`** (servi depuis le 17 septembre 2026), ou [llm-service](https://github.com/floSa/llm-service) pour `ollama-central` si `LLM_ENGINE=ollama`.
+- un serveur d'inférence sur le réseau `llm-net` : **`vllm-central`** (servi depuis le 17 septembre 2026), monté par le projet [llm-service](https://github.com/floSa/llm-service).
 
 ### 1. Configurer l'environnement
 ```bash
@@ -73,7 +73,6 @@ docker compose up -d --build
 | **Frontend (Streamlit)** | [http://localhost:8506](http://localhost:8506) | Interface de chat avec sélection des sources. |
 | **API (FastAPI)** | [http://localhost:8011/docs](http://localhost:8011/docs) | Swagger UI — tous les endpoints. |
 | **vLLM** | `http://vllm-central:8000` | Moteur servi depuis le 17 septembre 2026, sur le réseau `llm-net`. |
-| **Ollama** | `http://ollama-central:11434` | Moteur de repli, servi par `llm-service`. Atteint par `LLM_ENGINE=ollama`. |
 
 ### 4. Poser une question
 1. Ouvrez le frontend Streamlit et saisissez votre question.
@@ -125,17 +124,14 @@ Les variables clés (voir `.env.example` pour la liste complète) :
 
 | Variable | Défaut | Note |
 | :--- | :--- | :--- |
-| `LLM_ENGINE` | `ollama` | Moteur servi : `ollama` ou `vllm`. **Ce poste sert `vllm` depuis le 17 septembre 2026.** Une valeur inconnue est refusée au démarrage, jamais rabattue en silence. |
-| `VLLM_HOST` | — | Serveur vLLM, quand `LLM_ENGINE=vllm`. |
-| `VLLM_MODEL` | — | Modèle demandé à vLLM. **Le nom n'est pas celui d'Ollama** : les deux catalogues sont disjoints, mesuré. |
-| `OLLAMA_HOST` | `http://ollama-central:11434` | Service central du projet `llm-service`. |
-| `OLLAMA_MODEL` | `gemma4:e4b` | Modèle demandé à Ollama. |
-| `LLM_NUM_CTX` | `8192` | Fenêtre demandée **par requête** : sans elle, elle dépend du serveur. Le budget de sources en dérive (cf. [llm.md](documentation/llm.md)). |
+| `LLM_HOST` | `http://vllm-central:8000` | Le serveur qui génère. **Remplace deux couples de réglages et un interrupteur, retirés au lot 28** — un `.env` antérieur doit être migré, la marche à suivre est dans [moteur_llm.md](documentation/moteur_llm.md). |
+| `LLM_MODEL` | `google/gemma-4-E4B-it-qat-w4a16-ct` | Le modèle demandé, tel que le serveur le sert. `/health` le confronte au catalogue et publie `modele_servi: null` s'il ne le reconnaît pas. |
+| `LLM_NUM_CTX` | `8192` | Le budget de prompt que le **client** s'autorise. Il n'est pas envoyé au serveur — le dialecte OpenAI n'a pas ce champ, et la fenêtre servie (32768) est fixée au lancement. Le budget de sources en dérive (cf. [llm.md](documentation/llm.md)). |
 | `LLM_MAX_TOKENS` | `4096` | Plafond de génération. Réserve la moitié de la fenêtre : **à mesurer**, cf. [llm.md](documentation/llm.md). |
 | `LLM_THINKING` | `false` | Raisonnement de Gemma 4 — rédhibitoire en CPU. |
 | `HISTORY_WINDOW_SHARE` | `0.25` | Part de la fenêtre de prompt laissée à l'historique, le reste allant aux sources. Forfait, cf. [llm.md](documentation/llm.md). |
 | `TRUNCATION_FLOOR_SHARE` | `1/3` | Part de sa source qu'un fragment tronqué doit atteindre pour être retenu. Forfait : aucune mesure ne désigne cette valeur, son prix est continu — cf. [llm.md](documentation/llm.md). |
-| `TORCH_DEVICE` | `cuda` | Périphérique de l'embedder et du cross-encoder. **`cuda` depuis le 11 septembre 2026, sur mesure** : `rerank_ms` p50 498 → 58 ms, `total_ms` p50 7 298 → 6 481 ms (−11,2 %), et la contention avec Ollama sur la même carte chiffrée à **+40 ms** contre 817 gagnés — [campagne](documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md). Trois conditions indépendantes décident qu'un calcul part vraiment sur la carte — le build de l'image, la réservation au conteneur, ce réglage — et chacune suffit à tout ramener sur le CPU **sans rien dire** ; `/health` publie les trois sous `torch_device`. `cpu` y ramène le service sans reconstruire — [gpu_cuda.md](documentation/gpu_cuda.md). |
+| `TORCH_DEVICE` | `cuda` | Périphérique de l'embedder et du cross-encoder. **`cuda` depuis le 11 septembre 2026, sur mesure** : `rerank_ms` p50 498 → 58 ms, `total_ms` p50 7 298 → 6 481 ms (−11,2 %), et la contention avec le serveur LLM sur la même carte chiffrée à **+40 ms** contre 817 gagnés — [campagne](documentation/campagnes/2026-09-11-le-gpu-sur-les-etages-torch.md). Trois conditions indépendantes décident qu'un calcul part vraiment sur la carte — le build de l'image, la réservation au conteneur, ce réglage — et chacune suffit à tout ramener sur le CPU **sans rien dire** ; `/health` publie les trois sous `torch_device`. `cpu` y ramène le service sans reconstruire — [gpu_cuda.md](documentation/gpu_cuda.md). |
 | `EMBEDDING_MODEL_NAME` | `paraphrase-multilingual-MiniLM-L12-v2` | **DOIT** correspondre au modèle qui a indexé la collection. Depuis le 4 septembre 2026 l'agent le vérifie contre l'estampille `embedding_model` de la collection et **refuse de chercher** sinon — `503`, `/health` en `degraded`. Une estampille **absente** est refusée aussi. |
 | `RERANK_MODEL` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` | Multilingue : un reranker anglais défait le travail de l'embedder. |
 | `RETRIEVAL_TOP_K` / `RERANK_TOP_K` | `50` / `10` | Vivier large, puis coupe. Le balayage qui a retenu 50 vit à son **site canonique**, le commentaire de `retrieval_top_k` dans [settings.py](src/agent/settings.py) — recopié ici, il en ferait un second site. **Et il est antérieur au corpus en service :** `mesuré` le **3 août 2026** (`git log -S` sur ce chiffre), soit un mois avant le remplacement du corpus du 2 septembre 2026. Il a décidé d'un réglage et n'a pas été rejoué depuis ; le rappel du corpus actuel est celui de la [campagne de référence](documentation/campagnes/2026-09-08-campagne-de-reference.md). |
@@ -221,7 +217,7 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | [rag_evaluation_strategy.md](documentation/rag_evaluation_strategy.md) | Comment le système est mesuré, et ce que la mesure a tranché |
 | [capture_usage.md](documentation/capture_usage.md) | Ce que le service enregistre de son usage, et les requêtes qui l'exploitent |
 | [tests.md](documentation/tests.md) | Les trois niveaux de test, et ce que rien ne couvre |
-| [moteur_llm.md](documentation/moteur_llm.md) | Quel moteur LLM a généré une campagne, et pourquoi `ollama_model` ne suffisait pas : un tag est mutable, et deux campagnes séparées par une bascule Ollama/vLLM se comparaient sans que rien ne le dise |
+| [moteur_llm.md](documentation/moteur_llm.md) | Quel moteur LLM a généré une campagne, et pourquoi le seul nom de modèle demandé ne suffisait pas : il est mutable, et deux campagnes séparées par une bascule de moteur se comparaient sans que rien ne le dise. **Porte aussi la migration du `.env` du lot 28.** |
 | [identite_du_code_servi.md](documentation/identite_du_code_servi.md) | Quel code tourne, et comment revenir en arrière : l'image porte son sha, `/health` le publie ou déclare l'image **anonyme**, et l'étiquette de retour se vérifie AVANT de construire — douze lots ont exécuté du code antérieur sans que rien ne le dise |
 | [gpu_cuda.md](documentation/gpu_cuda.md) | Installer et activer CUDA : les trois conditions, comment vérifier chacune, ce que ça coûte, et le retour en arrière |
 | [axes_amelioration.md](documentation/axes_amelioration.md) | Ce qui est corrigé, ce qui reste ouvert |
@@ -235,7 +231,6 @@ L'agent est **en lecture seule** sur ces stores. Le contrat — métadonnées Ch
 | Composant | Rôle | Licence |
 |---|---|---|
 | vLLM | Serveur d'inférence | Apache-2.0 |
-| Ollama | Serveur LLM local (repli) | MIT |
 | FastAPI / Uvicorn | API / serveur ASGI | MIT / BSD-3-Clause |
 | Streamlit | Frontend | Apache-2.0 |
 | LangGraph / langchain-core | Boucle agentique | MIT |
