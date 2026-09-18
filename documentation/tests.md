@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1083 tests, aucune dépendance
+## Unitaire — 1084 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,20 +20,21 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 18 septembre 2026 à 13:49 UTC par LOT-28 : **1083** tests sur **52** fichiers,
+> `mesuré` le 18 septembre 2026 à 15:28 UTC par LOT-28 : **1084** tests sur **52** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
 > **CE COMPTE BAISSE, ET C'EST LA PREMIÈRE FOIS.** *(REPAR-26 relevait **1089** sur
-> **51** fichiers le 16 septembre à 20:37 UTC ; les **6** de moins sont le retrait
+> **51** fichiers le 16 septembre à 20:37 UTC ; les **5** de moins sont le retrait
 > du support d'un moteur, et il n'y a pas d'autre cause — le témoin a été
 > recollecté sur `main` dans un arbre à part pour l'établir. **Le solde est NET**,
 > et le détail par fichier le dit. Ce qui PART : **−12** dans
 > `test_champs_du_dialecte.py`, **−6** dans `test_lecteur_de_flux.py`, **−4** dans
 > `test_dialecte_llm.py`, **−1** dans `test_jeux_de_questions.py`, **−1** dans
 > `test_moteur_llm.py` — vingt-quatre scènes, chacune nommée dans le rapport du
-> lot. Ce qui ARRIVE : **12** dans le fichier neuf `test_moteur_unique.py`, qui
-> porte le garde du nom ; **+4** dans `test_absorptions.py`, d'un paramétrage qui
+> lot. Ce qui ARRIVE : **13** dans le fichier neuf `test_moteur_unique.py`, qui
+> porte le garde du nom — **dont une scène née d'une mutation SURVIVANTE**, le
+> contrôle qui confronte le motif du garde au nom tel que le dépôt l'écrit ; **+4** dans `test_absorptions.py`, d'un paramétrage qui
 > ne discriminait plus — ses quatre corps mal formés étaient écrits autour d'une
 > clé que le lecteur ne lit plus, donc les quatre chemins qu'ils prétendaient
 > éprouver se réduisaient à un seul ; **+2** dans `test_coherence_depot.py`, qui

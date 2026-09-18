@@ -65,6 +65,36 @@ _RACINE = Path(__file__).resolve().parents[2]
 _NOM = "olla" + "ma"
 _MOTIF = re.compile(_NOM, re.IGNORECASE)
 
+
+def _nom_releve_du_depot() -> str:
+    """Le nom, RELU DU DÉPÔT et non de la constante ci-dessus.
+
+    CETTE FONCTION EXISTE PARCE QU'UNE MUTATION A SURVÉCU, et c'est la trouvaille
+    de la campagne du lot 28. Le contrôle positif plantait `_NOM` puis cherchait
+    `_MOTIF`, **construit depuis `_NOM`** : il confrontait la constante à
+    elle-même. Casser le motif — `"olla" + "mZ"` — laissait donc les 1083 tests
+    VERTS, et le garde du nom ne gardait plus rien tout en s'annonçant vert.
+
+    La source indépendante est le NOM D'UN FICHIER d'archive, que le propriétaire
+    a décidé de conserver tel quel parce que des documents le citent. Il porte le
+    nom du moteur dans son quatrième segment. Si `_MOTIF` cesse de reconnaître ce
+    nom-là, il ne reconnaît plus rien, et `test_le_motif_reconnait_le_nom_tel_qu_
+    il_est_ecrit_ailleurs` rougit.
+    """
+    candidats = [
+        c
+        for c in _fichiers_suivis()
+        if c.startswith("runs/") and c.endswith("-reference-avant-vllm-reglage.json")
+    ]
+    assert len(candidats) == 1, (
+        f"la source indépendante du nom a disparu ou s'est dédoublée : {candidats}. "
+        "Sans elle, le contrôle positif de ce garde se confronte à sa propre "
+        "constante — et une mutation du motif survit."
+    )
+    segments = Path(candidats[0]).name.split("-")
+    assert len(segments) > 3, f"le nom de fichier a changé de forme : {candidats[0]}"
+    return segments[3]
+
 # ─── LE PÉRIMÈTRE D'EXCLUSION, NOMMÉ UN PAR UN ───────────────────────────────
 #
 # Chaque entrée est un chemin littéral relatif à la racine, et chacune porte sa
@@ -240,6 +270,29 @@ def test_le_garde_atteint_reellement_le_depot() -> None:
     )
 
 
+def test_le_motif_reconnait_le_nom_tel_qu_il_est_ecrit_ailleurs() -> None:
+    """LE CONTRÔLE QUI MANQUAIT, ET UNE MUTATION L'A ÉTABLI.
+
+    `_MOTIF` est construit depuis `_NOM`. Tout contrôle qui plante `_NOM` puis
+    cherche `_MOTIF` mesure la cohérence d'une constante avec elle-même, et reste
+    vert si les DEUX sont faux ensemble. La mutation `_NOM = "olla" + "mZ"` a
+    survécu aux 1083 tests pour cette raison exacte.
+
+    Ce test confronte le motif à une source que le garde ne contrôle pas : le nom
+    de fichier d'une archive du dépôt. Un motif qui ne reconnaît plus ce nom-là ne
+    reconnaît plus rien.
+    """
+    du_depot = _nom_releve_du_depot()
+    assert _MOTIF.fullmatch(du_depot), (
+        f"le motif du garde ne reconnaît pas le nom tel que le dépôt l'écrit "
+        f"({du_depot!r}) : il ne trouvera rien, et son zéro ne voudra rien dire"
+    )
+    assert _NOM.lower() == du_depot.lower(), (
+        f"la constante du garde ({_NOM!r}) a dérivé du nom que le dépôt porte "
+        f"({du_depot!r})"
+    )
+
+
 def test_le_controle_positif_le_nom_plante_une_fois_fait_rougir() -> None:
     """LE ZÉRO EST DOUBLÉ, et sans ceci il ne vaudrait rien.
 
@@ -247,6 +300,11 @@ def test_le_controle_positif_le_nom_plante_une_fois_fait_rougir() -> None:
     périmètre — en mémoire, jamais sur le disque. Un motif cassé rendrait ici le
     même zéro qu'un dépôt propre, et le garde serait vert pour la mauvaise
     raison : c'est la forme de défaut que ce chantier poursuit depuis dix audits.
+
+    **LE NOM PLANTÉ EST CELUI DU DÉPÔT, PAS `_NOM`.** Planter la constante que le
+    motif est fait pour trouver ne prouve que leur accord mutuel : la mutation
+    `_NOM = "olla" + "mZ"` passait ce test sans broncher, puisqu'elle changeait
+    les deux côtés à la fois.
     """
     cible = "src/agent/dialecte_llm.py"
     assert cible in _fichiers_suivis(), f"{cible} n'est plus suivi : la scène a perdu sa cible"
@@ -258,7 +316,7 @@ def test_le_controle_positif_le_nom_plante_une_fois_fait_rougir() -> None:
 
     plante = propre.replace(
         "from .settings import settings",
-        f"from .settings import settings  # repli vers {_NOM}",
+        f"from .settings import settings  # repli vers {_nom_releve_du_depot()}",
         1,
     )
     assert plante != propre, "l'ancre de plantation n'existe plus dans le fichier cible"
@@ -276,7 +334,7 @@ def test_le_controle_de_l_exclusion_une_archive_ne_rougit_pas() -> None:
     désarmé. La même ligne est plantée dans un chemin d'archive et dans un chemin
     vivant : seule la seconde doit être signalée.
     """
-    ligne = f"le moteur {_NOM} servait ce modèle"
+    ligne = f"le moteur {_nom_releve_du_depot()} servait ce modèle"
     assert _occurrences("documentation/audits/2026-09-15-audit-lot-17.md", ligne) == []
     assert _occurrences("runs/README.md", ligne) == []
     assert _occurrences("documentation/axes_amelioration.md", ligne) == []
