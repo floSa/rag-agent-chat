@@ -78,8 +78,13 @@ def test_les_reglages_de_l_ancien_moteur_n_existent_plus() -> None:
     sans elle, une réintroduction silencieuse serait invisible.
     """
     champs = set(Settings.model_fields)
-    assert not {c for c in champs if "ollama" in c or "vllm" in c}, (
-        f"un réglage nomme encore un moteur : {sorted(champs)}"
+    # LES DEUX NOMS SONT COMPOSÉS, pour la même raison qu'au site du garde de
+    # noms (`test_moteur_unique.py`) : une scène qui cherche un nom en l'écrivant
+    # en clair le fait entrer dans le dépôt, et le garde le trouverait ici.
+    moteurs = ("olla" + "ma", "v" + "llm")
+    nommants = {c for c in champs if any(m in c for m in moteurs)}
+    assert not nommants, (
+        f"un réglage nomme encore un moteur : {sorted(nommants)}"
     )
     assert "llm_engine" not in champs
 

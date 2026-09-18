@@ -181,7 +181,7 @@ async def test_node_generate_publie_la_mesure_a_l_etat(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_answer_publie_la_mesure_de_generation(monkeypatch) -> None:
     """La chaîne complète, jusqu'au corps HTTP que la campagne lit. Seule la
-    couche Ollama est simulée : le vrai `node_generate` et le vrai
+    couche du serveur est simulée : le vrai `node_generate` et le vrai
     `generate_stream` sont exercés."""
     from fastapi.testclient import TestClient
 
@@ -259,7 +259,7 @@ def test_sans_decompte_la_mesure_n_est_pas_exploitable() -> None:
 @pytest.mark.asyncio
 async def test_un_decompte_pollue_est_publie_mais_marque(monkeypatch) -> None:
     """La valeur brute reste rendue — l'écarter en silence perdrait l'information
-    « Ollama a servi ce prompt depuis son cache ». C'est le drapeau qui décide de
+    « le serveur a servi ce prompt depuis son cache ». C'est le drapeau qui décide de
     son usage, pas sa disparition."""
     monkeypatch.setattr(
         llm.httpx,

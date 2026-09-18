@@ -313,12 +313,12 @@ PROSE_ORDINAIRE = [
 async def test_les_mentions_en_prose_ne_declenchent_rien(monkeypatch, texte) -> None:
     """Le bord haut : aucune recherche fantôme, et le texte rendu intact.
 
-    Le premier cas n'est pas inventé : Ollama l'a écrit, deux essais sur deux.
+    Le premier cas n'est pas inventé : le modèle l'a écrit, deux essais sur deux.
     Un rideau qui cherche `search_vectors` sans exiger la parenthèse ET la
     chaîne entre guillemets part en recherche sur cette phrase-là.
 
     Le dernier est COMPOSÉ, et il faut le dire : ses deux moitiés sont mesurées
-    séparément — Ollama écrit « avec l'outil `search_vectors`. » sans jamais
+    séparément — le modèle écrit « avec l'outil `search_vectors`. » sans jamais
     l'appeler (deux essais sur deux), et les deux moteurs citent les sources
     entre guillemets (quatre cellules sur quatre). Aucune requête ne les a
     produites ENSEMBLE : le prompt système interdit d'écrire l'appel, et les

@@ -332,7 +332,7 @@ def test_le_verdict_favorable_ne_survit_pas_a_une_reouverture_de_collection(
 def _brancher_health(monkeypatch) -> None:
     from src.api import main
 
-    def _ollama_vrai():
+    def _serveur_vrai():
         class Reponse:
             status_code = 200
 
@@ -359,7 +359,7 @@ def _brancher_health(monkeypatch) -> None:
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_vrai())
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_vrai())
 
 
 def test_health_publie_une_divergence_et_degrade_sans_tomber(monkeypatch) -> None:
@@ -965,7 +965,7 @@ def test_la_reponse_health_exige_le_champ_de_concordance() -> None:
     from src.api.schemas import HealthResponse
 
     with pytest.raises(pydantic.ValidationError) as leve:
-        HealthResponse(status="ok", ollama_model="un-modele")
+        HealthResponse(status="ok", llm_model="un-modele")
 
     assert "embedding_model" in str(leve.value)
 

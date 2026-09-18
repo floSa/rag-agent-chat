@@ -4,6 +4,29 @@ Chaque fichier est le résultat d'une exécution de `scripts/evaluate.py`. Ils s
 versionnés pour que `make eval` puisse comparer, et pour que les décisions de
 réglage restent vérifiables plutôt que d'être affirmées.
 
+> ## CES CAMPAGNES DÉCRIVENT UN ÉTAT ANTÉRIEUR, ET ELLES NE SONT PAS RÉÉCRITES
+>
+> **Le moteur LLM servi est vLLM depuis le 17 septembre 2026**, et le lot 28
+> (18 septembre 2026) a retiré du code le support de l'autre moteur — pas
+> seulement son nom.
+>
+> **Aucune des campagnes versionnées ici n'a été produite sous vLLM** : `mesuré`
+> le 18 septembre 2026, sur les **20** fichiers de ce répertoire, **zéro** porte
+> `moteur_llm.serveur = "vllm"`. Elles décrivent donc toutes un état antérieur, et
+> les lignes ci-dessous qui nomment l'autre moteur **sont exactes pour la date
+> qu'elles portent**. Les réécrire falsifierait un rapport de mesure.
+>
+> `runs/2026-09-15-ollama-reference-avant-vllm-reglage.json` **garde son nom**,
+> décision du propriétaire : c'est l'antécédent d'une campagne, et des documents
+> le citent. Le renommer casserait ces citations et effacerait ce qu'il est.
+>
+> C'est aussi pourquoi ce répertoire est nommé, avec sa raison, dans le périmètre
+> d'exclusion du garde `test_le_nom_de_l_ancien_moteur_ne_revient_pas` — qui
+> mord, lui, partout où le nom décrirait le fonctionnement actuel.
+>
+> **Ce qui décrit le fonctionnement actuel** vit dans
+> [`../documentation/moteur_llm.md`](../documentation/moteur_llm.md).
+
 > ## LE 2 SEPTEMBRE 2026 COUPE CE RÉPERTOIRE EN DEUX, ET AUCUNE COMPARAISON NE TRAVERSE LA COUPURE
 >
 > Le corpus indexé a été **REMPLACÉ** ce jour-là. Les 23 documents en service

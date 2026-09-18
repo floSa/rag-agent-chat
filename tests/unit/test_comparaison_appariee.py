@@ -865,7 +865,7 @@ def test_la_campagne_ecrit_bien_le_moteur_llm_dans_son_artefact(tmp_path) -> Non
     la qualité d'une bascule de moteur (§7) : **rien dans `runs/` ne disait quel
     moteur avait produit une campagne**. Ce test tient le câblage qui referme ce
     trou — et il tient le FAIT (`modele_servi`, `empreinte_du_modele`) plutôt que
-    le réglage, pour la même raison que le périphérique ci-dessus : un tag Ollama
+    le réglage, pour la même raison que le périphérique ci-dessus : un nom de modèle
     est mutable, et deux poids peuvent être servis sous le même nom.
     """
     pythonpath = _agent_simule(tmp_path)

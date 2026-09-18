@@ -2440,7 +2440,7 @@ def test_le_garde_du_site_unique_saurait_voir_une_copie_en_sentinelles() -> None
 #
 # LE DOMAINE EST `src/`, ET CE CHOIX EST LA RÉPONSE AU SECOND PIÈGE.
 # Une sonde qui cherche des chemins DANS LE CODE trouve les chemins écrits dans
-# SA PROPRE SOURCE : sur ce chantier, une sonde `OLLAMA_HOST` s'est attrapée
+# SA PROPRE SOURCE : sur ce chantier, une sonde d'URL s'est attrapée
 # elle-même — la phrase qui déclarait l'absence ÉTAIT l'occurrence —, et un grep
 # d'appelants trouvait sa propre citation. Ici le piège est fermé PAR
 # CONSTRUCTION et non par une liste d'exclusions : ce garde vit dans `tests/`,
@@ -2583,7 +2583,7 @@ def test_le_domaine_balaye_exclut_la_source_de_ce_garde() -> None:
 #
 # CE QUE CE GARDE N'EST PAS. Il ne juge aucune VALEUR : `.env.example` porte
 # légitimement des valeurs de déploiement qui ne sont pas les défauts des champs
-# — `OLLAMA_HOST` en est une — et il porte aussi un défaut discuté au registre
+# — `LLM_HOST` en est une — et il porte aussi un défaut discuté au registre
 # qu'il n'appartient pas à ce garde de trancher. Ce qu'il tient est la seule
 # propriété qui se décide sans arbitrage : **un réglage que le code lit est
 # NOMMÉ dans le fichier d'exemple, et le fichier d'exemple ne nomme rien que le
@@ -3017,7 +3017,7 @@ class TestLaLectureDuMaillonEstAncree:
 # `generate_golden.py` et `sweep_retrieval.py` postaient `/api/chat` en dur et
 # lisaient `message.content` à la racine. Préexistants, non pilotés par
 # `LLM_ENGINE`, donc aucune régression le jour de l'audit — mais pointés vers un
-# vLLM par leur argument `--ollama`, ils écartaient **chaque question en
+# vLLM par leur argument d'hôte, ils écartaient **chaque question en
 # silence** : `except Exception: return None`. La campagne appariée qui vient
 # voudra peut-être générer sous vLLM, et elle aurait rendu un jeu vide en
 # sortant à zéro.

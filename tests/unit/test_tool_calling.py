@@ -1,6 +1,6 @@
 """Détection d'une demande de recherche supplémentaire par le modèle.
 
-Deux canaux : l'appel d'outil natif d'Ollama — structuré, donc sans ambiguïté —
+Deux canaux : l'appel d'outil natif du moteur — structuré, donc sans ambiguïté —
 et, pour les modèles qui n'en font pas, le repérage de `search_vectors("…")`
 dans la prose. Le second est fragile : le modèle doit produire la syntaxe
 exacte, et ses tokens sont déjà partis à l'écran avant qu'on les retire.
@@ -18,7 +18,7 @@ def test_appel_natif_avec_arguments_objet() -> None:
 
 
 def test_appel_natif_avec_arguments_en_chaine_json() -> None:
-    """Ollama rend un objet ; certains modèles rendent une chaîne JSON."""
+    """Le serveur rend une chaîne JSON ; d'autres formes rendent un objet."""
     assert extract_tool_query(_call("search_vectors", '{"query": "dispersion"}')) == "dispersion"
 
 

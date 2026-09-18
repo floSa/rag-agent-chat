@@ -52,7 +52,7 @@ def api() -> str:
 def test_les_dependances_repondent(api: str) -> None:
     services = httpx.get(f"{api}/health", timeout=10.0).json()["services"]
 
-    for essentiel in ("chromadb", "nebulagraph", "ollama"):
+    for essentiel in ("chromadb", "nebulagraph", "llm"):
         assert services[essentiel] is True, f"{essentiel} ne répond pas"
     # L'index lexical est signalé mais n'entre pas dans le statut : il se
     # construit au premier appel, et son absence dégrade la recherche sans

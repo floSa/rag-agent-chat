@@ -12,7 +12,7 @@ qu'ailleurs, parce que c'est sur ces lignes que le lecteur est jugé.
 L'INVENTAIRE, REFAIT À LA MAIN LE 16 SEPTEMBRE 2026 SUR LES 27 SCÈNES D'ALORS :
 
 - **12 RELEVÉES** — elles s'appuient sur l'une des quatre constantes capturées
-  ci-dessous (`OLLAMA_OUTIL`, `OLLAMA_TEXTE`, `VLLM_OUTIL`,
+  ci-dessous (`VLLM_OUTIL`,
   `VLLM_FIN_AVEC_USAGE`), recopiées telles quelles d'un flux réel.
 - **1 RECOPIÉE** — `test_sentinelle_de_fin_ne_leve_pas` écrit en littéral une
   ligne (`data: [DONE]`) qui figure telle quelle dans la capture.
@@ -379,7 +379,7 @@ def test_sans_include_usage_les_decomptes_sont_une_absence_declaree() -> None:
 #
 # CES QUATRE SCÈNES SONT CONSTRUITES, sauf la dernière. Aucun moteur du poste
 # n'écrit les deux dialectes dans le même flux, et c'est mesuré DANS LES DEUX
-# SENS le 16 septembre 2026 à 07:26 UTC : `ollama-central` n'émet aucun `usage`
+# SENS le 16 septembre 2026 à 07:26 UTC : l'ancien moteur n'émettait aucun `usage`
 # (61 événements, 0 occurrence), `vllm-central` n'émet aucun `done` (62
 # événements JSON, 0 occurrence). Le chemin gardé est celui d'un PROXY qui mêle
 # les deux — et le module se présente comme lisant « la FORME, pas un réglage ».
@@ -705,7 +705,7 @@ def test_un_evenement_qui_porte_du_texte_et_un_appel_ne_perd_pas_l_appel() -> No
 
 
 def test_une_erreur_arrivant_apres_des_tokens_leve_aussi() -> None:
-    """SCÈNE CONSTRUITE d'après une forme documentée d'Ollama.
+    """SCÈNE CONSTRUITE d'après une forme documentée de l'ancien moteur.
 
     LE GARDE QUI EXISTAIT NE TENAIT QUE LE PREMIER ÉVÉNEMENT. Une variante du
     lecteur qui ne lève que sur la toute première ligne lue passait les 937

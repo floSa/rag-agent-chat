@@ -1,7 +1,9 @@
 """Budget de contexte : ce qui ne tient pas dans la fenêtre du modèle doit être
-écarté ici, explicitement — sinon Ollama tronque en silence, et par le DÉBUT du
-prompt, donc en jetant le message système (les règles de citation et
-d'abstention) puis les sources les mieux classées.
+écarté ici, explicitement — sinon le prompt dépasse, et le serveur REFUSE la
+requête entière (HTTP 400, mesuré le 18 septembre 2026). L'ancien moteur, à sa
+place, tronquait par le DÉBUT du prompt, donc en jetant le message système (les
+règles de citation et d'abstention) puis les sources les mieux classées : c'était
+pire, parce que c'était muet.
 
 Le budget se calcule sur ce qui est RÉELLEMENT dans le prompt. Il ne comptait
 que les sources : l'historique de conversation n'entrait dans aucun calcul, et
@@ -99,7 +101,7 @@ def test_un_historique_long_reduit_le_budget_des_sources() -> None:
 
 
 def test_le_prompt_systeme_est_compte_dans_le_budget(monkeypatch) -> None:
-    """Le message système est le premier que tronque Ollama : il doit être compté.
+    """Le message système était le premier que tronquait l'ancien moteur : il doit être compté.
 
     L'assertion porte sur le TERME, pas sur une inégalité : `budget <= fenêtre −
     len(système)` était satisfaite par l'ancien forfait, qui ne comptait pas du
@@ -192,7 +194,7 @@ def test_le_prompt_rendu_ne_depasse_jamais_la_fenetre() -> None:
 
 
 def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
-    """`tools` n'est pas un canal séparé : Ollama le rend dans le prompt.
+    """`tools` n'est pas un canal séparé : le serveur le rend dans le prompt.
 
     417 caractères que rien ne comptait — le même trou que le forfait retiré,
     à plus petite échelle.
@@ -224,7 +226,7 @@ def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
     """Le mode de panne d'ALG-2, de bout en bout.
 
     Avant correctif : 31 380 caractères de prompt pour une fenêtre utile de
-    14 336 — Ollama tronquait par le DÉBUT, donc jetait le message système.
+    14 336 — l'ancien moteur tronquait par le DÉBUT, donc jetait le message système.
     """
     msgs, _ = _build_messages(
         "Quelle est la question ?",
@@ -384,7 +386,7 @@ def test_le_remplissage_est_au_mieux_pas_une_coupe_de_la_queue() -> None:
 
 
 def test_la_source_unique_trop_grosse_est_tronquee() -> None:
-    """IMP-6 : elle était transmise entière, et Ollama coupait — par le DÉBUT."""
+    """IMP-6 : elle était transmise entière, et le serveur coupait — par le DÉBUT."""
     kept, dropped = fit_contexts([_context("a", 10_000)], budget_chars=1000)
 
     assert [c.element_id for c in kept] == ["a"]
@@ -420,7 +422,7 @@ def test_la_troncature_n_ampute_jamais_un_marqueur() -> None:
     """Un identifiant coupé en deux n'est pas résolu par le post-processing — ou,
     pire, correspond à un AUTRE élément.
 
-    C'était le mode de panne d'IMP-6, déplacé d'Ollama vers `_truncate` : la
+    C'était le mode de panne d'IMP-6, déplacé du serveur vers `_truncate` : la
     coupe se faisait à un index de caractère brut. Balayé sur une plage de
     budgets, parce qu'un seul cas tombe rarement au milieu d'un marqueur.
 
@@ -584,7 +586,7 @@ def test_estimate_prompt_tokens_compte_les_balises_de_tour() -> None:
 
 
 def test_l_ecart_entre_estimation_et_reel_est_journalise(caplog) -> None:
-    """`prompt_eval_count` était rendu par Ollama et lu par personne : le ratio
+    """`prompt_eval_count` était rendu par le serveur et lu par personne : le ratio
     caractères/token restait une devinette qu'aucune mesure ne corrigeait."""
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(1000, 1200)
@@ -657,7 +659,7 @@ def test_une_mesure_reduite_par_le_cache_kv_ne_calibre_rien(caplog) -> None:
 
 
 def test_sans_prompt_eval_count_rien_n_est_journalise(caplog) -> None:
-    """Une version d'Ollama qui ne rend pas le champ ne doit pas faire de bruit."""
+    """Une version du serveur qui ne rend pas le champ ne doit pas faire de bruit."""
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(1000, None)
 

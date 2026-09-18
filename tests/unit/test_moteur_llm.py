@@ -20,7 +20,7 @@ LES QUATRE PROPRIÉTÉS TENUES ICI, et elles viennent du précédent de la clé
 4. **un antécédent antérieur à ce lot est `muet`** — et le dit.
 
 CE QUI EST ASSERTÉ EST LA PROPRIÉTÉ, JAMAIS L'INSTANTANÉ. Aucun test ici
-n'épingle « ollama 0.30.10 » ni « vLLM 0.28.0 » : ces deux versions seront
+n'épingle « vLLM 0.28.0 » : cette version sera
 fausses au prochain redémarrage du poste. Ce sont les relations qui sont tenues
 — fait contre réglage, muet contre différent, signalement contre refus.
 """
@@ -110,7 +110,7 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
         assert un != deux, (
             "deux poids différents servis sous le même tag rendent la même "
             "signature : l'empreinte ne pèse pas, et le garde serait aveugle au "
-            "cas le plus silencieux — un tag Ollama est MUTABLE"
+            "cas le plus silencieux — un nom de modèle est MUTABLE"
         )
 
     def test_le_reglage_seul_ne_change_pas_la_signature(self) -> None:
@@ -210,10 +210,10 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
     def test_la_fenetre_inconnue_ne_signe_pas_comme_une_fenetre_connue(self) -> None:
         """« MUET » N'EST PAS « DIFFÉRENT », ET CE CHAMP NE FAIT PAS EXCEPTION.
 
-        Côté Ollama `fenetre_servie` est **toujours** nulle — rien dans
+        Sur les campagnes archivées, `fenetre_servie` est **toujours** nulle — rien dans
         `/api/tags` ne la porte —, et les 19 campagnes de `runs/` au 15 septembre
         2026 sont muettes sur le moteur entier. Une fenêtre inconnue ne doit donc
-        pas être imprimée comme une valeur, ni faire signer une campagne Ollama
+        pas être imprimée comme une valeur, ni faire signer une campagne archivée
         comme une campagne vLLM.
         """
         evaluate = _evaluate()
@@ -320,9 +320,9 @@ class TestLesTroisPositionsSontDistinctesEtToujoursEcrites:
         """Un garde qui dirait « ça diffère » sans dire EN QUOI ne se répare pas."""
         evaluate = _evaluate()
         texte = "\n".join(evaluate.confronter_les_moteurs(
-            _moteur(serveur="vllm"), _moteur(serveur="ollama")
+            _moteur(serveur="vllm"), _moteur(serveur="un-moteur-anterieur")
         ))
-        assert "vllm" in texte and "ollama" in texte
+        assert "vllm" in texte and "un-moteur-anterieur" in texte
 
     @pytest.mark.parametrize(
         ("actuel", "precedent"),
@@ -533,14 +533,14 @@ class _Reponse:
 
 
 class TestLaLectureDuMoteurALaSante:
-    """`None` se lit « je n'ai pas pu lire », jamais « Ollama »."""
+    """`None` se lit « je n'ai pas pu lire », jamais un nom de moteur."""
 
     @pytest.mark.parametrize(
         ("charge", "pourquoi"),
         [
             ({}, "un agent ANTÉRIEUR au lot ne publie pas la clé"),
             ({"moteur_llm": None}, "le serveur LLM n'a pas dit son nom"),
-            ({"moteur_llm": "ollama"}, "une chaîne là où un objet est attendu"),
+            ({"moteur_llm": "un-moteur"}, "une chaîne là où un objet est attendu"),
             ({"moteur_llm": []}, "une liste là où un objet est attendu"),
         ],
     )
@@ -627,7 +627,7 @@ class _ClientSimule:
         # LE CHEMIN EXACT, ET C'EST UNE CORRECTION MESURÉE CONTRE MOI-MÊME.
         # La première écriture faisait `url.endswith(chemin)` : `/api/version`
         # se termine par `/version`, donc un serveur simulé « vLLM » répondait
-        # 200 à la route d'Ollama et le relevé concluait `ollama`. Le code était
+        # 200 à la route de l'autre moteur et le relevé concluait sur lui. Le code était
         # juste ; **le double ne ressemblait à aucun serveur réel** — le vrai
         # vLLM rend 404 sur `/api/version`, `mesuré` le 15 septembre 2026.
         self.demandes.append(url)
@@ -891,7 +891,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
     """NON BLOQUANTE §2 DE L'AUDIT DU 15 SEPTEMBRE 2026 — et c'est le symétrique
     exact de la bloquante que ce lot venait de fermer.
 
-    LA SCÈNE. Côté Ollama, `modele_servi` n'est rempli que si le tag demandé est
+    LA SCÈNE. Sur l'autre moteur, `modele_servi` n'était rempli que si le nom demandé était
     **trouvé** dans le catalogue : le prédicat de mémorisation peut donc être
     faux, et c'est ce qui a fermé la bloquante. Côté vLLM, il valait
     `entrees[0]["id"]` — **quel que soit cet `id`**, jamais confronté à quoi que
@@ -1002,7 +1002,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
 
         vLLM peut servir plusieurs modèles, et l'ordre de `data` n'est pas un
         contrat. La sonde parcourt donc le catalogue comme elle le fait côté
-        Ollama depuis toujours, au lieu de prendre la première venue — et la
+        l'autre moteur depuis toujours, au lieu de prendre la première venue — et la
         fenêtre relevée est celle de NOTRE entrée, pas celle d'une autre.
         """
         from src.api import main
@@ -1049,7 +1049,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         """LA BORNE QUE J'AI TROUVÉE CONTRE MA PROPRE RELATION.
 
         Réduit à ses alphanumériques, un réglage vide donne la chaîne vide — et
-        la chaîne vide est un infixe de **tout**. Sans ce garde, un `OLLAMA_MODEL`
+        la chaîne vide est un infixe de **tout**. Sans ce garde, un `LLM_MODEL`
         absent ou fait de seuls séparateurs aurait reconnu le premier modèle
         venu, c'est-à-dire précisément le défaut qu'on ferme ici, en pire :
         silencieusement, et sur n'importe quel serveur.
@@ -1368,7 +1368,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
 
     Le site écrivait : « le nom servi est plus LONG que le nom demandé, **jamais
     l'inverse** », et en tirait la justification du sens de l'inclusion. C'est une
-    affirmation POSITIVE, et elle est fausse : un tag Ollama nomme couramment la
+    affirmation POSITIVE, et elle est fausse : un nom de modèle nomme couramment la
     variante d'instruction et la quantification, que ce site croyait propres aux
     `id` vLLM. **Une borne écrite mais fausse est pire qu'une borne absente**,
     parce qu'on cesse de vérifier ce qu'elle prétend couvrir.
@@ -1379,8 +1379,9 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
     prochaine réécriture du site n'aurait rien à faire rougir.
 
     LES TROIS FORMES SONT PUBLIÉES, PAS INVENTÉES : `-instruct-q8_0` et
-    `-it-q4_K_M` sont des suffixes de tag Ollama courants, et `hf.co/…:Q4_K_M`
-    est la forme exacte sous laquelle Ollama tire un modèle de HuggingFace.
+    `-it-q4_K_M` sont des suffixes de tag courants dans l'écosystème, et
+    `hf.co/…:Q4_K_M` est une forme sous laquelle un moteur tire un modèle de
+    HuggingFace.
 
     PROSPECTIF SUR CE DÉPÔT, ET IL FAUT LE DIRE : le réglage versionné est
     `gemma4:e4b`, qui ne porte pas de quantification, donc le défaut ne mord pas
@@ -1821,7 +1822,7 @@ class TestLeRegimeDeReSondageEstSIGNALE:
 class TestLEndpointEstExpurge:
     """CE DÉPÔT EST PUBLIC ET `runs/*.json` Y EST VERSIONNÉ.
 
-    `OLLAMA_HOST` est un nom de service docker sur ce poste, mais rien n'empêche
+    `LLM_HOST` est un nom de service docker sur ce poste, mais rien n'empêche
     un déploiement d'y mettre des identifiants — ils finiraient recopiés dans une
     campagne commitée.
     """
@@ -1829,9 +1830,9 @@ class TestLEndpointEstExpurge:
     def test_les_identifiants_ne_survivent_pas_a_l_expurgation(self) -> None:
         from src.api.main import _endpoint_expurge
 
-        expurge = _endpoint_expurge("http://bob:s3cr3t@ollama:11434/v1")
+        expurge = _endpoint_expurge("http://bob:s3cr3t@serveur-llm:8000/v1")
         assert "s3cr3t" not in expurge and "bob" not in expurge
-        assert expurge == "http://ollama:11434", "l'hôte et le port doivent survivre"
+        assert expurge == "http://serveur-llm:8000", "l'hôte et le port doivent survivre"
 
     def test_une_url_indechiffrable_n_est_pas_recopiee(self) -> None:
         """On ne sait pas ce qu'elle contient : on ne la publie pas."""
@@ -1842,7 +1843,7 @@ class TestLEndpointEstExpurge:
     def test_le_controle_positif_une_url_ordinaire_traverse_entiere(self) -> None:
         from src.api.main import _endpoint_expurge
 
-        assert _endpoint_expurge("http://ollama:11434") == "http://ollama:11434"
+        assert _endpoint_expurge("http://serveur-llm:8000") == "http://serveur-llm:8000"
 
 
 # ─── Ce que les campagnes du disque disent aujourd'hui ───────────────────────
@@ -1855,7 +1856,7 @@ def test_les_campagnes_deja_au_disque_sont_muettes_et_le_restent() -> None:
     ne doit croire l'inverse. Ce test n'épingle pas un compte — il tiendrait
     encore si une campagne portant la clé était écrite demain : ce qu'il asserte
     est que **toute campagne sans la clé est traitée en MUET**, jamais en
-    « Ollama par défaut ».
+    « un moteur par défaut ».
     """
     evaluate = _evaluate()
     runs = _RACINE / "runs"

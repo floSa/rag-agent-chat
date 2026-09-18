@@ -247,9 +247,9 @@ def test_la_graine_est_transmise_au_generateur_de_texte() -> None:
     les langues, le tirage de langue vivant dans la même boucle. `mesuré` par
     l'audit du lot 5 : deux exécutions à `--seed 42`, mêmes ancrages mais **7
     textes de question sur 16** différents — `temperature: 0.4`, et **aucun**
-    `seed` transmis à Ollama.
+    `seed` transmis au serveur.
 
-    Ce test rougit si la graine cesse d'atteindre la charge Ollama. Il ne
+    Ce test rougit si la graine cesse d'atteindre la charge postée. Il ne
     prouve pas le déterminisme du serveur, qui n'est pas un fait sur ce dépôt :
     la mesure qui l'établit est citée au docstring de
     `generate_golden.demander_question`.

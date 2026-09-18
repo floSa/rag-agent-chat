@@ -101,7 +101,7 @@ async def test_repli_sur_la_question_si_le_llm_echoue(monkeypatch) -> None:
     bibliothèque.
     """
     def boom(**_kwargs):
-        raise httpx.ConnectError("Ollama injoignable")
+        raise httpx.ConnectError("serveur injoignable")
 
     monkeypatch.setattr(llm.httpx, "AsyncClient", boom)
 
@@ -181,7 +181,7 @@ async def test_repli_si_le_llm_echoue(monkeypatch) -> None:
     monkeypatch.setattr(llm.settings, "cross_lingual_search", True)
 
     def boom(**_kwargs):
-        raise httpx.ConnectError("Ollama injoignable")
+        raise httpx.ConnectError("serveur injoignable")
 
     monkeypatch.setattr(llm.httpx, "AsyncClient", boom)
 
