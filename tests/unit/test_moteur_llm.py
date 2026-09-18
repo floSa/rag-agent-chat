@@ -39,6 +39,21 @@ from urllib.parse import urlsplit
 
 import pytest
 
+@pytest.fixture(autouse=True)
+def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
+
+    Ces scènes héritaient du défaut de `LLM_ENGINE`, qui valait `ollama`. Le
+    défaut décrit désormais ce qui est SERVI — vLLM —, et vingt-quatre scènes
+    sont devenues rouges d'un coup : elles ne DEMANDAIENT pas le dialecte
+    qu'elles mesuraient, elles le SUPPOSAIENT.
+
+    Une scène qui veut un autre dialecte le pose après cette fixture, et rien ne
+    change pour elle.
+    """
+    monkeypatch.setattr(main.settings, "llm_engine", "ollama")
+
+
 _RACINE = pathlib.Path(__file__).resolve().parents[2]
 _SCRIPT = _RACINE / "scripts" / "evaluate.py"
 

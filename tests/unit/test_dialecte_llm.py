@@ -24,6 +24,22 @@ from src.agent.dialecte_llm import Dialecte, dialecte_courant
 from src.agent.flux_llm import charge_du_corps
 from src.agent.settings import Settings, settings
 
+@pytest.fixture(autouse=True)
+def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
+
+    Ces scènes héritaient du défaut de `LLM_ENGINE`, qui valait `ollama`. Le
+    défaut décrit désormais ce qui est SERVI — vLLM —, et vingt-quatre scènes
+    sont devenues rouges d'un coup : elles ne DEMANDAIENT pas le dialecte
+    qu'elles mesuraient, elles le SUPPOSAIENT.
+
+    Une scène qui veut le dialecte d'Ollama le demande, comme les scènes vLLM
+    posent déjà le leur. Celles-ci surchargent cette fixture après elle, et rien
+    ne change pour elles.
+    """
+    monkeypatch.setattr(settings, "llm_engine", "ollama")
+
+
 MESSAGES = [{"role": "user", "content": "Quel est le taux de la prime de service ?"}]
 
 
