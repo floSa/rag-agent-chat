@@ -605,6 +605,32 @@ travail** : un nom de branche créé par l'outillage n'en est pas une.
 
 ## 10. Les pièges de mesure, payés par le dépôt jumeau
 
+- **UN DÉFAUT QUI ÉCHOUE SE VOIT ; UN DÉFAUT QUI RÉPOND MENT.** *Rendu par le
+  pilote de `data-analyst-agent`, le 18 septembre 2026, et payé chez lui.* Son
+  `LLM_BASE_URL` par défaut désignait un serveur **joignable** sur l'ancien
+  moteur : en mesurant depuis un arbre où le `.env` n'avait pas été recopié, sa
+  sonde a répondu normalement, **sans erreur ni avertissement**, et il a cru
+  mesurer son produit pendant tout un tour. Chez nous le même défaut mentait
+  aussi, mais ses deux hôtes sont **injoignables** (`000` depuis le conteneur,
+  `mesuré` le 18 septembre) : l'application échoue au lieu de mesurer faux.
+  **Quand tu choisis une valeur par défaut pour quelque chose que tu ne
+  contrôles pas, choisis-en une qui NE PEUT PAS marcher par accident.** Et si tu
+  mesures depuis un arbre de travail, imprime l'adresse et le modèle **en tête
+  de chaque relevé** : c'est la seule façon de voir qu'on s'est trompé de
+  serveur ;
+- **un test qui HÉRITE d'un défaut change de sujet le jour où le défaut
+  change.** Corollaire du précédent, payé ici le 18 septembre : porter
+  `LLM_ENGINE` de `ollama` à `vllm` a rendu **24 scènes rouges d'un coup**, dans
+  trois fichiers — aucune ne mesurait mal, elles ne **demandaient** pas le
+  dialecte qu'elles éprouvaient. Une scène pose ce qu'elle mesure. *Le dépôt
+  voisin ne connaît pas ce piège, et la raison est instructive : ses tests
+  construisent leurs réglages argument par argument, donc ils déclarent au lieu
+  d'hériter.* ;
+- **`monkeypatch.undo()` annule AUSSI ce qu'une fixture a posé**, et l'état
+  retombe sur le défaut. Une scène de retour arrière **repose** son état de
+  départ explicitement — ce qui est d'ailleurs plus fidèle à ce que fait un
+  exploitant : il réécrit un réglage, il n'annule rien ;
+
 - **mesure `rc` du processus, jamais derrière un tube ni un `grep`** :
   `cmd 2>&1 | tail` rend le code de `tail`. Ce piège a produit la pire faute de
   l'autre chantier — un commit qui annonçait cinq corrections et n'en avait
