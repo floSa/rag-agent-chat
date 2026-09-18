@@ -72,6 +72,7 @@ from src.agent.dialecte_llm import dialecte_courant
 from src.agent.settings import Settings, settings
 from src.api.schemas import MoteurLlmHealth
 
+
 @pytest.fixture(autouse=True)
 def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.

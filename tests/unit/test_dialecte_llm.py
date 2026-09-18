@@ -24,6 +24,7 @@ from src.agent.dialecte_llm import Dialecte, dialecte_courant
 from src.agent.flux_llm import charge_du_corps
 from src.agent.settings import Settings, settings
 
+
 @pytest.fixture(autouse=True)
 def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
@@ -255,7 +256,11 @@ def test_la_bascule_revient_et_rien_n_est_memorise(monkeypatch) -> None:
     assert pendant.nom == "vllm"
     assert pendant.url_chat != avant.url_chat
 
-    monkeypatch.undo()
+    # `undo()` annulerait AUSSI la base posée par la fixture de ce fichier, et
+    # le dialecte retomberait sur le DÉFAUT — qui est vLLM. On repose donc
+    # explicitement l'état de départ, ce qui est d'ailleurs plus fidèle à ce que
+    # fait un exploitant : il réécrit `LLM_ENGINE`, il n'annule rien.
+    monkeypatch.setattr(settings, "llm_engine", "ollama")
     apres = dialecte_courant()
     assert apres == avant
     assert (

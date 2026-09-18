@@ -39,6 +39,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
+
 @pytest.fixture(autouse=True)
 def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
