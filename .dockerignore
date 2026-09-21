@@ -1,0 +1,30 @@
+# Ce qui n'a rien à faire dans l'image, et pourquoi.
+#
+# IL N'Y EN AVAIT PAS, et l'image servie embarquait le BYTECODE DE LA MACHINE :
+# un `__pycache__/settings.cpython-314.pyc` a été trouvé dans le conteneur le
+# 21 septembre 2026, alors que l'image tourne sous Python 3.12. Python ignore un
+# `.pyc` dont la version ne correspond pas, donc rien ne cassait — mais l'image
+# portait du code compilé que personne n'avait construit pour elle, et le nom de
+# l'ancien moteur y survivait au lot qui l'avait retiré partout ailleurs.
+#
+# Le contexte transféré reste petit sans ce fichier — BuildKit ne transfère que
+# ce que les `COPY` désignent (mesuré : 914 ko, puis 278 ko). Ce `.dockerignore`
+# ne sert donc pas la vitesse : il sert à ce que l'image ne contienne QUE ce
+# qu'on y a mis.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jamais dans une image : l'environnement local, l'historique, les secrets.
+.venv/
+.git/
+.env
+
+# Rien de tout cela n'est copié par `Dockerfile.agent`, mais un `COPY .` ajouté
+# un jour par distraction les emporterait.
+.claude/
+documentation/
+runs/
+tests/
