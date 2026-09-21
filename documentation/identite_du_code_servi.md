@@ -233,6 +233,53 @@ signifie que le build n'est pas passé par `make image` — **et le déploiement
 
 ### Revenir
 
+> **⚠ DEPUIS LE LOT 28, REVENIR SUR LE MOTEUR PASSE PAR ICI — ET PAR RIEN
+> D'AUTRE.** Jusqu'au 18 septembre 2026, changer de moteur était une ligne de
+> `.env` : le code portait les deux dialectes, et repasser le réglage suffisait,
+> **sans reconstruire ni redéployer**. Le lot 28 a retiré le support du second
+> moteur. Ce chemin-là n'existe plus, et il ne reste que celui-ci.
+>
+> **CE QUE ÇA COÛTE, DIT FRANCHEMENT.** Revenir exigeait une édition de fichier et
+> un redémarrage de processus ; il exige désormais de **réétiqueter une image et
+> de redéployer**. C'est plus long, cela demande le démon Docker et la main du
+> pilote, et surtout : **cela ramène tout le code d'avant**, pas seulement le
+> moteur. Les correctifs livrés depuis repartent avec.
+>
+> **L'ÉTIQUETTE DU RETOUR SUR LE MOTEUR**, vérifiée le 18 septembre 2026 à
+> 13:37 UTC :
+>
+> ```
+> rag-agent-chat-agent-api:2026-09-17-avant-bascule-vllm
+> ```
+>
+> Elle pend à `sha256:48b00a43…`, construite le **2026-09-16T13:39:21Z**, qui
+> porte `RAG_AGENT_CODE_SHA=b7337a3e544009dbbbc36764cb072e046b175e09` — le code
+> du lot 24, antérieur à la bascule. L'image servie ce jour-là porte, elle,
+> `7b0edb0`, construite le **2026-09-17T07:45:03Z**. Les deux sont donc bien
+> distinctes, et **l'étiquette ne ment pas sur ce qu'elle désigne** : ce dépôt a
+> déjà vu une étiquette datée pendre à l'image d'un autre jour, et la vérifier
+> coûte une commande. C'est en outre sa **seule** étiquette : sans elle, cette
+> image n'est plus retrouvable que par son identifiant.
+>
+<!-- migration-du-lot-28:début — ce paragraphe nomme les trois clés que le
+     retour arrière doit RESTAURER dans le `.env`. Sans leurs noms exacts, le
+     geste est injouable. Le garde `test_le_nom_de_l_ancien_moteur_ne_revient_pas`
+     borne cette exemption à ce bloc et mord partout ailleurs dans ce fichier. -->
+
+> **ET LE `.env` DOIT REVENIR AVEC ELLE.** C'est le piège de ce retour-ci, et il
+> est silencieux. L'image d'avant lit `LLM_ENGINE`, `OLLAMA_HOST` et
+> `OLLAMA_MODEL` ; la migration du lot 28 les retire du `.env`
+> (`documentation/moteur_llm.md`, « la migration du `.env` »). Sous un `.env`
+> migré, cette image ne trouverait aucune de ces trois clés et **retomberait sur
+> ses défauts SANS UN MOT** — `extra="ignore"` d'un côté, des défauts de champ de
+> l'autre. Elle repartirait alors sur un hôte qui n'est pas celui du poste. **Le
+> retour arrière du moteur est donc un geste en DEUX temps** : restaurer les
+> trois clés dans le `.env` du clone principal, *puis* réétiqueter et redéployer.
+> Garder une copie du `.env` d'avant la migration est ce qui rend le premier
+> temps possible.
+
+<!-- migration-du-lot-28:fin -->
+
 ```bash
 NOM="$(docker inspect -f '{{.Config.Image}}' rag-agent-api)"
 ETIQUETTE="<celle que (b) a affichée, recopiée telle quelle>"

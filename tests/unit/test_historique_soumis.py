@@ -4,7 +4,7 @@ Trois endpoints acceptent un `chat_history` et le passent à la génération.
 `chat_history` n'avait aucune borne de longueur, et /chat/simple soumettait tout
 ce que le client envoyait là où /chat/start et /answer coupaient à six : la même
 conversation produisait deux prompts selon la route empruntée. L'historique est
-le vecteur par lequel le prompt dépassait `num_ctx` — et c'est alors Ollama qui
+le vecteur par lequel le prompt dépassait `num_ctx` — et c'est alors le serveur qui
 tranche, par le début, donc en jetant le message système.
 """
 

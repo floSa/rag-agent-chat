@@ -243,19 +243,19 @@ class _SondeMuette:
 
 
 class _SondesMuettes:
-    """Les trois sondes synchrones, plus le faux client Ollama, toutes muettes."""
+    """Les trois sondes synchrones, plus le faux client du moteur, toutes muettes."""
 
     def __init__(self, plafond: float = _CAP_SECURITE_S) -> None:
         self.chromadb = _SondeMuette(plafond)
         self.nebulagraph = _SondeMuette(plafond)
         self.index_lexical = _SondeMuette(plafond)
-        self.ollama = _SondeMuette(plafond)
+        self.llm = _SondeMuette(plafond)
 
     def liberer(self) -> None:
-        for sonde in (self.chromadb, self.nebulagraph, self.index_lexical, self.ollama):
+        for sonde in (self.chromadb, self.nebulagraph, self.index_lexical, self.llm):
             sonde.debloquer.set()
 
-    def client_ollama(self):
+    def client_du_moteur(self):
         """Faux `httpx.AsyncClient` dont le GET passe par la sonde muette.
 
         La sonde tourne dans le threadpool, comme les trois autres : sans cela le
@@ -263,7 +263,7 @@ class _SondesMuettes:
         """
         from anyio import to_thread
 
-        sonde = self.ollama
+        sonde = self.llm
 
         class Client:
             async def __aenter__(self):
@@ -285,7 +285,7 @@ class _SondesMuettes:
         return lambda **_kwargs: Client()
 
 
-def _ollama_repond_vrai():
+def _serveur_repond_vrai():
     class Reponse:
         status_code = 200
 
@@ -325,7 +325,7 @@ def _brancher(monkeypatch, sondes: _SondesMuettes) -> None:
     monkeypatch.setattr(main, "chroma_ping", sondes.chromadb)
     monkeypatch.setattr(main, "nebula_ping", sondes.nebulagraph)
     monkeypatch.setattr(main, "lexical_ready", sondes.index_lexical)
-    monkeypatch.setattr(main.httpx, "AsyncClient", sondes.client_ollama())
+    monkeypatch.setattr(main.httpx, "AsyncClient", sondes.client_du_moteur())
 
 
 @pytest.fixture(autouse=True)
@@ -507,7 +507,7 @@ def test_health_publie_ses_stores_vrais_quand_le_reservoir_des_recherches_est_pl
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond_vrai())
 
     corps: dict[str, object] = {}
 
@@ -528,7 +528,7 @@ def test_health_publie_ses_stores_vrais_quand_le_reservoir_des_recherches_est_pl
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }, (
         f"/health publie {corps['services']} alors que les quatre dépendances "
         f"répondent en microsecondes (rendu en {corps['duree']} s). Un `false` ici "
@@ -572,7 +572,7 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
         "chromadb": False,
         "nebulagraph": False,
         "index_lexical": False,
-        "ollama": False,
+        "llm": False,
     }
     # L'exécution n'est plus ordonnée, la RÉPONSE doit l'être : les deux champs
     # sont publiés dans l'ordre de la table des sondes, pas dans celui des
@@ -581,7 +581,7 @@ def test_quatre_dependances_muettes_repondent_sous_le_delai_du_healthcheck(monke
         "chromadb",
         "nebulagraph",
         "index_lexical",
-        "ollama",
+        "llm",
     ]
 
 
@@ -949,7 +949,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
     monkeypatch.setattr(main, "nebula_ping", sonde("nebulagraph"))
     monkeypatch.setattr(main, "lexical_ready", sonde("index_lexical"))
     # LE RELEVÉ DU MOTEUR EST ÉPINGLÉ CHAUD, et il faut dire pourquoi. Il passe
-    # par le MÊME `httpx.AsyncClient` que la sonde `ollama` ci-dessous — c'est
+    # par le MÊME `httpx.AsyncClient` que la sonde `llm` ci-dessous — c'est
     # lui que le faux client remplace — donc il arriverait EN CINQUIÈME sur une
     # barrière de quatre et la casserait. Ce que ce test mesure est la
     # simultanéité des QUATRE sondes de `services` ; le moteur n'en fait pas
@@ -960,7 +960,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
     # processus. La scène reste donc celle d'un agent en marche.
     monkeypatch.setattr(main, "_moteur_releve", main.MoteurLlmHealth(modele_demande="épinglé"))
 
-    sonde_ollama = sonde("ollama")
+    sonde_llm = sonde("llm")
 
     class Client:
         async def __aenter__(self):
@@ -970,7 +970,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
             return False
 
         async def get(self, *_args, **_kwargs):
-            joint = await to_thread.run_sync(sonde_ollama)
+            joint = await to_thread.run_sync(sonde_llm)
 
             class Reponse:
                 status_code = 200 if joint else 503
@@ -986,7 +986,7 @@ def test_les_quatre_sondes_tournent_bien_en_meme_temps(monkeypatch) -> None:
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }
     assert corps["status"] == "ok"
 
@@ -1015,7 +1015,7 @@ def test_une_sonde_non_revenue_est_publiee_fausse_et_nommee(monkeypatch) -> None
 
     assert corps["services"]["chromadb"] is False
     assert corps["services"]["nebulagraph"] is True
-    assert corps["services_unknown"] == ["chromadb", "ollama"]
+    assert corps["services_unknown"] == ["chromadb", "llm"]
     assert corps["status"] == "degraded"
 
 
@@ -1039,7 +1039,7 @@ def test_un_index_lexical_non_revenu_ne_degrade_pas_le_statut(monkeypatch) -> No
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond_vrai())
     muette = _SondeMuette()
     monkeypatch.setattr(main, "lexical_ready", muette)
     try:
@@ -1151,7 +1151,7 @@ def test_une_sonde_qui_leve_ne_fait_pas_tomber_health(monkeypatch, caplog) -> No
     monkeypatch.setattr(main, "chroma_ping", sonde_cassee)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond_vrai())
 
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
@@ -1165,10 +1165,10 @@ def test_une_sonde_qui_leve_ne_fait_pas_tomber_health(monkeypatch, caplog) -> No
     assert any("chroma" in message.lower() for message in caplog.messages)
 
 
-def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) -> None:
+def test_une_url_de_moteur_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) -> None:
     """`httpx.InvalidURL` n'hérite pas de `HTTPError` — décision écrite au lot 3.
 
-    La sonde ne l'attrape donc pas, et c'est voulu : un OLLAMA_HOST mal formé est
+    La sonde ne l'attrape donc pas, et c'est voulu : un LLM_HOST mal formé est
     une erreur de configuration, pas une panne de service. Mais /health ne doit
     pas tomber pour autant : une faute de frappe dans un `.env` ferait échouer le
     healthcheck, donc passer le conteneur `unhealthy` — et `frontend`, qui attend
@@ -1207,15 +1207,15 @@ def test_une_url_ollama_invalide_ne_fait_pas_tomber_health(monkeypatch, caplog) 
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.settings, "ollama_host", host)
+    monkeypatch.setattr(main.settings, "llm_host", host)
 
     with caplog.at_level(logging.WARNING, logger="src.api.main"):
         reponse = TestClient(main.app).get("/health")
 
     assert reponse.status_code == 200
-    assert reponse.json()["services"]["ollama"] is False
+    assert reponse.json()["services"]["llm"] is False
     assert reponse.json()["status"] == "degraded"
-    assert any("ollama" in message.lower() for message in caplog.messages)
+    assert any("llm" in message.lower() for message in caplog.messages)
 
 
 # ─── Ce qui reste hors du plafond ─────────────────────────────────────────────
@@ -1243,7 +1243,7 @@ def test_la_lecture_de_la_base_de_capture_est_sous_le_plafond(monkeypatch) -> No
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond_vrai())
 
     async def base_verrouillee():
         await asyncio.sleep(30)

@@ -1,7 +1,9 @@
 """Budget de contexte : ce qui ne tient pas dans la fenêtre du modèle doit être
-écarté ici, explicitement — sinon Ollama tronque en silence, et par le DÉBUT du
-prompt, donc en jetant le message système (les règles de citation et
-d'abstention) puis les sources les mieux classées.
+écarté ici, explicitement — sinon le prompt dépasse, et le serveur REFUSE la
+requête entière (HTTP 400, mesuré le 18 septembre 2026). L'ancien moteur, à sa
+place, tronquait par le DÉBUT du prompt, donc en jetant le message système (les
+règles de citation et d'abstention) puis les sources les mieux classées : c'était
+pire, parce que c'était muet.
 
 Le budget se calcule sur ce qui est RÉELLEMENT dans le prompt. Il ne comptait
 que les sources : l'historique de conversation n'entrait dans aucun calcul, et
@@ -99,7 +101,7 @@ def test_un_historique_long_reduit_le_budget_des_sources() -> None:
 
 
 def test_le_prompt_systeme_est_compte_dans_le_budget(monkeypatch) -> None:
-    """Le message système est le premier que tronque Ollama : il doit être compté.
+    """Le message système était le premier que tronquait l'ancien moteur : il doit être compté.
 
     L'assertion porte sur le TERME, pas sur une inégalité : `budget <= fenêtre −
     len(système)` était satisfaite par l'ancien forfait, qui ne comptait pas du
@@ -192,7 +194,7 @@ def test_le_prompt_rendu_ne_depasse_jamais_la_fenetre() -> None:
 
 
 def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
-    """`tools` n'est pas un canal séparé : Ollama le rend dans le prompt.
+    """`tools` n'est pas un canal séparé : le serveur le rend dans le prompt.
 
     417 caractères que rien ne comptait — le même trou que le forfait retiré,
     à plus petite échelle.
@@ -224,7 +226,7 @@ def test_le_prompt_construit_tient_dans_la_fenetre() -> None:
     """Le mode de panne d'ALG-2, de bout en bout.
 
     Avant correctif : 31 380 caractères de prompt pour une fenêtre utile de
-    14 336 — Ollama tronquait par le DÉBUT, donc jetait le message système.
+    14 336 — l'ancien moteur tronquait par le DÉBUT, donc jetait le message système.
     """
     msgs, _ = _build_messages(
         "Quelle est la question ?",
@@ -384,7 +386,7 @@ def test_le_remplissage_est_au_mieux_pas_une_coupe_de_la_queue() -> None:
 
 
 def test_la_source_unique_trop_grosse_est_tronquee() -> None:
-    """IMP-6 : elle était transmise entière, et Ollama coupait — par le DÉBUT."""
+    """IMP-6 : elle était transmise entière, et le serveur coupait — par le DÉBUT."""
     kept, dropped = fit_contexts([_context("a", 10_000)], budget_chars=1000)
 
     assert [c.element_id for c in kept] == ["a"]
@@ -420,7 +422,7 @@ def test_la_troncature_n_ampute_jamais_un_marqueur() -> None:
     """Un identifiant coupé en deux n'est pas résolu par le post-processing — ou,
     pire, correspond à un AUTRE élément.
 
-    C'était le mode de panne d'IMP-6, déplacé d'Ollama vers `_truncate` : la
+    C'était le mode de panne d'IMP-6, déplacé du serveur vers `_truncate` : la
     coupe se faisait à un index de caractère brut. Balayé sur une plage de
     budgets, parce qu'un seul cas tombe rarement au milieu d'un marqueur.
 
@@ -584,7 +586,7 @@ def test_estimate_prompt_tokens_compte_les_balises_de_tour() -> None:
 
 
 def test_l_ecart_entre_estimation_et_reel_est_journalise(caplog) -> None:
-    """`prompt_eval_count` était rendu par Ollama et lu par personne : le ratio
+    """`prompt_eval_count` était rendu par le serveur et lu par personne : le ratio
     caractères/token restait une devinette qu'aucune mesure ne corrigeait."""
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(1000, 1200)
@@ -598,19 +600,26 @@ def _avertissements(caplog):
     return [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
-def test_un_prompt_qui_affleure_num_ctx_signale_une_troncature(caplog) -> None:
-    """Ollama tronque AVANT d'évaluer : `prompt_eval_count` est majoré par
-    num_ctx par construction.
+def test_un_prompt_qui_affleure_num_ctx_est_signale(caplog) -> None:
+    """LE SIGNAL A CHANGÉ DE SENS AU LOT 28, ET LA ZONE QUI PARLE EST LA MÊME.
 
-    La première version avertissait sur `> num_ctx`, condition inatteignable —
-    le détecteur du mode de panne ne pouvait pas voir le mode de panne. Un
-    décompte qui affleure la fenêtre est la seule trace observable.
+    L'ancien moteur tronquait AVANT d'évaluer : `prompt_eval_count` était majoré
+    par num_ctx par construction, et un décompte qui affleurait la fenêtre était
+    la seule trace observable d'un dommage DÉJÀ SUBI. Le serveur qui sert ne
+    tronque pas — il REFUSE au-delà de SA fenêtre, en HTTP 400 (`mesuré` le
+    18 septembre 2026 à 12:35 UTC) —, et `LLM_NUM_CTX` (8192) est très en deçà
+    de cette fenêtre (32768). Ce que le même seuil signale est donc désormais un
+    AVERTISSEMENT AVANT la borne client.
+
+    Ce que cette scène tient dans les deux régimes : la zone parle, et elle dit
+    ce qui va se passer plutôt que de se taire.
     """
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(settings.llm_num_ctx + 500, settings.llm_num_ctx)
 
     assert len(_avertissements(caplog)) == 1
-    assert "PAR LE DÉBUT" in _avertissements(caplog)[0].getMessage()
+    message = _avertissements(caplog)[0].getMessage()
+    assert "affleure" in message and "la borne client coupe" in message, message
 
 
 def test_un_prompt_qui_rogne_la_generation_est_signale(caplog) -> None:
@@ -632,31 +641,49 @@ def test_un_prompt_dans_la_fenetre_ne_leve_pas_d_avertissement(caplog) -> None:
 
 
 def test_une_mesure_reduite_par_le_cache_kv_ne_calibre_rien(caplog) -> None:
-    """Ollama ne réévalue que le préfixe absent de son cache KV. Au deuxième tour
-    d'une conversation, `prompt_eval_count` ne mesure plus le prompt — calibrer
-    `_CHARS_PER_TOKEN` là-dessus le ferait fondre à chaque tour."""
+    """Un serveur qui ne réévalue que le préfixe absent de son cache rapporte un
+    décompte qui ne mesure plus le prompt — calibrer `_CHARS_PER_TOKEN` là-dessus
+    le ferait fondre à chaque tour.
+
+    CE POSTE NE PRODUIT PAS CE CAS, et c'est `mesuré` : deux requêtes identiques
+    à `vllm-central` le 18 septembre 2026 à 12:42 UTC rendent `prompt_tokens =
+    616` toutes les deux — le cache de préfixe n'ampute pas le compte rapporté.
+    Cette scène garde donc une ligne DÉFENSIVE, et elle le dit plutôt que de
+    laisser croire qu'elle éprouve le serveur du jour. Voir `_CACHE_HIT_RATIO` :
+    borne écrite, non fermée."""
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(4000, 200)
 
     assert not any("ratio mesuré" in r.getMessage() for r in caplog.records)
-    assert any("cache KV" in r.getMessage() for r in caplog.records)
+    assert any("cache" in r.getMessage() for r in caplog.records)
 
 
 def test_sans_prompt_eval_count_rien_n_est_journalise(caplog) -> None:
-    """Une version d'Ollama qui ne rend pas le champ ne doit pas faire de bruit."""
+    """Une version du serveur qui ne rend pas le champ ne doit pas faire de bruit."""
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         log_prompt_measure(1000, None)
 
     assert caplog.records == []
 
 
-def _flux_ollama(lignes: list[dict]):
+def _flux(evenements: list[dict]):
+    """Un serveur qui cède `evenements` en SSE, puis la sentinelle de fin.
+
+    LA FORME EST CELLE DU SERVEUR QUI SERT, et elle a changé au lot 28 : `data: `
+    en tête, `choices[0].delta` pour le contenu, un événement à `"choices": []`
+    pour les décomptes, `data: [DONE]` pour finir. Ce que ce fichier mesure n'a
+    jamais dépendu du moteur ; le double, lui, en dépend — et un double qui ne
+    ressemble à aucun serveur réel ne mesure rien, c'est une leçon déjà payée
+    deux fois ici.
+    """
+
     class Resp:
         def raise_for_status(self) -> None: ...
 
         async def aiter_lines(self):
-            for ligne in lignes:
-                yield json.dumps(ligne)
+            for evenement in evenements:
+                yield "data: " + json.dumps(evenement)
+            yield "data: [DONE]"
 
     class Stream:
         async def __aenter__(self):
@@ -678,6 +705,21 @@ def _flux_ollama(lignes: list[dict]):
     return lambda **_kwargs: Client()
 
 
+def _jeton(texte: str) -> dict:
+    """Un événement de contenu, tel que le serveur le cède."""
+    return {"choices": [{"delta": {"content": texte}}]}
+
+
+def _decomptes(*, prompt: int | None = None, generes: int | None = None) -> dict:
+    """L'événement d'usage, à `choices` VIDE — c'est sa forme exacte (mesuré)."""
+    usage: dict = {}
+    if prompt is not None:
+        usage["prompt_tokens"] = prompt
+    if generes is not None:
+        usage["completion_tokens"] = generes
+    return {"choices": [], "usage": usage}
+
+
 @pytest.mark.asyncio
 async def test_le_prompt_eval_count_est_lu_dans_l_evenement_final(monkeypatch, caplog) -> None:
     """Il n'arrive que sur l'événement `done: true` — celui dont la boucle
@@ -685,11 +727,8 @@ async def test_le_prompt_eval_count_est_lu_dans_l_evenement_final(monkeypatch, c
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama(
-            [
-                {"message": {"content": "Réponse."}},
-                {"message": {"content": ""}, "done": True, "prompt_eval_count": 4321},
-            ]
+        _flux(
+            [_jeton("Réponse."), _decomptes(prompt=4321)]
         ),
     )
 
@@ -720,11 +759,8 @@ async def test_node_generate_publie_le_budget_reellement_applique(monkeypatch) -
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama(
-            [
-                {"message": {"content": "Une réponse."}},
-                {"message": {"content": ""}, "done": True, "prompt_eval_count": 4000},
-            ]
+        _flux(
+            [_jeton("Une réponse."), _decomptes(prompt=4000)]
         ),
     )
 
@@ -754,7 +790,7 @@ async def test_node_generate_ne_publie_zero_que_si_tout_tient(monkeypatch) -> No
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama([{"message": {"content": "Une réponse."}, "done": True}]),
+        _flux([_jeton("Une réponse.")]),
     )
 
     resultat = await graph_module.node_generate(

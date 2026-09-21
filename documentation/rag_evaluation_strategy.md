@@ -240,8 +240,8 @@ réellement compté : `eval_count` (tokens générés), `num_predict` (le plafon
 appliqué), `prompt_eval_count` (tokens du prompt), l'estimation en regard, et le
 verdict d'exploitabilité de cette dernière.
 
-`generations_au_plafond` est le chiffre qui tranche : Ollama s'arrête **pile** à
-`num_predict` quand il l'atteint, donc l'égalité est le signal. Zéro sur les 138
+`generations_au_plafond` est le chiffre qui tranche : le serveur s'arrête
+**pile** au plafond demandé quand il l'atteint, donc l'égalité est le signal. Zéro sur les 138
 questions signifie que le plafond ne sert jamais et que les tokens qu'il réserve
 sont pris aux sources pour rien.
 
@@ -250,10 +250,14 @@ Trois précautions, chacune parce que son contraire produirait un chiffre faux :
 - **« Pas de mesure » n'est pas « zéro token ».** Un serveur qui ne rend pas
   `eval_count` ne pèse pas zéro dans la distribution ; `eval_count_sur` dit sur
   combien de réponses les centiles portent.
-- **Les décomptes de prompt pollués par le cache KV sont écartés**, et leur
-  nombre est publié. Ollama ne réévalue que le préfixe absent de son cache : sur
-  une campagne, le message système est identique à chaque question, donc le cas
-  est la règle et non l'exception. La décision d'écarter appartient à
+- **Les décomptes de prompt réduits par un cache de préfixe sont écartés**, et
+  leur nombre est publié. Un serveur qui ne réévaluerait que le préfixe absent de
+  son cache rapporterait, sur une campagne où le message système est identique à
+  chaque question, un décompte qui ne mesure plus le prompt. **Ce poste ne produit
+  pas ce cas** : `mesuré` le 18 septembre 2026 à 12:42 UTC, deux requêtes
+  identiques à `vllm-central` rendent `prompt_tokens = 616` toutes les deux. La
+  garde est donc défensive, et c'est écrit plutôt que supposé. La décision
+  d'écarter appartient à
   `llm.mesure_prompt_exploitable` — **un seul point de décision**, appliqué par
   le journal comme par la campagne. Deux prédicats dériveraient, et la campagne
   publierait un ratio que le journal a refusé.

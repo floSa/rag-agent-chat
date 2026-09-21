@@ -172,10 +172,19 @@ caractères, pour grouper) :
   "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
   "rerank_model": "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1",
   "retrieval_top_k": 50, "rerank_top_k": 10, "translation_weight": 1.0,
-  "llm_num_ctx": 8192, "llm_max_tokens": 4096, "ollama_model": "gemma4:e4b",
+  "llm_num_ctx": 8192, "llm_max_tokens": 4096,
+  "llm_model": "google/gemma-4-E4B-it-qat-w4a16-ct",
   "prompts_sha256": "5c71fd1d6414"
 }
 ```
+
+**`llm_model` s'appelait autrement avant le lot 28** : il portait le nom du
+moteur d'alors. La clé entre dans `config_hash`, donc la renommer dégroupe les
+campagnes à venir de celles déjà enregistrées — mais le dégroupement était déjà
+consommé par la bascule du 17 septembre 2026 : `mesuré` le 18 septembre,
+**aucune** des 20 campagnes versionnées de `runs/` n'a été produite sous le
+moteur servi aujourd'hui, donc leur valeur de ce champ les en séparait déjà. Une
+requête écrite avant ce lot doit être reprise ; la requête ci-dessous l'est.
 
 Le dernier champ est un **condensat du contenu de `prompts/`**, et il règle un
 défaut connu : jusqu'ici, une modification de prompt n'était attribuable dans
@@ -185,7 +194,7 @@ apparente.
 ```sql
 -- Ce que chaque configuration a produit, et comment elle a été jugée.
 SELECT i.config_hash,
-       json_extract(i.config_json, '$.ollama_model')   AS modele,
+       json_extract(i.config_json, '$.llm_model')      AS modele,
        json_extract(i.config_json, '$.prompts_sha256') AS prompts,
        COUNT(*)                      AS interactions,
        -- Dénominateur des deux colonnes suivantes : une interaction de

@@ -119,9 +119,14 @@ down:
 logs:
 	docker compose logs -f
 
-# Les LLM viennent du projet llm-service : c'est lui qu'on interroge.
+# Les LLM viennent du projet llm-service : c'est lui qu'on interroge, et PAR
+# REQUÊTE. Cette recette invoquait le client en ligne de commande de l'ancien
+# moteur DANS son conteneur (`docker exec`) ; le serveur qui sert appartient à
+# l'équipe voisine et ce depot ne pose rien dedans. `/v1/models` liste ce qu'il
+# sert, en lecture, depuis l'hôte — c'est le port PUBLIÉ (8100), le 8000 étant
+# celui du réseau interne.
 models:
-	docker exec ollama-central ollama list
+	curl -s http://localhost:8100/v1/models
 
 health:
 	curl -s http://localhost:8011/health

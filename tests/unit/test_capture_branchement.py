@@ -116,7 +116,7 @@ def _client(tmp_path, monkeypatch, capture: bool):
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
     # Adresse qui refuse immédiatement, plutôt qu'un nom qui attend sa résolution.
-    monkeypatch.setattr(main.settings, "ollama_host", "http://127.0.0.1:1")
+    monkeypatch.setattr(main.settings, "llm_host", "http://127.0.0.1:1")
     monkeypatch.setattr(usage.settings, "usage_db_path", str(tmp_path / "usage.sqlite"))
     monkeypatch.setattr(usage.settings, "usage_capture", capture)
     monkeypatch.setattr(usage, "_echecs", 0)
@@ -623,7 +623,7 @@ def client_hors_budget(tmp_path, monkeypatch):
     `client` remplace `generate_stream` entier : le rappel `on_fit` n'est alors
     jamais appelé et `dropped_contexts` vaut 0 quoi qu'on soumette — le test ne
     prouverait rien. Ici le vrai `generate_stream` tourne, donc le vrai
-    `fit_prompt`, et seul l'appel à Ollama est remplacé.
+    `fit_prompt`, et seul l'appel au serveur LLM est remplacé.
     """
     from src.agent import graph as graph_module
     from src.agent import llm as llm_module
@@ -637,13 +637,13 @@ def client_hors_budget(tmp_path, monkeypatch):
         )
         monkeypatch.setattr(graph_module, "reconstruct_section", _grosse_section)
         monkeypatch.setattr(main, "reconstruct_section", _grosse_section)
-        monkeypatch.setattr(llm_module.httpx, "AsyncClient", _ollama_muet())
+        monkeypatch.setattr(llm_module.httpx, "AsyncClient", _serveur_muet())
         # `_client` l'avait remplacé par un faux ; on remet le vrai.
         monkeypatch.setattr(graph_module, "generate_stream", llm_module.generate_stream)
         yield testclient
 
 
-def _ollama_muet():
+def _serveur_muet():
     """Un /api/chat qui rend une réponse citant la première source, et rien d'autre."""
     lignes = [
         {"message": {"content": "La dispersion se mesure [src:aaaaaaaa00]."}},

@@ -117,7 +117,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "slow: tests requiring heavy infrastructure (NebulaGraph, Ollama)",
+    "slow: tests requiring heavy infrastructure (NebulaGraph, serveur LLM)",
     "integration: tests requiring Docker services",
 ]
 # strict-markers : un marqueur inconnu casse la suite au lieu de la laisser

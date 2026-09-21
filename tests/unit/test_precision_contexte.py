@@ -432,7 +432,7 @@ def test_sans_aucune_section_retenue_le_rappel_est_zero_et_la_precision_indefini
 QUESTION = "Comment mesurer la dispersion ?"
 
 
-def _flux_ollama_minimal():
+def _flux_minimal_du_serveur():
     import json as _json
 
     class Resp:
@@ -486,7 +486,7 @@ def _client_sur(contextes: list[SectionContext], monkeypatch) -> TestClient:
     from src.agent import llm
     from src.api import main
 
-    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_ollama_minimal())
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_minimal_du_serveur())
 
     async def fake_ainvoke(state, _config=None):
         etat = {**state, "enriched_contexts": contextes, "search_count": 0, "_metadata": {}}

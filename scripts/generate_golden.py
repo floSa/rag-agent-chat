@@ -307,17 +307,18 @@ def demander_question(
     `main` pour ce que cela change et ce que cela ne rattrape pas.
 
     CE POSTE EST PASSÉ PAR LE SITE UNIQUE LE 16 SEPTEMBRE 2026 — NB-5 de l'audit
-    du lot 25. Il postait `/api/chat` en dur et lisait `message.content` à la
-    racine : pointé vers un serveur vLLM par son argument `--ollama`, il aurait
+    du lot 25. Il postait sa route en dur et lisait la réponse dans le dialecte
+    de l'ancien moteur : pointé vers le serveur qui sert aujourd'hui, il aurait
     écarté CHAQUE question **en silence**, par le repli ci-dessous. C'est
     exactement le défaut que le lot 25 venait de fermer dans `src/`, laissé
     ouvert d'un cran dans `scripts/`.
 
     L'ADRESSE ET LE MODÈLE RESTENT CEUX DES ARGUMENTS : ce script s'exécute
-    depuis le poste et non depuis le réseau compose, donc son `--ollama` par
-    défaut ne vaut pas `OLLAMA_HOST`. Ce qui vient du dialecte est la FORME —
-    chemin, place de la graine, nom du format contraint, plafond de sortie — et
-    c'est elle qui rendait la bascule muette.
+    depuis le poste et non depuis le réseau compose, donc son `--llm-host` par
+    défaut ne vaut pas `LLM_HOST` — il vise le port que le compose publie sur
+    l'hôte (8100), quand `LLM_HOST` vise le port interne au réseau. Ce qui vient
+    du dialecte est la FORME — chemin, place de la graine, nom du format
+    contraint, plafond de sortie — et c'est elle qui rendait la bascule muette.
 
     LA FENÊTRE VIENT DÉSORMAIS DE `LLM_NUM_CTX` et non plus d'un 8192 écrit ici.
     C'est un changement de comportement, et il est voulu : deux fenêtres pour le
@@ -327,14 +328,14 @@ def demander_question(
     prompt = PROMPT.format(
         passage=passage["texte"], langue_nom=_LANGUES.get(langue_cible, "français")
     )
-    # `_replace` : le dialecte du réglage courant, à l'adresse et sous le nom que
-    # la ligne de commande désigne. La FORME suit `LLM_ENGINE`, l'adresse non.
+    # `_replace` : le dialecte de la production, à l'adresse et sous le nom que
+    # la ligne de commande désigne. La FORME vient du site unique, l'adresse non.
     dialecte = dialecte_courant()._replace(hote=host, modele=model)
     # `seed` TRANSMISE, et c'est une correction du 8 septembre 2026. Sans elle,
     # `temperature: 0.4` rendait la génération non déterministe, donc le MOTIF
     # DE REJET variait d'une exécution à l'autre, donc l'ensemble des ancrages
-    # retenus pouvait varier — voir `main`. `mesuré` sur `ollama-central`,
-    # `gemma4:e4b`, même prompt, trois paires d'appels :
+    # retenus pouvait varier — voir `main`. `mesuré` le 8 septembre 2026 sur le
+    # serveur d'alors, même prompt, trois paires d'appels :
     #
     #   sans `seed`     : deux appels -> deux textes DIFFÉRENTS
     #   `seed: 42`      : deux appels -> textes IDENTIQUES
@@ -436,9 +437,10 @@ def main() -> int:
     textes de question sur 16** différaient. *Reproductible en pratique, pas par
     construction.*
 
-    **CE QUE LA CORRECTION FAIT.** La graine est désormais TRANSMISE à Ollama
-    (`options.seed`, voir `demander_question`). `mesuré` le 8 septembre 2026 sur
-    `ollama-central` / `gemma4:e4b` : sans graine, deux appels identiques rendent
+    **CE QUE LA CORRECTION FAIT.** La graine est désormais TRANSMISE au serveur
+    (voir `demander_question`, et `dialecte_llm` pour la place exacte du champ).
+    `mesuré` le 8 septembre 2026 sur le serveur d'alors : sans graine, deux
+    appels identiques rendent
     deux textes différents ; avec `seed: 42`, deux appels rendent le même texte ;
     avec `seed: 43`, un autre. Le motif de rejet devient donc déterministe, et la
     reproductibilité passe de « en pratique » à « par construction ».
@@ -446,8 +448,11 @@ def main() -> int:
     **CE QU'ELLE NE RATTRAPE PAS, ET IL FAUT LE DIRE TROIS FOIS.**
 
     - La reproductibilité est relative au SERVEUR : même modèle, même version de
-      modèle, même version d'Ollama, même backend. Un `gemma4:e4b` reconstruit
+      modèle, même version du serveur, même backend. Le même modèle reconstruit
       ailleurs ne rend pas la même chose, et rien ici ne peut le garantir.
+    - **Le jeu VERSIONNÉ a été produit sur l'ANCIEN MOTEUR**, avant la bascule du
+      17 septembre 2026. Relancer ce script contre le serveur d'aujourd'hui
+      produira un autre jeu, pour cette raison en plus des autres.
     - **Le jeu VERSIONNÉ n'a PAS été produit avec cette graine transmise.**
       `tests/fixtures/golden_qa_generated.yaml` date du 8 septembre 2026, d'avant
       cette correction : relancer ce script à `--seed 42` produira un jeu
@@ -462,14 +467,17 @@ def main() -> int:
     parser.add_argument("--count", type=int, default=120, help="Questions à générer")
     parser.add_argument("--chroma-host", default="127.0.0.1")
     parser.add_argument("--chroma-port", type=int, default=8080)
-    parser.add_argument("--ollama", default="http://localhost:11434")
-    parser.add_argument("--model", default="gemma4:e4b")
+    # Le port que le compose PUBLIE sur l'hôte, et non le 8000 interne au
+    # réseau : ce script tourne depuis le poste (`mesuré` le 18 septembre 2026,
+    # `docker ps` : `0.0.0.0:8100->8000/tcp`).
+    parser.add_argument("--llm-host", default="http://localhost:8100")
+    parser.add_argument("--model", default="google/gemma-4-E4B-it-qat-w4a16-ct")
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument(
         "--seed",
         type=int,
         default=42,
-        help="Graine du tirage ET de la génération (transmise à Ollama) — voir le "
+        help="Graine du tirage ET de la génération (transmise au serveur) — voir le "
              "docstring de `main` pour ce qu'elle reproduit et ce qu'elle ne "
              "reproduit pas",
     )
@@ -513,7 +521,7 @@ def main() -> int:
             else langue_doc
         )
         genere = demander_question(
-            passage, langue_question, args.ollama, args.model, args.timeout, args.seed
+            passage, langue_question, args.llm_host, args.model, args.timeout, args.seed
         )
         if genere is None:
             rejets += 1

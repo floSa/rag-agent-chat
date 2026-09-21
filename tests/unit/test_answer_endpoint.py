@@ -202,7 +202,7 @@ def test_answer_publie_le_chiffre_calcule_par_le_graphe(monkeypatch) -> None:
     attendu = fit_prompt(question, contextes, []).dropped_contexts
     assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
 
-    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_ollama_minimal())
+    monkeypatch.setattr(llm.httpx, "AsyncClient", _flux_minimal_du_serveur())
 
     async def fake_ainvoke(state, _config=None):
         # Le vrai nœud de génération, pour que le chiffre soit calculé et non
@@ -222,8 +222,8 @@ def test_answer_publie_le_chiffre_calcule_par_le_graphe(monkeypatch) -> None:
     assert body["dropped_contexts"] == attendu
 
 
-def _flux_ollama_minimal():
-    """Client httpx simulé : un flux Ollama de deux événements."""
+def _flux_minimal_du_serveur():
+    """Client httpx simulé : un flux de deux événements, dans la forme servie."""
     import json as _json
 
     class Resp:

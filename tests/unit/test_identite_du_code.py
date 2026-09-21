@@ -437,20 +437,20 @@ class TestHealthPublieLIdentiteDuCodeServi:
         avertissement d'origine.
 
         Les six sources d'entrées-sorties de la route sont doublées — les trois
-        sondes de `services`, le client HTTP d'Ollama, la concordance du modèle
+        sondes de `services`, le client HTTP du moteur, la concordance du modèle
         d'embedding (qui lit la collection Chroma) et le relevé du moteur. Ce
         qui reste vivant est exactement ce que cette famille mesure : la lecture
         de l'identité du code et sa publication dans le corps.
         """
         from src.api import main
-        from tests.unit.test_health_parallele import _ollama_repond_vrai
+        from tests.unit.test_health_parallele import _serveur_repond_vrai
 
         monkeypatch.setattr(main.settings, "api_key", "")
         monkeypatch.setattr(main.settings, "torch_device", "cpu")
         monkeypatch.setattr(main, "chroma_ping", lambda: True)
         monkeypatch.setattr(main, "nebula_ping", lambda: True)
         monkeypatch.setattr(main, "lexical_ready", lambda: True)
-        monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond_vrai())
+        monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond_vrai())
         monkeypatch.setattr(
             main,
             "etat_modele_embedding",

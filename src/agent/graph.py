@@ -256,7 +256,7 @@ def node_reconstruct_context(state: AgentState) -> dict[str, Any]:
 
 
 async def node_generate(state: AgentState) -> dict[str, Any]:
-    """Appelle le LLM Ollama et génère la réponse.
+    """Appelle le moteur LLM et génère la réponse.
 
     Les tokens sont poussés au fil de l'eau dans le stream "custom" de
     LangGraph : consommés par /chat/resume en SSE, ignorés (no-op) lors d'un

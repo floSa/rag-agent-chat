@@ -37,21 +37,21 @@ def test_health_reste_interrogeable_sans_cle(monkeypatch) -> None:
     TROIS DES QUATRE SONDES SONT NEUTRALISÉES, PAS QUATRE, et cette phrase disait
     « les dépendances sont neutralisées » — trouvaille NB-4 de l'audit du lot 3,
     §4.23. `chroma_ping`, `nebula_ping` et `lexical_ready` sont substituées
-    ci-dessous ; `_sonder_ollama` ne l'est pas, et fait une VRAIE résolution de
-    `ollama:11434` depuis un fil du réservoir.
+    ci-dessous ; `_sonder_moteur` ne l'est pas, et fait une VRAIE résolution de
+    le serveur LLM depuis un fil du réservoir.
 
     Ce test ne tient donc pas tout à fait par construction, et ce qui le borne est
     écrit plutôt que supposé : aucune de ses assertions ne dépend de ce que la
-    sonde Ollama rend — `/health` répond 200 même dégradé, c'est tout ce qui est
+    sonde du moteur rend — `/health` répond 200 même dégradé, c'est tout ce qui est
     asserté — et sa latence est bornée deux fois, par `_PLAFOND_SONDES_S` et par
     le `timeout=5.0` de son propre client httpx. Il reste vert aujourd'hui parce
-    que le nom `ollama` ne se résout pas depuis un poste de développement, ce qui
+    que le nom du service LLM ne se résout pas depuis un poste de développement, ce qui
     est une absorption et non une construction.
 
     LA QUATRIÈME N'EST PAS NEUTRALISÉE ICI, ET C'EST DÉLIBÉRÉ. Le remède n'est pas
     un branchement dans ce test : un branchement ne couvre que les tests déjà
     écrits, et la barrière de `tests/unit/conftest.py` ne couvre que `chromadb`.
-    L'étendre à `httpx` demande de décider ce que `_sonder_ollama` doit voir — une
+    L'étendre à `httpx` demande de décider ce que `_sonder_moteur` doit voir — une
     décision, pas un geste — et ce trou est consigné ouvert au §4.21, avec le
     compte EXACT de ses deux sites. Le corriger ici en muet rendrait ce compte
     faux sans refermer la classe de défaut.
@@ -158,8 +158,8 @@ def test_relecture_de_l_autorisation_sur_objet_inconnu(monkeypatch) -> None:
 
 # ─── Sonde ────────────────────────────────────────────────────────────────────
 
-def _ollama_repond(disponible: bool):
-    """Neutralise la sonde HTTP d'Ollama, injoignable depuis les tests."""
+def _serveur_repond(disponible: bool):
+    """Neutralise la sonde HTTP du moteur, injoignable depuis les tests."""
 
     class Reponse:
         status_code = 200 if disponible else 500
@@ -228,7 +228,7 @@ def test_index_lexical_absent_ne_degrade_pas_le_statut(monkeypatch) -> None:
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: False)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond(True))
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond(True))
 
     corps = TestClient(main.app).get("/health").json()
 
@@ -254,6 +254,6 @@ def test_dependance_absente_degrade_le_statut(monkeypatch) -> None:
     monkeypatch.setattr(main, "chroma_ping", lambda: False)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main.httpx, "AsyncClient", _ollama_repond(True))
+    monkeypatch.setattr(main.httpx, "AsyncClient", _serveur_repond(True))
 
     assert TestClient(main.app).get("/health").json()["status"] == "degraded"

@@ -12,7 +12,7 @@ n'est pas utilisé » de « il n'y a pas de GPU »*.
 POURQUOI CETTE BATTERIE EXISTE AVANT QUE L'IMAGE PRENNE LE GPU, et pas après :
 une image CUDA sans ce réglage bascule le service sur la carte à la
 reconstruction, en silence, AVANT qu'une campagne ait dit si ça vaut le coup. Le
-GPU de ce poste n'est pas libre — Ollama y tient 4 904 Mio (`mesuré` le
+GPU de ce poste n'est pas libre — le serveur LLM y tient 4 904 Mio (`mesuré` le
 11 septembre 2026 à 12:23 UTC, `nvidia-smi`) et porte 84 % du temps d'une
 réponse — donc basculer sans mesurer, c'est optimiser 11 % du temps en risquant
 les 67 % de la génération.
@@ -128,7 +128,7 @@ def test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche() -> None:
     CE QUE CE TEST A GARDÉ D'ABORD, ET POURQUOI IL A CHANGÉ DE SENS. Il exigeait
     `cpu`, le matin du 11 septembre 2026 : tant que la campagne n'avait pas
     tranché, la seule reconstruction de l'image n'avait pas à basculer la
-    production sur une carte partagée avec Ollama. La campagne du même jour a
+    production sur une carte partagée avec le serveur LLM. La campagne du même jour a
     tranché — `rerank_ms` p50 498 → 58, `total_ms` p50 7 298 → 6 481, et la
     contention sur la génération chiffrée à **+40 ms** —, et le propriétaire a
     décidé. **Le garde n'a pas été relâché : il a changé de valeur gardée**, et
@@ -475,8 +475,8 @@ def test_le_repli_de_la_sonde_n_invente_pas_un_gpu() -> None:
 # qui dégraderait toujours aurait remplacé un mensonge par un autre.
 
 
-def _ollama_vert() -> Any:
-    """La sonde Ollama, branchée au vert — et elle est `async` au site réel."""
+def _sonde_du_moteur_verte() -> Any:
+    """La sonde du moteur, branchée au vert — et elle est `async` au site réel."""
 
     async def _sonde() -> bool:
         return True
@@ -488,7 +488,7 @@ def _corps_de_health(monkeypatch: pytest.MonkeyPatch, peripherique: str) -> dict
     """Le corps de `/health` avec les QUATRE sondes au vert et le réglage donné.
 
     LES QUATRE, ET C'EST LE PIÈGE QUE CETTE FONCTION EXISTE POUR FERMER. L'audit
-    a écrit sa première sonde sans brancher Ollama : `services["ollama"]` était
+    a écrit sa première sonde sans brancher le moteur : `services["llm"]` était
     faux, le statut dégradait POUR CETTE RAISON-LÀ, et la sonde était verte en
     mesurant une voisine. *Le `rc` juste, la raison fausse — huitième fois dans
     ce chantier.* Tout ce qui peut dégrader pour une autre raison est donc
@@ -501,7 +501,7 @@ def _corps_de_health(monkeypatch: pytest.MonkeyPatch, peripherique: str) -> dict
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _sonde_du_moteur_verte)
     # `unknown` ne dégrade pas — c'est la décision écrite au site pour la sonde
     # de concordance. Le témoin ci-dessous éprouve la position qui dégrade.
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
@@ -533,7 +533,7 @@ def test_controle_positif_le_service_sain_reste_ok(monkeypatch: pytest.MonkeyPat
         "chromadb": True,
         "nebulagraph": True,
         "index_lexical": True,
-        "ollama": True,
+        "llm": True,
     }, f"une sonde voisine n'est pas verte, la scène ne mesure pas ce qu'on croit : {corps}"
     assert corps["services_unknown"] == [], (
         f"une sonde n'est pas revenue, la scène est instable : {corps}"
@@ -660,7 +660,7 @@ def test_temoin_la_concordance_refusee_degrade_toujours(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _sonde_du_moteur_verte)
     monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
     monkeypatch.setattr(
         main,
@@ -707,7 +707,7 @@ def test_une_sonde_qui_n_est_pas_revenue_ne_degrade_pas_le_statut(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _sonde_du_moteur_verte)
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
     monkeypatch.setattr(retriever.settings, "torch_device", "cuda", raising=False)
 
@@ -755,7 +755,7 @@ def test_temoin_un_peripherique_bien_sonde_ne_figure_pas_dans_les_inconnues(
     monkeypatch.setattr(main, "chroma_ping", lambda: True)
     monkeypatch.setattr(main, "nebula_ping", lambda: True)
     monkeypatch.setattr(main, "lexical_ready", lambda: True)
-    monkeypatch.setattr(main, "_sonder_ollama", _ollama_vert)
+    monkeypatch.setattr(main, "_sonder_moteur", _sonde_du_moteur_verte)
     monkeypatch.setattr(main, "etat_modele_embedding", lambda: main._embedding_inconnu())
     monkeypatch.setattr(main.settings, "torch_device", "cpu")
     monkeypatch.setattr(retriever.settings, "torch_device", "cpu", raising=False)
@@ -781,7 +781,7 @@ def test_une_levee_au_chargement_degrade_le_statut(monkeypatch: pytest.MonkeyPat
     peut pas : `/health` ne charge rien. Or `mesuré` le 14 septembre 2026 à
     09:08 UTC, `nvidia-smi --query-compute-apps` croisé avec
     `docker inspect -f '{{.State.Pid}}' rag-agent-api` : **vLLM tient déjà
-    14 264 Mio** sur la L4, Ollama **4 584**, l'agent **1 294**, sur **23 034**.
+    14 264 Mio** sur la L4, l'ancien moteur **4 584**, l'agent **1 294**, sur **23 034**.
     Il reste **2 892 Mio**. La panne qui vient n'est plus « la carte est absente »
     — `cuda_available` restera `true` et l'ordinal valide — c'est **la mémoire**,
     au chargement.

@@ -121,7 +121,7 @@ def borne_des_etages_torch() -> Iterator[None]:
 # Or la panne qui VIENT n'est pas celle d'un périphérique absent. `mesuré` le
 # 14 septembre 2026 à 09:08 UTC, `nvidia-smi --query-compute-apps` croisé avec
 # `docker inspect -f '{{.State.Pid}}' rag-agent-api` : **vLLM tient déjà
-# 14 264 Mio** sur la L4, Ollama 4 584, cet agent 1 294, sur 23 034 — il reste
+# 14 264 Mio** sur la L4, l'ancien moteur 4 584, cet agent 1 294, sur 23 034 — il reste
 # **2 892 Mio**. Un agent qui redémarrerait et redemanderait ses 1,29 Go
 # trouverait `cuda_available: true`, un ordinal valide, et lèverait quand même,
 # sur la mémoire. Le contrôle statique ne verrait rien.

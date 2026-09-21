@@ -12,7 +12,7 @@ qu'ailleurs, parce que c'est sur ces lignes que le lecteur est jugé.
 L'INVENTAIRE, REFAIT À LA MAIN LE 16 SEPTEMBRE 2026 SUR LES 27 SCÈNES D'ALORS :
 
 - **12 RELEVÉES** — elles s'appuient sur l'une des quatre constantes capturées
-  ci-dessous (`OLLAMA_OUTIL`, `OLLAMA_TEXTE`, `VLLM_OUTIL`,
+  ci-dessous (`VLLM_OUTIL`,
   `VLLM_FIN_AVEC_USAGE`), recopiées telles quelles d'un flux réel.
 - **1 RECOPIÉE** — `test_sentinelle_de_fin_ne_leve_pas` écrit en littéral une
   ligne (`data: [DONE]`) qui figure telle quelle dans la capture.
@@ -56,35 +56,17 @@ from src.api.schemas import BreadcrumbEntry, SectionContext
 
 # ─── les lignes RÉELLES, recopiées de la capture ─────────────────────────────
 
-# `OLLAMA-STREAM-OUTIL-C`, 16/09 04:01:22 UTC — l'appel entier dans UN événement,
-# `arguments` en OBJET, et l'index au niveau de la FONCTION.
-OLLAMA_OUTIL = [
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:22.753887444Z","message":'
-    '{"role":"assistant","content":"","tool_calls":[{"id":"call_t4f68yu2","function":'
-    '{"index":0,"name":"search_vectors","arguments":{"query":"calcul de l\'ancienneté '
-    'pour les contrats saisonniers agricoles"}}}]},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:22.770357682Z","message":'
-    '{"role":"assistant","content":""},"done":true,"done_reason":"stop",'
-    '"total_duration":1260647990,"load_duration":762578893,"prompt_eval_count":108,'
-    '"prompt_eval_duration":54316000,"eval_count":27,"eval_duration":427678000}',
-]
-
-# `OLLAMA-STREAM-TEXTE-D`, 16/09 04:01:36 UTC — le cas ORDINAIRE, sans outil.
-OLLAMA_TEXTE = [
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:36.640366006Z","message":'
-    '{"role":"assistant","content":"L"},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:36.658774734Z","message":'
-    '{"role":"assistant","content":"\'"},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:36.679891095Z","message":'
-    '{"role":"assistant","content":"ast"},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:36.695325783Z","message":'
-    '{"role":"assistant","content":"rol"},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:36.712867139Z","message":'
-    '{"role":"assistant","content":"abe"},"done":false}',
-    '{"model":"gemma4:e4b","created_at":"2026-09-16T04:01:37.000000000Z","message":'
-    '{"role":"assistant","content":""},"done":true,"done_reason":"stop",'
-    '"prompt_eval_count":31,"eval_count":25}',
-]
+# LES DEUX CAPTURES DE L'ANCIEN MOTEUR ONT ÉTÉ RETIRÉES AU LOT 28, avec les
+# quatre scènes qui les lisaient. Elles décrivaient un dialecte dont le lecteur
+# ne connaît plus la forme : `message` à la racine, la fin par `done: true`, les
+# décomptes qu'elle portait, l'index d'appel rangé sous `function`, et les
+# arguments rendus en OBJET. Un garde qui fige une forme que le dépôt ne lit plus
+# ne garde rien — il fait croire qu'il garde.
+#
+# CE QUI LES REMPLACE N'EST PAS RIEN : `test_la_forme_de_l_ancien_moteur_ne_cede
+# _plus_rien` tient le CONTRÔLE NÉGATIF du retrait, en vérifiant qu'un flux de
+# cette forme ne cède aucun texte et n'accumule aucun appel. Sans lui, la lecture
+# de l'autre dialecte pourrait revenir sans que rien ne le dise.
 
 # `VLLM-STREAM-OUTIL-A`, 16/09 04:00:55 UTC — QUATRE événements pour UN appel,
 # les lignes vides du SSE, la sentinelle finale. Rien n'est retiré ni réordonné.
@@ -126,7 +108,6 @@ VLLM_OUTIL = [
 ]
 
 QUERY_VLLM = "régime indemnitaire des astreintes de nuit en foyer médicalisé"
-QUERY_OLLAMA = "calcul de l'ancienneté pour les contrats saisonniers agricoles"
 
 # `VLLM-STREAM-USAGE-B`, 16/09 04:01:09 UTC — la fin d'un flux demandé avec
 # `stream_options: {"include_usage": true}`. L'événement d'usage porte
@@ -162,44 +143,76 @@ def _lire_tout(lignes: list[str]) -> tuple[str, LecteurDeFlux]:
     return "".join(morceaux), lecteur
 
 
-# ─── le flux Ollama d'aujourd'hui, inchangé ──────────────────────────────────
+# ─── LE CONTRÔLE NÉGATIF DU RETRAIT ──────────────────────────────────────────
 
 
-def test_ollama_texte_ordinaire_rend_le_meme_texte() -> None:
-    """Le cas ORDINAIRE, et il doit rester ordinaire : pas d'appel d'outil.
+def test_la_forme_de_l_ancien_moteur_ne_cede_plus_rien() -> None:
+    """CE QUE LE LOT 28 A RETIRÉ, MESURÉ PLUTÔT QU'AFFIRMÉ.
 
-    C'est la scène qui garde la production d'aujourd'hui. Une régression ici
-    n'est pas un risque futur, c'est une panne réelle.
+    Quatre scènes lisaient ici les captures NDJSON de l'ancien moteur. Elles
+    partent avec son support ; ce qui reste est la vérification que sa forme
+    n'est PLUS lue — sans quoi elle pourrait revenir sans que rien ne le dise,
+    et un lecteur qui accepte deux formes n'est plus le lecteur d'UNE forme.
+
+    Les trois marques de ce dialecte sont éprouvées ensemble, parce qu'un retrait
+    partiel serait le pire des deux mondes : le texte à la racine, la fin par
+    `done: true`, et les décomptes que cet événement portait.
     """
-    texte, lecteur = _lire_tout(OLLAMA_TEXTE)
-    assert texte == "L'astrolabe"
-    assert lecteur.termine is True
+    lecteur = LecteurDeFlux()
+    cede = lecteur.lire(
+        json.dumps({"message": {"role": "assistant", "content": "L'astrolabe"}, "done": False})
+    )
+    assert cede == "", "le texte de l'ancien dialecte est encore cédé"
+
+    fin = lecteur.lire(
+        json.dumps(
+            {
+                "message": {"content": ""},
+                "done": True,
+                "prompt_eval_count": 31,
+                "eval_count": 25,
+            }
+        )
+    )
+    assert fin == ""
+    assert lecteur.termine is False, "la fin par `done: true` est encore reconnue"
+    assert lecteur.decomptes == Decomptes(), (
+        "les décomptes de l'ancien dialecte sont encore lus : une campagne les "
+        "publierait comme s'ils venaient du serveur qui sert"
+    )
+
+
+def test_un_appel_d_outil_de_l_ancien_moteur_n_est_plus_accumule() -> None:
+    """La seconde moitié du contrôle négatif, et c'est la plus silencieuse.
+
+    L'appel entier dans UN événement, `arguments` en OBJET, l'index sous
+    `function` : les trois marques de l'autre dialecte, dans la même ligne. Rien
+    ne doit s'accumuler — et si quelque chose s'accumulait, la recherche partirait
+    sur une sous-question qu'aucun serveur du poste n'a demandée.
+    """
+    lecteur = LecteurDeFlux()
+    lecteur.lire(
+        json.dumps(
+            {
+                "message": {
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call_t4f68yu2",
+                            "function": {
+                                "index": 0,
+                                "name": "search_vectors",
+                                "arguments": {"query": "calcul de l'ancienneté"},
+                            },
+                        }
+                    ],
+                },
+                "done": False,
+            }
+        )
+    )
     assert lecteur.message_outils() == {"tool_calls": []}
     assert llm.extract_tool_query(lecteur.message_outils()) is None
-
-
-def test_ollama_decomptes_lus_dans_l_evenement_final() -> None:
-    _, lecteur = _lire_tout(OLLAMA_TEXTE)
-    assert lecteur.decomptes.prompt_eval_count == 31
-    assert lecteur.decomptes.eval_count == 25
-
-
-def test_ollama_appel_entier_dans_un_evenement() -> None:
-    """L'appel qu'Ollama émet d'un bloc, avec `arguments` en OBJET."""
-    texte, lecteur = _lire_tout(OLLAMA_OUTIL)
-    assert texte == ""
-    assert llm.extract_tool_query(lecteur.message_outils()) == QUERY_OLLAMA
-    assert lecteur.decomptes.prompt_eval_count == 108
-    assert lecteur.decomptes.eval_count == 27
-
-
-def test_ollama_arguments_objet_ne_sont_pas_concatenes() -> None:
-    """Un objet REMPLACE, il ne se concatène pas : la règle qui sépare les deux
-    dialectes tient sur le type, et l'inverser rendrait ici une chaîne."""
-    _, lecteur = _lire_tout(OLLAMA_OUTIL)
-    arguments = lecteur.message_outils()["tool_calls"][0]["function"]["arguments"]
-    assert isinstance(arguments, dict)
-    assert arguments == {"query": QUERY_OLLAMA}
 
 
 # ─── le flux vLLM, et l'appel fragmenté ──────────────────────────────────────
@@ -366,71 +379,51 @@ def test_sans_include_usage_les_decomptes_sont_une_absence_declaree() -> None:
 #
 # CES QUATRE SCÈNES SONT CONSTRUITES, sauf la dernière. Aucun moteur du poste
 # n'écrit les deux dialectes dans le même flux, et c'est mesuré DANS LES DEUX
-# SENS le 16 septembre 2026 à 07:26 UTC : `ollama-central` n'émet aucun `usage`
+# SENS le 16 septembre 2026 à 07:26 UTC : l'ancien moteur n'émettait aucun `usage`
 # (61 événements, 0 occurrence), `vllm-central` n'émet aucun `done` (62
 # événements JSON, 0 occurrence). Le chemin gardé est celui d'un PROXY qui mêle
 # les deux — et le module se présente comme lisant « la FORME, pas un réglage ».
 
 
-def test_un_usage_partiel_n_efface_pas_les_decomptes_d_ollama() -> None:
-    """SCÈNE CONSTRUITE : un événement qui parle les deux dialectes.
+def test_un_usage_partiel_n_efface_pas_un_decompte_deja_lu() -> None:
+    """SCÈNE CONSTRUITE : deux événements d'usage, dont le second incomplet.
 
-    Le texte qui sépare le code servi du code d'avant : l'événement final
-    d'Ollama, avec ses 108 et 27, portant EN PLUS un `usage` qui ne renseigne
-    que `total_tokens`. Avant : `(None, None)`. Deux décomptes réels effacés
-    par un objet qui n'en donne aucun.
+    LE DÉFAUT QU'ELLE GARDE A SURVÉCU AU LOT 28. Il naissait de deux branches
+    qui s'écrasaient l'une l'autre ; il n'en reste qu'une, et la règle qu'elle
+    porte — `_renseigner` ne remplace QUE ce qu'on lui donne — reste exerçable
+    par un serveur qui émettrait plusieurs `usage`. C'est le cas de
+    `continuous_usage_stats`, que `dialecte_llm` ne demande pas mais que le
+    serveur accepte (`mesuré` 16/09 07:49 UTC, 42 événements).
+
+    Sans cette règle, un second événement qui ne renseigne que `total_tokens`
+    ferait retomber deux décomptes RÉELS à `None` — une mesure vraie changée en
+    absence déclarée, que `mesure_prompt_exploitable` croirait honnête.
     """
     lecteur = LecteurDeFlux()
     lecteur.lire(
-        json.dumps(
-            {
-                "message": {"content": ""},
-                "done": True,
-                "prompt_eval_count": 108,
-                "eval_count": 27,
-                "usage": {"total_tokens": 135},
-            }
+        "data: " + json.dumps(
+            {"choices": [], "usage": {"prompt_tokens": 108, "completion_tokens": 27}}
         )
     )
+    lecteur.lire("data: " + json.dumps({"choices": [], "usage": {"total_tokens": 135}}))
     assert lecteur.decomptes.prompt_eval_count == 108
     assert lecteur.decomptes.eval_count == 27
 
 
-def test_un_usage_vide_n_efface_pas_les_decomptes_d_ollama() -> None:
-    """SCÈNE CONSTRUITE : le même événement avec un `usage` VIDE.
+def test_un_usage_vide_n_efface_pas_un_decompte_deja_lu() -> None:
+    """SCÈNE CONSTRUITE : la variante la plus discrète du même défaut.
 
-    C'est la variante la plus discrète du même défaut — un objet vide est bien
-    un `dict`, donc l'ancienne branche s'exécutait et écrasait tout.
+    Un objet vide est bien un `dict`, donc la branche s'exécute — et sans la
+    règle de préservation, elle écraserait tout avec rien.
     """
     lecteur = LecteurDeFlux()
     lecteur.lire(
-        json.dumps(
-            {
-                "message": {"content": ""},
-                "done": True,
-                "prompt_eval_count": 108,
-                "eval_count": 27,
-                "usage": {},
-            }
+        "data: " + json.dumps(
+            {"choices": [], "usage": {"prompt_tokens": 108, "completion_tokens": 27}}
         )
     )
+    lecteur.lire("data: " + json.dumps({"choices": [], "usage": {}}))
     assert lecteur.decomptes == Decomptes(prompt_eval_count=108, eval_count=27)
-
-
-def test_un_done_sans_compteurs_n_efface_pas_un_usage_deja_lu() -> None:
-    """SCÈNE CONSTRUITE : le défaut DANS L'AUTRE SENS, et il compte autant.
-
-    L'événement d'usage de vLLM arrive d'abord et renseigne 34/22 ; un `done`
-    sans compteurs arrive ensuite. Avant, la branche `done` s'exécutait et
-    écrivait deux `None` par-dessus deux mesures réelles.
-    """
-    lecteur = LecteurDeFlux()
-    lecteur.lire(
-        json.dumps({"choices": [], "usage": {"prompt_tokens": 34, "completion_tokens": 22}})
-    )
-    lecteur.lire(json.dumps({"message": {"content": ""}, "done": True}))
-    assert lecteur.decomptes.prompt_eval_count == 34
-    assert lecteur.decomptes.eval_count == 22
 
 
 def test_un_usage_cumulatif_rend_le_dernier_compte_et_non_le_premier() -> None:
@@ -504,9 +497,9 @@ def test_un_nom_vide_n_ecrase_pas_le_nom_acquis() -> None:
 def test_l_ordre_d_apparition_prime_sur_l_ordre_des_index() -> None:
     """DÉFENSIVE — la ligne tenue est `self._ordre`, et non un tri des clés.
 
-    POURQUOI LES MOTEURS NE L'EXERCENT PAS : les deux émettent leurs index
-    dans l'ordre croissant (`mesuré` sur les deux, 0 puis 1), donc un tri
-    rendrait aujourd'hui exactement la même chose. La scène construit l'ordre
+    POURQUOI LE SERVEUR NE L'EXERCE PAS : il émet ses index dans l'ordre
+    croissant (`mesuré`, 0 puis 1), donc un tri rendrait aujourd'hui exactement
+    la même chose. La scène construit l'ordre
     inverse — index 1 PUIS index 0 — que seule une clé non comparable ou un
     serveur qui réordonne produirait.
 
@@ -517,24 +510,30 @@ def test_l_ordre_d_apparition_prime_sur_l_ordre_des_index() -> None:
     lecteur = LecteurDeFlux()
     for index, query in ((1, "PREMIER demande"), (0, "SECOND demande")):
         lecteur.lire(
-            json.dumps(
+            "data: " + json.dumps(
                 {
-                    "message": {
-                        "tool_calls": [
-                            {
-                                "function": {
-                                    "index": index,
-                                    "name": "search_vectors",
-                                    "arguments": {"query": query},
-                                }
+                    "choices": [
+                        {
+                            "delta": {
+                                "tool_calls": [
+                                    {
+                                        "index": index,
+                                        "function": {
+                                            "name": "search_vectors",
+                                            "arguments": json.dumps({"query": query}),
+                                        },
+                                    }
+                                ]
                             }
-                        ]
-                    }
+                        }
+                    ]
                 }
             )
         )
     appels = lecteur.message_outils()["tool_calls"]
-    assert [a["function"]["arguments"]["query"] for a in appels] == [
+    # Les arguments sont une CHAÎNE JSON dans ce dialecte : on la relit plutôt
+    # que de la supposer déjà décodée.
+    assert [json.loads(a["function"]["arguments"])["query"] for a in appels] == [
         "PREMIER demande",
         "SECOND demande",
     ]
@@ -614,75 +613,41 @@ def test_deux_appels_vllm_accumules_separement_par_index() -> None:
     )
 
 
-def test_deux_appels_ollama_sur_deux_evenements() -> None:
-    """SCÈNE CONSTRUITE d'après un FAIT mesuré — même distinction qu'au-dessus.
-
-    LE FAIT est mesuré le 16/09 à 04:03:57 UTC, et il a été remesuré : Ollama
-    AUSSI étale deux appels sur deux événements et incrémente `function.index`.
-    LES LIGNES sont reconstruites par `json.dumps`.
-
-    CE QUE CETTE SCÈNE DISAIT ET QUI ÉTAIT FAUX. Elle écrivait : « La lecture
-    ligne à ligne n'en voyait donc jamais que le premier, y compris sur le
-    moteur servi. » L'ancienne boucle de `main`, rejouée sur la capture, émet
-    DEUX rappels et non un — chaque événement d'Ollama porte un appel ENTIER,
-    donc jugeable seul. Ce n'est pas la lecture qui n'en retenait qu'un, c'est
-    `graph.py`, qui lit `tool_queries[0]` après la boucle. La correction est
-    sans conséquence sur le comportement — avant : deux entrées dont la
-    première est retenue ; après : une entrée, la même — mais une justification
-    fausse écrite au test survit à la scène qu'elle justifie.
-
-    Ce que la scène garde reste entier : les deux appels d'Ollama doivent
-    s'accumuler SÉPARÉMENT, sous deux clés, et non se recouvrir.
-    """
-    lecteur = LecteurDeFlux()
-    for index, query in ((0, "heures supplementaires"), (1, "prime de panier")):
-        lecteur.lire(
-            json.dumps(
-                {
-                    "message": {
-                        "content": "",
-                        "tool_calls": [
-                            {
-                                "id": f"call_{index}",
-                                "function": {
-                                    "index": index,
-                                    "name": "search_vectors",
-                                    "arguments": {"query": query},
-                                },
-                            }
-                        ],
-                    },
-                    "done": False,
-                }
-            )
-        )
-    appels = lecteur.message_outils()["tool_calls"]
-    assert len(appels) == 2
-    assert appels[0]["function"]["arguments"] == {"query": "heures supplementaires"}
-    assert appels[1]["function"]["arguments"] == {"query": "prime de panier"}
-
-
 def test_deux_appels_sans_index_ne_se_recouvrent_pas() -> None:
     """Le dernier repli : sans index d'aucune sorte, c'est la POSITION dans la
     liste qui sépare. Sans lui, les deux appels partageraient la clé `None` et
     le second écraserait le premier."""
     lecteur = LecteurDeFlux()
     lecteur.lire(
-        json.dumps(
+        "data: " + json.dumps(
             {
-                "message": {
-                    "tool_calls": [
-                        {"function": {"name": "search_vectors", "arguments": {"query": "un"}}},
-                        {"function": {"name": "search_vectors", "arguments": {"query": "deux"}}},
-                    ]
-                }
+                "choices": [
+                    {
+                        "delta": {
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "search_vectors",
+                                        "arguments": json.dumps({"query": "un"}),
+                                    }
+                                },
+                                {
+                                    "function": {
+                                        "name": "search_vectors",
+                                        "arguments": json.dumps({"query": "deux"}),
+                                    }
+                                },
+                            ]
+                        }
+                    }
+                ]
             }
         )
     )
     appels = lecteur.message_outils()["tool_calls"]
     assert len(appels) == 2
-    assert appels[0]["function"]["arguments"] == {"query": "un"}
-    assert appels[1]["function"]["arguments"] == {"query": "deux"}
+    assert json.loads(appels[0]["function"]["arguments"]) == {"query": "un"}
+    assert json.loads(appels[1]["function"]["arguments"]) == {"query": "deux"}
 
 
 # ─── un événement qui porte du texte ET un appel ─────────────────────────────
@@ -698,38 +663,37 @@ def test_un_evenement_qui_porte_du_texte_et_un_appel_ne_perd_pas_l_appel() -> No
     exacte que ce module existe pour fermer.
 
     CE QUE JE N'AI PAS SU MESURER, ET JE NE L'ÉCRIS PAS AUTREMENT. Trois
-    requêtes, sur les deux moteurs, ont demandé explicitement du texte PUIS un
-    appel dans la même réponse (`mesuré` 16/09 entre 07:26 et 07:27 UTC) :
+    requêtes ont demandé explicitement du texte PUIS un appel dans la même
+    réponse (`mesuré` 16/09 entre 07:26 et 07:27 UTC). `vllm-central`,
+    `finish_reason: "tool_calls"` : les quatre fragments portant `tool_calls`
+    ont `content: null`.
 
-    - `ollama-central`, deux requêtes, `done_reason: "stop"` les deux fois —
-      donc pas une troncature de ma borne : l'événement portant `tool_calls` a
-      `content: ""` ;
-    - `vllm-central`, une requête, `finish_reason: "tool_calls"` : les quatre
-      fragments portant `tool_calls` ont `content: null`.
-
-    Les deux moteurs SÉPARENT. La forme ci-dessous est donc fabriquée, et sa
+    Le serveur SÉPARE. La forme ci-dessous est donc fabriquée, et sa
     représentabilité aujourd'hui n'est PAS établie — une requête ne fait pas
     une propriété, dans un sens comme dans l'autre. Ce que ce garde tient est
     une ligne non exercée, pas un dialecte mesuré.
     """
     lecteur = LecteurDeFlux()
     texte = lecteur.lire(
-        json.dumps(
+        "data: " + json.dumps(
             {
-                "message": {
-                    "content": "Je consulte les textes. ",
-                    "tool_calls": [
-                        {
-                            "id": "call_mele",
-                            "function": {
-                                "index": 0,
-                                "name": "search_vectors",
-                                "arguments": {"query": "titres restaurant"},
-                            },
+                "choices": [
+                    {
+                        "delta": {
+                            "content": "Je consulte les textes. ",
+                            "tool_calls": [
+                                {
+                                    "id": "call_mele",
+                                    "index": 0,
+                                    "function": {
+                                        "name": "search_vectors",
+                                        "arguments": json.dumps({"query": "titres restaurant"}),
+                                    },
+                                }
+                            ],
                         }
-                    ],
-                },
-                "done": False,
+                    }
+                ]
             }
         )
     )
@@ -741,22 +705,25 @@ def test_un_evenement_qui_porte_du_texte_et_un_appel_ne_perd_pas_l_appel() -> No
 
 
 def test_une_erreur_arrivant_apres_des_tokens_leve_aussi() -> None:
-    """SCÈNE CONSTRUITE d'après une forme documentée d'Ollama.
+    """SCÈNE CONSTRUITE d'après une forme documentée de l'ancien moteur.
 
     LE GARDE QUI EXISTAIT NE TENAIT QUE LE PREMIER ÉVÉNEMENT. Une variante du
     lecteur qui ne lève que sur la toute première ligne lue passait les 937
     tests du dépôt : le cas était correct dans le code et absent des scènes.
 
-    Il n'est pas théorique. Un moteur qui meurt EN COURS de génération — le
-    `model runner` d'Ollama qui s'arrête — annonce son erreur après avoir déjà
-    cédé des tokens. Sans levée, la réponse est tronquée EN SILENCE : l'écran
-    montre un début de phrase et l'utilisateur le lit comme une réponse.
+    Il n'est pas théorique. Un moteur qui meurt EN COURS de génération annonce
+    son erreur après avoir déjà cédé des tokens. Sans levée, la réponse est
+    tronquée EN SILENCE : l'écran montre un début de phrase et l'utilisateur le
+    lit comme une réponse.
     """
+    def jeton(texte: str) -> str:
+        return "data: " + json.dumps({"choices": [{"delta": {"content": texte}}]})
+
     lecteur = LecteurDeFlux()
-    assert lecteur.lire(json.dumps({"message": {"content": "Le préavis "}})) == "Le préavis "
-    assert lecteur.lire(json.dumps({"message": {"content": "est de "}})) == "est de "
-    with pytest.raises(RuntimeError, match="model runner has unexpectedly stopped"):
-        lecteur.lire(json.dumps({"error": "model runner has unexpectedly stopped"}))
+    assert lecteur.lire(jeton("Le préavis ")) == "Le préavis "
+    assert lecteur.lire(jeton("est de ")) == "est de "
+    with pytest.raises(RuntimeError, match="engine core proc died unexpectedly"):
+        lecteur.lire("data: " + json.dumps({"error": "engine core proc died unexpectedly"}))
 
 
 def test_une_erreur_enveloppee_en_sse_apres_des_tokens_leve_aussi() -> None:
@@ -787,7 +754,7 @@ def test_le_lecteur_cede_la_fuite_en_sentinelles_comme_du_texte() -> None:
     fuite = '<|tool_call>call:search_vectors{"query": "duree du preavis"}<tool_call|>'
     lecteur = LecteurDeFlux()
     texte = "".join(
-        lecteur.lire(json.dumps({"message": {"content": morceau}}))
+        lecteur.lire("data: " + json.dumps({"choices": [{"delta": {"content": morceau}}]}))
         for morceau in ("Je cherche. ", fuite)
     )
     assert texte == "Je cherche. " + fuite
@@ -1081,21 +1048,6 @@ async def test_rappel_appele_une_seule_fois_sur_quatre_fragments(monkeypatch) ->
 
 
 @pytest.mark.asyncio
-async def test_rappel_appele_une_seule_fois_sur_ollama(monkeypatch) -> None:
-    """Le moteur SERVI aujourd'hui : même compte, même query qu'avant le lot."""
-    texte, appels = await _collecter(monkeypatch, OLLAMA_OUTIL)
-    assert texte == ""
-    assert appels == [QUERY_OLLAMA]
-
-
-@pytest.mark.asyncio
-async def test_flux_ollama_ordinaire_ne_declenche_aucun_rappel(monkeypatch) -> None:
-    texte, appels = await _collecter(monkeypatch, OLLAMA_TEXTE)
-    assert texte == "L'astrolabe"
-    assert appels == []
-
-
-@pytest.mark.asyncio
 async def test_flux_vllm_ordinaire_rend_son_texte_et_ne_leve_pas(monkeypatch) -> None:
     """Le SSE de bout en bout à travers `generate_stream` : préfixe, lignes
     vides, `[DONE]`. C'est ce parcours-là qui levait `JSONDecodeError`."""
@@ -1124,26 +1076,24 @@ async def test_erreur_annoncee_par_le_serveur_leve(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_une_ligne_emise_apres_done_true_n_est_pas_cedee(monkeypatch) -> None:
+async def test_une_ligne_emise_apres_la_sentinelle_n_est_pas_cedee(monkeypatch) -> None:
     """LE `break` DE `generate_stream`, QUE RIEN NE TENAIT.
 
-    SCÈNE CONSTRUITE : les cinq premières lignes sont celles de la capture
-    `OLLAMA_TEXTE`, la sixième est fabriquée — un événement émis APRÈS le
-    `done: true`, que le moteur servi n'émet pas. Neutraliser le `break`
-    passait les 937 tests du dépôt.
+    SCÈNE CONSTRUITE : les lignes de la capture `VLLM_FIN_AVEC_USAGE`, suivies
+    d'un événement émis APRÈS la sentinelle de fin — que le serveur n'émet pas.
+    Neutraliser le `break` passait les 937 tests du dépôt.
 
     Ce que le `break` empêche : qu'un octet arrivé après la fin annoncée
-    atteigne l'écran. Sans lui, la réponse rendue est `L'astrolabe PARASITE`.
+    atteigne l'écran. Sans lui, la réponse rendue est ` mercure PARASITE`.
 
     CE QUE CE GARDE NE REFAIT PAS, PARCE QU'IL EXISTE DÉJÀ. Le pire cas qu'on
-    pouvait craindre du `break` — sortir AVANT l'événement d'usage, et
-    présenter des décomptes perdus comme une absence déclarée — ne se produit
-    pas : l'ordre `mesuré` sur vLLM est `finish_reason` → usage → `[DONE]`,
-    `termine` ne bouge que sur `[DONE]`, et
-    `test_evenement_d_usage_a_choices_vide_et_ne_leve_pas` rougit si `termine`
-    est posé plus tôt.
+    pouvait craindre du `break` — sortir AVANT l'événement d'usage, et présenter
+    des décomptes perdus comme une absence déclarée — ne se produit pas :
+    l'ordre `mesuré` est `finish_reason` → usage → `[DONE]`, `termine` ne bouge
+    que sur `[DONE]`, et `test_evenement_d_usage_a_choices_vide_et_ne_leve_pas`
+    rougit si `termine` est posé plus tôt.
     """
-    lignes = [*OLLAMA_TEXTE, '{"message":{"role":"assistant","content":" PARASITE"},"done":false}']
-    texte, appels = await _collecter(monkeypatch, lignes)
-    assert texte == "L'astrolabe"
+    parasite = "data: " + json.dumps({"choices": [{"delta": {"content": " PARASITE"}}]})
+    texte, appels = await _collecter(monkeypatch, [*VLLM_FIN_AVEC_USAGE, parasite])
+    assert texte == " mercure"
     assert appels == []

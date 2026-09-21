@@ -20,7 +20,7 @@ LES QUATRE PROPRIÉTÉS TENUES ICI, et elles viennent du précédent de la clé
 4. **un antécédent antérieur à ce lot est `muet`** — et le dit.
 
 CE QUI EST ASSERTÉ EST LA PROPRIÉTÉ, JAMAIS L'INSTANTANÉ. Aucun test ici
-n'épingle « ollama 0.30.10 » ni « vLLM 0.28.0 » : ces deux versions seront
+n'épingle « vLLM 0.28.0 » : cette version sera
 fausses au prochain redémarrage du poste. Ce sont les relations qui sont tenues
 — fait contre réglage, muet contre différent, signalement contre refus.
 """
@@ -39,25 +39,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-
-@pytest.fixture(autouse=True)
-def _base_ollama(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pose EXPLICITEMENT le dialecte d'Ollama comme base de ce fichier.
-
-    Ces scènes héritaient du défaut de `LLM_ENGINE`, qui valait `ollama`. Le
-    défaut décrit désormais ce qui est SERVI — vLLM —, et vingt-quatre scènes
-    sont devenues rouges d'un coup : elles ne DEMANDAIENT pas le dialecte
-    qu'elles mesuraient, elles le SUPPOSAIENT.
-
-    Une scène qui veut un autre dialecte le pose après cette fixture, et rien ne
-    change pour elle.
-    """
-    # `main` est importé DANS les scènes de ce fichier, pas en tête : la fixture
-    # fait de même plutôt que d'ajouter un import de module au chargement.
-    from src.api import main
-
-    monkeypatch.setattr(main.settings, "llm_engine", "ollama")
-
+from src.api.schemas import MoteurLlmHealth
 
 _RACINE = pathlib.Path(__file__).resolve().parents[2]
 _SCRIPT = _RACINE / "scripts" / "evaluate.py"
@@ -79,12 +61,20 @@ def _moteur(**ecarts: Any) -> dict[str, Any]:
     n'assied quoi que ce soit sur elles** : elles sont un décor sur lequel on
     fait varier un champ à la fois. C'est la comparaison à un seul facteur.
     """
+    # CE DÉCOR EST CELUI D'UNE CAMPAGNE, PAS D'UN RELEVÉ D'AUJOURD'HUI, et la
+    # distinction compte depuis le lot 28. `signature_du_moteur` lit le dict
+    # d'une campagne — y compris une campagne ARCHIVÉE, produite sur un moteur
+    # dont le relevé portait des champs que le nôtre ne porte plus
+    # (`empreinte_du_modele`, `quantification`). Elle doit continuer à les LIRE :
+    # cesser de le faire changerait la sortie de `--compare` sur les 20
+    # campagnes de `runs/`, c'est-à-dire réécrirait a posteriori ce qu'un
+    # rapport daté signait.
     base: dict[str, Any] = {
-        "serveur": "ollama",
-        "endpoint": "http://ollama:11434",
-        "version": "0.30.10",
-        "modele_demande": "gemma4:e4b",
-        "modele_servi": "gemma4:e4b",
+        "serveur": "vllm",
+        "endpoint": "http://serveur-d-essai:8000",
+        "version": "0.28.0",
+        "modele_demande": "gemma-4-E4B",
+        "modele_servi": "gemma-4-E4B",
         "empreinte_du_modele": "c6eb396dbd5992bb",
         "quantification": "Q4_K_M",
         "fenetre_servie": None,
@@ -120,7 +110,7 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
         assert un != deux, (
             "deux poids différents servis sous le même tag rendent la même "
             "signature : l'empreinte ne pèse pas, et le garde serait aveugle au "
-            "cas le plus silencieux — un tag Ollama est MUTABLE"
+            "cas le plus silencieux — un nom de modèle est MUTABLE"
         )
 
     def test_le_reglage_seul_ne_change_pas_la_signature(self) -> None:
@@ -131,7 +121,7 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
         comparables. C'est ce test-ci qui sépare les deux.
         """
         evaluate = _evaluate()
-        un = evaluate.signature_du_moteur(_moteur(modele_demande="gemma4:e4b"))
+        un = evaluate.signature_du_moteur(_moteur(modele_demande="gemma-4-E4B"))
         deux = evaluate.signature_du_moteur(_moteur(modele_demande="un-autre-alias"))
         assert un == deux, (
             "le nom DEMANDÉ déplace la signature : deux campagnes qui ont tourné "
@@ -220,10 +210,10 @@ class TestLaSignaturePorteLeFaitEtNonLeReglage:
     def test_la_fenetre_inconnue_ne_signe_pas_comme_une_fenetre_connue(self) -> None:
         """« MUET » N'EST PAS « DIFFÉRENT », ET CE CHAMP NE FAIT PAS EXCEPTION.
 
-        Côté Ollama `fenetre_servie` est **toujours** nulle — rien dans
+        Sur les campagnes archivées, `fenetre_servie` est **toujours** nulle — rien dans
         `/api/tags` ne la porte —, et les 19 campagnes de `runs/` au 15 septembre
         2026 sont muettes sur le moteur entier. Une fenêtre inconnue ne doit donc
-        pas être imprimée comme une valeur, ni faire signer une campagne Ollama
+        pas être imprimée comme une valeur, ni faire signer une campagne archivée
         comme une campagne vLLM.
         """
         evaluate = _evaluate()
@@ -330,9 +320,9 @@ class TestLesTroisPositionsSontDistinctesEtToujoursEcrites:
         """Un garde qui dirait « ça diffère » sans dire EN QUOI ne se répare pas."""
         evaluate = _evaluate()
         texte = "\n".join(evaluate.confronter_les_moteurs(
-            _moteur(serveur="vllm"), _moteur(serveur="ollama")
+            _moteur(serveur="vllm"), _moteur(serveur="un-moteur-anterieur")
         ))
-        assert "vllm" in texte and "ollama" in texte
+        assert "vllm" in texte and "un-moteur-anterieur" in texte
 
     @pytest.mark.parametrize(
         ("actuel", "precedent"),
@@ -431,11 +421,16 @@ class TestLeGardeSignaleEtNeRefusePas:
         tampon = io.StringIO()
         with redirect_stdout(tampon):
             rendu = evaluate.comparer_apparie(
-                self._lignes(), reference, "sha256:ffff", None, _moteur(serveur="vllm")
+                self._lignes(),
+                reference,
+                "sha256:ffff",
+                None,
+                _moteur(serveur="un-moteur-anterieur"),
             )
         assert rendu is True, (
             "la comparaison REFUSE sur un écart de moteur : elle interdirait la "
-            "campagne Ollama contre campagne vLLM, qui est le lot 6 du chantier"
+            "confrontation d'une campagne archivée à une campagne d'aujourd'hui, "
+            "qui est exactement ce que cette clé existe pour permettre"
         )
         assert "MOTEUR LLM DIFFÉRENT" in tampon.getvalue(), (
             "elle aboutit mais sans rien dire — un refus muet est pire qu'un refus"
@@ -538,14 +533,14 @@ class _Reponse:
 
 
 class TestLaLectureDuMoteurALaSante:
-    """`None` se lit « je n'ai pas pu lire », jamais « Ollama »."""
+    """`None` se lit « je n'ai pas pu lire », jamais un nom de moteur."""
 
     @pytest.mark.parametrize(
         ("charge", "pourquoi"),
         [
             ({}, "un agent ANTÉRIEUR au lot ne publie pas la clé"),
             ({"moteur_llm": None}, "le serveur LLM n'a pas dit son nom"),
-            ({"moteur_llm": "ollama"}, "une chaîne là où un objet est attendu"),
+            ({"moteur_llm": "un-moteur"}, "une chaîne là où un objet est attendu"),
             ({"moteur_llm": []}, "une liste là où un objet est attendu"),
         ],
     )
@@ -581,7 +576,7 @@ class TestLaLectureDuMoteurALaSante:
         )
         releve = evaluate.moteur_de_la_campagne("http://agent")
         assert releve is not None
-        assert releve["serveur"] == "ollama"
+        assert releve["serveur"] == "vllm"
 
     def test_seuls_les_champs_enumeres_entrent_dans_l_artefact(
         self, monkeypatch: pytest.MonkeyPatch
@@ -632,7 +627,7 @@ class _ClientSimule:
         # LE CHEMIN EXACT, ET C'EST UNE CORRECTION MESURÉE CONTRE MOI-MÊME.
         # La première écriture faisait `url.endswith(chemin)` : `/api/version`
         # se termine par `/version`, donc un serveur simulé « vLLM » répondait
-        # 200 à la route d'Ollama et le relevé concluait `ollama`. Le code était
+        # 200 à la route de l'autre moteur et le relevé concluait sur lui. Le code était
         # juste ; **le double ne ressemblait à aucun serveur réel** — le vrai
         # vLLM rend 404 sur `/api/version`, `mesuré` le 15 septembre 2026.
         self.demandes.append(url)
@@ -650,18 +645,6 @@ def _sonder(monkeypatch: pytest.MonkeyPatch, routes: dict[str, _ReponseHttp]) ->
     return asyncio.run(main._sonder_moteur_llm()), client
 
 
-_OLLAMA_TAGS = {
-    "models": [
-        {
-            "name": "gemma4:e4b",
-            "model": "gemma4:e4b",
-            "digest": "c6eb396dbd5992bbe3f5cdb947e8bbc0ee413d7c17e2beaae69f5d569cf982eb",
-            "details": {"quantization_level": "Q4_K_M"},
-        }
-    ]
-}
-
-
 # L'`id` que l'instance vLLM de ce poste SERT RÉELLEMENT, `mesuré` en lecture
 # seule le 15 septembre 2026 à 18:45:28 UTC. Il est ici entier, jamais abrégé.
 #
@@ -675,15 +658,31 @@ _OLLAMA_TAGS = {
 # pas**, et les assertions n'ont pas bougé d'un iota en changeant de scène.
 _ID_VLLM_REEL = "google/gemma-4-E4B-it-qat-w4a16-ct"
 
+# Le catalogue que le double sert, et il sert ce que le réglage demande. Les
+# scènes qui l'emploient ne mesurent PAS le nommage — elles mesurent la
+# mémorisation, la date du relevé, le re-sondage — et elles ont besoin d'un
+# serveur qui aboutit, pas d'un serveur qui discrimine.
+_ROUTES_SERVANTES = {
+    "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+    "/v1/models": _ReponseHttp(
+        200, {"data": [{"id": _ID_VLLM_REEL, "max_model_len": 32768}]}
+    ),
+}
+
 
 class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
-    """Le discriminant doit porter un FAIT DES DEUX CÔTÉS.
+    """Le relevé exige une réponse POSITIVE, et il n'en déduit rien de plus.
 
-    `mesuré` le 15 septembre 2026 à 15:25 UTC sur les deux serveurs de ce poste :
-    `GET /api/version` rend **200 et un `version`** sur Ollama, et **404 sur
-    vLLM**. Un discriminant qui saurait seulement dire « ce n'est pas Ollama »
-    rangerait n'importe quel serveur muet dans « vLLM » — celui-ci exige une
-    réponse POSITIVE pour conclure, et c'est ce que tiennent les tests ci-dessous.
+    `GET /version` rend **200 et un `version`** sur le serveur qui sert (`mesuré`
+    le 18 septembre 2026 à 12:35 UTC : `{"version":"0.28.0"}`). Un relevé qui
+    conclurait sur un silence rangerait n'importe quel serveur muet sous ce
+    nom-là ; celui-ci exige la réponse, et c'est ce que tiennent les tests
+    ci-dessous.
+
+    CE QUE LE LOT 28 A RETIRÉ DE CETTE CLASSE : la scène qui mesurait la
+    reconnaissance de l'autre moteur, et avec elle le relevé de son empreinte de
+    poids et de sa quantification — les deux champs que seul son catalogue savait
+    renseigner.
     """
 
     def test_un_serveur_qui_ne_dit_rien_n_est_range_dans_aucun_des_deux(
@@ -703,38 +702,28 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
         Le banc a mesuré un `finish_reason: "tool_calls"` en HTTP 200 **sans
         aucun appel d'outil** (§2.1). Un code de retour n'est pas un fait.
         """
-        releve, _ = _sonder(
-            monkeypatch,
-            {"/api/version": _ReponseHttp(200, {}), "/version": _ReponseHttp(200, {})},
-        )
+        releve, _ = _sonder(monkeypatch, {"/version": _ReponseHttp(200, {})})
         assert releve is None
 
     def test_un_corps_qui_n_est_pas_du_json_ne_fait_pas_lever_la_sante(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         releve, _ = _sonder(
-            monkeypatch, {"/api/version": _ReponseHttp(200, ValueError("pas du json"))}
+            monkeypatch, {"/version": _ReponseHttp(200, ValueError("pas du json"))}
         )
         assert releve is None
 
-    def test_ollama_est_reconnu_et_son_poids_releve(
+    def test_le_serveur_est_reconnu_sur_sa_route_de_version(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        releve, _ = _sonder(
-            monkeypatch,
-            {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
-            },
-        )
-        assert releve is not None
-        assert releve.serveur == "ollama"
-        assert releve.empreinte_du_modele == "c6eb396dbd5992bb", "le digest doit être TRONQUÉ à 16"
-        assert releve.quantification == "Q4_K_M"
+        """ET SUR ELLE SEULE DEPUIS LE LOT 28.
 
-    def test_vllm_est_reconnu_quand_ollama_a_repondu_quatre_cent_quatre(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+        Cette scène assertait en plus que la route de version de l'AUTRE moteur
+        avait été essayée d'abord, pour dire que vLLM n'était pas conclu par
+        défaut. Cette requête part avec le moteur qu'elle interrogeait, et ce qui
+        tient la même exigence est désormais la scène voisine : un serveur qui ne
+        répond PAS à cette route laisse le relevé muet.
+        """
         releve, client = _sonder(
             monkeypatch,
             {
@@ -747,19 +736,17 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
         assert releve is not None
         assert releve.serveur == "vllm"
         assert releve.fenetre_servie == 32768
-        assert any(url.endswith("/api/version") for url in client.demandes), (
-            "vLLM a été conclu sans avoir écarté Ollama"
-        )
+        assert client.demandes[0].endswith("/version"), client.demandes
 
     def test_un_tag_absent_du_catalogue_est_rendu_nul_et_non_recopie(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Le fait, encore : le serveur ne porte pas ce qu'on lui demande."""
+        """Le fait, encore : le serveur ne sert pas ce qu'on lui demande."""
         releve, _ = _sonder(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, {"models": [{"name": "un-autre:tag"}]}),
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(200, {"data": [{"id": "autre-equipe/un-autre"}]}),
             },
         )
         assert releve is not None
@@ -777,9 +764,10 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
         LE CHIFFRE EST RELU AU SITE, JAMAIS RECOPIÉ : il porte aussi le budget de
         durée de la sonde (`test_health_parallele.py`), et un chiffre qui a deux
         copies finit par en avoir deux valeurs. La scène jouée ici est celle du
-        PIRE cas — version Ollama écartée, version vLLM, puis catalogue — et le
-        test vérifie qu'elle l'atteint réellement, sans quoi la borne serait
-        tenue par une scène qui ne la touche pas.
+        PIRE cas — la version, puis le catalogue — et le test vérifie qu'elle
+        l'atteint réellement, sans quoi la borne serait tenue par une scène qui
+        ne la touche pas. Il valait TROIS avant le lot 28 : la requête de trop
+        était la route de version de l'autre moteur, essayée d'abord.
         """
         from src.api import main
 
@@ -800,7 +788,7 @@ class TestLaSondeDeLAgentReleveLeServeurEtNeDevineRien:
     ) -> None:
         """EN LECTURE, et c'est une contrainte d'exploitation, pas de style."""
         _, client = _sonder(
-            monkeypatch, {"/api/version": _ReponseHttp(200, {"version": "0.30.10"})}
+            monkeypatch, {"/version": _ReponseHttp(200, {"version": "0.28.0"})}
         )
         interdites = ("/api/generate", "/api/chat", "/v1/chat/completions", "/v1/completions")
         assert not [u for u in client.demandes if u.endswith(interdites)], client.demandes
@@ -878,28 +866,32 @@ class TestCeQueLaSondeNeReleveraJamaisCoteVllm:
         assert releve.modele_servi == "google/gemma-4-E4B-it-qat-w4a16-ct"
         assert releve.fenetre_servie == 32768
 
-    def test_l_empreinte_reste_nulle_cote_vllm_et_c_est_la_borne_ecrite(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_le_releve_ne_promet_plus_ce_qu_il_ne_peut_pas_tenir(self) -> None:
         """CE TEST N'EST PAS UN GARDE, C'EST UN CONSTAT DATÉ, et il le dit.
 
-        Il épingle que la position `DIFFÉRENT` de `--compare` est inatteignable
-        côté vLLM sur deux poids servis sous le même `id` — §6 de
-        `documentation/moteur_llm.md`. Le jour où vLLM exposera un discriminant
-        de poids, ce test rougira : c'est **voulu**, il faudra alors relever ce
-        champ et réécrire la borne du §6, pas relâcher l'assertion.
+        Il épinglait que `empreinte_du_modele` et `quantification` restaient
+        **structurellement nulles** sur ce serveur. Le lot 28 a retiré le seul
+        moteur dont le catalogue savait les renseigner, et les deux champs avec :
+        un champ publié qui ne peut plus QUE valoir `null` promet une capacité
+        qu'on n'a pas.
+
+        Ce que la borne devient, et elle ne bouge pas d'un pouce : la position
+        `DIFFÉRENT` de `--compare` reste inatteignable sur deux poids servis sous
+        le même `id` — §6 de `documentation/moteur_llm.md`. Le jour où le serveur
+        exposera un discriminant de poids, ce test rougira : c'est **voulu**, il
+        faudra alors RAJOUTER le champ et réécrire la borne du §6, pas relâcher
+        l'assertion.
         """
-        releve = self._releve(monkeypatch)
-        assert releve is not None
-        assert releve.empreinte_du_modele is None
-        assert releve.quantification is None, "côté vLLM elle est dans le NOM, pas dans un champ"
+        champs = set(MoteurLlmHealth.model_fields)
+        assert "empreinte_du_modele" not in champs
+        assert "quantification" not in champs
 
 
 class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
     """NON BLOQUANTE §2 DE L'AUDIT DU 15 SEPTEMBRE 2026 — et c'est le symétrique
     exact de la bloquante que ce lot venait de fermer.
 
-    LA SCÈNE. Côté Ollama, `modele_servi` n'est rempli que si le tag demandé est
+    LA SCÈNE. Sur l'autre moteur, `modele_servi` n'était rempli que si le nom demandé était
     **trouvé** dans le catalogue : le prédicat de mémorisation peut donc être
     faux, et c'est ce qui a fermé la bloquante. Côté vLLM, il valait
     `entrees[0]["id"]` — **quel que soit cet `id`**, jamais confronté à quoi que
@@ -958,7 +950,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         releve, client = _sonder(
             monkeypatch,
             {
@@ -991,7 +983,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         releve, client = _sonder(
             monkeypatch,
             {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(self._ID_REEL))},
@@ -1010,12 +1002,12 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
 
         vLLM peut servir plusieurs modèles, et l'ordre de `data` n'est pas un
         contrat. La sonde parcourt donc le catalogue comme elle le fait côté
-        Ollama depuis toujours, au lieu de prendre la première venue — et la
+        l'autre moteur depuis toujours, au lieu de prendre la première venue — et la
         fenêtre relevée est celle de NOTRE entrée, pas celle d'une autre.
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         catalogue = {
             "object": "list",
             "data": [
@@ -1043,7 +1035,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         from src.api import main
 
         for confusion in ("google/gemma-3-E4B-it", "google/gemma-4-E2B-it-qat"):
-            monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+            monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
             releve, _ = _sonder(
                 monkeypatch,
                 {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(confusion))},
@@ -1057,7 +1049,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         """LA BORNE QUE J'AI TROUVÉE CONTRE MA PROPRE RELATION.
 
         Réduit à ses alphanumériques, un réglage vide donne la chaîne vide — et
-        la chaîne vide est un infixe de **tout**. Sans ce garde, un `OLLAMA_MODEL`
+        la chaîne vide est un infixe de **tout**. Sans ce garde, un `LLM_MODEL`
         absent ou fait de seuls séparateurs aurait reconnu le premier modèle
         venu, c'est-à-dire précisément le défaut qu'on ferme ici, en pire :
         silencieusement, et sur n'importe quel serveur.
@@ -1071,7 +1063,7 @@ class TestLeServeurVllmDoitServirCeQueNousDEMANDONS:
         from src.api import main
 
         for degenere in ("", "   ", "/-:"):
-            monkeypatch.setattr(main.settings, "ollama_model", degenere)
+            monkeypatch.setattr(main.settings, "llm_model", degenere)
             releve, _ = _sonder(
                 monkeypatch,
                 {
@@ -1131,7 +1123,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
     def _modele_servi_pour(self, monkeypatch: pytest.MonkeyPatch, identifiant: str) -> str | None:
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         releve, _ = _sonder(
             monkeypatch,
             {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(identifiant))},
@@ -1234,7 +1226,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         catalogue = {
             "object": "list",
             "data": [
@@ -1326,7 +1318,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "qwen2:5b")
+        monkeypatch.setattr(main.settings, "llm_model", "qwen2:5b")
         releve, _ = _sonder(
             monkeypatch,
             {
@@ -1352,7 +1344,7 @@ class TestUnModeleDERIVEDuNotreNEstPasLeNotre:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         releve, client = _sonder(
             monkeypatch,
             {
@@ -1376,7 +1368,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
 
     Le site écrivait : « le nom servi est plus LONG que le nom demandé, **jamais
     l'inverse** », et en tirait la justification du sens de l'inclusion. C'est une
-    affirmation POSITIVE, et elle est fausse : un tag Ollama nomme couramment la
+    affirmation POSITIVE, et elle est fausse : un nom de modèle nomme couramment la
     variante d'instruction et la quantification, que ce site croyait propres aux
     `id` vLLM. **Une borne écrite mais fausse est pire qu'une borne absente**,
     parce qu'on cesse de vérifier ce qu'elle prétend couvrir.
@@ -1387,8 +1379,9 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
     prochaine réécriture du site n'aurait rien à faire rougir.
 
     LES TROIS FORMES SONT PUBLIÉES, PAS INVENTÉES : `-instruct-q8_0` et
-    `-it-q4_K_M` sont des suffixes de tag Ollama courants, et `hf.co/…:Q4_K_M`
-    est la forme exacte sous laquelle Ollama tire un modèle de HuggingFace.
+    `-it-q4_K_M` sont des suffixes de tag courants dans l'écosystème, et
+    `hf.co/…:Q4_K_M` est une forme sous laquelle un moteur tire un modèle de
+    HuggingFace.
 
     PROSPECTIF SUR CE DÉPÔT, ET IL FAUT LE DIRE : le réglage versionné est
     `gemma4:e4b`, qui ne porte pas de quantification, donc le défaut ne mord pas
@@ -1427,7 +1420,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
         from src.api import main
 
         for tag, identifiant in self._FORMES_NON_RECONNUES:
-            monkeypatch.setattr(main.settings, "ollama_model", tag)
+            monkeypatch.setattr(main.settings, "llm_model", tag)
             releve, _ = _sonder(
                 monkeypatch,
                 {
@@ -1454,7 +1447,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
         """
         from src.api import main
 
-        monkeypatch.setattr(main.settings, "ollama_model", "gemma4:e4b")
+        monkeypatch.setattr(main.settings, "llm_model", "gemma-4-E4B")
         releve, _ = _sonder(
             monkeypatch,
             {**self._VERSION_VLLM, "/v1/models": _ReponseHttp(200, self._catalogue(_ID_VLLM_REEL))},
@@ -1480,7 +1473,7 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
         from src.api import main
 
         def _trois_battements(tag: str, identifiant: str) -> int:
-            monkeypatch.setattr(main.settings, "ollama_model", tag)
+            monkeypatch.setattr(main.settings, "llm_model", tag)
             _, client = _sonder(
                 monkeypatch,
                 {
@@ -1492,10 +1485,13 @@ class TestLeSensDeLaRelationEstBORNEEtLeCoutEstCOMPTE:
                 asyncio.run(main._sonder_moteur_llm())
             return len(client.demandes)
 
-        memorise = _trois_battements("gemma4:e4b", _ID_VLLM_REEL)
-        assert memorise == 3, (
+        memorise = _trois_battements("gemma-4-E4B", _ID_VLLM_REEL)
+        assert memorise == main._MOTEUR_REQUETES_MAX == 2, (
             f"le témoin MÉMORISÉ a coûté {memorise} requêtes sur trois battements au lieu "
-            "de 3 : c'est la base du rapport, et sans elle le chiffre d'en face ne dit rien"
+            f"de {main._MOTEUR_REQUETES_MAX} : c'est la base du rapport, et sans elle le "
+            "chiffre d'en face ne dit rien. Le compte est relu au site, jamais recopié — "
+            "il valait 3 avant le lot 28, la requête de trop étant la route de version de "
+            "l'autre moteur."
         )
         for tag, identifiant in self._FORMES_NON_RECONNUES:
             permanent = _trois_battements(tag, identifiant)
@@ -1521,8 +1517,7 @@ class TestLeReleveDitQuandIlAEtePris:
         releve, _ = _sonder(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+                **_ROUTES_SERVANTES,
             },
         )
         apres = datetime.now(UTC)
@@ -1555,8 +1550,7 @@ class TestLeReleveDitQuandIlAEtePris:
         releve, _ = _sonder(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+                **_ROUTES_SERVANTES,
             },
         )
         assert releve is not None
@@ -1615,8 +1609,7 @@ class TestLaMemorisationDuReleve:
         releve, client = _sonder(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+                **_ROUTES_SERVANTES,
             },
         )
         assert releve is not None
@@ -1657,10 +1650,10 @@ class TestLaMemorisationDuReleve:
         from src.api import main
 
         releve, client = _sonder(
-            monkeypatch, {"/api/version": _ReponseHttp(200, {"version": "0.30.10"})}
+            monkeypatch, {"/version": _ReponseHttp(200, {"version": "0.28.0"})}
         )
         assert releve is not None, "un serveur qui a dit son nom n'est pas muet"
-        assert releve.serveur == "ollama"
+        assert releve.serveur == "vllm"
         assert releve.modele_servi is None, "la scène jouée ici est bien un relevé PARTIEL"
         premier = len(client.demandes)
         asyncio.run(main._sonder_moteur_llm())
@@ -1683,8 +1676,8 @@ class TestLaMemorisationDuReleve:
         releve, client = _sonder(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, {"models": [{"name": "un-autre:tag"}]}),
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(200, {"data": [{"id": "autre-equipe/un-autre"}]}),
             },
         )
         assert releve is not None
@@ -1785,14 +1778,14 @@ class TestLeRegimeDeReSondageEstSIGNALE:
         messages = self._journal(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, {"models": [{"name": "un-autre:tag"}]}),
+                "/version": _ReponseHttp(200, {"version": "0.28.0"}),
+                "/v1/models": _ReponseHttp(200, {"data": [{"id": "autre-equipe/un-autre"}]}),
             },
         )
         assert messages, "le régime de re-sondage permanent n'est annoncé nulle part"
         joint = " ".join(messages)
         assert "moteur_llm" in joint, "le message ne nomme pas la clé concernée"
-        assert "gemma4:e4b" in joint, (
+        assert "gemma-4-E4B" in joint, (
             "le message ne dit pas CE QUI est demandé : un exploitant ne saurait pas "
             "quoi réparer"
         )
@@ -1809,8 +1802,7 @@ class TestLeRegimeDeReSondageEstSIGNALE:
         messages = self._journal(
             monkeypatch,
             {
-                "/api/version": _ReponseHttp(200, {"version": "0.30.10"}),
-                "/api/tags": _ReponseHttp(200, _OLLAMA_TAGS),
+                **_ROUTES_SERVANTES,
             },
         )
         assert messages == [], f"un serveur SAIN fait parler le journal : {messages}"
@@ -1818,7 +1810,7 @@ class TestLeRegimeDeReSondageEstSIGNALE:
     def test_un_serveur_muet_n_est_pas_annonce_deux_fois(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Un serveur qui n'a dit aucun nom est déjà porté par `_sonder_ollama`.
+        """Un serveur qui n'a dit aucun nom est déjà porté par `_sonder_moteur`.
 
         Ce signalement-ci porte le régime de RE-SONDAGE d'un serveur qui répond,
         pas la panne d'un service — et la santé du service a son propre garde.
@@ -1830,7 +1822,7 @@ class TestLeRegimeDeReSondageEstSIGNALE:
 class TestLEndpointEstExpurge:
     """CE DÉPÔT EST PUBLIC ET `runs/*.json` Y EST VERSIONNÉ.
 
-    `OLLAMA_HOST` est un nom de service docker sur ce poste, mais rien n'empêche
+    `LLM_HOST` est un nom de service docker sur ce poste, mais rien n'empêche
     un déploiement d'y mettre des identifiants — ils finiraient recopiés dans une
     campagne commitée.
     """
@@ -1838,9 +1830,9 @@ class TestLEndpointEstExpurge:
     def test_les_identifiants_ne_survivent_pas_a_l_expurgation(self) -> None:
         from src.api.main import _endpoint_expurge
 
-        expurge = _endpoint_expurge("http://bob:s3cr3t@ollama:11434/v1")
+        expurge = _endpoint_expurge("http://bob:s3cr3t@serveur-llm:8000/v1")
         assert "s3cr3t" not in expurge and "bob" not in expurge
-        assert expurge == "http://ollama:11434", "l'hôte et le port doivent survivre"
+        assert expurge == "http://serveur-llm:8000", "l'hôte et le port doivent survivre"
 
     def test_une_url_indechiffrable_n_est_pas_recopiee(self) -> None:
         """On ne sait pas ce qu'elle contient : on ne la publie pas."""
@@ -1851,7 +1843,7 @@ class TestLEndpointEstExpurge:
     def test_le_controle_positif_une_url_ordinaire_traverse_entiere(self) -> None:
         from src.api.main import _endpoint_expurge
 
-        assert _endpoint_expurge("http://ollama:11434") == "http://ollama:11434"
+        assert _endpoint_expurge("http://serveur-llm:8000") == "http://serveur-llm:8000"
 
 
 # ─── Ce que les campagnes du disque disent aujourd'hui ───────────────────────
@@ -1864,7 +1856,7 @@ def test_les_campagnes_deja_au_disque_sont_muettes_et_le_restent() -> None:
     ne doit croire l'inverse. Ce test n'épingle pas un compte — il tiendrait
     encore si une campagne portant la clé était écrite demain : ce qu'il asserte
     est que **toute campagne sans la clé est traitée en MUET**, jamais en
-    « Ollama par défaut ».
+    « un moteur par défaut ».
     """
     evaluate = _evaluate()
     runs = _RACINE / "runs"

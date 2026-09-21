@@ -261,8 +261,8 @@ Constaté, pas supposé :
 - le réseau Docker `rag_network` est **créé par ce pipeline** — l'agent s'y
   raccroche en `external: true` et ne démarrera pas sans lui ;
 - le réseau `llm-net` est créé par un troisième dépôt, `llm-service`, qui porte
-  l'Ollama central. Il n'est pas sur la machine. À défaut, `OLLAMA_HOST` peut
-  pointer vers un Ollama local.
+  le serveur `vllm-central`. Il n'est pas sur la machine. À défaut, `LLM_HOST`
+  peut pointer vers un autre serveur au dialecte OpenAI.
 
 ---
 
@@ -364,8 +364,8 @@ qu'on en a ajouté. C'est pourquoi l'appel est un contrat et non une option.
    trois stores.
 2. Vérifier le modèle d'embedding **avant** d'ingérer quoi que ce soit (§1).
 3. Ingérer le corpus.
-4. Rendre Ollama joignable : `llm-service` et son réseau `llm-net`, ou un Ollama
-   local via `OLLAMA_HOST`.
+4. Rendre le serveur LLM joignable : `llm-service` et son réseau `llm-net`, ou
+   un autre serveur au dialecte OpenAI via `LLM_HOST`.
 5. Démarrer `rag-agent-chat` et vérifier que `GET /health` répond `ok`. Les
    quatre sondes y sont désormais parallèles sous un plafond de 3 s : le
    conteneur ne peut plus rester `unhealthy` à cause d'un store lent, et le

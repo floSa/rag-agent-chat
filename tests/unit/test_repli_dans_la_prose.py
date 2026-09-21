@@ -67,24 +67,36 @@ def _flux_sans_appel_natif(texte: str, appel_natif: str | None = None):
         def raise_for_status(self) -> None: ...
 
         async def aiter_lines(self):
+            # LA FORME DU SERVEUR QUI SERT, et elle a changé au lot 28 : SSE,
+            # `choices[0].delta`, arguments d'outil en CHAÎNE JSON, fin par la
+            # sentinelle. Ce que ces scènes mesurent — le rideau de repli sur la
+            # prose — n'a jamais dépendu du moteur ; le double, lui, en dépend,
+            # et un double qui ne ressemble à aucun serveur réel ne mesure rien.
             if appel_natif is not None:
-                yield json.dumps(
+                yield "data: " + json.dumps(
                     {
-                        "message": {
-                            "content": "",
-                            "tool_calls": [
-                                {
-                                    "function": {
-                                        "name": "search_vectors",
-                                        "arguments": {"query": appel_natif},
-                                    }
+                        "choices": [
+                            {
+                                "delta": {
+                                    "content": "",
+                                    "tool_calls": [
+                                        {
+                                            "index": 0,
+                                            "function": {
+                                                "name": "search_vectors",
+                                                "arguments": json.dumps(
+                                                    {"query": appel_natif}
+                                                ),
+                                            },
+                                        }
+                                    ],
                                 }
-                            ],
-                        }
+                            }
+                        ]
                     }
                 )
-            yield json.dumps({"message": {"content": texte}})
-            yield json.dumps({"message": {"content": ""}, "done": True})
+            yield "data: " + json.dumps({"choices": [{"delta": {"content": texte}}]})
+            yield "data: [DONE]"
 
     class Stream:
         async def __aenter__(self):
@@ -135,15 +147,20 @@ async def _servir(monkeypatch, texte: str, appel_natif: str | None = None) -> di
     )
 
 
-# ─── Les formes MESURÉES sur les deux moteurs ────────────────────────────────
+# ─── Les formes MESURÉES sur les moteurs du poste ────────────────────────────
+#
+# Les quatre ont été relevées le 15 septembre 2026, quand deux moteurs étaient
+# servis. Elles sont gardées ensemble et leurs étiquettes ne nomment plus de
+# serveur : c'est le MODÈLE qui écrit ces formes, pas le serveur qui le sert, et
+# le même poids était servi des deux côtés.
 
-# (étiquette, texte tel que le moteur l'a écrit, sous-question attendue)
+# (étiquette, texte tel que le modèle l'a écrit, sous-question attendue)
 FORMES_MESUREES = [
     pytest.param(
         "positionnelle",
         'search_vectors("contrat cadre")',
         "contrat cadre",
-        id="positionnelle-ollama",
+        id="positionnelle",
     ),
     pytest.param(
         "nommee-query",
@@ -152,7 +169,7 @@ FORMES_MESUREES = [
         'search_vectors(query="durée du congé parental d\'éducation")\n'
         "</execute_tool>",
         "durée du congé parental d'éducation",
-        id="nommee-query-vllm",
+        id="nommee-query",
     ),
     pytest.param(
         "nommee-underscore",
@@ -160,14 +177,14 @@ FORMES_MESUREES = [
         "télétravail autorisés.\n\n"
         'search_vectors(sous_question="nombre de jours de télétravail autorisés")',
         "nombre de jours de télétravail autorisés",
-        id="nommee-sous_question-vllm",
+        id="nommee-sous_question",
     ),
     pytest.param(
         "nommee-tiret",
         "Je n'ai trouvé d'information sur ce sujet dans les documents fournis.\n\n"
         'search_vectors(sous-question="durée du congé parental d\'éducation")',
         "durée du congé parental d'éducation",
-        id="nommee-sous-question-ollama",
+        id="nommee-sous-question",
     ),
 ]
 
@@ -265,7 +282,7 @@ PROSE_ORDINAIRE = [
         "concernant le compte épargne temps. Je vais lancer une recherche complémentaire "
         "avec l'outil `search_vectors`.\n\n"
         "Sous-question : Quelles sont les modalités et la durée du compte épargne temps ?",
-        id="mention-en-prose-sans-parentheses-ollama",
+        id="mention-en-prose-sans-parentheses",
     ),
     pytest.param(
         "La fonction search_vectors(query) prend une sous-question et rend des passages.",
@@ -296,12 +313,12 @@ PROSE_ORDINAIRE = [
 async def test_les_mentions_en_prose_ne_declenchent_rien(monkeypatch, texte) -> None:
     """Le bord haut : aucune recherche fantôme, et le texte rendu intact.
 
-    Le premier cas n'est pas inventé : Ollama l'a écrit, deux essais sur deux.
+    Le premier cas n'est pas inventé : le modèle l'a écrit, deux essais sur deux.
     Un rideau qui cherche `search_vectors` sans exiger la parenthèse ET la
     chaîne entre guillemets part en recherche sur cette phrase-là.
 
     Le dernier est COMPOSÉ, et il faut le dire : ses deux moitiés sont mesurées
-    séparément — Ollama écrit « avec l'outil `search_vectors`. » sans jamais
+    séparément — le modèle écrit « avec l'outil `search_vectors`. » sans jamais
     l'appeler (deux essais sur deux), et les deux moteurs citent les sources
     entre guillemets (quatre cellules sur quatre). Aucune requête ne les a
     produites ENSEMBLE : le prompt système interdit d'écrire l'appel, et les

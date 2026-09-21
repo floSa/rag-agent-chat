@@ -626,7 +626,7 @@ async def test_l_export_rend_les_sources_imbriquees_dans_leur_interaction(base) 
     # Les colonnes JSON sont réhydratées : sinon le lecteur reçoit des chaînes
     # échappées à l'intérieur d'un document déjà JSON.
     assert interaction["ranked_element_ids"] == ["aaaaaaaaa1", "aaaaaaaaa2"]
-    assert interaction["config_json"]["ollama_model"]
+    assert interaction["config_json"]["llm_model"]
     sorts = {s["element_id"]: s["retenue"] for s in interaction["sources_proposees"]}
     assert sorts == {"aaaaaaaaa1": 1, "aaaaaaaaa2": 0}
 

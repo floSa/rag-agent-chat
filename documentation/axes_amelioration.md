@@ -1,5 +1,18 @@
 # Axes d'amélioration — rag-agent-chat
 
+> **CE DOCUMENT EST UN REGISTRE DATÉ, ET SES CONSTATS NE SONT PAS RÉÉCRITS.**
+> Le moteur servi est **vLLM depuis le 17 septembre 2026**, et le lot 28 a retiré
+> le support de l'autre moteur du code. Les sections `## 1. Corrigé` et
+> `## 4. Chantier ouvert le 3 septembre 2026` le nomment encore : ce sont des
+> constats pris à une date, chacun par une commande dont la sortie a été lue, et
+> les réécrire ferait dire à une mesure autre chose que ce qu'elle a dit. C'est
+> la même règle que pour `documentation/audits/`, `documentation/campagnes/` et
+> `runs/` — et c'est pourquoi ce fichier est nommé dans le périmètre d'exclusion
+> du garde `test_le_nom_de_l_ancien_moteur_ne_revient_pas`, avec sa raison.
+>
+> Ce qui décrit le fonctionnement **actuel** est, lui, à jour :
+> [moteur_llm.md](moteur_llm.md) en est le site canonique.
+
 Document remis à plat le 2 août 2026. La version précédente cochait « corrigé »
 des correctifs absents du code (`_window_around`, `RERANK_MIN_SCORE`,
 `section_header_text`, alias `[src:N]`) et listait comme ouvert `tools.py`,
@@ -1168,7 +1181,7 @@ sections de leurs fixtures portent leurs marqueurs comme la production les porte
 | Vivier élargi | `RETRIEVAL_TOP_K` 20 → 50. Le rappel global passe de 0,900 à **0,985** : la coupe précoce chassait, avant le reranking, ce que la question d'origine avait trouvé. |
 | Texte intégral | Relu dans l'index quand le texte du graphe frôle sa troncature à 2000 caractères. |
 | Légendes des illustrations | L'arête avait été renommée côté ingestion : la requête échouait à chaque reconstruction, sans casser la réponse mais en privant les illustrations de leur légende. Le nom est désormais lu dans le schéma. |
-| Tool-calling natif | `search_vectors` déclaré comme outil Ollama ; le regex sur la prose reste en second rideau. |
+| Tool-calling natif | `search_vectors` déclaré comme outil natif du moteur ; le regex sur la prose reste en second rideau. |
 | Endpoint `/answer` | Non interactif, expose le classement du retrieval, les passages soumis au LLM et les temps par étage. |
 | Flux interactif | Le checkpointer SQLite **synchrone** faisait tomber toute l'interface en 500. Corrigé et couvert par six tests. |
 | Résilience | Réouverture des clients après redémarrage d'un store, timeout nGQL, sessions persistées et purgées. |

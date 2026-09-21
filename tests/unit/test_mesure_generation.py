@@ -37,13 +37,24 @@ def _evaluate():
     return module
 
 
-def _flux_ollama(lignes: list[dict]):
+def _flux(evenements: list[dict]):
+    """Un serveur qui cède `evenements` en SSE, puis la sentinelle de fin.
+
+    LA FORME EST CELLE DU SERVEUR QUI SERT, et elle a changé au lot 28 : `data: `
+    en tête, `choices[0].delta` pour le contenu, un événement à `"choices": []`
+    pour les décomptes, `data: [DONE]` pour finir. Ce que ce fichier mesure n'a
+    jamais dépendu du moteur ; le double, lui, en dépend — et un double qui ne
+    ressemble à aucun serveur réel ne mesure rien, c'est une leçon déjà payée
+    deux fois ici.
+    """
+
     class Resp:
         def raise_for_status(self) -> None: ...
 
         async def aiter_lines(self):
-            for ligne in lignes:
-                yield json.dumps(ligne)
+            for evenement in evenements:
+                yield "data: " + json.dumps(evenement)
+            yield "data: [DONE]"
 
     class Stream:
         async def __aenter__(self):
@@ -63,6 +74,21 @@ def _flux_ollama(lignes: list[dict]):
             return Stream()
 
     return lambda **_kwargs: Client()
+
+
+def _jeton(texte: str) -> dict:
+    """Un événement de contenu, tel que le serveur le cède."""
+    return {"choices": [{"delta": {"content": texte}}]}
+
+
+def _decomptes(*, prompt: int | None = None, generes: int | None = None) -> dict:
+    """L'événement d'usage, à `choices` VIDE — c'est sa forme exacte (mesuré)."""
+    usage: dict = {}
+    if prompt is not None:
+        usage["prompt_tokens"] = prompt
+    if generes is not None:
+        usage["completion_tokens"] = generes
+    return {"choices": [], "usage": usage}
 
 
 def _section() -> SectionContext:
@@ -85,16 +111,8 @@ async def test_eval_count_est_lu_dans_l_evenement_final(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama(
-            [
-                {"message": {"content": "Réponse."}},
-                {
-                    "message": {"content": ""},
-                    "done": True,
-                    "prompt_eval_count": 3400,
-                    "eval_count": 512,
-                },
-            ]
+        _flux(
+            [_jeton("Réponse."), _decomptes(prompt=3400, generes=512)]
         ),
     )
     mesures: list[llm.PromptMeasure] = []
@@ -123,7 +141,7 @@ async def test_un_serveur_muet_ne_rend_pas_zero_token(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama([{"message": {"content": "Réponse."}, "done": True}]),
+        _flux([_jeton("Réponse.")]),
     )
     mesures: list[llm.PromptMeasure] = []
 
@@ -142,11 +160,8 @@ async def test_node_generate_publie_la_mesure_a_l_etat(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama(
-            [
-                {"message": {"content": "Réponse."}},
-                {"message": {"content": ""}, "done": True, "eval_count": 77},
-            ]
+        _flux(
+            [_jeton("Réponse."), _decomptes(generes=77)]
         ),
     )
 
@@ -166,7 +181,7 @@ async def test_node_generate_publie_la_mesure_a_l_etat(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_answer_publie_la_mesure_de_generation(monkeypatch) -> None:
     """La chaîne complète, jusqu'au corps HTTP que la campagne lit. Seule la
-    couche Ollama est simulée : le vrai `node_generate` et le vrai
+    couche du serveur est simulée : le vrai `node_generate` et le vrai
     `generate_stream` sont exercés."""
     from fastapi.testclient import TestClient
 
@@ -175,16 +190,8 @@ async def test_answer_publie_la_mesure_de_generation(monkeypatch) -> None:
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama(
-            [
-                {"message": {"content": "Une réponse de douze caractères."}},
-                {
-                    "message": {"content": ""},
-                    "done": True,
-                    "prompt_eval_count": 3400,
-                    "eval_count": 640,
-                },
-            ]
+        _flux(
+            [_jeton("Une réponse de douze caractères."), _decomptes(prompt=3400, generes=640)]
         ),
     )
 
@@ -211,13 +218,13 @@ async def test_answer_publie_la_mesure_de_generation(monkeypatch) -> None:
     assert mesure["answer_chars"] == len(body["answer"])
 
 
-# ─── La décision « cache KV » doit rester unique ─────────────────────────────
+# ─── La décision « décompte pollué » doit rester unique ─────────────────────
 
 def test_le_predicat_du_cache_kv_est_celui_du_journal(caplog) -> None:
     """**Deux prédicats séparés dériveraient.**
 
-    Le lot 1 a documenté que `prompt_eval_count` est pollué par le cache KV
-    d'Ollama et qu'il faut écarter les échantillons concernés. La campagne
+    Le lot 1 a documenté que `prompt_eval_count` peut être pollué par un cache
+    de préfixe et qu'il faut écarter les échantillons concernés. La campagne
     applique cette décision ; elle ne la refait pas. Ce test exige que le
     verdict et le journal disent la même chose sur la même valeur — un seuil
     recopié à deux endroits finirait par diverger, et la campagne publierait un
@@ -232,12 +239,12 @@ def test_le_predicat_du_cache_kv_est_celui_du_journal(caplog) -> None:
 
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         llm.log_prompt_measure(estime, pollue)
-    assert "cache KV" in caplog.text
+    assert "cache" in caplog.text
 
     caplog.clear()
     with caplog.at_level(logging.INFO, logger="src.agent.llm"):
         llm.log_prompt_measure(estime, propre)
-    assert "cache KV" not in caplog.text
+    assert "cache" not in caplog.text
 
 
 def test_sans_decompte_la_mesure_n_est_pas_exploitable() -> None:
@@ -252,12 +259,12 @@ def test_sans_decompte_la_mesure_n_est_pas_exploitable() -> None:
 @pytest.mark.asyncio
 async def test_un_decompte_pollue_est_publie_mais_marque(monkeypatch) -> None:
     """La valeur brute reste rendue — l'écarter en silence perdrait l'information
-    « Ollama a servi ce prompt depuis son cache ». C'est le drapeau qui décide de
+    « le serveur a servi ce prompt depuis son cache ». C'est le drapeau qui décide de
     son usage, pas sa disparition."""
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
-        _flux_ollama([{"message": {"content": "R."}, "done": True, "prompt_eval_count": 3}]),
+        _flux([_jeton("R."), _decomptes(prompt=3)]),
     )
     mesures: list[llm.PromptMeasure] = []
 

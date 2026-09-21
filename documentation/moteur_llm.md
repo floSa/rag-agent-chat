@@ -47,13 +47,14 @@ du découpage, et il doit passer **avant** tout changement de moteur.
 |---|---|---|
 | `serveur` | **fait** | déduit de la route de version qui répond |
 | `endpoint` | **fait**, expurgé | l'URL réellement jointe, sans userinfo ni chemin |
-| `version` | **fait** | `GET /api/version` (Ollama) ou `GET /version` (vLLM) |
-| `modele_servi` | **fait** | `GET /api/tags` (Ollama) ou `GET /v1/models` (vLLM) |
-| `empreinte_du_modele` | **fait** | le `digest` Ollama, tronqué à 16 caractères |
-| `quantification` | **fait** | `details.quantization_level` (Ollama) |
-| `fenetre_servie` | **fait** | `max_model_len` (vLLM) |
-| `modele_demande` | *réglage* | `OLLAMA_MODEL` |
+| `version` | **fait** | `GET /version` |
+| `modele_servi` | **fait** | `GET /v1/models`, confronté à ce que NOUS demandons |
+| `fenetre_servie` | **fait** | `max_model_len` |
+| `modele_demande` | *réglage* | `LLM_MODEL` |
 | `options` | *réglage* | nos cinq drapeaux d'appel |
+
+*Deux champs de plus vivaient ici, `empreinte_du_modele` et `quantification` ;
+ils ont été retirés au lot 28 — voir le §8.*
 | `releve_le` | **fait**, sur NOUS | l'horloge de l'agent à l'instant du relevé, ISO-8601 UTC |
 
 **POURQUOI UNE DATE, ET SUR CE CHAMP SEUL.** Le relevé est **mémorisé pour la vie
@@ -84,15 +85,15 @@ toujours **rendu** ; il n'est plus **figé**. Il se redemande au battement
 suivant, vingt secondes plus tard.
 
 **LE FAIT, JAMAIS L'INTENTION**, et c'est la leçon de la clé `peripherique` du
-lot 12 : `requested` y est le réglage, `embedding` le fait. Ici, `ollama_model`
-publie depuis toujours le nom qu'on **demande** — il reste identique quand le
-serveur d'en face est remplacé, mis à jour, ou sert un autre poids sous le même
-tag.
+lot 12 : `requested` y est le réglage, `embedding` le fait. Ici, `llm_model`
+publie le nom qu'on **demande** — il reste identique quand le serveur d'en face
+est remplacé, mis à jour, ou sert un autre poids sous le même nom.
 
-**Pourquoi l'empreinte pèse.** Un tag Ollama est **mutable**. Deux campagnes
-lancées toutes deux sur `gemma4:e4b` contre deux serveurs portant deux poids sous
+**Pourquoi l'empreinte pesait.** Un nom de modèle est **mutable**. Deux campagnes
+lancées toutes deux sur le même nom contre deux serveurs portant deux poids sous
 ce nom sont incomparables, et leur `modele_demande` est identique au caractère
-près. C'est `empreinte_du_modele` qui les sépare, et c'est pour cela qu'elle est
+près. C'était `empreinte_du_modele` qui les séparait, et c'est pour cela qu'elle
+était
 dans la signature.
 
 **Pourquoi les options y sont quand même.** Elles sont du réglage, assumé : rien
@@ -104,29 +105,23 @@ signature ferait lire « moteur différent » là où le moteur est le même.
 
 ---
 
-## 3. Ce que les deux serveurs rendent vraiment
+## 3. Ce que le serveur rend vraiment
 
-`mesuré` le 15 septembre 2026 à 15:31 UTC, par la sonde livrée, contre les deux
-serveurs de ce poste. **Valeurs datées, non gardées.**
+`mesuré` le 15 septembre 2026 à 15:31 UTC par la sonde livrée, et la version
+reconfirmée le 18 septembre 2026 à 12:35 UTC. **Valeurs datées, non gardées.**
 
 ```jsonc
-// Ollama, port hôte 11434
-{"serveur": "ollama", "version": "0.30.10", "modele_servi": "gemma4:e4b",
- "empreinte_du_modele": "c6eb396dbd5992bb", "quantification": "Q4_K_M",
- "fenetre_servie": null}
-
-// vLLM, port hôte 8100 — l'instance d'une autre équipe
+// vLLM, port hôte 8100 — l'instance partagée avec deux autres équipes
 {"serveur": "vllm", "version": "0.28.0",
  "modele_servi": "google/gemma-4-E4B-it-qat-w4a16-ct",
- "empreinte_du_modele": null, "quantification": null, "fenetre_servie": 32768}
+ "fenetre_servie": 32768}
 ```
 
-**Deux écarts que ce relevé rend visibles et que `ollama_model` cachait :**
+*Le relevé de l'ancien moteur, pris le même jour, figurait ici jusqu'au lot 28 ;
+il vit désormais dans les archives, avec les campagnes qu'il décrivait.*
 
-- le poids d'Ollama est un **GGUF `Q4_K_M` de 8,0 milliards de paramètres** ;
-  celui de vLLM est une quantification **`w4a16`**. Ce ne sont pas les mêmes
-  poids, et `gemma4:e4b` contre `google/gemma-4-E4B-it-qat-w4a16-ct` ne le disait
-  qu'à qui sait lire un nom de dépôt ;
+**L'écart que ce relevé rend visible et que le seul nom demandé cachait :**
+
 - vLLM sert une fenêtre de **32 768** quand nous en demandons **8 192**
   (`LLM_NUM_CTX`). `fenetre_servie` et `options.num_ctx` sont deux grandeurs
   différentes et le document les nomme séparément.
@@ -141,19 +136,24 @@ deux relevés du même moteur. Voir le §6.
 
 ---
 
-## 4. Le discriminant, et pourquoi il exige une réponse POSITIVE
+## 4. Le relevé exige une réponse POSITIVE
 
-| Route | Ollama | vLLM |
-|---|---|---|
-| `GET /api/version` | **200** + `{"version": …}` | **404** |
-| `GET /version` | 404 | **200** + `{"version": …}` |
+| Route | vLLM |
+|---|---|
+| `GET /version` | **200** + `{"version": …}` |
 
-`mesuré` le 15 septembre 2026 à 15:25 UTC sur les deux serveurs.
+`mesuré` le 18 septembre 2026 à 12:35 UTC : `{"version":"0.28.0"}`.
 
-**Un discriminant qui saurait seulement dire « ce n'est pas Ollama » rangerait
-n'importe quel serveur muet dans « vLLM ».** Celui-ci exige un `version` de type
-chaîne pour conclure ; à défaut, le champ entier est **`null`**, et `null` se lit
-« je n'ai pas pu lire », jamais « Ollama ».
+**Un relevé qui conclurait sur un silence rangerait n'importe quel serveur muet
+sous ce nom-là.** Celui-ci exige un `version` de type chaîne pour conclure ; à
+défaut, le champ entier est **`null`**, et `null` se lit « je n'ai pas pu lire »,
+jamais un nom de moteur.
+
+**ET IL NE SAIT PLUS NOMMER LES AUTRES** — lot 28. Il essayait d'abord la route
+de version de l'ancien moteur, ce qui lui permettait de le NOMMER quand c'était
+lui qui répondait. Cette requête part avec son support : le dépôt sait seulement
+dire que ce n'est pas le serveur auquel il parle. C'est le prix assumé de ne plus
+le supporter ; l'inventer serait pire.
 
 C'est la leçon du deuxième faux résultat du banc go/no-go : un `finish_reason:
 "tool_calls"` rendu en **HTTP 200 sans aucun appel d'outil**. Un code de retour
@@ -208,17 +208,17 @@ moteur change ; `fenetre_servie` y entre par la première. Et c'est `mesuré` :
 deux lectures de `/v1/models` à 449 s d'écart (18:45:28 et 18:52:57 UTC le
 15 septembre 2026, en lecture seule) rendent `max_model_len` **stable** à 32 768
 quand `created` **change** dans le même intervalle — ce dernier étant le contrôle
-positif qui établit que la comparaison sait voir un changement. Côté Ollama la
-fenêtre est **toujours** nulle et n'est alors pas imprimée : muet n'est pas
-différent, ici comme partout.
+positif qui établit que la comparaison sait voir un changement. Sur les campagnes
+archivées, produites avant la bascule, cette fenêtre est **toujours** nulle et
+n'est alors pas imprimée : muet n'est pas différent, ici comme partout.
 
 **IL SIGNALE, IL NE REFUSE PAS**, et le motif est plus fort ici que pour le
 périphérique. `empreinte_des_ancrages` **refuse**, parce qu'un corpus remplacé
 rend des chiffres plausibles et faux sur chaque question. Le moteur est de
 l'autre famille : **confronter deux moteurs est exactement ce que cette clé a été
-posée pour permettre** — le lot 6 du découpage est une campagne vLLM appariée à
-une campagne Ollama. Un garde qui refuserait interdirait le seul geste pour
-lequel il a été demandé.
+posée pour permettre** — une campagne d'aujourd'hui appariée à une campagne
+archivée d'avant la bascule. Un garde qui refuserait interdirait le seul geste
+pour lequel il a été demandé.
 
 Le moteur **s'ajoute** à la discipline de l'empreinte, il ne la remplace pas : un
 corpus remplacé reste un refus, quel que soit le moteur.
@@ -236,10 +236,10 @@ corpus remplacé reste un refus, quel que soit le moteur.
   `evaluate.py` nomme cette cause en premier parce qu'elle est la seule qui se
   répare d'un geste.
 - **Le serveur que l'agent joint n'a pas été vérifié de l'intérieur du
-  conteneur.** `OLLAMA_HOST` y désigne un nom de service docker sur le port
-  standard d'Ollama — `mesuré` le 15/09 à 15:26 UTC, **sur la forme de l'URL et
-  non sur sa valeur**, le dépôt étant public. Que ce nom résolve vers
-  `ollama-central` plutôt qu'un autre est **plausible et non mesuré** : l'établir
+  conteneur.** `LLM_HOST` y désigne un nom de service docker sur le port du
+  serveur — `mesuré` le 15/09 à 15:26 UTC, **sur la forme de l'URL et non sur sa
+  valeur**, le dépôt étant public. Que ce nom résolve vers `vllm-central` plutôt
+  qu'un autre est **plausible et non mesuré** : l'établir
   demanderait un `docker exec` dans un conteneur de production.
 - **Le comportement sous un serveur relancé pendant une campagne.** Le relevé
   étant mémorisé, il décrirait l'état d'avant. Ce n'est pas le cas que cette clé
@@ -298,9 +298,8 @@ corpus remplacé reste un refus, quel que soit le moteur.
   seuls caractères alphanumériques minuscules, le demandé est un **infixe exact**
   du servi : `gemma4e4b` dans `googlegemma4e4bitqatw4a16ct`. Ce n'est donc pas
   une égalité qu'on exige, c'est cette relation-là, et la sonde parcourt
-  désormais le catalogue pour y chercher **notre** entrée — comme la branche
-  Ollama le fait depuis toujours — au lieu de prendre la première venue, dont
-  l'ordre n'est de toute façon pas un contrat.
+  désormais le catalogue pour y chercher **notre** entrée, au lieu de prendre la
+  première venue, dont l'ordre n'est de toute façon pas un contrat.
 
   **ELLE ACCEPTAIT TOUT MODÈLE DÉRIVÉ DU NÔTRE — FERMÉ LE 15 SEPTEMBRE 2026**,
   non bloquante §2 de l'audit de REPAR-19, et c'était le cas **probable** là où
@@ -348,9 +347,9 @@ corpus remplacé reste un refus, quel que soit le moteur.
   FAUX.** **FERMÉ le 15 septembre 2026** — non bloquante §3 de l'audit de
   REPAR-19. C'était une affirmation **positive**, écrite au site comme
   justification du sens de l'inclusion, et **une borne écrite mais fausse est
-  pire qu'une borne absente**. Un tag Ollama nomme couramment les quatre — modèle,
-  taille, variante d'instruction, quantification — et non les deux premiers
-  seulement ; trois formes publiées la prennent en défaut :
+  pire qu'une borne absente**. Un nom de modèle nomme couramment les quatre —
+  modèle, taille, variante d'instruction, quantification — et non les deux
+  premiers seulement ; trois formes publiées la prennent en défaut :
 
   | tag demandé | `id` servi | reconnu ? |
   |---|---|---|
@@ -434,7 +433,8 @@ corpus remplacé reste un refus, quel que soit le moteur.
   personne n'a pu lever**, et elle ne se lèvera pas sans un redémarrage que le
   poste partagé interdit. **REPAR-20 l'a constatée à son tour** — `mesuré` le
   15 septembre 2026 à 20:50:34 UTC, une lecture, bornée par `timeout` : les clés
-  de `/health` sont `embedding_model`, `ollama_model`, `services`,
+  de `/health` étaient alors `embedding_model`, le champ de modèle demandé,
+  `services`,
   `services_unknown`, `sessions`, `status`, `torch_device`, `usage`, et
   `moteur_llm` **en est absente** (contrôle positif : `status` y est bien
   présente, à `ok`). Conteneur démarré à **14:05:56 UTC**, sur du code antérieur.
@@ -487,52 +487,117 @@ print('relevé le', pris, '— il y a',
 python3 -c "import json,glob; f=glob.glob('runs/*.json'); print(sum(1 for x in f if json.load(open(x)).get('moteur_llm') is None), 'muettes sur', len(f))"
 ```
 
-## 8. L'interrupteur `LLM_ENGINE` (lot 25) — ce qu'il commande, et ce qu'il ne commande pas
+## 8. UN SEUL MOTEUR (lot 28) — ce qui a été retiré, et la migration du `.env`
 
-**LE DÉFAUT EST `ollama`, ET CE LOT NE BASCULE RIEN.** Les trois réglages :
+**L'INTERRUPTEUR N'EXISTE PLUS.** `LLM_ENGINE` choisissait entre deux dialectes ;
+le service tourne sous vLLM depuis le 17 septembre 2026, l'autre moteur n'est
+plus servi, et son **support** a été retiré du code — pas seulement son nom. Un
+interrupteur à une seule position n'est pas un réglage : c'est une branche morte
+qu'un `.env` peut encore actionner.
 
-| clé | défaut | rôle |
-|---|---|---|
-| `LLM_ENGINE` | `ollama` | `ollama` ou `vllm`. **Toute autre valeur est refusée au démarrage** — jamais rabattue en silence sur le défaut |
-| `VLLM_HOST` | `http://vllm:8000` | l'hôte du serveur OpenAI-compatible, ignoré tant que `LLM_ENGINE=ollama` |
-| `VLLM_MODEL` | `google/gemma-4-E4B-it-qat-w4a16-ct` | le nom du modèle **côté vLLM**, qui n'est pas celui d'Ollama |
+<!-- migration-du-lot-28:début — SEUL bloc de ce dépôt autorisé à nommer
+     l'ancien moteur hors des archives. Il porte les clés EXACTES que le pilote
+     doit retirer d'un `.env` existant ; sans leurs noms, la migration est
+     injouable. Le garde `test_le_nom_de_l_ancien_moteur_ne_revient_pas` borne
+     cette exemption à ce bloc et rougit partout ailleurs dans ce fichier. -->
 
-**CE QUI BASCULE, EN UN SEUL SITE** — `src/agent/dialecte_llm.py`, et nulle part
-ailleurs : il n'y a aucun `if moteur == …` chez les appelants.
+### La migration du `.env`, exacte
 
-| | `ollama` | `vllm` |
-|---|---|---|
-| chemin de génération | `/api/chat` | `/v1/chat/completions` |
-| chemin sondé par `/health` | `/api/tags` | `/v1/models` |
-| température / plafond | `options: {temperature, num_predict}` | `temperature`, `max_tokens` à plat |
-| fenêtre de contexte | `options.num_ctx` | **rien** — fixée au lancement du serveur |
-| raisonnement | `think` | `chat_template_kwargs: {enable_thinking}` |
-| décomptes en flux | toujours émis | `stream_options: {include_usage: true}` **exigé** |
-| déclaration d'outil | `SEARCH_TOOL` tel quel | `SEARCH_TOOL` tel quel *(mesuré sur les deux)* |
+Elle se joue sur le `.env` du **clone principal**, qui n'est pas versionné et
+qu'aucun lot ne touche. À jouer **avant** de redéployer.
 
-**CE QUE `LLM_ENGINE` NE COMMANDE PAS, ET C'EST VOULU** : la clé `moteur_llm`
-de `/health` reste relevée **DU SERVEUR**. Elle demande sa version et exige une
-réponse positive pour conclure. Un réglage qui désignerait vLLM devant un Ollama
-publierait donc `serveur: "ollama"` — et c'est **exactement** ce qu'un exploitant
-doit voir. Le réglage dit où l'on parle ; la clé dit qui a répondu.
+**CINQ CLÉS À RETIRER** — elles ne sont plus lues par personne :
 
-**DEUX AVERTISSEMENTS MESURÉS, à lire avant de basculer :**
+```
+LLM_ENGINE
+OLLAMA_HOST
+OLLAMA_MODEL
+VLLM_HOST
+VLLM_MODEL
+```
+
+**DEUX CLÉS À AJOUTER**, avec les valeurs de ce poste — ce sont exactement celles
+que `VLLM_HOST` et `VLLM_MODEL` y portent aujourd'hui :
+
+```
+LLM_HOST=http://vllm-central:8000
+LLM_MODEL=google/gemma-4-E4B-it-qat-w4a16-ct
+```
+
+**POURQUOI CES NOMS-LÀ.** Les anciens portaient un MOTEUR dans leur préfixe parce
+qu'il fallait les distinguer d'une autre paire. Cette paire n'existe plus : le
+préfixe ne distingue donc plus rien, il redirait dans le nom du réglage ce que le
+dépôt entier dit déjà, et il **mentirait** le jour où le serveur change — un
+`VLLM_HOST` pointant un serveur qui n'est pas vLLM est exactement la panne muette
+que ce document a passé trois lots à fermer. `LLM_` est en outre le préfixe des
+quatre réglages voisins du même bloc (`LLM_TEMPERATURE`, `LLM_MAX_TOKENS`,
+`LLM_NUM_CTX`, `LLM_THINKING`).
+
+**CE QUE COÛTE UNE MIGRATION OUBLIÉE, ET IL FAUT LE SAVOIR.** `Settings` est
+configuré en `extra="ignore"` : les cinq anciennes clés laissées en place sont
+ignorées **sans un mot**, et les deux nouvelles absentes retombent sur les défauts
+du code. Sur CE poste les défauts sont justement les valeurs servies, donc un
+`.env` non migré continuerait de fonctionner — mais sur un déploiement dont
+l'hôte diffère du défaut, l'agent partirait silencieusement sur
+`http://vllm-central:8000`. Ce qui le dirait : `GET /health`, dont
+`moteur_llm.endpoint` publie l'hôte **réellement joint**.
+
+<!-- migration-du-lot-28:fin -->
+
+### DEUX RUPTURES DE CONTRAT SUR `/health`, annoncées plutôt que tues
+
+| clé d'avant | clé d'aujourd'hui |
+|---|---|
+| le champ racine qui publiait le modèle demandé | `llm_model` |
+| la sonde publiée sous `services` | `llm` |
+
+Les deux portaient le nom d'un moteur que ce dépôt ne sert plus, et une clé qui
+nomme faux renseigne faux. **Ce qui borne la rupture**, `mesuré` le 18 septembre
+2026 par `git grep` sur ce dépôt : le healthcheck de `docker-compose.yml` ne lit
+ni l'une ni l'autre — il ne lit que le code HTTP — et le dépôt ne contient aucun
+autre lecteur. **Ce qui n'est PAS borné** : un lecteur hors dépôt — le pipeline
+voisin, un tableau de bord — lirait `KeyError` ou `null`.
+
+Une troisième clé change au même titre, hors de `/health` :
+`usage.configuration()` porte désormais `llm_model` dans `config_json`, et une
+requête SQL écrite avant ce lot doit être reprise (voir `capture_usage.md`).
+Cette clé entre dans `config_hash`, donc la renommer dégroupe les campagnes à
+venir de celles déjà enregistrées — **mais le dégroupement était déjà consommé** :
+`mesuré` le 18 septembre 2026, **aucune** des 20 campagnes versionnées de `runs/`
+n'a été produite sous vLLM, donc la VALEUR de ce champ les en séparait déjà.
+
+### DEUX CHAMPS DU RELEVÉ ONT ÉTÉ RETIRÉS
+
+`empreinte_du_modele` et `quantification` n'étaient renseignés que par le
+catalogue de l'ancien moteur ; sous celui-ci ils étaient **structurellement
+nuls**, ce que le §6 écrivait déjà. Un champ publié qui ne peut plus QUE valoir
+`null` promet une capacité qu'on n'a pas. La borne du §6 ne bouge pas : la
+position `DIFFÉRENT` de `--compare` reste inatteignable sur deux poids servis
+sous le même `id`. Et `evaluate.signature_du_moteur` sait toujours les **lire**
+dans une campagne archivée qui les porte — cesser de le faire réécrirait a
+posteriori ce qu'un rapport daté signait.
+
+### LE RELEVÉ NE COÛTE PLUS QUE DEUX REQUÊTES
+
+Il en coûtait trois : la route de version de l'autre moteur était essayée
+d'abord, pour dire lequel des deux répondait. Elle part avec lui. Conséquence
+pour un exploitant qui aurait l'autre serveur en face : `moteur_llm` vaut
+désormais **`null`** au lieu de le nommer. Le dépôt ne sait plus dire de qui il
+s'agit — seulement que ce n'est pas celui auquel il parle —, et la sonde `llm` de
+`services` porte déjà la panne. Ne pas le nommer est le prix assumé de ne plus le
+supporter ; l'inventer serait pire.
+
+**DEUX AVERTISSEMENTS MESURÉS, toujours valables :**
 
 1. **`LLM_THINKING=true` n'est pas exploitable** sur un serveur vLLM sans
    `--reasoning-parser` — et `vllm-central` n'en a pas. Hors flux la réponse est
    `null` pour 278 tokens facturés ; en flux le raisonnement brut part à l'écran
    de l'utilisateur. Aucune des deux ne lève. (`mesuré` le 16 septembre 2026 à
    14:13 et 14:14 UTC.)
-2. **Une charge du mauvais dialecte ne se plaint pas.** Seul le NOM DU MODÈLE
-   rend 404. `options`, `num_predict`, `num_ctx` et `think` envoyés à vLLM sont
-   acceptés en HTTP 200 puis ignorés : la génération part alors aux valeurs par
-   défaut du serveur. C'est la raison d'être du site unique, et le §4.60 du
-   registre porte la mesure.
-
-**CE QUE CE LOT N'A PAS MESURÉ** : aucune génération de bout en bout n'a été
-faite à travers ce code sous `LLM_ENGINE=vllm`. Les dix requêtes qui fondent ces
-tableaux ont été passées à la main. Ce qui est gardé est la CHARGE et l'URL ;
-la réponse complète appartient à la campagne appariée qui suit.
+2. **Une charge d'un autre dialecte ne se plaint pas.** Seul le NOM DU MODÈLE
+   rend 404. Les champs d'un autre dialecte envoyés à vLLM sont acceptés en
+   HTTP 200 puis ignorés : la génération part alors aux valeurs par défaut du
+   serveur. C'est la raison d'être du site unique `src/agent/dialecte_llm.py`.
 
 ## L'ÉTAT SERVI DEPUIS LE 17 SEPTEMBRE 2026
 
@@ -548,13 +613,13 @@ la réponse complète appartient à la campagne appariée qui suit.
 | `code_servi.sha` | `7b0edb0`, `arbre=propre` |
 | une réponse réelle | HTTP 200 en **17,3 s**, 1 314 caractères, **7 citations ancrées** |
 
-*Pour mémoire, la veille sous Ollama, une question comparable : 43,0 s.*
+*Pour mémoire, la veille sur l'ancien moteur, une question comparable : 43,0 s.*
 
-**LE RETOUR ARRIÈRE**, si jamais : l'image d'avant porte l'étiquette
-`rag-agent-chat-agent-api:2026-09-17-avant-bascule-vllm` — vérifiée pendante au
-bon identifiant avant la construction —, et `LLM_ENGINE=ollama` dans le `.env`
-du clone principal suffit à revenir sans reconstruire. La marche complète est au
-§4 de `identite_du_code_servi.md`.
+**LE RETOUR ARRIÈRE A CHANGÉ DE NATURE AU LOT 28, ET IL COÛTE PLUS CHER.**
+Revenir n'est plus une ligne de `.env` : le support de l'autre moteur n'est plus
+dans le code. Il faut **réétiqueter l'image d'avant la bascule et redéployer**.
+La marche complète, avec l'étiquette exacte, est au §4 de
+[identite_du_code_servi.md](identite_du_code_servi.md).
 
 **CE QUI N'A PAS ÉTÉ MESURÉ, ET C'EST DIT** : aucune campagne comparative n'a été
 faite. Le choix du moteur est une décision du propriétaire, pas le résultat d'un

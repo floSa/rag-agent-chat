@@ -1,7 +1,8 @@
-# Les LLM sont servis par le projet `llm-service` (conteneur `ollama-central`,
-# réseau `llm-net`), jamais par une instance embarquée ici. Un Ollama local
-# vivait dans ce fichier : `docker compose up -d` le recréait et retéléchargeait
-# plusieurs Go de modèle en doublon de celui que le service central sert déjà.
+# Les LLM sont servis par le projet `llm-service` (conteneur `vllm-central`,
+# réseau `llm-net`), jamais par une instance embarquée ici. Un serveur
+# d'inférence local vivait dans ce fichier : `docker compose up -d` le recréait
+# et retéléchargeait plusieurs Go de modèle en doublon de celui que le service
+# central sert déjà.
 #
 # Prérequis : `make up` dans llm-service, et la stack rag-ingestion-pipeline
 # démarrée (elle crée le réseau `rag_network` et héberge les stores).
@@ -96,7 +97,7 @@ services:
     #
     # PAS SUR `frontend`, et ce n'est pas un oubli : il ne charge aucun modèle.
     # Une réservation y prendrait un périphérique sur une carte que se PARTAGENT
-    # déjà Ollama — 4 904 Mio, et 84 % du temps d'une réponse — et ce service.
+    # déjà le serveur d'inférence — 84 % du temps d'une réponse — et ce service.
     #
     # `count: 1` plutôt que `all` : ce poste n'a qu'une carte (`nvidia-smi`,
     # `mesuré` le 11 septembre 2026), et `all` sur un poste qui en aurait
@@ -169,6 +170,6 @@ networks:
   rag_network:
     external: true   # Réseau créé par rag-ingestion-pipeline
   llm-net:
-    external: true   # Réseau créé par llm-service (Ollama central)
+    external: true   # Réseau créé par llm-service (serveur LLM central)
   internal:
     driver: bridge
