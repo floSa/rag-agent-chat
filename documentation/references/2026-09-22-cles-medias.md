@@ -28,6 +28,22 @@ pipeline qui remplace le point. **Cette sonde départage les 199 clés du chemin
 HTML, pas les 13 du PDF** : leur radical, `Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch`,
 ne contient aucun point, donc les deux variantes y rendraient le même résultat.
 
+**L'INVARIANT GRAPHE ↔ BUCKET, `mesuré` le 22 septembre 2026 à 15:19 UTC.**
+Le pipeline a posé la question : deux sources rendent 212, mais un nombre égal
+n'est pas un ensemble égal — un objet orphelin et une référence morte se
+compensent exactement. Mesure faite des deux côtés depuis le conteneur servi :
+
+- le bucket contient **212** objets au total, **tous** sous `images/` : aucun
+  autre préfixe, donc aucun écart de périmètre à défalquer ;
+- **`ensemble_graphe == ensemble_bucket` → vrai.** Dans le graphe et absents du
+  bucket : **0**. Dans le bucket et absents du graphe : **0** ;
+- **les deux empreintes SHA-256 sont identiques**, et identiques à celle
+  ci-dessus : `c91f5be6…`.
+
+La recette est doublée de trois contrôles positifs : retirer un élément change
+l'empreinte, en ajouter un la change, le même ensemble la conserve. Sans eux, un
+« même SHA » pourrait n'être qu'un défaut de la recette.
+
 ---
 
 images/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch/086f1173cb_picture.png
