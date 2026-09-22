@@ -182,12 +182,18 @@ def test_answer_publie_le_chiffre_calcule_par_le_graphe(monkeypatch) -> None:
 
     Seule la couche HTTP est simulée : le budget est calculé par le vrai
     `fit_prompt`, à travers le vrai `generate_stream` et le vrai `node_generate`.
+
+    La fenêtre est POSÉE : le sujet de la scène est un chiffre d'écartées non
+    nul, et six sources de 4 000 caractères tiennent toutes sous une fenêtre
+    héritée assez large — `tests/unit/fenetre_du_prompt.py` dit pourquoi.
     """
     from src.agent import graph as graph_module
     from src.agent import llm
     from src.agent.llm import fit_prompt
     from src.api import main
+    from tests.unit.fenetre_du_prompt import poser_la_fenetre
 
+    poser_la_fenetre(monkeypatch)
     question = "Comment mesurer la dispersion ?"
     contextes = [
         SectionContext(

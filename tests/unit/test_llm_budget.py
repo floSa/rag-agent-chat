@@ -36,6 +36,7 @@ from src.agent.llm import (
 )
 from src.agent.settings import settings
 from src.api.schemas import MAX_MESSAGE_CHARS, BreadcrumbEntry, Message, SectionContext
+from tests.unit.fenetre_du_prompt import poser_la_fenetre
 
 
 def _context(element_id: str, taille: int) -> SectionContext:
@@ -158,14 +159,19 @@ def test_l_encadrement_ne_porte_que_sur_les_sources_retenues() -> None:
         )
 
 
-def test_aucune_source_ecartee_n_aurait_tenu() -> None:
+def test_aucune_source_ecartee_n_aurait_tenu(monkeypatch) -> None:
     """Le budget doit être serré autant qu'honnête : la place laissée libre dans
     la fenêtre doit être plus petite que le coût de la moins chère des écartées.
 
     C'est la seule vérification qui attrape une sur-provision. Mesuré avant
     correctif : 3 125 caractères libres pour une source écartée qui en coûtait
     1 634.
+
+    La fenêtre est POSÉE : sous une fenêtre héritée assez large, dix sources de
+    1 500 caractères tiennent toutes, il n'y a plus d'écartée, et la scène perd
+    son sujet au lieu de trouver un défaut — `fenetre_du_prompt` dit pourquoi.
     """
+    poser_la_fenetre(monkeypatch)
     candidates = [_source(i, 1500) for i in range(10)]
     fit = fit_prompt(QUESTION, candidates, [])
     ecartees = [c for c in candidates if c not in fit.contexts]
@@ -210,11 +216,16 @@ def test_la_declaration_d_outil_est_comptee(monkeypatch) -> None:
     assert sans - avec == cout > 0
 
 
-def test_le_budget_ne_devient_jamais_negatif() -> None:
+def test_le_budget_ne_devient_jamais_negatif(monkeypatch) -> None:
     """Un historique qui dépasse la fenêtre donne 0, pas un budget négatif.
 
     Le pire cas que l'API accepte : six messages à la borne de Message.content.
+
+    La fenêtre est POSÉE : « dépasser la fenêtre » n'a de sens que pour une
+    fenêtre donnée, et sous une fenêtre héritée assez large le pire cas de l'API
+    y tient — la scène mesurerait alors un budget ordinaire.
     """
+    poser_la_fenetre(monkeypatch)
     pire_cas = _historique(6, MAX_MESSAGE_CHARS)
 
     assert context_budget_chars("q", pire_cas) == 0
@@ -281,8 +292,13 @@ def test_le_prompt_alterne_les_roles() -> None:
     assert roles == ["system", *["user", "assistant"] * ((len(roles) - 2) // 2), "user"], roles
 
 
-def test_un_tour_trop_gros_est_ecarte_entier() -> None:
-    """Pas de demi-échange : ni la question sans sa réponse, ni l'inverse."""
+def test_un_tour_trop_gros_est_ecarte_entier(monkeypatch) -> None:
+    """Pas de demi-échange : ni la question sans sa réponse, ni l'inverse.
+
+    La fenêtre est POSÉE : « trop gros » se dit par rapport à une fenêtre, et un
+    tour qui ne dépasse plus rien ne fait plus rien écarter.
+    """
+    poser_la_fenetre(monkeypatch)
     kept, dropped = fit_history(_conversation(1, MAX_MESSAGE_CHARS // 2))
 
     assert kept == []
@@ -341,9 +357,14 @@ def test_un_historique_court_passe_entier() -> None:
     assert fit_history(historique) == (historique, 0)
 
 
-def test_un_message_trop_gros_est_ecarte_pas_tronque() -> None:
+def test_un_message_trop_gros_est_ecarte_pas_tronque(monkeypatch) -> None:
     """Un demi-tour de conversation n'apporte rien ; node_rewrite a déjà rendu
-    la question autonome, donc l'historique est du confort, pas un prérequis."""
+    la question autonome, donc l'historique est du confort, pas un prérequis.
+
+    La fenêtre est POSÉE, pour la même raison que le tour trop gros : sans elle,
+    « trop gros » est une propriété du poste et non du cas de test.
+    """
+    poser_la_fenetre(monkeypatch)
     kept, dropped = fit_history([Message(role="user", content="m" * MAX_MESSAGE_CHARS)])
 
     assert kept == []
@@ -555,8 +576,13 @@ def test_sans_source() -> None:
 
 # ─── Point d'entrée unique ────────────────────────────────────────────────────
 
-def test_fit_prompt_borne_historique_et_sources_ensemble() -> None:
-    """/answer et _build_messages doivent compter la même chose."""
+def test_fit_prompt_borne_historique_et_sources_ensemble(monkeypatch) -> None:
+    """/answer et _build_messages doivent compter la même chose.
+
+    La fenêtre est POSÉE : `dropped_history > 0` est le sujet de la scène, et
+    sous une fenêtre héritée assez large les six messages passent entiers.
+    """
+    poser_la_fenetre(monkeypatch)
     fit = fit_prompt("q", [_context("a", 20_000)], _historique(6, 4000))
 
     assert fit.dropped_history > 0
@@ -756,6 +782,7 @@ async def test_node_generate_publie_le_budget_reellement_applique(monkeypatch) -
     """
     from src.agent import graph as graph_module
 
+    poser_la_fenetre(monkeypatch)
     monkeypatch.setattr(
         llm.httpx,
         "AsyncClient",
@@ -764,7 +791,8 @@ async def test_node_generate_publie_le_budget_reellement_applique(monkeypatch) -
         ),
     )
 
-    # Six sources de 4 000 caractères : le budget en écarte forcément.
+    # Six sources de 4 000 caractères : le budget en écarte forcément — sous la
+    # fenêtre que cette scène POSE, et c'est la moitié de la phrase qui manquait.
     contextes = [_source(i, 4000) for i in range(6)]
     attendu = fit_prompt(QUESTION, contextes, []).dropped_contexts
     assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"

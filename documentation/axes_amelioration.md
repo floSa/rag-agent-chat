@@ -10296,3 +10296,100 @@ lançant la suite sous **deux** valeurs opposées, pas une.
 
 **Non traité ici** : rien ne garde l'invariant « la porte est verte avec le
 `.env` du poste ». C'est la dette que ce constat laisse ouverte.
+
+**FERMÉ PAR LOT-30, ET LA DETTE AVEC** — §4.64. Les onze scènes posent la
+fenêtre qu'elles mesurent, et `tests/unit/test_fenetre_heritee.py` tient
+l'invariant. **Onze, et non dix** : le compte de ce constat est juste pour la
+manière dont le poste pose la valeur — par le FICHIER `.env` —, et une onzième
+scène apparaît quand on la pose par une VARIABLE D'ENVIRONNEMENT. Voir §4.64.
+
+### 4.64 → LOT-30 : onze scènes POSENT la fenêtre, et la garde qui manquait mord
+
+`mesuré` le 22 septembre 2026 entre 16:00 et 16:35 UTC, sur `main` = `651940f`,
+depuis un arbre de travail — donc **sans `.env`**, la valeur étant posée dans
+l'**environnement** de chaque lancement. Le `.env` n'a été ni lu, ni copié, ni
+modifié.
+
+| commande | `rc` | bilan |
+|---|---|---|
+| `LLM_NUM_CTX=32768 make test` **avant** | **2** (`make`) | **11 échecs**, 1 093 passés |
+| `LLM_NUM_CTX=8192 make test` **avant** | **0** (`make`) | 1 104 passés |
+| `LLM_NUM_CTX=8192 make lint` **après** | **0** (`make`) | — |
+| `LLM_NUM_CTX=8192 make test` **après** | **0** (`make`) | **1 109 passés** |
+| `LLM_NUM_CTX=32768 make lint` **après** | **0** (`make`) | — |
+| `LLM_NUM_CTX=32768 make test` **après** | **0** (`make`) | **1 109 passés** |
+
+**IL Y EN AVAIT ONZE, ET LA ONZIÈME DIT QUELQUE CHOSE DE PLUS.** Le §4.63 en
+comptait dix sur quatre fichiers, et **c'est exact pour la manière dont le poste
+pose la valeur** : par le fichier `.env`. La onzième,
+`test_aucune_valeur_attendue_n_est_un_defaut`, ne se révèle que sous une
+**variable d'environnement**, parce qu'elle reconstruit un `Settings` avec
+`_env_file=None`. Cet argument neutralise le **fichier** ; il ne neutralise pas
+l'**environnement**, dont `pydantic-settings` fait une source de priorité
+**supérieure** — `mesuré` : un `.env` portant `LLM_NUM_CTX=32768` face à une
+variable d'environnement à `8192` rend **8192**. Son jumeau
+`test_aucune_valeur_d_epreuve_n_est_la_valeur_par_defaut` portait le même défaut,
+**latent** : il aurait rougi sous `LLM_NUM_CTX=16384`, qui est sa propre valeur
+d'épreuve. Les deux lisent désormais `_defauts_du_code`, qui retire de
+l'environnement l'alias de chaque champ avant de construire. *Deux gardes
+anti-« mesuré sous le défaut » héritaient eux-mêmes du défaut du poste.*
+
+**CE QUE LA RÉPARATION A POSÉ.** `tests/unit/fenetre_du_prompt.py` est le site
+canonique. Une **fonction**, pas une fixture `autouse` : une fixture rendrait le
+réglage ambiant autrement, et `monkeypatch.undo()` annule **aussi** ce qu'une
+fixture a posé. Les **trois** réglages dont dépend le budget — `LLM_NUM_CTX`,
+`LLM_MAX_TOKENS`, `HISTORY_WINDOW_SHARE` — sont posés **ensemble** : les
+refermer une variable à la fois est ce qui a produit ce lot. **Aucune des trois
+valeurs posées n'est un défaut déclaré**, et c'est exigé plutôt que remarqué :
+poser 8192 aurait rendu aux scènes leur sujet en les laissant vertes sous une
+mutation qui écrirait `8192` en dur — NB-4, qu'une mutation survivante avait
+déjà trouvé ici.
+
+**UN LITTÉRAL EST TOMBÉ AU PASSAGE.** `test_capture_branchement` attendait
+`soumises − écartées == 3`, vrai sous la seule fenêtre héritée. Il asserte
+désormais la **relation** — ce que la colonne porte est ce que `fit_prompt` a
+retenu — bornée aux **deux** bouts (`0 < écartées < soumises`) pour qu'elle ne
+se vérifie pas à vide.
+
+**LA GARDE, ET LES CINQ MUTATIONS QUI LA JUGENT.** `test_fenetre_heritee.py`
+relance les onze scènes **par leurs identifiants** sous 8192, 16384 et 32768, en
+sous-processus, et exige le même `rc` **et** le même compte — ce compte étant le
+nombre de scènes gardées, jamais un chiffre écrit. Le sous-processus n'est pas
+un confort : `settings` est construit à l'import, et deux des onze
+reconstruisent un `Settings` ; par la même priorité de l'environnement sur le
+fichier, la garde **reste mordante dans le clone principal**, seul arbre à
+porter un `.env`. Toutes les mutations sont **du producteur**, restaurées par
+SHA-256 confronté :
+
+| mutation | garde attendue | ce qui a rougi |
+|---|---|---|
+| **témoin inerte** — la boucle de pose réécrite à l'identique | aucune | `rc(make)=0`, **1 109 passés**, le compte exact |
+| une scène rendue à l'héritage (`test_llm_budget`) | la garde de fenêtre | `rc(make)=2`, **1 seul rouge sur 1 108 passés** : la garde, et elle seule |
+| une scène rendue à l'héritage (`test_capture_branchement`) | la garde de fenêtre | `rc(pytest)=1`, la garde de fenêtre |
+| la fenêtre posée redevient le défaut déclaré (8000 → 8192) | la garde anti-défaut | `rc(pytest)=1`, la garde anti-défaut **seule** |
+| un champ posé est renommé (`llm_num_ctx` → `llm_ctx`) | la garde du champ | `rc(pytest)=1`, **trois** gardes |
+| une scène gardée est renommée chez elle | la garde de fenêtre, par le compte | `rc(pytest)=1`, `ERROR: not found` nommant l'identifiant périmé |
+
+**LA MUTATION QUI COMPTE EST LA DEUXIÈME**, et elle dit pourquoi cette garde
+existe : la scène rendue à l'héritage **reste verte** dans son propre lancement,
+puisque l'arbre détaché n'a pas de `.env` et hérite de 8192. Sans la garde, la
+porte de cet arbre serait verte sur le défaut exact que ce lot referme. **C'est
+la forme de défaut que §4.63 décrit, reproduite à volonté et attrapée.**
+
+**CE QUI RESTE OUVERT, ET C'EST ÉCRIT PLUTÔT QUE SUPPOSÉ.**
+
+1. La garde balaie **`LLM_NUM_CTX` et lui seul**. Le budget dépend aussi de
+   `LLM_MAX_TOKENS` et de `HISTORY_WINDOW_SHARE` : `poser_la_fenetre` en
+   affranchit les onze **par construction**, mais aucun lancement ne fait varier
+   ces deux-là, et une scène **autre** que les onze pourrait en hériter sans que
+   rien ne rougisse. **Borne écrite, non fermée.**
+2. La garde tient les onze scènes **nommées**. Une scène neuve qui hériterait de
+   la fenêtre ne s'y ajoute pas toute seule.
+3. **Rien ne garde encore que la porte soit lancée dans le clone principal.** Ce
+   lot rend le verdict des onze indépendant du réglage, donc il rend ces
+   onze-là insensibles à l'écart entre les deux arbres ; il ne supprime pas
+   l'écart. `LE POSTE N'EST PAS L'ARBRE` reste vrai pour tout le reste de la
+   suite, et **aucune mesure de ce lot n'a été prise dans le clone principal**.
+4. Quand un champ posé est renommé, la garde anti-défaut lève un `KeyError` au
+   lieu d'asserter : le rouge est juste, sa lecture l'est moins. C'est la garde
+   du champ qui porte le message, et elle rougit au même lancement.
