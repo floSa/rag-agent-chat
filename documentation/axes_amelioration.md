@@ -10440,3 +10440,52 @@ reste **non mesuré**. Le porter à 5 ou 6 et mesurer est proposé depuis le 22
 septembre et **toujours pas joué**. Et leur avertissement vaut pour nous :
 trente questions prouvent qu'une chaîne fonctionne, elles ne suffisent pas à
 arbitrer un réglage — un écart de deux points y est du bruit.
+
+---
+
+### 4.66 → `AUTO_SELECT_TOP_K` : le coût de passer de 3 à 6 est mesuré, le gain ne l'est pas
+
+`mesuré` le 22 septembre 2026 à 17:45 UTC contre l'agent servi (port 8011,
+`code_servi.sha` = `ba6a8f0`), **sans rien redéployer et sans toucher au `.env`** :
+`graph.py:204` lit `state["max_sources"]` **avant** le réglage, et
+`max_sources` est un champ d'`AnswerRequest` borné 1..20 (`schemas.py:247`).
+Six questions **distinctes** — un même prompt répété serait servi par le cache
+de préfixe de vLLM — jouées à k=3 puis k=6.
+
+| q | contextes | écartés | citations | `prompt_eval_count` | `total_ms` |
+|---|---|---|---|---|---|
+| 1 | 3 → 6 | 0 → 0 | 4 → 7 | 2267 → 4201 | 7 816 → 15 074 |
+| 2 | 3 → 6 | 0 → 0 | 2 → 9 | 2646 → 4240 | 4 731 → 13 534 |
+| 3 | 3 → 6 | 0 → 0 | 9 → 14 | 2940 → 4849 | 16 714 → 21 099 |
+| 4 | 3 → 6 | 0 → 0 | 8 → 11 | 1942 → 4209 | 12 348 → 14 406 |
+| 5 | 3 → 6 | 0 → 0 | 3 → 5 | 2448 → 4279 | 8 692 → 9 528 |
+| 6 | 3 → 6 | 0 → 0 | 8 → 9 | 2247 → 4052 | 10 733 → 12 178 |
+
+Médianes : prompt **2358 → 4224** tokens ; durée totale **9 712 → 13 970 ms**,
+soit **+44 %**. Citations cumulées **34 → 55**, en hausse **6 fois sur 6**,
+jamais en baisse. `prompt_tokens_reliable` vaut **`true`** aux douze appels : le
+compte vient du serveur, ce n'est pas une estimation. **Contrôle positif : les
+contextes valent exactement le k demandé aux douze appels**, donc le paramètre
+gouverne bien l'étage visé.
+
+**LE BUDGET N'ÉCARTE RIEN, NI À 3 NI À 6.** Le prompt le plus gros mesuré vaut
+**4849** tokens contre une fenêtre servie de **32768** — **15 %**. Il aurait
+même tenu sous l'ancienne valeur de 8192. C'est la troisième mesure à dire que
+**l'élargissement de la fenêtre n'était pas le levier**, et que le plafond réel
+du contexte est bien la **sélection**.
+
+**CE QUI N'EST PAS MESURÉ, ET C'EST POURQUOI LE DÉFAUT N'EST PAS CHANGÉ.** Plus
+de citations n'est pas une meilleure réponse : ce banc mesure un **coût**, pas
+un **gain**. Arbitrer demanderait un jeu de questions à ancrages connus, et le
+pipeline a écrit que sa campagne mesure la **récupération** et **jamais la
+sélection** — elle ne pourra donc pas trancher ce réglage, quel que soit le k
+qu'on y ajoute. Six questions ne tranchent rien non plus : leur propre
+avertissement vaut ici — *trente questions prouvent qu'une chaîne fonctionne,
+elles ne suffisent pas à arbitrer un réglage ; un écart de deux points est du
+bruit*.
+
+**Ce que le banc autorise à dire, et rien de plus :** le coût de passer à 6 est
+**connu et modéré** — +44 % de latence, prompt à 15 % du plafond, aucune source
+écartée. Rien dans le coût n'interdit le changement. **Le défaut reste à 3**
+tant qu'aucune mesure de qualité ne le justifie, et la dette ouverte est le jeu
+de référence à ancrages, pas le réglage.
