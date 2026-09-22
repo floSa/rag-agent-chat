@@ -10109,11 +10109,36 @@ positionnels, donc la totalité de notre exposition à la forme de l'URL.
 
 **Ce qui reste à faire chez nous, et qui ne dépend pas de leur calendrier :**
 
-- **la garde qui morde.** Les 23 lignes de `tests/` qui nomment `minio_url` le
-  **posent elles-mêmes** dans des doubles ; aucune ne lit une source réelle. La
-  suite resterait **intégralement verte** pendant que la production ne servirait
-  plus une image. La garde devra muter le **producteur** — le double qui alimente
-  la lecture — jamais le consommateur ;
+- ~~**la garde qui morde.**~~ **FERMÉ par LOT-29**, `tests/` seul, `src/` non
+  touché. La prévision est passée de `supposé` à `mesuré` : les sept sites
+  renommés **ensemble**, la suite d'avant le lot rend **1084 passés, `rc=0`,
+  avant comme après** — elle ne rougit nulle part. (`pytest tests/unit/` en
+  ignorant les deux fichiers du lot, `mesuré` le 22 septembre 2026, base
+  `38ac068`, `rc` relevé en variable.) Deux fichiers neufs :
+  `tests/unit/test_contrat_champs_externes.py` déclare le contrat en **un seul
+  endroit** et relève **par AST** — jamais par recherche de texte, jamais par
+  numéro de ligne — les sept lectures, décrites **par motif** (module, fonction
+  englobante, nature) ; le compte de sept est **calculé** depuis l'inventaire.
+  `tests/unit/test_bascule_du_nom_de_champ_media.py` exerce le vrai code sur un
+  **producteur** renommé — `_execute` pour le graphe, la collection pour
+  ChromaDB — et cloue la conséquence : autorisation du proxy vide, aucune image,
+  **aucune exception, aucun journal**. Quatorze mutations, **toutes tuées** ;
+  la bascule des sept sites d'un coup fait rougir **11 gardes sur 20**. Témoin
+  inerte : treize lignes insérées **en tête** de `graph_context.py` — tous les
+  numéros décalés de 13 — laissent la suite verte **au compte attendu**.
+  **DEUX BORNES RESTENT OUVERTES, et elles sont écrites plutôt que tues :**
+  *(a)* le périmètre du relevé est `src/agent/` seul — `src/api/schemas.py` et
+  `src/frontend/app.py` portent le même nom, mais c'est **notre** contrat de
+  réponse, et le faire suivre le pipeline est une décision à prendre, pas un
+  élargissement à faire en silence ; *(b)* à l'intérieur d'une requête nGQL, le
+  nom de propriété est reconnu par un motif et non par une analyse syntaxique —
+  nGQL n'est pas du Python, et aucune n'est disponible. Une **mutation
+  survivante** a été trouvée et **fermée** en cours de lot : le contrôle positif
+  du relevé ne portait aucun témoin de la nature `subscript`, de sorte qu'un
+  site écrit `meta["minio_url"]` serait resté invisible si le relevé perdait
+  cette nature — `rc(pytest)=0`, 18 passés sous la double mutation. Le contrôle
+  porte désormais sur les **trois** natures, sur un fragment **synthétique**, et
+  une garde exige qu'aucune nature de l'inventaire ne reste sans témoin ;
 - **`/health` ne sonde pas le stockage objet.** `services` vaut
   `{chromadb, nebulagraph, index_lexical, llm}` ; `main.py:1178-1187` ne
   construit aucun `minio_ping`. Une panne du stockage laisse la santé **verte**,

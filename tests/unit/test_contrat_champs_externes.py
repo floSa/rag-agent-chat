@@ -176,68 +176,83 @@ def _nom_appele(noeud: ast.Call) -> str:
     return ""
 
 
-def relever_les_sites() -> list[SiteReleve]:
-    """Relève, par AST, toute lecture de champ nommé dans `src/agent/`.
+def relever_dans_le_texte(module: str, source: str) -> list[SiteReleve]:
+    """Relève, par AST, toute lecture de champ nommé dans un source Python.
 
     Trois natures, parce que trois façons d'écrire la même lecture :
     `meta.get("x")`, `meta["x"]`, et `… .x` dans une requête nGQL. Le relevé
     n'est filtré par aucun nom de champ : c'est en le filtrant APRÈS, par le
     contrat, que les gardes peuvent aussi bien voir un site disparaître qu'un
     site apparaître là où on ne l'attendait pas.
+
+    Le source est reçu en ARGUMENT et non lu ici : c'est ce qui permet au
+    contrôle positif de donner au releveur un fragment dont il connaît la
+    réponse, sans dépendre de ce que `src/` contient ce mois-ci.
     """
     releves: list[SiteReleve] = []
-    for chemin in sorted(_PERIMETRE.rglob("*.py")):
-        module = chemin.relative_to(_RACINE).as_posix()
-        arbre = ast.parse(chemin.read_text(encoding="utf-8"))
-        fonctions = [
-            n for n in ast.walk(arbre) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
+    arbre = ast.parse(source)
+    fonctions = [
+        n for n in ast.walk(arbre) if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
 
-        for noeud in ast.walk(arbre):
-            if isinstance(noeud, ast.Call):
-                appele = _nom_appele(noeud)
-                if (
-                    appele == "get"
-                    and noeud.args
-                    and isinstance(noeud.args[0], ast.Constant)
-                    and isinstance(noeud.args[0].value, str)
-                ):
-                    releves.append(
-                        SiteReleve(
-                            module,
-                            _fonction_englobante(fonctions, noeud.lineno),
-                            "mapping_get",
-                            noeud.args[0].value,
-                            noeud.lineno,
-                        )
-                    )
-                if appele in _PORTES_NGQL:
-                    for argument in noeud.args:
-                        for constante in _constantes_de_chaine(argument):
-                            for trouve in _REFERENCE_NGQL.finditer(constante.value):
-                                releves.append(
-                                    SiteReleve(
-                                        module,
-                                        _fonction_englobante(fonctions, constante.lineno),
-                                        "ngql_property",
-                                        trouve.group(1),
-                                        constante.lineno,
-                                    )
-                                )
-            elif (
-                isinstance(noeud, ast.Subscript)
-                and isinstance(noeud.slice, ast.Constant)
-                and isinstance(noeud.slice.value, str)
+    for noeud in ast.walk(arbre):
+        if isinstance(noeud, ast.Call):
+            appele = _nom_appele(noeud)
+            if (
+                appele == "get"
+                and noeud.args
+                and isinstance(noeud.args[0], ast.Constant)
+                and isinstance(noeud.args[0].value, str)
             ):
                 releves.append(
                     SiteReleve(
                         module,
                         _fonction_englobante(fonctions, noeud.lineno),
-                        "subscript",
-                        noeud.slice.value,
+                        "mapping_get",
+                        noeud.args[0].value,
                         noeud.lineno,
                     )
                 )
+            if appele in _PORTES_NGQL:
+                for argument in noeud.args:
+                    for constante in _constantes_de_chaine(argument):
+                        for trouve in _REFERENCE_NGQL.finditer(constante.value):
+                            releves.append(
+                                SiteReleve(
+                                    module,
+                                    _fonction_englobante(fonctions, constante.lineno),
+                                    "ngql_property",
+                                    trouve.group(1),
+                                    constante.lineno,
+                                )
+                            )
+        elif (
+            isinstance(noeud, ast.Subscript)
+            and isinstance(noeud.slice, ast.Constant)
+            and isinstance(noeud.slice.value, str)
+        ):
+            releves.append(
+                SiteReleve(
+                    module,
+                    _fonction_englobante(fonctions, noeud.lineno),
+                    "subscript",
+                    noeud.slice.value,
+                    noeud.lineno,
+                )
+            )
+    return releves
+
+
+def relever_les_sites() -> list[SiteReleve]:
+    """Le relevé du périmètre réel : tous les modules de `src/agent/`."""
+    releves: list[SiteReleve] = []
+    for chemin in sorted(_PERIMETRE.rglob("*.py")):
+        releves.extend(
+            relever_dans_le_texte(
+                chemin.relative_to(_RACINE).as_posix(),
+                chemin.read_text(encoding="utf-8"),
+            )
+        )
     return releves
 
 
@@ -268,6 +283,66 @@ def test_le_releveur_voit_quelque_chose(releves: list[SiteReleve]) -> None:
         "Le releveur AST ne retrouve plus ses champs témoins : "
         f"{manquants}. Tant que ceci rougit, AUCUN constat à zéro de ce module "
         "ne vaut — c'est le releveur qu'il faut réparer, pas src/."
+    )
+
+
+# Un fragment dont on connaît la réponse : une lecture de chaque nature, et
+# aucune autre. Il est SYNTHÉTIQUE et non pris dans `src/`, délibérément — un
+# témoin ancré sur du code voisin rougirait au refactor de ce voisin, pour une
+# raison étrangère au champ média, et c'est la forme de garde que ce dépôt
+# refuse. Celui-ci ne mesure qu'une chose : le releveur sait-il encore voir ses
+# trois natures.
+_FRAGMENT_TEMOIN = """
+def temoin(meta, row):
+    _a = meta.get("champ_par_get")
+    _b = row["champ_par_subscript"]
+    return _execute(f'MATCH (n:Tag) RETURN n.Tag.champ_par_ngql AS x;')
+"""
+
+_NATURES_DU_FRAGMENT = {
+    ("mapping_get", "champ_par_get"),
+    ("subscript", "champ_par_subscript"),
+    ("ngql_property", "champ_par_ngql"),
+}
+
+
+def test_le_releveur_voit_ses_trois_natures() -> None:
+    """CONTRÔLE POSITIF NÉ D'UNE MUTATION SURVIVANTE — mutation M14 de ce lot.
+
+    `test_le_releveur_voit_quelque_chose` ne prenait ses témoins que dans deux
+    natures sur trois : aucun ne portait la nature `subscript`. `mesuré` le
+    22 septembre 2026, base 38ac068 : le releveur privé de cette nature, ET un
+    site `meta["minio_url"]` ajouté dans `src/agent/lexical.py`, laissaient les
+    dix-huit gardes du lot VERTES — `rc(pytest)=0`, 18 passés. La garde « aucun
+    site inattendu » devenait aveugle à une façon d'écrire la lecture, sans
+    qu'aucun témoin ne le dise.
+
+    Le contrôle porte donc désormais sur les TROIS natures, une par une, et sur
+    un fragment SYNTHÉTIQUE : un témoin pris dans du code voisin rougirait au
+    refactor de ce voisin, pour une raison étrangère au champ média.
+    """
+    releve = relever_dans_le_texte("temoin.py", _FRAGMENT_TEMOIN)
+    trouvees = {(s.nature, s.champ) for s in releve}
+    manquantes = _NATURES_DU_FRAGMENT - trouvees
+    assert not manquantes, (
+        f"Le releveur ne voit plus les natures {sorted(manquantes)} sur un "
+        "fragment qui les porte toutes. Tant que ceci rougit, la garde "
+        "« aucun site inattendu » est aveugle de ce côté-là."
+    )
+
+
+def test_chaque_nature_inventoriee_a_son_temoin() -> None:
+    """Aucune nature employée par l'inventaire ne peut rester sans contrôle positif.
+
+    C'est ce qui empêche la trouvaille M14 de revenir par une quatrième nature :
+    ajouter une nature à `SITES_ATTENDUS` sans l'ajouter au fragment témoin
+    rougit ici, avant que le trou ne s'ouvre.
+    """
+    inventoriees = {attendu.nature for attendu in SITES_ATTENDUS}
+    temoignees = {nature for nature, _champ in _NATURES_DU_FRAGMENT}
+    assert inventoriees <= temoignees, (
+        f"Natures inventoriées sans témoin : {sorted(inventoriees - temoignees)}. "
+        "Ajoutez-en une lecture au fragment témoin."
     )
 
 

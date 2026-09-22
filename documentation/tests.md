@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1102 tests, aucune dépendance
+## Unitaire — 1104 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,19 +20,22 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 22 septembre 2026 à 15:01 UTC par LOT-29 : **1102** tests sur **54** fichiers,
+> `mesuré` le 22 septembre 2026 à 15:19 UTC par LOT-29 : **1104** tests sur **54** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE DIX-HUIT, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
-> *(LOT-28 relevait **1084** sur **52** fichiers le 18 septembre à 15:28 UTC ; les **18** de plus
+> **CE COMPTE MONTE DE VINGT, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
+> *(LOT-28 relevait **1084** sur **52** fichiers le 18 septembre à 15:28 UTC ; les **20** de plus
 > sont deux fichiers neufs et rien d'autre — `src/` n'a pas été touché par ce
-> lot. **7** dans le fichier neuf `test_contrat_champs_externes.py`, qui relève
+> lot. **9** dans le fichier neuf `test_contrat_champs_externes.py`, qui relève
 > par AST les sept lectures du nom de champ média rendu par le graphe et par
 > ChromaDB et les confronte à un contrat déclaré en un seul endroit ; les **11**
 > restants sont portés par `test_bascule_du_nom_de_champ_media.py`, second
 > fichier neuf, qui exerce le vrai code sur un producteur ayant renommé le champ
-> et cloue la conséquence — aucune image, aucune exception, aucun journal. **Le
+> et cloue la conséquence — aucune image, aucune exception, aucun journal. **Deux
+> des neuf sont nés d'une mutation SURVIVANTE** — le contrôle positif du releveur
+> ne portait aucun témoin de la nature `subscript`, et un site écrit
+> `meta["minio_url"]` passait alors inaperçu. **Le
 > garde de cette note ne sait vérifier par collecte que le PREMIER** — il refuse
 > deux mentions de la forme « **N** dans le fichier neuf `x` » pour ne pas
 > arbitrer en silence — donc la part de 11 est annoncée ici sans être gardée ;
