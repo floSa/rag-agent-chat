@@ -10167,3 +10167,27 @@ existe et est propre.
 qui reste ouverte : rien, ni chez eux ni chez nous, ne garantit que la prochaine
 ingestion produira des clés dans notre alphabet. La garde du lot suivant doit
 donc couvrir l'alphabet des clés en plus du nom de champ.
+
+**L'empreinte de référence, posée le 22 septembre 2026 à 15:09 UTC.** Le
+pipeline nous a appris que ses clés sortent de **trois** constructeurs et non
+deux (celui qu'il avait cité en premier en produit **zéro** : sa source est
+déclarée mais son répertoire n'existe pas), et surtout que **deux fonctions
+d'assainissement divergent chez lui sur le traitement du point**. Unifier ces
+deux fonctions **déplace ou non 199 de nos 212 clés**, et après la réingestion
+un déplacement de clés serait **indiscernable d'un défaut de la nouvelle
+passerelle**. Nous avons donc versé l'état d'avant :
+`documentation/references/2026-09-22-cles-medias.md`, 212 clés et leur SHA-256
+`c91f5be6…`. Mesure annexe du même relevé : **0** clé porte un point hors de son
+dernier segment — cohérent avec la variante qui remplace le point, **et cette
+sonde ne départage que les 199 clés du chemin HTML**, le radical du seul PDF du
+corpus n'en contenant aucun.
+
+**Le trou que le pipeline a trouvé et qu'il ferme chez lui :** un de ses trois
+constructeurs n'assainit rien et prend le radical du document brut. Nos 13 clés
+issues de ce chemin sont propres **par chance**, le seul PDF du corpus ayant un
+nom déjà conforme. **L'ajout d'un PDF est prévu chez eux** : un nom portant un
+espace, une parenthèse ou un accent produirait une clé hors de notre alphabet et
+notre proxy la refuserait en **404 silencieux**. Ils tiennent la propriété à la
+source ; nous gardons l'alphabet dans le périmètre de notre garde, parce qu'un
+garde des deux côtés d'un contrat n'est pas une redondance — c'est la seule
+façon de savoir **lequel des deux a fauté**.
