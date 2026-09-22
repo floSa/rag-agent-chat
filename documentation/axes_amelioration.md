@@ -10201,3 +10201,32 @@ contrôles positifs doublent la recette (un retrait change l'empreinte, un ajout
 la change, l'identité la conserve), parce qu'un « même SHA » non doublé peut
 n'être qu'un défaut de recette. Détail au site :
 `documentation/references/2026-09-22-cles-medias.md`.
+
+**Les droits S3 : la lecture seule ne nous coûte rien, à deux conditions
+nommées.** Le pipeline pose comme critère d'essai de sa passerelle la délivrance
+de deux jeux d'identifiants aux droits distincts — écriture pour l'ingestion,
+**lecture seule pour l'agent** — et demande si cela nous coûte quelque chose. La
+réponse est non, et elle est `mesurée` le 22 septembre 2026 sur `2010dbe` :
+
+- **aucune écriture S3 nulle part.** `git grep` de `put_object|remove_object|make_bucket|presigned`
+  sur `src/`, `tests/` et `scripts/` → aucun appel. Le seul appel de production
+  est `get_object` (`minio_client.py:96`) ;
+- **aucun test ne parle à un endpoint réel** : les neuf sites de `test_resilience.py`
+  et `test_securite.py` remplacent tous `_get_minio_client` par un double.
+
+**CONDITION 1 — `GetBucketLocation` doit être dans la politique.** Le SDK
+l'émet une fois par client avant tout `GetObject` (§4.62). Une politique
+« GetObject seulement » nous coupe au premier téléchargement.
+
+**CONDITION 2 — `ListBucket` doit y rester.** C'est l'opération qui produit
+l'empreinte du bucket, donc le contrôle d'invariant que les deux dépôts viennent
+d'accepter comme référence d'avant-bascule. Sans elle, ce contrôle devient
+inexécutable de notre côté le jour précis où il sert.
+
+**ET LA RAISON POUR LAQUELLE IL FAUDRA TESTER LES IDENTIFIANTS EXPLICITEMENT :**
+`get_object_bytes` absorbe largement et rend `None`. Un identifiant refusé se
+présenterait donc comme une **image manquante**, pas comme une erreur
+d'authentification — un HTTP 403 remonterait en **404 silencieux**. C'est la
+même famille que le reste de ce dossier : un défaut qui répond ment. La sonde de
+stockage absente de `/health` reste la dette qui priverait la bascule de son
+témoin.
