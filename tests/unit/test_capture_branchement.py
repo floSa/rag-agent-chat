@@ -677,7 +677,9 @@ def _serveur_muet():
     return lambda **_kwargs: Client()
 
 
-def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(client_hors_budget, base) -> None:
+def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(
+    client_hors_budget, base, monkeypatch
+) -> None:
     """La colonne `dropped_contexts` porte ce que `fit_prompt` a réellement coupé.
 
     C'était la seule affirmation du lot laissée à l'inférence : « la colonne se
@@ -687,9 +689,16 @@ def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(client_hors_budget,
 
     Le chiffre attendu n'est pas écrit en dur : il est recalculé par le vrai
     `fit_prompt` sur les mêmes sections, dans le même ordre.
+
+    La fenêtre est POSÉE, et elle l'est AVANT la requête : c'est `node_generate`
+    qui appelle `fit_prompt` au fil du flux, donc le budget du serveur simulé et
+    celui que la scène recalcule doivent être le même —
+    `tests/unit/fenetre_du_prompt.py` dit pourquoi.
     """
     from src.agent.llm import fit_prompt
+    from tests.unit.fenetre_du_prompt import poser_la_fenetre
 
+    poser_la_fenetre(monkeypatch)
     question = "Comment mesurer la dispersion ?"
     thread = client_hors_budget.post("/chat/start", json={"question": question}).json()[
         "thread_id"
@@ -704,10 +713,14 @@ def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(client_hors_budget,
         },
     )
 
-    attendu = fit_prompt(
-        question, [_grosse_section(c.element_id) for c in _GROSSES], []
-    ).dropped_contexts
-    assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
+    fit = fit_prompt(question, [_grosse_section(c.element_id) for c in _GROSSES], [])
+    attendu = fit.dropped_contexts
+    assert 0 < attendu < len(_GROSSES), (
+        f"{attendu} écartée(s) sur {len(_GROSSES)} soumises : le cas de test ne "
+        "provoque aucune mise à l'écart, ou il les écarte toutes. La soustraction "
+        "ci-dessous ne distingue alors plus rien — c'est aux DEUX bouts qu'elle "
+        "doit être non triviale"
+    )
 
     ligne = _lire(base, "SELECT * FROM interactions WHERE thread_id = ?", thread)[0]
 
@@ -716,7 +729,15 @@ def test_le_budget_ecarte_des_sources_et_la_colonne_le_porte(client_hors_budget,
     # `submitted_section_ids` enregistre les sections RECONSTRUITES, avant la
     # coupe de fenêtre — les six. C'est `dropped_contexts` qui dit combien
     # d'entre elles n'ont pas atteint le modèle : les deux colonnes ne se lisent
-    # qu'ensemble, et six moins trois est le seul chiffre que personne ne stocke.
+    # qu'ensemble, et « soumises moins écartées » est le seul chiffre que
+    # personne ne stocke.
+    #
+    # LA SOUSTRACTION EST CONFRONTÉE AU `PromptFit`, PLUS À UN LITTÉRAL. Elle
+    # attendait `3`, ce qui n'était vrai que sous la fenêtre héritée du poste :
+    # le jour où `LLM_NUM_CTX` a quadruplé, ce `3` est devenu faux en même temps
+    # que la scène perdait son sujet. Ce qui se tient d'une fenêtre à l'autre est
+    # la RELATION — ce que la colonne porte est ce que `fit_prompt` a retenu —,
+    # et les bornes posées plus haut interdisent qu'elle se vérifie à vide.
     soumises = json.loads(ligne["submitted_section_ids"])
     assert len(soumises) == len(_GROSSES)
-    assert len(soumises) - ligne["dropped_contexts"] == 3  # noqa: PLR2004
+    assert len(soumises) - ligne["dropped_contexts"] == len(fit.contexts)

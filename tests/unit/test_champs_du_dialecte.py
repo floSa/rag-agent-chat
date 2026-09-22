@@ -198,6 +198,36 @@ def _releve(
     return asyncio.run(main._sonder_moteur_llm()), client
 
 
+# ─── LES DÉFAUTS DÉCLARÉS, ET RIEN D'AUTRE ───────────────────────────────────
+
+
+def _defauts_du_code(monkeypatch: pytest.MonkeyPatch) -> Settings:
+    """`Settings` tel que le CODE le déclare, sans le poste qui l'exécute.
+
+    CE QUE `Settings(_env_file=None)` NE FAISAIT PAS, ET C'EST LE LOT 30 QUI L'A
+    MESURÉ. Deux gardes de ce fichier lisaient les défauts ainsi, en écrivant
+    qu'ils les prenaient « sur le CHAMP, jamais sur le `.env` du poste ».
+    `_env_file=None` neutralise le FICHIER ; il ne neutralise pas
+    l'ENVIRONNEMENT, dont `pydantic-settings` fait une source de priorité
+    SUPÉRIEURE au fichier — `mesuré` le 22 septembre 2026 : un `.env` portant
+    `LLM_NUM_CTX=32768` face à une variable d'environnement à `8192` rend 8192.
+
+    Les deux gardes héritaient donc du lancement. `test_aucune_valeur_attendue_
+    n_est_un_defaut` est devenu rouge sous `LLM_NUM_CTX=32768`, qui est la valeur
+    que `_FENETRE` pose ; `test_aucune_valeur_d_epreuve_n_est_la_valeur_par_
+    defaut` ne l'était pas encore, mais il rougirait sous `LLM_NUM_CTX=16384` —
+    une scène verte par coïncidence de chiffres, pas par construction.
+
+    Le geste : retirer de l'environnement l'alias de chaque champ avant de
+    construire. Les validateurs de `Settings` tournent donc tous, ce qu'une
+    lecture de `model_fields[...].default` n'aurait pas fait.
+    """
+    for champ in Settings.model_fields.values():
+        if champ.alias:
+            monkeypatch.delenv(champ.alias, raising=False)
+    return Settings(_env_file=None)
+
+
 # ─── LES GARDES DE LA TABLE ──────────────────────────────────────────────────
 
 
@@ -226,7 +256,7 @@ def test_la_table_couvre_tous_les_champs_du_releve() -> None:
     )
 
 
-def test_aucune_valeur_attendue_n_est_un_defaut() -> None:
+def test_aucune_valeur_attendue_n_est_un_defaut(monkeypatch: pytest.MonkeyPatch) -> None:
     """LE GARDE ANTI-« MESURÉ SOUS LE DÉFAUT », TRANSPOSÉ AU LOT 28.
 
     Il exigeait que les deux colonnes de la table diffèrent l'une de l'autre.
@@ -234,11 +264,10 @@ def test_aucune_valeur_attendue_n_est_un_defaut() -> None:
     le CODE : une valeur attendue qui coïncide avec un défaut de `Settings` ne
     peut pas distinguer le code servi d'un mutant qui écrit ce défaut en dur.
 
-    Les défauts sont lus sur `Settings(_env_file=None)` — donc sur le CHAMP,
-    jamais sur le `.env` du poste, qui n'est pas versionné et rendrait ce garde
-    dépendant de la machine qui l'exécute.
+    Les défauts sont lus par `_defauts_du_code` — sur le CHAMP, ni sur le `.env`
+    du poste ni sur l'environnement du lancement.
     """
-    defauts = Settings(_env_file=None)
+    defauts = _defauts_du_code(monkeypatch)
     tous = {getattr(defauts, champ) for champ in Settings.model_fields}
     confondus = {
         champ: valeur for champ, valeur in _ATTENDU.items() if valeur in tous
@@ -545,15 +574,17 @@ _NOM_PUBLIE: dict[str, str] = {
 }
 
 
-def test_aucune_valeur_d_epreuve_n_est_la_valeur_par_defaut() -> None:
+def test_aucune_valeur_d_epreuve_n_est_la_valeur_par_defaut(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """LE GARDE DE LA FAMILLE, et il vaut pour tout réglage à venir.
 
     Un test qui monkeypatche un réglage à sa propre valeur par défaut ne mesure
-    rien, et il a l'air vert. Les défauts sont lus sur `Settings(_env_file=None)`
-    — donc sur le CHAMP, jamais sur le `.env` du poste, qui n'est pas versionné
-    et rendrait ce garde dépendant de la machine qui l'exécute.
+    rien, et il a l'air vert. Les défauts sont lus par `_defauts_du_code` — sur
+    le CHAMP, ni sur le `.env` du poste ni sur l'environnement du lancement, ce
+    qui rendrait ce garde dépendant de la machine qui l'exécute.
     """
-    defauts = Settings(_env_file=None)
+    defauts = _defauts_du_code(monkeypatch)
     confondus = {
         champ: valeur
         for champ, valeur in _REGLAGES_EPROUVES.items()

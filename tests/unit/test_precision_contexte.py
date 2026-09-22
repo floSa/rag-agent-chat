@@ -513,9 +513,15 @@ def test_answer_rend_les_candidates_ecartees_et_les_marque(monkeypatch) -> None:
     Elles restent dans la réponse — savoir ce qui a été reconstruit pour rien a
     de la valeur — mais `retained` les nomme, et le compte doit s'accorder avec
     `dropped_contexts`, qui vient du même `PromptFit`.
+
+    La fenêtre est POSÉE : sans écartée, il n'y a rien à marquer, et la scène
+    changerait de sujet le jour où le réglage du poste change —
+    `tests/unit/fenetre_du_prompt.py` dit pourquoi.
     """
     from src.agent.llm import fit_prompt
+    from tests.unit.fenetre_du_prompt import poser_la_fenetre
 
+    poser_la_fenetre(monkeypatch)
     contextes = _grosses_sections(6, 4000)
     attendu = fit_prompt(QUESTION, contextes, []).dropped_contexts
     assert attendu > 0, "le cas de test ne provoque aucune mise à l'écart"
@@ -536,9 +542,16 @@ def test_answer_rend_les_candidates_ecartees_et_les_marque(monkeypatch) -> None:
 def test_le_texte_publie_est_celui_qui_est_parti_troncature_comprise(monkeypatch) -> None:
     """Une source unique trop grosse est retenue mais TRONQUÉE. Publier son
     markdown entier surestimerait les caractères payés — et `part_utile_
-    caracteres` est un rapport de caractères."""
-    from src.agent.llm import _TRUNCATION_MARKER, fit_prompt
+    caracteres` est un rapport de caractères.
 
+    La fenêtre est POSÉE : « trop grosse » se dit par rapport à une fenêtre, et
+    sous une fenêtre héritée assez large la source part entière, sans marque de
+    troncature à comparer — `tests/unit/fenetre_du_prompt.py` dit pourquoi.
+    """
+    from src.agent.llm import _TRUNCATION_MARKER, fit_prompt
+    from tests.unit.fenetre_du_prompt import poser_la_fenetre
+
+    poser_la_fenetre(monkeypatch)
     contextes = _grosses_sections(1, 40_000)
     fit = fit_prompt(QUESTION, contextes, [])
     assert len(fit.contexts[0].markdown) < len(contextes[0].markdown)
