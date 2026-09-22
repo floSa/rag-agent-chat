@@ -10393,3 +10393,50 @@ la forme de défaut que §4.63 décrit, reproduite à volonté et attrapée.**
 4. Quand un champ posé est renommé, la garde anti-défaut lève un `KeyError` au
    lieu d'asserter : le rouge est juste, sa lecture l'est moins. C'est la garde
    du champ qui porte le message, et elle rougit au même lancement.
+
+---
+
+### 4.65 → Où s'applique chaque k, et pourquoi la référence du pipeline ne décrit pas notre récupération
+
+Le pipeline demande si `AUTO_SELECT_TOP_K` s'applique **avant** ou **après** la
+récupération : sa campagne de référence du 2 septembre 2026 mesure le plancher
+de rappel dense à k = 5, 10 et 20, et **le plus petit k jamais mesuré est 5**
+quand nous en servons 3.
+
+**RÉPONSE : APRÈS, ET DEUX ÉTAGES APRÈS.** `mesuré` au code le 22 septembre 2026
+sur `main` = `f2187d7`, et recoupé par les valeurs effectives du conteneur servi.
+
+| étage | réglage | valeur servie | site |
+|---|---|---|---|
+| requête dense et lexicale | `FETCH_K` | **50** | `retriever.py:1430, 1435` |
+| fusion des classements | `RETRIEVAL_TOP_K` | **50** | `retriever.py:1412` |
+| reranking | `RERANK_TOP_K` | **10** | `retriever.py:1651` |
+| reconstruction des sections | `AUTO_SELECT_TOP_K` | **3** | `graph.py:204`, `ranking[:top_k]` |
+
+`AUTO_SELECT_TOP_K` ne fixe donc **aucun** k de requête : il découpe le
+classement **déjà reranqué**. **Notre k dense réel est 50**, dix fois le plus
+petit de la référence et deux fois et demie le plus grand. Il suit que le
+plancher mesuré par le pipeline **ne décrit pas notre récupération** — il la
+sous-estime — et qu'**ajouter k=3 à leur campagne mesurerait une grandeur que
+notre système n'emploie nulle part**. La mesure qui nous concerne est k=50.
+
+**LA PERTE, S'IL Y EN A UNE, EST ENTRE 10 ET 3**, pas à la récupération : dix
+passages franchissent le reranker, trois sections sont reconstruites. Ce n'est
+pas le rappel qui est en cause, c'est la **sélection**, que personne ne mesure —
+ni eux, ni nous.
+
+**LEUR SECONDE RÉSERVE NE S'APPLIQUE PAS À NOTRE CHAÎNE, ET C'EST MESURÉ.** Ils
+préviennent qu'une question encodée **sans** son historique fait tomber la
+strate « de suivi » à 20 % contre 60 % avec. Chez nous la recherche part sur la
+question **réécrite avec l'historique** : `graph.py:85` appelle
+`rewrite_question(state["question"], state.get("chat_history"))` et `graph.py:91`
+pose ce résultat en `search_query`. **Borne à dire honnêtement :** ce nœud ne
+fait rien sans historique reçu, et l'historique est porté par le **client** — le
+serveur est sans état. La réserve retomberait donc entièrement sur une première
+question, ou sur un client qui ne renverrait pas `chat_history`.
+
+**Ce que ce constat NE tranche pas :** que `AUTO_SELECT_TOP_K=3` soit trop bas
+reste **non mesuré**. Le porter à 5 ou 6 et mesurer est proposé depuis le 22
+septembre et **toujours pas joué**. Et leur avertissement vaut pour nous :
+trente questions prouvent qu'une chaîne fonctionne, elles ne suffisent pas à
+arbitrer un réglage — un écart de deux points y est du bruit.
