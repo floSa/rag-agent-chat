@@ -1,4 +1,4 @@
-"""La fenêtre qu'une scène POSE quand son sujet est une mise à l'écart.
+r"""La fenêtre qu'une scène POSE quand son sujet est une mise à l'écart.
 
 CE QUE CE MODULE REFERME, ET C'EST UN GESTE DU PILOTE QUI L'A OUVERT. Le
 22 septembre 2026, `LLM_NUM_CTX` est passé de 8192 à 32768 dans le `.env` du
@@ -22,10 +22,18 @@ scènes qui ne la mesurent pas : le réglage redeviendrait ambiant, seulement
 ambiant ailleurs. Surtout, `monkeypatch.undo()` annule AUSSI ce qu'une fixture a
 posé — ce dépôt s'y est brûlé une fois, vingt-quatre scènes d'un coup. Un appel
 écrit DANS la scène est visible à la lecture, ne dépend d'aucun ordre de
-fixtures, et survit à un `undo()` puisque la scène peut le refaire. `mesuré` le
-22 septembre 2026 : `git grep -n 'monkeypatch.undo()' tests/` ne rend aucune
-ligne, donc aucune scène de ce dépôt ne déclenche ce piège aujourd'hui — la
-forme est choisie pour qu'il reste sans effet le jour où l'une le fera.
+fixtures, et survit à un `undo()` puisque la scène peut le refaire.
+
+`mesuré` le 22 septembre 2026 sur `main` = `651940f` : aucune scène de ce dépôt
+n'appelle `undo()`, donc aucune ne déclenche ce piège aujourd'hui, et la forme
+est choisie pour qu'il reste sans effet le jour où l'une le fera. La recette
+exclut les RÉCITS, faute de quoi ce paragraphe se compterait lui-même — il l'a
+fait, à la première écriture :
+
+```bash
+git grep -n '^\s*monkeypatch\.undo()' -- tests/   # rc=1, aucune ligne
+git grep -c 'monkeypatch\.setattr' -- tests/      # contrôle positif : 41 fichiers
+```
 
 AUCUNE DES TROIS VALEURS N'EST UN DÉFAUT DU CODE, et c'est la seconde moitié du
 geste. Poser 8192 aurait redonné aux scènes leur sujet tout en les laissant
