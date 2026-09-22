@@ -10191,3 +10191,13 @@ notre proxy la refuserait en **404 silencieux**. Ils tiennent la propriété à 
 source ; nous gardons l'alphabet dans le périmètre de notre garde, parce qu'un
 garde des deux côtés d'un contrat n'est pas une redondance — c'est la seule
 façon de savoir **lequel des deux a fauté**.
+
+**L'invariant graphe ↔ bucket, `mesuré` le 22 septembre 2026 à 15:19 UTC, et il
+tient.** Le pipeline allait le mesurer de son côté ; nous l'avons fait du nôtre
+pour lui épargner un tour. Le bucket contient **212** objets, **tous** sous
+`images/`. Les deux ensembles sont **égaux** — 0 orphelin, 0 référence morte,
+dans les deux sens — et leurs SHA-256 coïncident sur `c91f5be6…`. Trois
+contrôles positifs doublent la recette (un retrait change l'empreinte, un ajout
+la change, l'identité la conserve), parce qu'un « même SHA » non doublé peut
+n'être qu'un défaut de recette. Détail au site :
+`documentation/references/2026-09-22-cles-medias.md`.
