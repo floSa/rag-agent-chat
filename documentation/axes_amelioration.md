@@ -10255,3 +10255,44 @@ d'authentification — un HTTP 403 remonterait en **404 silencieux**. C'est la
 même famille que le reste de ce dossier : un défaut qui répond ment. La sonde de
 stockage absente de `/health` reste la dette qui priverait la bascule de son
 témoin.
+
+---
+
+### 4.63 → Dix tests héritent de la fenêtre du poste, et c'est mon élargissement qui les a cassés
+
+`mesuré` le 22 septembre 2026 à 16:0x UTC sur `main` = `0e4d3b5`, depuis le
+**clone principal**, seul arbre à porter un `.env`.
+
+| commande | `rc` (`make`) | résultat |
+|---|---|---|
+| `make test` avec le `.env` du poste (`LLM_NUM_CTX=32768`) | **2** | **10 échecs**, 1094 passés |
+| `LLM_NUM_CTX=8192 make test`, contrôle positif | **0** | **1104 passés** |
+
+La variable seule fait basculer le verdict. Quatre fichiers touchés :
+`test_llm_budget.py`, `test_answer_endpoint.py`, `test_precision_contexte.py`,
+`test_capture_branchement.py`. Le message est explicite : `assert 0 > 0`, « le
+cas de test ne provoque aucune mise à l'écart ».
+
+**LA CAUSE EST MON GESTE, ET LE DÉFAUT EST DANS LES TESTS.** J'ai porté
+`LLM_NUM_CTX` de 8192 à 32768 le 22 septembre. Ces dix scènes construisent un
+budget qui *doit* écarter des sources pour avoir un sujet ; elles **héritaient**
+du plafond de 8192 au lieu de le **poser**. La fenêtre élargie ne les fait pas
+échouer : elle les prive de leur sujet. C'est le motif déjà consigné — *un test
+qui hérite d'un défaut change de sujet le jour où le défaut change*.
+
+**POURQUOI PERSONNE NE L'A VU PENDANT DEUX JOURS, ET C'EST LA VRAIE LEÇON.**
+Les lots et le pilote mesurent dans des **arbres détachés**, qui n'ont pas de
+`.env` : la porte y est verte à 1104, et elle l'est légitimement. Le seul arbre
+qui porte la configuration réelle est le clone principal, et **la porte n'y avait
+plus été lancée depuis le changement**. `LE POSTE N'EST PAS L'ARBRE` : une porte
+verte en arbre détaché ne dit rien de la porte du poste, et l'écart entre les
+deux est exactement la surface où un réglage peut casser sans bruit.
+
+**Ce que la réparation doit faire** : que chaque scène **pose** la fenêtre
+qu'elle mesure, par `monkeypatch` du réglage, et non qu'elle la subisse — en se
+souvenant que `monkeypatch.undo()` annule **aussi** ce qu'une fixture a posé. Le
+verdict devra être **indépendant de `LLM_NUM_CTX`**, et cela se prouve en
+lançant la suite sous **deux** valeurs opposées, pas une.
+
+**Non traité ici** : rien ne garde l'invariant « la porte est verte avec le
+`.env` du poste ». C'est la dette que ce constat laisse ouverte.
