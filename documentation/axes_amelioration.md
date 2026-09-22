@@ -10133,3 +10133,37 @@ docstring à `graph_context.py:918-922`. Aucune fenêtre par **valeur** de
 une route voisine, et `4367` recoupe `collection.count()` **et** le compte
 mesuré indépendamment par le pipeline. L'autre moitié — *le pipeline l'appelle
 en fin d'ingestion* — se lit dans leur historique Dagster, qu'ils dépouillent.
+
+**La mesure que le pipeline a demandée sur l'alphabet des clés, rendue le
+22 septembre 2026 à 14:51 UTC contre le graphe et le stockage en service.**
+Le pipeline soupçonnait qu'un de ses deux constructeurs de clés n'assainissait
+pas le radical du document, et que des images de notre production étaient déjà
+en 404 silencieux. **Réponse : ZÉRO sur 212**, et le cas précis qu'il craignait
+existe et est propre.
+
+- `media_object_names()` rend **212** clés distinctes. Le graphe porte **212**
+  URLs brutes non vides, **toutes** retenues par le `split("/", 4)` : rien n'est
+  écarté en amont, donc le 212 n'est pas un reste.
+- **0** des 212 échoue à `_OBJECT_NAME_RE` (`^[\w\-./]+$`), et **0** porte un
+  caractère non-ASCII. Contrôle positif de la sonde : un espace, une parenthèse
+  et un `U+FF1A` sont **rejetés**, une clé propre est acceptée.
+- **Bout en bout : 212 servies, 0 échouée** par `get_object_bytes`. Contrôle
+  positif : une clé absente rend `None`.
+- **La bonne fonction n'était pas `is_allowed`.** Elle teste l'appartenance à
+  l'ensemble tiré du graphe : les 212 y sont **par construction**, donc son
+  échec est trivialement 0 et ne mesure rien. Le garde qui mord est
+  `_OBJECT_NAME_RE` dans `get_object_bytes` (`minio_client.py:85`).
+- **Le cas redouté a été rencontré, pas évité.** Le corpus contient bien
+  « 4. Model Serving：… », avec le deux-points pleine chasse, dans **2** des 45
+  valeurs de `filename`/`source_path` ; et **42** de ces 45 portent un caractère
+  hors alphabet. Ce chapitre porte **8** images, et leurs clés sont propres :
+  `…/4_Model_Serving_Architectures_and_Implementation/img_000N.png`. La
+  normalisation a donc bien opéré sur ce chemin.
+- **Et le chemin qui produit 199 des 212 clés n'est aucun des deux que le
+  pipeline a cités** : la forme est `images/html/htms/<doc>/<chapitre>/img_NNNN.png`,
+  **6 segments**, contre 13 clés seulement pour la forme du livre PDF.
+
+**CETTE MESURE EST UN INSTANTANÉ, PAS UNE PROPRIÉTÉ**, et c'est la seule chose
+qui reste ouverte : rien, ni chez eux ni chez nous, ne garantit que la prochaine
+ingestion produira des clés dans notre alphabet. La garde du lot suivant doit
+donc couvrir l'alphabet des clés en plus du nom de champ.
