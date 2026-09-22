@@ -10054,3 +10054,82 @@ du moteur éprouvé, et les deux postes sont assertés sur ce qu'ils **rendent**
   écrite ; celle du lot 25 **reste manquante**, et rien ne garde cet inventaire.
 - **Les maillons anciens de la chaîne de relevés de `tests.md`** au-delà de
   954 → 999 n'ont pas été vérifiés.
+
+---
+
+### 4.62 → L'inventaire rendu au pipeline sur la bascule du stockage objet
+
+`rag-ingestion-pipeline` remplace MinIO (AGPL-3.0) par SeaweedFS ou versitygw
+(Apache-2.0). Le corpus sera **entièrement réingéré** : aucune donnée à migrer
+de notre côté. Le champ `minio_url` **change de nom et de valeur**. Inventaire
+rendu le 22 septembre 2026, `mesuré` contre `main` = `a848761` et contre l'agent
+servi (`code_servi.sha` = `ba6a8f0`, l'écart entre les deux étant de la
+documentation seule, `git diff --stat`).
+
+**Le nom de champ externe est lu à 7 lignes, 6 fonctions, 3 fichiers, 2 sources**
+(`git grep` sur `props.get|meta.get|row.get|minio_url AS|.minio_url !=`) :
+graphe — `graph_context.py:262, 607, 608, 643, 844` ; ChromaDB —
+`lexical.py:252`, `retriever.py:1572`.
+
+**La source réelle des images est le graphe, pas ChromaDB.** `media_object_names()`
+rend **212** objets ; sur les **4367** chunks de la collection, `minio_url` est
+présent partout et **non vide sur 4** (balayage exhaustif, contrôle positif sur
+`filename`).
+
+**Un renommage ne rougirait nulle part, et la panne est plus large qu'annoncée.**
+NebulaGraph ne lève pas sur une propriété inconnue : `RETURN` rend `None`,
+`WHERE` rend **0 ligne** (contrôle positif : la vraie propriété rend 2 lignes).
+Donc `media_object_names()` rendrait un ensemble **vide**, et comme
+`RESTRICT_MEDIA_TO_GRAPH` vaut `true` en service, le proxy `/media` refuserait
+**toutes** les images, pas seulement celles du champ perdu.
+
+**Le SDK émet une opération S3 que notre source ne nomme pas.** Trace de
+`Minio._url_open` sur un client neuf : `GET /documents?location=`
+(*GetBucketLocation*) **avant** le `GetObject`. Le pipeline utilise le même SDK
+`minio==7.2.20` : chez lui elle précède le premier `put_object`, donc une
+passerelle qui ne la sert pas casse **l'ingestion**, pas l'affichage. Retenue
+par le pipeline comme **premier critère éliminatoire** de son essai.
+
+**La forme de l'URL est décodée par position, à deux endroits, avec deux règles
+différentes** — `minio_client.object_name_from_url` (urlparse, retire le premier
+segment) et `graph_context.media_object_names` (`split("/", 4)`, exige 5 parts).
+Banc de sept formes exécuté sur le vrai code : seule
+`scheme://host[:port]/<bucket>/<objet>` est correcte. Le virtual-host style et
+un préfixe de passerelle sont décodés de façon **cohérente et fausse** ; un
+chemin relatif ou une clé nue font **diverger** les deux décodeurs. Aucun des
+sept cas ne lève.
+
+**Ce que le pipeline a accordé**, écrit ici parce que le dépôt survit, pas la
+conversation : `minio_url` → **`media_url`** (même forme path-style, garantie
+maintenue) et un champ nouveau **`object_key`** portant la clé d'objet nue. Pas
+de champ `bucket` : c'est un réglage, `documents`, que nous avons déjà. Le
+principe retenu des deux côtés : **on ne nomme pas le produit dans le contrat** —
+`seaweedfs_url` referait la même faute. `object_key` supprime nos deux décodeurs
+positionnels, donc la totalité de notre exposition à la forme de l'URL.
+
+**Ce qui reste à faire chez nous, et qui ne dépend pas de leur calendrier :**
+
+- **la garde qui morde.** Les 23 lignes de `tests/` qui nomment `minio_url` le
+  **posent elles-mêmes** dans des doubles ; aucune ne lit une source réelle. La
+  suite resterait **intégralement verte** pendant que la production ne servirait
+  plus une image. La garde devra muter le **producteur** — le double qui alimente
+  la lecture — jamais le consommateur ;
+- **`/health` ne sonde pas le stockage objet.** `services` vaut
+  `{chromadb, nebulagraph, index_lexical, llm}` ; `main.py:1178-1187` ne
+  construit aucun `minio_ping`. Une panne du stockage laisse la santé **verte**,
+  ce qui prive la bascule de son témoin le plus évident ;
+- **l'alphabet des chemins d'objets.** `_OBJECT_NAME_RE = ^[\w\-./]+$`
+  (`minio_client.py:13`) : ni espace, ni `%`, ni `+`, ni `:`, ni parenthèse. Le
+  pipeline s'engage à ne pas changer la normalisation à la réingestion.
+
+**La réserve 3 du pipeline sur `sequence` est déjà fermée chez nous**, et
+`mesuré` : le voisin est trouvé par `ORDER BY … LIMIT` (`graph_context.py:343`)
+et le découpage est **positionnel** — `rows[-budget:]` / `rows[:budget]`,
+docstring à `graph_context.py:918-922`. Aucune fenêtre par **valeur** de
+`sequence` n'existe dans `src/` (contrôle : `sequence [<>]=` → aucune ligne).
+
+**L'exigence 5 est prouvée de notre moitié** : `POST /reindex` → HTTP **200**,
+`{"chunks_indexed":4367,"stale":false}`, 0,43 s, contrôle négatif à **404** sur
+une route voisine, et `4367` recoupe `collection.count()` **et** le compte
+mesuré indépendamment par le pipeline. L'autre moitié — *le pipeline l'appelle
+en fin d'ingestion* — se lit dans leur historique Dagster, qu'ils dépouillent.
