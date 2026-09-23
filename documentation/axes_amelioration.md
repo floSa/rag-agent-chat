@@ -10914,3 +10914,173 @@ mériterait d'être redemandé aux vecteurs **quelle que soit** la valeur du
 plafond. Non fait : ce serait une modification de `src/`, et elle doit être
 mesurée — combien d'appels de plus à l'index, pour combien d'éléments
 réellement récupérés.
+### 4.72 → LOT-32 : une promesse d'API que la chaîne ne tient pas, et ce qu'il en coûterait de la tenir
+
+Le §4.67 l'avait relevé en passant : `AnswerRequest.max_sources` était borné
+**1..20** quand `rerank` ne rend jamais plus de `RERANK_TOP_K` = **10**. Ce lot
+ferme l'écart. `mesuré` le **23 septembre 2026 de 09:02 à 09:19 UTC**, base
+`main` = **`0ea4fe6`**, dans un arbre de travail détaché sans `.env`.
+
+#### Le défaut, et pourquoi il ne se voyait pas
+
+L'API **acceptait** 11 à 20, **servait** 10, et ne le disait **nulle part** : ni
+erreur, ni avertissement, ni champ de réponse. L'appelant ne pouvait donc pas
+distinguer « il n'y avait que dix passages pertinents » de « ta demande a été
+rabotée ». Un défaut qui échoue se voit ; celui-là **répondait**.
+
+La chaîne des trois sites, relevés **par motif** : la borne est déclarée au
+champ `max_sources` d'`AnswerRequest` (`src/api/schemas.py`), elle gouverne
+`top_k = state.get("max_sources") or settings.auto_select_top_k` dans
+`node_reconstruct_context` (`src/agent/graph.py`), qui découpe `ranking[:top_k]`
+sur la liste que rend `dedupe_by_element(ranked)[: settings.rerank_top_k]`
+(`src/agent/retriever.py`). **C'est le dernier qui borne réellement**, et c'est
+le seul des trois qui ne parlait pas.
+
+#### LA VOIE CHOISIE : BORNER LA PROMESSE, ET LA MESURE QUI L'A DÉCIDÉE
+
+Deux voies existaient : **(a)** porter `RERANK_TOP_K` à 20 pour que la chaîne
+serve la borne annoncée, **(b)** faire que la borne annoncée soit celle que la
+chaîne sert, et refuser au-delà. **(b) est retenue, et (a) a été MESURÉE avant
+d'être écartée** — pas supposée.
+
+Le banc du §4.67 (`scripts/mesurer_selection.py`) rejoué le 23 septembre 2026
+entre 09:08 et 09:18 UTC avec **`RERANK_TOP_K=20` posé dans l'environnement du
+lancement** — jamais dans le `.env`, que ce lot ne touche pas. Aucune réponse
+LLM n'est générée. Bilans versionnés :
+`runs/2026-09-23-borne-des-sources-rerank20-reglage.json` et
+`runs/2026-09-23-borne-des-sources-rerank20-controle.json`, à confronter aux
+`runs/2026-09-23-selection-*.json` du §4.67, qui sont le bras
+`RERANK_TOP_K=10`. Les deux jeux du §4.67, appariés par question :
+
+| jeu | k | sections servies | éléments au prompt | rappel au prompt | questions réussies | ancrages |
+|---|---|---|---|---|---|---|
+| réglage (130 q.) | 10 | 8,23 | 99,70 | 0,9538 | 124 | 124/130 |
+| réglage (130 q.) | **20** | **15,81** | **192,04** | 0,9615 | **125** | 125/130 |
+| contrôle (26 q.) | 10 | 7,73 | 84,31 | 0,8077 | 21 | 33/47 |
+| contrôle (26 q.) | **20** | **15,38** | **177,00** | 0,8077 | **21** | 36/47 |
+
+**CONTRÔLE POSITIF DU BANC, ET IL EST EXACT.** Le bras k=10 de ce relevé
+reproduit **chiffre pour chiffre** le bilan versionné du §4.67 mesuré sous
+`RERANK_TOP_K=10` — 8,23 / 99,7 / 0,9538 / 124 au réglage, 7,73 / 84,31 /
+0,8077 / 33 ancrages au contrôle. Le banc mesure donc bien la même grandeur, et
+**la seule chose qui a changé est celle qui devait changer** : sous
+`RERANK_TOP_K=10`, k=20 rendait exactement k=10 ; sous `RERANK_TOP_K=20`, il ne
+le rend plus. `n_classement` passe de **10** à **20** sur les 156 questions.
+**C'est la preuve, des deux côtés, que le facteur limitant était bien le
+reranker** et non le dédoublonnage : sous `RERANK_TOP_K=10`, les **156**
+questions des deux jeux rendaient **exactement 10** éléments distincts — le
+vivier n'a jamais manqué.
+
+**CE QUE (a) COÛTERAIT, ET CE QU'ELLE RAPPORTE.** Le contexte soumis **double**
+— éléments au prompt ×1,93 au réglage, ×2,10 au contrôle — **pour tous les
+appels**, puisque `RERANK_TOP_K` n'est pas un paramètre de requête. En face :
+**+1 question sur 130** au réglage, **+0 sur 26** au contrôle. Les deux jeux
+portent la même réserve, et elle n'est pas négociable — *un écart de deux points
+est du bruit* : +1 sur 130 vaut **0,77 point**, et le contrôle ne bouge pas du
+tout. Le §4.66 avait mesuré **+44 %** de latence pour un prompt passant de 2358
+à 4224 tokens ; ici le prompt double encore. **Le budget de fenêtre, lui,
+n'écarte toujours rien** : `questions_avec_section_ecartee` vaut **0** aux
+quatre bras — ce n'est pas la fenêtre qui interdit (a).
+
+**LA PHRASE QUI TRANCHE, ET ELLE EST AU SITE.** Servir 20 exige de changer la
+chaîne de **tous** les appels pour honorer une borne que **personne n'a
+demandée** et dont le gain est écrit **NON TRANCHÉ** aux §4.66 et §4.67, faute
+d'instrument. **Un accident d'écriture de schéma n'est pas ce qui doit arbitrer
+un réglage de production.** (b) ne change aucun réglage servi et rend la
+promesse vraie immédiatement.
+
+#### Ce que (b) change exactement
+
+La borne n'est plus **écrite**, elle est **dérivée** : `MAX_SOURCES_SERVIES =
+settings.rerank_top_k` dans `src/api/schemas.py`, et `max_sources` porte
+`le=MAX_SOURCES_SERVIES`. Trois conséquences, et la troisième est la plus
+importante :
+
+1. une demande au-delà est **refusée en 422**, jamais rabotée en silence ;
+2. OpenAPI publie désormais la **vraie** borne, avec une `description` qui dit
+   pourquoi elle est là ;
+3. **le jour où `RERANK_TOP_K` monte à 20, la borne suit sans qu'on y touche** —
+   la voie (a) reste donc ouverte, et elle ne pourra plus rouvrir ce défaut.
+
+**CE QUE CE REFUS CASSE, DIT FRANCHEMENT.** Un appelant qui demandait 11 à 20
+recevait **10** sources ; il reçoit désormais **422**. C'est un changement
+visible, et il est voulu : recevoir 10 en croyant en avoir 20 est pire qu'un
+refus lisible. `mesuré` le 23 septembre 2026 : **aucun appelant de ce dépôt
+n'est concerné** — hors les tests, le seul usage de `max_sources` est
+`tests/integration/test_stack.py`, à **3**, et le frontend ne renseigne pas le
+champ. Un client **externe** au dépôt, lui, n'est pas mesurable d'ici : c'est
+une borne supposée, pas acquise.
+
+#### LE FLUX INTERACTIF N'A PAS À ÊTRE TRAITÉ, ET VOICI POURQUOI
+
+`/chat/start` pose `"max_sources": None` dans son état initial, et **c'est
+tout** : ni `ChatRequest` ni `SourceSelectionRequest` ne déclarent de plafond de
+sources. `mesuré` au code : `node_reconstruct_context` ne passe par
+`ranking[:top_k]` **que** si la sélection revient vide ; une sélection non vide
+est reconstruite **sans écrêtage**. Ce flux **ne promet donc aucune borne**, et
+il n'y a rien à y rendre honnête. La raison est écrite au site, et le cas
+futur est **gardé** : la troisième scène de `tests/unit/test_borne_des_sources.py`
+balaie les schémas plutôt que d'énumérer les endpoints, et exige que **tout**
+champ d'API bornant des sources porte la borne de la chaîne.
+
+**Borne à dire honnêtement :** `SourceSelectionRequest.selected_element_ids`
+n'a **pas** de `max_length`. Un client peut donc poster plus d'identifiants que
+le reranker n'en a proposé. Ce n'est pas le défaut traité ici — rien n'est
+promis puis raboté, et l'ordre de ces identifiants est déjà tenu par
+`_par_pertinence` — mais **ce n'est pas mesuré non plus**, et ce lot ne le
+tranche pas.
+
+#### La garde, et la mutation qui la fait rougir
+
+`tests/unit/test_borne_des_sources.py`, **3** scènes. Elle **ne lit jamais
+`RERANK_TOP_K`** : un garde qui confronterait ce réglage à lui-même serait vrai
+par construction et n'attraperait rien. Elle mesure ce que la chaîne **SERT** —
+la longueur que `rerank` rend vraiment sur un vivier de **64** chunks à
+`element_id` distincts, cross-encoder doublé, dédoublonnage et troncature réels
+— et le confronte à ce que le schéma **DÉCLARE**, lu dans les métadonnées
+pydantic. **Aucune scène n'écrit `10`** ni aucun autre instantané du réglage.
+
+| site muté, **par motif** | ce que la mutation crée | `pytest` sur la garde seule | `make test`, suite entière | restauration |
+|---|---|---|---|---|
+| la troncature de `rerank` — `dedupe_by_element(ranked)[: settings.rerank_top_k]` → `[… - 5]` | la chaîne sert **5**, le schéma en déclare **10** | `rc=1`, **3 scènes rouges sur 3** | `rc=2` — **3 rouges, 1121 passés** | SHA-256 **confronté**, identique |
+| la borne du champ — `le=MAX_SOURCES_SERVIES` → `le=20` | le schéma déclare **20**, la chaîne en sert **10** | `rc=1`, **3 scènes rouges sur 3** | `rc=2` — **3 rouges, 1121 passés** | SHA-256 **confronté**, identique |
+
+**LES DEUX SENS MORDENT, ET LES TROIS ROUGES SONT LES MIENNES.** Sous chacune
+des deux mutations, les **seuls** tests rouges de la suite entière sont les
+trois scènes de ce fichier : rien d'autre dans le dépôt ne tenait cet
+invariant, et aucune des deux mutations ne meurt par un autre chemin. Les
+messages nomment la règle visée et les deux sites — ce n'est pas un
+`NameError`, les deux mutations compilent et **changent le comportement**.
+**La seconde mutation reproduit le défaut tel qu'il était avant ce lot** : c'est
+la preuve la plus directe que la garde l'aurait attrapé.
+
+**TÉMOIN INERTE, PORTANT SON COMPTE.** Arbre restauré, `make lint` `rc=0` et
+`make test` `rc=0`, **1124 passés** sur `tests/unit/` — la grandeur de `make
+test`, `tests/` complet en rendant davantage. Avant le lot, sur `0ea4fe6` :
+`rc=0` / `rc=0`, **1121 passés**. Le banc ne rougit donc pas seul, et les
+comptes disent que c'est bien cet arbre-là qui est mesuré. `make` rend **2** là
+où `pytest` rend **1** : les deux programmes sont nommés parce qu'ils ne
+comptent pas pareil.
+
+#### Le correctif est VU par OpenAPI, et la dérivation est vérifiée en marche
+
+`mesuré` le 23 septembre 2026 à 09:30 UTC. L'agent **servi** sur le port 8011
+publie encore `"maximum": 20.0` pour `max_sources` — le défaut est donc bien
+dans le code servi, et **ce lot ne déploie rien**. Le même schéma construit
+depuis cet arbre publie `"maximum": 10`, sa `description`, et — sous
+`RERANK_TOP_K=20` **posé dans l'environnement du lancement** — `"maximum": 20`.
+**La borne suit le réglage sans qu'on la touche**, ce qui est exactement ce que
+(b) devait acheter.
+
+**Réserve, et elle est écrite au site.** Une contrainte pydantic est figée à la
+construction du modèle : `MAX_SOURCES_SERVIES` est lu **à l'import**, pas à
+chaque requête. Un process qui changerait `settings.rerank_top_k` **à chaud**
+verrait la chaîne suivre et pas la borne. Ce n'est pas le chemin normal —
+`settings` est lu au démarrage — et la garde couvre ce cas, puisqu'elle mesure
+`rerank` **en exécution** contre la borne **déclarée** : elle les verrait
+diverger.
+
+**Ce que ce lot NE tranche pas :** que `RERANK_TOP_K=10` soit la bonne valeur.
+Le gain de monter ce k reste **non mesuré** faute du jeu à ancrages multiples et
+dispersés que le §4.67 a ouvert en dette — ce lot ne fait que rendre la promesse
+conforme au réglage, quel qu'il soit.

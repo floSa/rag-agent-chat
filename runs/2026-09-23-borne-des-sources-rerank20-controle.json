@@ -1,0 +1,855 @@
+{
+  "questions": 26,
+  "valeurs_k": [
+    10,
+    20
+  ],
+  "resume": {
+    "10": {
+      "questions": 26,
+      "gold_au_prompt": 21,
+      "ancrages_total": 47,
+      "ancrages_au_prompt": 33,
+      "rappel_ancrages": 0.7021,
+      "rappel_prompt": 0.8077,
+      "ic95_bas": 0.6212,
+      "ic95_haut": 0.9149,
+      "gold_en_graine": 23,
+      "rappel_graine": 0.8846,
+      "sections_retenues_moy": 7.73,
+      "elements_au_prompt_moy": 84.31,
+      "questions_avec_section_ecartee": 0
+    },
+    "20": {
+      "questions": 26,
+      "gold_au_prompt": 21,
+      "ancrages_total": 47,
+      "ancrages_au_prompt": 36,
+      "rappel_ancrages": 0.766,
+      "rappel_prompt": 0.8077,
+      "ic95_bas": 0.6212,
+      "ic95_haut": 0.9149,
+      "gold_en_graine": 23,
+      "rappel_graine": 0.8846,
+      "sections_retenues_moy": 15.38,
+      "elements_au_prompt_moy": 177.0,
+      "questions_avec_section_ecartee": 0
+    }
+  },
+  "bascules": [
+    {
+      "de": 10,
+      "vers": 20,
+      "gagnees": 0,
+      "perdues": 0,
+      "ids_gagnees": [],
+      "ids_perdues": []
+    }
+  ],
+  "echecs_reconstruction": 0,
+  "secondes_total": 68.8,
+  "ms_reconstruction_total": 18623.5,
+  "lignes": [
+    {
+      "id": "q01",
+      "gold": [
+        "3af1392862",
+        "3dd0709c4a",
+        "6b52bccda7"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 5,
+          "n_sections_retenues": 5,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 39
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 154
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "gold": [
+        "6b52bccda7",
+        "cb77da6c17",
+        "d44caef114"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 3,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 61
+        },
+        "20": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 3,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 147
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "gold": [
+        "e74bcf1706",
+        "eda4f1e10c"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 6,
+          "n_sections_retenues": 6,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 87
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 11,
+          "n_sections_retenues": 11,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 155
+        }
+      }
+    },
+    {
+      "id": "q04",
+      "gold": [
+        "05f988efec",
+        "d5948cc70d"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 10,
+          "n_sections_retenues": 10,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 125
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 19,
+          "n_sections_retenues": 19,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 250
+        }
+      }
+    },
+    {
+      "id": "q05",
+      "gold": [
+        "23d10ed8de",
+        "4b1d79b83a",
+        "ce368ff12a"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 5,
+          "n_sections_retenues": 5,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 47
+        },
+        "20": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 13,
+          "n_sections_retenues": 13,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 146
+        }
+      }
+    },
+    {
+      "id": "q06",
+      "gold": [
+        "2971064aea",
+        "948ec002eb",
+        "d913ef3b4f"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 9,
+          "n_sections_retenues": 9,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 78
+        },
+        "20": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 3,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 19,
+          "n_sections_retenues": 19,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 139
+        }
+      }
+    },
+    {
+      "id": "q07",
+      "gold": [
+        "269b2e32d8",
+        "5558e561d7"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 7,
+          "n_sections_retenues": 7,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 91
+        },
+        "20": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 190
+        }
+      }
+    },
+    {
+      "id": "q08",
+      "gold": [
+        "94f9c56cd0",
+        "ea7d4cf6c0",
+        "eacfb832a2"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 10,
+          "n_sections_retenues": 10,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 109
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 18,
+          "n_sections_retenues": 18,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 205
+        }
+      }
+    },
+    {
+      "id": "q09",
+      "gold": [
+        "0d39dea701",
+        "5bdad90f29",
+        "e67803db3e"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 86
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 153
+        }
+      }
+    },
+    {
+      "id": "q10",
+      "gold": [
+        "890c168677",
+        "e8ba504198"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 74
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 17,
+          "n_sections_retenues": 17,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 191
+        }
+      }
+    },
+    {
+      "id": "q11",
+      "gold": [
+        "0f4741eda9",
+        "be9026f5ba",
+        "ca2897cadb"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 6,
+          "n_sections_retenues": 6,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 54
+        },
+        "20": {
+          "n_gold_au_prompt": 3,
+          "n_gold_en_graine": 3,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 13,
+          "n_sections_retenues": 13,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 123
+        }
+      }
+    },
+    {
+      "id": "q12",
+      "gold": [
+        "2b3d899ecd",
+        "f60d2898bb"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 6,
+          "n_sections_retenues": 6,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 67
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 2,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 12,
+          "n_sections_retenues": 12,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 128
+        }
+      }
+    },
+    {
+      "id": "q13",
+      "gold": [
+        "e1ab19bc3b"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 7,
+          "n_sections_retenues": 7,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 109
+        },
+        "20": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 15,
+          "n_sections_retenues": 15,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 218
+        }
+      }
+    },
+    {
+      "id": "q14",
+      "gold": [
+        "479129f25b"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 107
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 17,
+          "n_sections_retenues": 17,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 238
+        }
+      }
+    },
+    {
+      "id": "q15",
+      "gold": [
+        "1a0905f25b"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 6,
+          "n_sections_retenues": 6,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 88
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 13,
+          "n_sections_retenues": 13,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 195
+        }
+      }
+    },
+    {
+      "id": "q16",
+      "gold": [
+        "4b1d79b83a"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 123
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 15,
+          "n_sections_retenues": 15,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 209
+        }
+      }
+    },
+    {
+      "id": "q17",
+      "gold": [
+        "ac504bce1c"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 7,
+          "n_sections_retenues": 7,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 75
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 177
+        }
+      }
+    },
+    {
+      "id": "q18",
+      "gold": [
+        "347b2e3799"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 7,
+          "n_sections_retenues": 7,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 101
+        },
+        "20": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 14,
+          "n_sections_retenues": 14,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 199
+        }
+      }
+    },
+    {
+      "id": "q19",
+      "gold": [
+        "0f66b973ed"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 31
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 17,
+          "n_sections_retenues": 17,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 101
+        }
+      }
+    },
+    {
+      "id": "q20",
+      "gold": [
+        "c9448cd9df"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 9,
+          "n_sections_retenues": 9,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 54
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 18,
+          "n_sections_retenues": 18,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 127
+        }
+      }
+    },
+    {
+      "id": "q25",
+      "gold": [
+        "226bf58b6c",
+        "6b6f2e2892"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 7,
+          "n_sections_retenues": 7,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 104
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 15,
+          "n_sections_retenues": 15,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 217
+        }
+      }
+    },
+    {
+      "id": "q26",
+      "gold": [
+        "50a8d022fa"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 10,
+          "n_sections_retenues": 10,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 85
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 19,
+          "n_sections_retenues": 19,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 185
+        }
+      }
+    },
+    {
+      "id": "q27",
+      "gold": [
+        "24916266b2"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 9,
+          "n_sections_retenues": 9,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 91
+        },
+        "20": {
+          "n_gold_au_prompt": 1,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 15,
+          "n_sections_retenues": 15,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 177
+        }
+      }
+    },
+    {
+      "id": "q28",
+      "gold": [
+        "668e39f2f0"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 10,
+          "n_sections_retenues": 10,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 125
+        },
+        "20": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 17,
+          "n_sections_retenues": 17,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 206
+        }
+      }
+    },
+    {
+      "id": "q29",
+      "gold": [
+        "be9026f5ba"
+      ],
+      "translinguistique": false,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 8,
+          "n_sections_retenues": 8,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 80
+        },
+        "20": {
+          "n_gold_au_prompt": 0,
+          "n_gold_en_graine": 0,
+          "au_moins_un_au_prompt": false,
+          "au_moins_un_en_graine": false,
+          "n_sections_candidates": 15,
+          "n_sections_retenues": 15,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 153
+        }
+      }
+    },
+    {
+      "id": "q30",
+      "gold": [
+        "3b6fb4e59a",
+        "fbf9cbd029"
+      ],
+      "translinguistique": true,
+      "n_classement": 20,
+      "k": {
+        "10": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 9,
+          "n_sections_retenues": 9,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 101
+        },
+        "20": {
+          "n_gold_au_prompt": 2,
+          "n_gold_en_graine": 1,
+          "au_moins_un_au_prompt": true,
+          "au_moins_un_en_graine": true,
+          "n_sections_candidates": 18,
+          "n_sections_retenues": 18,
+          "sections_ecartees": 0,
+          "n_elements_au_prompt": 219
+        }
+      }
+    }
+  ]
+}
