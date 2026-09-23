@@ -117,13 +117,24 @@ def _aucun_modele_ne_survit_a_un_test() -> Any:
 # ─── (1) LE DÉFAUT, ET IL EST UNE DÉCISION ────────────────────────────────────
 
 
-def test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche() -> None:
+def test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """LE DÉFAUT EST `cuda`, ET IL EST ADOSSÉ À UNE MESURE.
 
     Lu sur une instance NEUVE de `Settings`, jamais sur le singleton `settings` :
     celui-ci a été construit à l'import, donc sous le `.env` du poste, et un
     test qui le lirait mesurerait la configuration de la machine plutôt que la
     décision écrite dans le code.
+
+    **UNE INSTANCE NEUVE NE SUFFISAIT PAS, ET LE LOT 31 L'A FAIT ROUGIR.**
+    `Settings()` lit l'environnement du PROCESSUS avant son `.env`, et ce lot
+    mesure avec `TORCH_DEVICE=cpu` posé — le protocole du §2.2 monte torch CPU,
+    et le défaut `cuda` lève sur un tel arbre. Le garde annonçait alors « le
+    défaut n'est plus `cuda` » alors que le code n'avait pas bougé d'un octet :
+    il accusait un code juste, et un pilote qui l'aurait cru aurait cherché une
+    décision là où il n'y avait qu'une variable de shell. La variable est
+    retirée pour la durée de la scène, et le défaut est enfin lu au code.
 
     CE QUE CE TEST A GARDÉ D'ABORD, ET POURQUOI IL A CHANGÉ DE SENS. Il exigeait
     `cpu`, le matin du 11 septembre 2026 : tant que la campagne n'avait pas
@@ -137,6 +148,7 @@ def test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche() -> None:
     Ce que ce test refuse toujours : qu'on change ce défaut sans décision. Le
     motif complet, avec ses chiffres, est au site du réglage.
     """
+    monkeypatch.delenv("TORCH_DEVICE", raising=False)
     assert Settings().torch_device == "cuda", (
         "le défaut de TORCH_DEVICE n'est plus `cuda`. Ce défaut n'est pas une "
         "commodité : il est le résultat de la campagne du 11 septembre 2026 "
