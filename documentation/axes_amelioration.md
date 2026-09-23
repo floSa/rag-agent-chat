@@ -10907,6 +10907,33 @@ code vide dégrade-t-il la réponse, ou le modèle l'ignore-t-il ? **Non mesuré
 Et 60 sections ne sont pas le corpus : c'est un échantillon d'ancrages, pas un
 balayage.
 
+**CORRECTION DU 23 SEPTEMBRE 2026, 14:05 UTC — LA LECTURE CI-DESSUS ÉTAIT
+FAUSSE SUR LE CODE, ET C'EST MA FAUTE DE MÉTHODE.** Les chiffres tiennent : 8
+blocs `code` vides sur 46 servis, 1 362 sommets `Code` vides sur 4 963. Mais le
+pipeline a mesuré ce que ces sommets SONT, par conversion réelle sur cinq
+documents : **ce sont les LIGNES BLANCHES entre deux lignes de code**. 404 sur
+404 examinés sont vraiment vides, et le croisement avec l'index rend **0 perte
+sèche prouvée** sur les 1 362. **Il n'y a rien à y récupérer, et leur « réparer »
+un texte INVENTERAIT du contenu.**
+
+**J'AI PRIS UN SYMPTÔME PARTAGÉ POUR UNE CAUSE PARTAGÉE** — un `text` vide, donc
+un seul défaut — au moment même où je reprochais la faute jumelle à d'autres. Le
+pipeline s'est repris de la même façon et l'a écrit : *un symptôme partagé n'est
+pas une cause partagée.* Deux populations, deux mécanismes opposés.
+
+**CE QUI RESTE, ET QUI EST LE VRAI SUJET : `ListItem`.** 202 vides sur 1 748 au
+graphe, et **37 pertes sèches PROUVÉES** par le pipeline — mécanisme inverse du
+code : ces éléments **ONT des enfants**, le texte vit au mauvais étage et n'est
+pas descendu. Sur son échantillon, 42 sur 42 sont récupérables. **Et mon propre
+relevé le portait déjà : 9 `list_item` vides sur 110 servis, soit 8,2 %** — le
+chiffre était sous mes yeux dans le tableau ci-dessus, et je l'ai relégué
+derrière celui qui frappait le plus. **Ordonner par le coût de l'échec, pas par
+la taille du pourcentage.**
+
+Ce qui suit reste vrai et n'est pas touché par la correction : le filet ne couvre
+que le haut de la plage, et il ne rattraperait pas davantage un `list_item` vide
+qu'un bloc de code vide.
+
 **Ce que ça ouvre chez nous**, et qui ne dépend pas de la réparation du
 pipeline : le seuil de candidature à la rallonge est **dérivé du plafond de
 troncature**, alors que les deux défauts n'ont rien à voir. Un élément **vide**
