@@ -200,6 +200,42 @@ def test_la_reserve_du_jeu_de_30_voyage_avec_lui() -> None:
     assert "bruit" in reserve
 
 
+def test_la_reserve_du_jeu_de_reglage_voyage_avec_lui() -> None:
+    """Le jeu de 138 n'en portait AUCUNE, et 130 questions se lisaient comme un verdict.
+
+    Le jeu du pipeline porte la sienne depuis son adoption, et le test
+    ci-dessus refuse qu'elle en sorte. Celui-ci n'avait pas d'équivalent : rien
+    n'empêchait de citer « 95,4 % contre 95,4 % » comme une égalité établie,
+    alors que l'intervalle de Wilson à 95 % sur 130 questions vaut environ
+    ±5 points près de ce taux.
+
+    LA RÉSERVE EST AU PRODUCTEUR ET AU FICHIER, et le test l'exige aux DEUX :
+    `generate_golden.py` réécrit le fichier, donc une réserve posée à la main
+    disparaîtrait à la prochaine génération sans que rien ne le dise.
+    """
+    import importlib.util
+    import sys
+
+    reserve = _charger(_GENERE)["_reserve"]
+    assert "PAS VERDICT" in reserve
+    assert "bruit" in reserve
+    # La phrase que le lot 31 a mesurée, et la seule qui dise comment LIRE un
+    # écart : sur les questions qui basculent, pas sur les pourcentages.
+    assert "nombre de QUESTIONS qui ont basculé" in reserve
+
+    spec = importlib.util.spec_from_file_location(
+        "generate_golden", _RACINE / "scripts" / "generate_golden.py"
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["generate_golden"] = module
+    spec.loader.exec_module(module)
+    assert reserve == module._RESERVE, (
+        "le fichier et son producteur portent deux réserves différentes : "
+        "la prochaine génération effacerait celle du fichier"
+    )
+
+
 def test_l_empreinte_de_provenance_se_nomme_au_lieu_de_se_cacher() -> None:
     """L'empreinte NOMME son algorithme, et c'est ce qui remplace le pragma.
 

@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1109 tests, aucune dépendance
+## Unitaire — 1121 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,12 +20,30 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 22 septembre 2026 à 16:18 UTC par LOT-30 : **1109** tests sur **55** fichiers,
+> `mesuré` le 23 septembre 2026 à 08:17 UTC par LOT-31 : **1121** tests sur **56** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE CINQ, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
-> *(LOT-29 relevait **1104** sur **54** fichiers le 22 septembre à 15:19 UTC ; les **5** de plus
+> **CE COMPTE MONTE DE DOUZE, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
+> *(LOT-30 relevait **1109** sur **55** fichiers le 22 septembre à 16:18 UTC ; les **12** de plus
+> sont **11** dans le fichier neuf `test_mesure_de_la_selection.py`, qui garde le
+> banc du quatrième étage de la chaîne — troncature à k, déduplication par
+> section, intervalle de Wilson, et le refus d'un cache de traductions qui ne
+> couvre pas le jeu —, plus **1** dans `test_jeux_de_questions.py`, qui exige la
+> réserve du jeu de réglage **au fichier ET à son producteur**. `src/` n'a pas
+> été touché par ce lot : `git diff HEAD -- src/` rend vide. Le constat est au
+> §4.67 du registre.)*
+>
+> **UN GARDE DE CE FICHIER LISAIT LE POSTE ET NON LE CODE, et ce lot l'a fait
+> rougir sans toucher au code.** `test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche`
+> lit `Settings()` neuve — mais `pydantic-settings` fait de l'environnement une
+> source PRIORITAIRE sur le `.env`, et un lancement qui pose `TORCH_DEVICE=cpu`
+> le faisait accuser un défaut qui n'avait pas bougé. La variable est désormais
+> retirée pour la durée de la scène. Éprouvé aux deux bouts : vert avec et sans
+> la variable posée, rouge quand le défaut du code passe à `cpu`.
+>
+> **LE RELEVÉ ANTÉRIEUR, ET IL MONTAIT DE CINQ.**
+> *(à 16:18 UTC le 22 septembre, LOT-29 relevait **1104** sur **54** fichiers à 15:19 UTC ; les **5** de plus
 > sont un fichier neuf et rien d'autre — `src/` n'a pas été touché par ce lot :
 > les **5** dans le fichier neuf `test_fenetre_heritee.py`, qui garde
 > l'invariant que le §4.63 du registre laissait ouvert — **le verdict de onze

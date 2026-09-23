@@ -10489,3 +10489,243 @@ bruit*.
 écartée. Rien dans le coût n'interdit le changement. **Le défaut reste à 3**
 tant qu'aucune mesure de qualité ne le justifie, et la dette ouverte est le jeu
 de référence à ancrages, pas le réglage.
+
+---
+
+### 4.67 → LOT-31 : le rappel APRÈS la sélection est mesuré, et l'instrument de réglage ne sait pas le mesurer
+
+`mesuré` le **23 septembre 2026 de 08:01 à 08:10 UTC**, base `main` = **`cec564a`**,
+dans un arbre de travail détaché. **`src/` n'est pas
+touché** — `git diff HEAD -- src/` rend vide. Instruments :
+`scripts/mesurer_selection.py` (sha256 `64fd8f6b…`),
+`scripts/controle_perimetre_selection.py` (`e82394fa…`), recettes
+`make mesurer-selection` et `make controle-perimetre-selection`. Bilans versionnés :
+`runs/2026-09-23-selection-auto-select-top-k.json` et
+`runs/2026-09-23-selection-controle-30.json`.
+
+**AUCUNE RÉPONSE LLM N'A ÉTÉ GÉNÉRÉE.** Le banc rejoue `retrieve` → `rerank` →
+`ranking[:k]` → `reconstruct_section` → `fit_prompt`, et lit les marqueurs
+`[src:]` / `[img:]` du markdown **réellement soumis**. Seules les traductions de
+questions passent par le moteur, et elles sont en cache.
+
+#### Ce qui est mesuré, et sur quel dénominateur
+
+**LE JEU N'EN PORTE PAS 138, IL EN PORTE 130**, et chacune **un seul** ancrage.
+Le cadrage annonçait « 138 questions portant chacune ses `gold_element_ids` » :
+`mesuré`, 138 questions, **130** avec ancrage, **130** ancrages, **une** seule
+par question. Les deux grandeurs demandées — « combien d'ancrages survivent » et
+« sur combien de questions au moins un survit » — **coïncident donc par
+construction sur ce jeu**, et ne se distinguent que sur le jeu de contrôle, dont
+les 26 questions portent **47** ancrages (1 à 3 chacune).
+
+#### Le tableau, jeu de RÉGLAGE — 130 questions, 130 ancrages
+
+| k | rappel au prompt | IC 95 % (Wilson) | questions | ancrages | rappel en graine | sections servies | éléments au prompt |
+|---|---|---|---|---|---|---|---|
+| **1** | 0,9231 | [0,864 – 0,958] | 120 | 120/130 | 0,9385 | 1,00 | 12,3 |
+| **2** | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 1,83 | 22,1 |
+| **3** *(défaut)* | **0,9538** | [0,903 – 0,979] | **124** | 124/130 | 0,9769 | 2,66 | 32,4 |
+| 4 | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 3,42 | 41,4 |
+| 5 | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 4,22 | 50,6 |
+| **6** | **0,9538** | [0,903 – 0,979] | **124** | 124/130 | 0,9769 | 5,06 | 61,2 |
+| 8 | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 6,64 | 80,6 |
+| **10** | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 8,23 | 99,7 |
+| 20 | 0,9538 | [0,903 – 0,979] | 124 | 124/130 | 0,9769 | 8,23 | 99,7 |
+
+**Bascules, et c'est par là qu'un écart se lit** — les questions sont appariées,
+donc la différence des taux ne dit rien que le compte des questions qui ont
+changé d'état ne dise mieux : k=1 → k=2 **+4 gagnées, 0 perdue** ; **toutes les
+autres transitions : +0, −0**. **Passer de 3 à 6 ne gagne AUCUNE question, et
+passer de 3 à 10 non plus.**
+
+#### Le tableau, jeu de CONTRÔLE — 26 questions, 47 ancrages
+
+| k | rappel au prompt | IC 95 % (Wilson) | questions | ancrages | rappel en graine |
+|---|---|---|---|---|---|
+| **1** | 0,6154 | [0,425 – 0,776] | 16 | 18/47 | 0,6538 |
+| 2 | 0,6538 | [0,462 – 0,806] | 17 | 22/47 | 0,6923 |
+| **3** *(défaut)* | **0,7308** | [0,539 – 0,863] | **19** | **26/47** | 0,7692 |
+| 4 | 0,7308 | [0,539 – 0,863] | 19 | 26/47 | 0,8077 |
+| 5 | 0,7692 | [0,580 – 0,890] | 20 | 28/47 | 0,8462 |
+| **6** | **0,7692** | [0,580 – 0,890] | **20** | **28/47** | 0,8462 |
+| 8 | 0,8077 | [0,621 – 0,915] | 21 | 31/47 | 0,8462 |
+| **10** | 0,8077 | [0,621 – 0,915] | **21** | **33/47** | 0,8846 |
+| 20 | 0,8077 | [0,621 – 0,915] | 21 | 33/47 | 0,8846 |
+
+Bascules : 1→2 **+1**, 2→3 **+2**, 4→5 **+1**, 6→8 **+1**, **0 perdue partout**.
+De **3 à 6** : **+1 question sur 26** et **+2 ancrages sur 47**. De **3 à 10** :
+**+2 questions** et **+7 ancrages**.
+
+**CE QUE CES DEUX ÉCARTS PÈSENT.** Une question sur 26 vaut 3,8 points, et la
+réserve du jeu — *un écart de deux points est du bruit* — les couvre tous les
+deux. Les intervalles de k=3 et k=10 se recouvrent largement. **Le signe, lui,
+est constant** : sur les huit transitions des deux jeux, **aucune question et
+aucun ancrage n'est jamais perdu** quand k monte. C'est tout ce que ce banc
+autorise à dire, et ce n'est pas « 6 vaut mieux que 3 ».
+
+#### LA TROUVAILLE : L'INSTRUMENT DE RÉGLAGE NE PEUT PAS MESURER CET ÉTAGE
+
+Les deux jeux ne disent pas la même chose, et la raison est **mesurée** :
+
+| rang du meilleur ancrage dans le classement reranqué | réglage (130) | contrôle (26) |
+|---|---|---|
+| ≤ 1 | **122** | 17 |
+| ≤ 2 | 127 (+5) | 18 (+1) |
+| ≤ 3 | 127 (**+0**) | 20 (+2) |
+| ≤ 5 | 127 (**+0**) | 22 (+2) |
+| ≤ 10 | 127 (**+0**) | 23 (+1) |
+
+**Sur le jeu de réglage, AUCUN ancrage ne se trouve entre les rangs 3 et 10.**
+Le reranker les place tous au rang 1 ou 2. La cause est dans la fabrication du
+jeu, et son propre `_lisez_moi` la nomme : *la question a été écrite POUR le
+passage*. Une question quasi paraphrase de son passage sort au rang 1, et la
+question est réussie dès **une** section reconstruite. **Ce jeu est un
+instrument de RÉCUPÉRATION ; il est aveugle à la SÉLECTION**, et son plateau à
+k=2 ne dit pas « 3 suffit » — il dit « ce jeu ne teste pas k ».
+
+Le jeu de contrôle, écrit à la main **après** l'ingestion et portant jusqu'à
+trois ancrages dispersés, **teste** k — et il est **trop peu nombreux pour
+arbitrer**, par sa propre réserve, qui n'est pas négociable.
+
+**CONCLUSION, ET ELLE EST BORNÉE : le gain de passer de 3 à 6 reste NON
+TRANCHÉ**, mais plus pour la raison écrite au §4.66. Elle est désormais
+précise : **aucun des deux jeux n'est l'instrument de cette question.** Il en
+faudrait un troisième — questions à ancrages MULTIPLES et DISPERSÉS, en nombre.
+C'est la dette que ce lot ouvre, et elle remplace « mesurer le gain de k=6 »,
+qui n'était pas jouable avec ce qu'on a.
+
+#### Ce que le banc établit AUSSI, et qui ne dépendait pas du jeu
+
+1. **`AUTO_SELECT_TOP_K` AU-DELÀ DE 10 EST INOPÉRANT.** k=10 et k=20 rendent
+   **exactement** les mêmes chiffres sur les deux jeux — sections servies 8,23
+   et 7,73, à l'unité près. La cause est `retriever.py:1651` : `rerank` ne rend
+   que `RERANK_TOP_K` = **10** éléments, et `graph.py:204` découpe cette
+   liste-là. Or `max_sources` est borné **1..20** (`schemas.py:247`) : **un
+   appelant qui demande 20 sources en reçoit au plus 10**, sans qu'aucun message
+   ne le dise. Ce n'est pas un défaut de sûreté ; c'est une promesse d'API que la
+   chaîne ne peut pas tenir, et elle n'est écrite nulle part.
+2. **LE BUDGET DE FENÊTRE N'ÉCARTE AUCUNE SECTION, À AUCUN k JUSQU'À 20.**
+   `questions_avec_section_ecartee` vaut **0** pour les neuf valeurs, sur les
+   **156** questions des deux jeux, sous `LLM_NUM_CTX` = 32768 relevé sur le
+   conteneur servi. Le §4.66 l'avait mesuré sur **six** questions à k=3 et k=6 ;
+   c'est étendu à 156 questions et jusqu'à k=20. **Le plafond du contexte n'est
+   ni la fenêtre ni le budget** — c'est la sélection, et c'est la quatrième
+   mesure à le dire.
+3. **MESURER LA TRONCATURE DU CLASSEMENT SEULE AURAIT ÉTÉ FAUX, ET LE BANC LE
+   CHIFFRE.** À k=3, le top-3 du classement porte **32,4** identifiants au
+   prompt et non 3 : la reconstruction ramène la section entière. À k=10, **99,7**.
+   Un banc qui aurait compté `ranking[:k]` aurait donc sous-estimé d'un facteur
+   dix ce qui atteint le LLM. **Le coût de bien faire est nul** : retrieval,
+   reranking et reconstruction ne dépendent pas de k, donc tout est calculé une
+   fois par question et chaque k rejoue la seule troncature. Neuf valeurs de k
+   sur 130 questions : **327,7 s au total, dont 36,9 s de reconstruction.**
+
+#### Deux défauts trouvés en mesurant. AUCUN N'EST CORRIGÉ ICI — ce lot MESURE
+
+**a. LA DÉDUPLICATION PAR SECTION PEUT ÉCARTER UN ANCRAGE CLASSÉ.**
+`graph.py:213-221` saute une graine dont le `section_id` a déjà été vu. Mais
+`reconstruct_section` **fenêtre** la section autour de **sa** graine
+(`SectionContext.truncated`) : deux graines de la même section donnent deux
+fenêtres **différentes**, et garder la première peut perdre l'élément de la
+seconde. `mesuré` sur **G-053** : son ancrage est au **rang 2** du reranker, sa
+section a été reconstruite au **rang 1** autour d'un autre élément avec
+`truncated=True`, et **l'ancrage n'atteint le prompt à AUCUN k**. Même cas pour
+**q18** du jeu de contrôle à partir de k=6. La déduplication suppose deux
+reconstructions interchangeables ; elles ne le sont pas quand la section est
+fenêtrée.
+
+**b. DEUX ANCRAGES SUR 130 ONT LEUR TEXTE DANS CHROMADB ET RIEN DANS
+NEBULAGRAPH.** `mesuré` le 23 septembre 2026 sur les 130 ancrages, tag par tag :
+`1adfce548d` (**329** caractères dans ChromaDB, `text=''` dans NebulaGraph, tag
+`ListItem`) et `842a8884da` (**367** / `''` / `ListItem`). Le retrieval les
+trouve — ChromaDB a le texte — et la reconstruction rend un markdown où ils sont
+**absents**, `_render_element` rendant `""` pour un élément sans texte. **Ce sont
+G-112 et G-121, et elles sont perdues à TOUS les k** : elles ne disent rien de la
+sélection. Répartition des ancrages par tag : `Paragraph` **104**, `ListItem`
+**23**, `Caption` **3** ; les **2** muets sont des `ListItem`, les **21** autres
+`ListItem` vont bien — **ce n'est donc pas systématique au tag**. **C'est une
+divergence entre les deux stores, donc une trouvaille pour le PIPELINE**, à lui
+rendre ; l'agent ne peut pas la réparer, il ne peut que la constater.
+
+#### Comment cette mesure a été prouvée comme instrument
+
+**CONTRÔLE POSITIF, DOUBLÉ ET DANS LES DEUX SENS.** À k=1 le rappel chute
+(0,9231 contre 0,9538 sur le réglage ; **0,6154 contre 0,8077** sur le
+contrôle) ; à k grand il monte (**+4** et **+5** questions). **Le banc distingue
+donc bien k** — c'était la condition posée : un banc qui rendrait la même valeur
+à k=1 et k=10 mesurerait autre chose.
+
+**CONTRÔLE DE PÉRIMÈTRE, `rc=0`, sur QUATRE natures d'identifiants** — un
+contrôle qui n'en échantillonne que deux laisse la troisième mourir en silence :
+130 `gold_element_ids` en `^[a-f0-9]{10}$`, **119** du classement, **36** graines
+de `SectionContext`, **402** lus dans les marqueurs `[src:]` et **10** dans les
+`[img:]`, tous en forme ; **475** marqueurs rendant chacun **exactement un**
+identifiant — `_ELEMENT_ID` n'est pas ancré et mordrait dans un identifiant plus
+long ; **12/12** sondages où un ancrage est effectivement présent au prompt, sans
+quoi un rappel nul ne dirait pas si la chaîne est cassée ou si les deux ensembles
+ne se parlent pas. **Et la comparaison elle-même est éprouvée** : sur le témoin
+`0026fa510a`, l'égalité exacte rejette les quatre leurres quand un `endswith` en
+accepterait **deux** (`suffixe`, `englobant`). Si le test laxiste n'en acceptait
+aucun, le contrôle ne prouverait rien et il le dirait.
+
+**SEPT MUTATIONS DU PRODUCTEUR, SEPT ROUGES, toutes compilant.** Témoin inerte :
+**11 passés** sur `test_mesure_de_la_selection.py`, **2 passés** sur la réserve.
+Déduplication retirée → 6 rouges ; troncature retirée → 6 rouges *dont* le
+contrôle « k=1 et k grand diffèrent » ; garde de graine manquante → 1 ; Wilson
+remplacé par l'intervalle normal → 1 ; refus du cache non couvrant → 1 ; réserve
+retirée du fichier → 1 ; producteur de la réserve divergent → 1. Chacune rougit
+la garde qui la vise, et le SHA-256 du producteur revient à l'intact.
+
+#### LE CACHE DE TRADUCTIONS ÉTAIT PÉRIMÉ, ET IL AVAIT LA BONNE TAILLE
+
+`runs/.traductions.json` portait **130** entrées pour un jeu de **130**
+questions, et l'intersection exacte de ses clés avec le jeu généré valait
+**ZÉRO** — avec le jeu du pipeline aussi. Il vient d'un jeu antérieur. Sans le
+refus posé au banc, la campagne aurait joué **toutes** ses questions sans
+traduction, aurait déplacé le rappel translinguistique, et aurait conclu.
+Le cache porte désormais **286** entrées et couvre les deux jeux ; les **156**
+traductions ajoutées ont rendu **0** panne absorbée. **La garde qui a mordu est
+versionnée** : `test_un_cache_de_traductions_qui_ne_couvre_pas_le_jeu_est_refuse`.
+
+#### L'ENVIRONNEMENT DE CE LANCEMENT, ET CE QUI LE SÉPARE DU POSTE
+
+Arbre détaché, `.venv` monté par le protocole §2.2, **aucun `.env`** — il vit
+dans le clone principal et rien n'en a été recopié. Réglages posés
+explicitement, **relevés sur le conteneur servi** par
+`docker inspect … rag-agent-api` et non écrits de mémoire : `FETCH_K=50`,
+`RETRIEVAL_TOP_K=50`, `RERANK_TOP_K=10`, `AUTO_SELECT_TOP_K=3`,
+`TRANSLATION_WEIGHT=1.0`, `LLM_NUM_CTX=32768`, `LLM_MAX_TOKENS=4096`. Adresses
+**découvertes** : `chromadb` et `graphd` n'exposent **aucun** port sur l'hôte, et
+le 8000 de l'hôte est tenu par `data-analyst-agent-app-1`, **étranger à ce
+projet** — l'y pointer aurait interrogé un serveur qui répond sans être le bon.
+
+**L'ÉCART QUI RESTE, ET IL EST DÉCLARÉ : ce banc tourne en `cpu`, le conteneur
+servi en `cuda`** (`/health` → `torch_device.requested = "cuda"`,
+`cuda_available: true`). Le protocole §2.2 monte torch CPU et le défaut du code
+(`cuda`) lève sur un tel arbre. Les poids sont les mêmes ; ce qu'un écart
+d'arrondi flottant pourrait déplacer dans l'ordre du reranking **n'est pas
+mesuré ici**. La recette laisse `TORCH_DEVICE` surchargeable pour que la mesure
+soit rejouable sur un poste CUDA.
+
+#### CE QUE CETTE MESURE NE DIT PAS
+
+1. **LE RAPPEL D'UN ANCRAGE N'EST PAS LA QUALITÉ D'UNE RÉPONSE, ET LA SECONDE
+   N'A PAS ÉTÉ MESURÉE.** Ce banc dit si le passage attendu **atteint** le
+   prompt. Il ne dit rien de ce que le modèle en fait : ni justesse, ni
+   citations, ni abstention. Le §4.66 a mesuré que les citations montent de 34 à
+   55 en passant de 3 à 6 — **plus de citations n'est pas une meilleure
+   réponse**, et cette phrase reste vraie dans l'autre sens.
+2. **AUCUN COÛT N'EST REMESURÉ ICI.** Les +44 % de latence du §4.66 viennent de
+   six questions et d'une génération réelle ; ce banc ne génère pas, et ses
+   durées ne décrivent aucune latence de production.
+3. **LE PLATEAU DU JEU DE RÉGLAGE EST UNE PROPRIÉTÉ DE CE JEU**, pas de la
+   chaîne. Sur un corpus ou un jeu dont les ancrages tomberaient aux rangs 3 à
+   10, k=3 perdrait ce que k=6 rattraperait. Rien ici ne le contredit ; ce jeu
+   ne peut simplement pas en décider.
+4. **UN ÉTAT DE STORE PÉRIME.** Les deux bilans décrivent le corpus du
+   2 septembre 2026, `4367` chunks, ancrages **130/130** et **44/44** vérifiés le
+   jour même. Ils ne survivront pas à une réingestion.
+5. **LE DÉFAUT N'EST PAS CHANGÉ, et ce lot ne propose pas de le changer.**
+   `AUTO_SELECT_TOP_K` reste à **3**. Ce qui a changé, c'est la raison : ce n'est
+   plus « personne ne mesure la sélection » — c'est « la sélection est mesurée,
+   et l'écart entre 3 et 6 est sous le bruit des deux seuls jeux qu'on ait ».

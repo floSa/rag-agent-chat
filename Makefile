@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -184,6 +184,46 @@ eval-controle: verifier-les-ancrages
 # `chromadb` et `graphd` n'exposent aucun port sur l'hote : les adresses sont
 # DECOUVERTES ici plutot que figees, une adresse ecrite en dur perimant a la
 # premiere reconstruction de la pile.
+# LE QUATRIEME ETAGE DE LA CHAINE, celui que `sweep_retrieval.py` ne voit pas.
+# Il s'arrete au reranking ; ces deux recettes mesurent AUTO_SELECT_TOP_K, donc
+# ce qui atteint reellement le prompt. Aucune generation LLM : seules les
+# traductions de questions passent par le moteur, et elles sont en cache.
+#
+# LES TROIS ADRESSES SONT DECOUVERTES, jamais figees. `chromadb` et `graphd`
+# n'exposent aucun port sur l'hote — et le 8000 de l'hote est pris par un
+# service ETRANGER a ce projet, qui repondrait sans etre le bon.
+#
+# LLM_NUM_CTX est LU SUR LE CONTENEUR SERVI, pas ecrit ici : il decide du budget
+# de fenetre, donc du nombre de sections qui partent, et une valeur figee dans
+# cette recette periemerait au prochain reglage sans que rien ne le dise. Le
+# defaut du code vaut 8192 quand le conteneur en sert 32768.
+#
+# TORCH_DEVICE est surchargeable et vaut `cpu` par defaut : le protocole du
+# §2.2 monte torch CPU, et le defaut du code (`cuda`) leve sur un tel arbre.
+# LE CONTENEUR SERVI, LUI, TOURNE EN `cuda` — l'ecart est declare au §4.67.
+TORCH_DEVICE ?= cpu
+
+_ENV_SELECTION = \
+	CHROMA_HOST="$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
+	NEBULA_HOST="$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' graphd)" \
+	LLM_NUM_CTX="$$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' rag-agent-api | sed -n 's/^LLM_NUM_CTX=//p')" \
+	TORCH_DEVICE="$(TORCH_DEVICE)"
+
+mesurer-selection: verifier-les-ancrages controle-perimetre-selection
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_selection.py \
+		--valeurs 1,2,3,4,5,6,8,10,20 \
+		--sortie runs/$(shell date +%Y-%m-%d)-selection-auto-select-top-k.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_selection.py \
+		--golden tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--valeurs 1,2,3,4,5,6,8,10,20 \
+		--sortie runs/$(shell date +%Y-%m-%d)-selection-controle-30.json
+
+# L'ANTECEDENT DE LA MESURE, au meme titre que `verifier-les-ancrages` l'est
+# d'une campagne : un rappel est une INTERSECTION d'identifiants, et deux
+# ensembles qui ne se parlent pas rendent un chiffre faux sans lever d'erreur.
+controle-perimetre-selection:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/controle_perimetre_selection.py
+
 verifier-les-ancrages:
 	uv run --no-sync python scripts/verifier_les_ancrages.py \
 		--chroma-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
