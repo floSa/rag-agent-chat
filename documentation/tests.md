@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1121 tests, aucune dépendance
+## Unitaire — 1124 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,19 +20,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 23 septembre 2026 à 08:17 UTC par LOT-31 : **1121** tests sur **56** fichiers,
+> `mesuré` le 23 septembre 2026 à 09:19 UTC par LOT-32 : **1124** tests sur **57** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE DOUZE, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
-> *(LOT-30 relevait **1109** sur **55** fichiers le 22 septembre à 16:18 UTC ; les **12** de plus
-> sont **11** dans le fichier neuf `test_mesure_de_la_selection.py`, qui garde le
-> banc du quatrième étage de la chaîne — troncature à k, déduplication par
-> section, intervalle de Wilson, et le refus d'un cache de traductions qui ne
-> couvre pas le jeu —, plus **1** dans `test_jeux_de_questions.py`, qui exige la
-> réserve du jeu de réglage **au fichier ET à son producteur**. `src/` n'a pas
-> été touché par ce lot : `git diff HEAD -- src/` rend vide. Le constat est au
-> §4.67 du registre.)*
+> **CE COMPTE MONTE DE TROIS, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
+> *(LOT-31 relevait **1121** sur **56** fichiers le 23 septembre à 08:17 UTC ; les **3** de plus
+> les **3** dans le fichier neuf `test_borne_des_sources.py`, qui tient l'invariant
+> « la borne déclarée par le schéma d'API est celle que la chaîne sert » : il
+> mesure ce que `rerank` rend vraiment sur un vivier plus grand que la borne, et
+> le confronte à ce que `AnswerRequest.max_sources` déclare — sans lire
+> `RERANK_TOP_K`, sans écrire aucun instantané du réglage. `src/` **est** touché
+> par ce lot. Le constat est au §4.70 du registre.)*
 >
 > **UN GARDE DE CE FICHIER LISAIT LE POSTE ET NON LE CODE, et ce lot l'a fait
 > rougir sans toucher au code.** `test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche`

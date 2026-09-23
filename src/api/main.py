@@ -1800,6 +1800,18 @@ async def chat_start(req: SearchRequest) -> dict[str, Any]:
         "retrieved_chunks": [],
         "reranked_chunks": [],
         "selected_element_ids": [],
+        # CE FLUX NE PROMET AUCUNE BORNE DE SOURCES, ET C'EST POURQUOI IL N'EN
+        # PORTE PAS. Son nombre de contextes est la sélection que le client
+        # poste à /chat/resume, que `node_reconstruct_context` reconstruit
+        # SANS l'écrêter : il ne passe par `ranking[:max_sources]` que si la
+        # sélection revient vide. Aucun champ de `ChatRequest` ni de
+        # `SourceSelectionRequest` ne déclare donc de plafond, et il n'y a rien
+        # à y rendre honnête — contrairement à `AnswerRequest.max_sources`, qui
+        # en annonçait un que le reranker ne tenait pas. `None` ici laisse
+        # AUTO_SELECT_TOP_K gouverner le seul cas où le découpage s'applique.
+        # Le jour où un champ de borne apparaîtrait sur cette voie,
+        # `tests/unit/test_borne_des_sources.py` le trouve par balayage et exige
+        # qu'il porte la borne de la chaîne.
         "max_sources": None,
         "top_k": req.top_k,
         "enriched_contexts": [],

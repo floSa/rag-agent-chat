@@ -3,6 +3,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
+from src.agent.settings import settings
+
 # Identifiant d'élément : hash sha256 tronqué à 10 caractères produit par
 # l'ingestion. Validé strictement car interpolé dans les requêtes nGQL.
 ElementId = Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{10}$")]
@@ -234,6 +236,14 @@ class ChatResponse(BaseModel):
     thread_id: str = ""
 
 
+# Plafond de sources qu'une requête peut demander. DÉRIVÉ, jamais écrit en dur :
+# c'est `rerank` qui décide combien d'éléments existent en aval, et le déclarer
+# indépendamment est ce qui a produit une borne fausse. Le tenir est l'affaire de
+# `tests/unit/test_borne_des_sources.py`, qui confronte cette valeur à ce que la
+# chaîne SERT — et non à ce que la configuration DIT.
+MAX_SOURCES_SERVIES = settings.rerank_top_k
+
+
 class AnswerRequest(BaseModel):
     """Question posée sans sélection humaine des sources."""
 
@@ -244,7 +254,35 @@ class AnswerRequest(BaseModel):
         default_factory=list, max_length=MAX_HISTORY_PAYLOAD
     )
     # Nombre de sources reconstruites. Laissé à None, AUTO_SELECT_TOP_K s'applique.
-    max_sources: int | None = Field(default=None, ge=1, le=20)
+    #
+    # LA BORNE N'EST PAS UN CHOIX DE SCHÉMA, C'EST CE QUE LA CHAÎNE SAIT SERVIR,
+    # et elle est dérivée pour cette raison. `node_reconstruct_context` découpe
+    # `ranking[:max_sources]` sur la liste que `rerank` rend, et `rerank` n'en
+    # rend jamais plus de `RERANK_TOP_K`. Écrite en dur à 20 quand le reranker
+    # en servait 10, elle promettait 20 sources et en rendait 10 SANS RIEN DIRE :
+    # l'appelant ne pouvait pas distinguer « il n'y avait que 10 passages
+    # pertinents » de « ta demande a été rabotée ». Un 422 le lui dit.
+    #
+    # POURQUOI BORNER LA PROMESSE PLUTÔT QU'ÉLARGIR LA CHAÎNE : servir réellement
+    # 20 exige de porter `RERANK_TOP_K` à 20, donc de changer la chaîne de TOUS
+    # les appels. Mesuré le 23 septembre 2026 sur les 26 questions du jeu de
+    # contrôle, ce passage double le contexte soumis — 84,3 → 177,0 éléments au
+    # prompt — et ne fait basculer AUCUNE question (rappel au prompt 0,8077
+    # inchangé). Le registre le détaille ; le gain de monter ce k y est écrit
+    # NON TRANCHÉ faute d'instrument, et un accident d'écriture de schéma n'est
+    # pas ce qui doit trancher un réglage de production.
+    max_sources: int | None = Field(
+        default=None,
+        ge=1,
+        le=MAX_SOURCES_SERVIES,
+        description=(
+            "Sources reconstruites pour cette réponse. Le plafond est celui que "
+            "la chaîne sert réellement : le reranker ne rend pas plus de "
+            "RERANK_TOP_K éléments, et une demande au-delà est refusée (422) "
+            "plutôt que rabotée en silence. Laissé vide, AUTO_SELECT_TOP_K "
+            "s'applique."
+        ),
+    )
 
 
 class RetrievedContext(BaseModel):
