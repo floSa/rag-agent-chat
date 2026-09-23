@@ -10863,3 +10863,54 @@ commit réécrit, en tête, sur lequel personne d'autre ne travaillait.
 
 **Non traité :** rien ne garde l'invariant « la CI est verte ». Un run vert
 aujourd'hui est un instantané, pas une propriété.
+
+---
+
+### 4.71 → Le corps vide arrive jusqu'au prompt, et notre filet ne couvre que le haut de la plage
+
+`mesuré` le 23 septembre 2026 à 13:53–13:58 UTC contre le graphe en service. Le
+pipeline nous demande : *« servez-vous du code depuis le graphe, et si oui,
+combien arrive vide ? »* **Réponse : oui, et 17,4 % des blocs de code servis au
+LLM sont vides.**
+
+**L'ÉTAT DU GRAPHE**, recoupé chiffre pour chiffre avec le sien :
+
+| tag | vides | total | part |
+|---|---|---|---|
+| `Code` | **1 362** | 4 963 | **27,4 %** |
+| `ListItem` | **202** | 1 748 | 11,6 % |
+| `Paragraph`, `Table`, `Picture`, `SectionHeader`, `Caption`, `Document` | **0** | — | 0 % |
+| **total** | **1 564** | 15 196 | 10,3 % |
+
+**CE QUI ARRIVE RÉELLEMENT AU PROMPT.** 60 sections reconstruites par
+`reconstruct_section` depuis les ancrages du jeu doré, 60 sur 60 abouties :
+**501** éléments rendus, dont **17 à corps vide, soit 3,4 %**. Par label :
+**8 `code` sur 46 — 17,4 %** — et **9 `list_item` sur 110 — 8,2 %**. Ce n'est
+donc pas une propriété du store restée sans effet : **elle traverse jusqu'au
+modèle**, sans erreur et sans trace, exactement la famille de tout ce dossier.
+
+**ET VOICI CE QUE LA MESURE M'APPREND SUR MON PROPRE FILET, QUI EST LE POINT DE
+CETTE SECTION.** `_fill_full_texts` ne redemande le texte aux vecteurs que pour
+les éléments dont le texte atteint `GRAPH_TEXT_TRUNCATION − 50`, soit **1950**
+(`graph_context.py:870`). **Un texte vide vaut 0, donc il n'est JAMAIS candidat**
+— mesuré : `0 >= 1950` est faux. Notre filet couvre le **haut** de la plage, là
+où le graphe tronque, et **pas le bas**, là où le graphe n'a rien reçu. Les deux
+défauts sont **disjoints** — le pipeline le confirme : ses 18 tronqués n'ont
+aucune intersection avec ses 136 éléments vides — et **un seul des deux est
+rattrapé**.
+
+**Ce que la mesure NE dit pas.** Elle ne dit pas que ces 17 éléments ont un texte
+récupérable : le pipeline a prouvé **29 cas de perte sèche** et laisse **107**
+ambigus, faute de savoir à quel élément appartient le texte d'un chunk qui en
+couvre plusieurs. Elle ne dit pas non plus ce que le LLM en fait — un bloc de
+code vide dégrade-t-il la réponse, ou le modèle l'ignore-t-il ? **Non mesuré.**
+Et 60 sections ne sont pas le corpus : c'est un échantillon d'ancrages, pas un
+balayage.
+
+**Ce que ça ouvre chez nous**, et qui ne dépend pas de la réparation du
+pipeline : le seuil de candidature à la rallonge est **dérivé du plafond de
+troncature**, alors que les deux défauts n'ont rien à voir. Un élément **vide**
+mériterait d'être redemandé aux vecteurs **quelle que soit** la valeur du
+plafond. Non fait : ce serait une modification de `src/`, et elle doit être
+mesurée — combien d'appels de plus à l'index, pour combien d'éléments
+réellement récupérés.
