@@ -10903,6 +10903,15 @@ importante :
 3. **le jour où `RERANK_TOP_K` monte à 20, la borne suit sans qu'on y touche** —
    la voie (a) reste donc ouverte, et elle ne pourra plus rouvrir ce défaut.
 
+**CE QUE CE REFUS CASSE, DIT FRANCHEMENT.** Un appelant qui demandait 11 à 20
+recevait **10** sources ; il reçoit désormais **422**. C'est un changement
+visible, et il est voulu : recevoir 10 en croyant en avoir 20 est pire qu'un
+refus lisible. `mesuré` le 23 septembre 2026 : **aucun appelant de ce dépôt
+n'est concerné** — hors les tests, le seul usage de `max_sources` est
+`tests/integration/test_stack.py`, à **3**, et le frontend ne renseigne pas le
+champ. Un client **externe** au dépôt, lui, n'est pas mesurable d'ici : c'est
+une borne supposée, pas acquise.
+
 #### LE FLUX INTERACTIF N'A PAS À ÊTRE TRAITÉ, ET VOICI POURQUOI
 
 `/chat/start` pose `"max_sources": None` dans son état initial, et **c'est
