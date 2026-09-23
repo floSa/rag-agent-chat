@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Les gardes du depot mordent sur des revisions historiques reelles.
+          # Un clone superficiel les rend inatteignables : `git show <sha>` sort
+          # en rc=128 et la suite echoue sur 1 commit au lieu de 250.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
