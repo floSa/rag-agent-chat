@@ -10729,3 +10729,54 @@ soit rejouable sur un poste CUDA.
    `AUTO_SELECT_TOP_K` reste à **3**. Ce qui a changé, c'est la raison : ce n'est
    plus « personne ne mesure la sélection » — c'est « la sélection est mesurée,
    et l'écart entre 3 et 6 est sous le bruit des deux seuls jeux qu'on ait ».
+
+---
+
+### 4.68 → La troncature du graphe à 2000 : nous la traitons déjà, et sept tableaux lui échappent quand même
+
+`mesuré` le 23 septembre 2026 à 08:47–08:55 UTC contre le graphe et ChromaDB en
+service. Le pipeline nous annonce, au titre d'une dette de son côté, que **le
+graphe est tronqué à 2000 caractères et pas ChromaDB**, et que nous recevons donc
+tout élément plus long **amputé en silence** — « pas vide, amputé ; un corps vide
+se remarque, un corps coupé net se lit comme un corps ».
+
+**NOUS LE TRAITONS DÉJÀ, ET C'EST ÉCRIT DEPUIS LONGTEMPS AU SITE.**
+`graph_context.py:864-881` : si `FULL_TEXT_FROM_VECTORS` (défaut **`true`**,
+valeur servie `true`), tout élément dont le texte atteint
+`GRAPH_TEXT_TRUNCATION − 50` — soit **1950** — est redemandé à l'index vectoriel,
+et remplacé **seulement si le texte rendu est STRICTEMENT plus long** : l'index
+ne doit jamais raccourcir un texte.
+
+**L'ÉTAT DU CORPUS SERVI.** Sur **15 173** sommets comptés, **18** atteignent le
+seuil, et **les 18 font EXACTEMENT 2000 caractères** — la signature de la coupe
+est parfaite, il n'y a pas de faux positif à défalquer. Répartition : **4
+`Paragraph` sur 7 251**, et **14 `Table` sur 55**, soit **un quart des tableaux**.
+
+**ET VOICI CE QUE LA MESURE AJOUTE, QUE PERSONNE N'AVAIT VU : 11 SUR 18 SONT
+RALLONGÉS, SEPT NE LE SONT PAS.** Les sept sont **tous des `Table`**, et la
+raison n'est pas que le texte manque : c'est que **ChromaDB en porte MOINS que le
+graphe tronqué**. Le recollage des chunks rend 1776, 1540, 1150, 1266, 1801,
+1875 et 1363 caractères — tous **sous** les 2000 du graphe. Le garde « strictement
+plus long » refuse donc, à juste titre, de raccourcir.
+
+**Contrôle positif, doublé :** un élément rallongé avec succès rend **2289**
+caractères recollés depuis **6** chunks — `full_texts` recolle donc bien, ce
+n'est pas lui qui est en cause ; et un élément court (100–300 caractères) n'est
+même pas interrogé.
+
+**CONSÉQUENCE POUR LE CONTRAT, ET C'EST CE QUI REMONTE AU PIPELINE : POUR CES
+SEPT TABLEAUX, NI LE GRAPHE NI CHROMADB NE PORTENT LE TEXTE ENTIER.** Leur
+proposition — « si vous avez besoin du corps entier, il est dans ChromaDB,
+complet » — est **fausse pour ces cas**, et elle l'est silencieusement. Basculer
+la lecture du corps vers les vecteurs ne fermerait donc pas le sujet : cela le
+déplacerait de 18 éléments à 7.
+
+**Ce que la mesure NE dit pas**, et il faut le dire avant que quelqu'un s'en
+serve : nous n'avons **pas** établi POURQUOI la somme des chunks est inférieure —
+chevauchement, séparateurs, ou matière réellement écartée au découpage, nous
+n'avons pas tranché. Et ces chiffres sont un **état de store** : ils périmeront à
+la réingestion, qui est précisément ce que le pipeline s'apprête à faire.
+
+**Non traité, et volontairement :** `/health` ne publie rien sur le nombre
+d'éléments tronqués non rallongés. Tant qu'il ne le fait pas, ce constat est une
+mesure datée, pas une propriété gardée.
