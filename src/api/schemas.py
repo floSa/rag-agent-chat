@@ -241,6 +241,13 @@ class ChatResponse(BaseModel):
 # indépendamment est ce qui a produit une borne fausse. Le tenir est l'affaire de
 # `tests/unit/test_borne_des_sources.py`, qui confronte cette valeur à ce que la
 # chaîne SERT — et non à ce que la configuration DIT.
+#
+# CETTE VALEUR EST LUE À L'IMPORT, PAS À CHAQUE REQUÊTE — une contrainte
+# pydantic est figée à la construction du modèle. Un process qui changerait
+# `settings.rerank_top_k` À CHAUD verrait donc la chaîne suivre et pas la borne,
+# et le défaut reviendrait. Ce n'est pas le chemin normal — `settings` est lu au
+# démarrage —, et le garde attrape ce cas-là aussi : il mesure `rerank` en
+# exécution et la borne dans les métadonnées, donc il voit les deux diverger.
 MAX_SOURCES_SERVIES = settings.rerank_top_k
 
 

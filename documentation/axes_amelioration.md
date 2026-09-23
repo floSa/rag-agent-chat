@@ -10932,13 +10932,45 @@ la longueur que `rerank` rend vraiment sur un vivier de **64** chunks à
 — et le confronte à ce que le schéma **DÉCLARE**, lu dans les métadonnées
 pydantic. **Aucune scène n'écrit `10`** ni aucun autre instantané du réglage.
 
-| site muté, par motif | nature de la mutation | attendu | mesuré |
-|---|---|---|---|
-| la troncature de `rerank` — `dedupe_by_element(ranked)[: settings.rerank_top_k]` | la chaîne sert **moins** que la borne déclarée | rouge | **rouge, 3 scènes** |
-| la borne du champ — `le=MAX_SOURCES_SERVIES` | le schéma déclare **plus** que la chaîne ne sert | rouge | **rouge, 2 scènes** |
+| site muté, **par motif** | ce que la mutation crée | `pytest` sur la garde seule | `make test`, suite entière | restauration |
+|---|---|---|---|---|
+| la troncature de `rerank` — `dedupe_by_element(ranked)[: settings.rerank_top_k]` → `[… - 5]` | la chaîne sert **5**, le schéma en déclare **10** | `rc=1`, **3 scènes rouges sur 3** | `rc=2` — **3 rouges, 1121 passés** | SHA-256 **confronté**, identique |
+| la borne du champ — `le=MAX_SOURCES_SERVIES` → `le=20` | le schéma déclare **20**, la chaîne en sert **10** | `rc=1`, **3 scènes rouges sur 3** | `rc=2` — **3 rouges, 1121 passés** | SHA-256 **confronté**, identique |
 
-Les deux sens mordent. Le détail des `rc`, des comptes et des restaurations
-SHA-256 est au §4.18 de la présente page, comme pour tout lot qui touche `src/`.
+**LES DEUX SENS MORDENT, ET LES TROIS ROUGES SONT LES MIENNES.** Sous chacune
+des deux mutations, les **seuls** tests rouges de la suite entière sont les
+trois scènes de ce fichier : rien d'autre dans le dépôt ne tenait cet
+invariant, et aucune des deux mutations ne meurt par un autre chemin. Les
+messages nomment la règle visée et les deux sites — ce n'est pas un
+`NameError`, les deux mutations compilent et **changent le comportement**.
+**La seconde mutation reproduit le défaut tel qu'il était avant ce lot** : c'est
+la preuve la plus directe que la garde l'aurait attrapé.
+
+**TÉMOIN INERTE, PORTANT SON COMPTE.** Arbre restauré, `make lint` `rc=0` et
+`make test` `rc=0`, **1124 passés** sur `tests/unit/` — la grandeur de `make
+test`, `tests/` complet en rendant davantage. Avant le lot, sur `0ea4fe6` :
+`rc=0` / `rc=0`, **1121 passés**. Le banc ne rougit donc pas seul, et les
+comptes disent que c'est bien cet arbre-là qui est mesuré. `make` rend **2** là
+où `pytest` rend **1** : les deux programmes sont nommés parce qu'ils ne
+comptent pas pareil.
+
+#### Le correctif est VU par OpenAPI, et la dérivation est vérifiée en marche
+
+`mesuré` le 23 septembre 2026 à 09:30 UTC. L'agent **servi** sur le port 8011
+publie encore `"maximum": 20.0` pour `max_sources` — le défaut est donc bien
+dans le code servi, et **ce lot ne déploie rien**. Le même schéma construit
+depuis cet arbre publie `"maximum": 10`, sa `description`, et — sous
+`RERANK_TOP_K=20` **posé dans l'environnement du lancement** — `"maximum": 20`.
+**La borne suit le réglage sans qu'on la touche**, ce qui est exactement ce que
+(b) devait acheter.
+
+**Réserve, et elle est écrite au site.** Une contrainte pydantic est figée à la
+construction du modèle : `MAX_SOURCES_SERVIES` est lu **à l'import**, pas à
+chaque requête. Un process qui changerait `settings.rerank_top_k` **à chaud**
+verrait la chaîne suivre et pas la borne. Ce n'est pas le chemin normal —
+`settings` est lu au démarrage — et la garde couvre ce cas, puisqu'elle mesure
+`rerank` **en exécution** contre la borne **déclarée** : elle les verrait
+diverger.
 
 **Ce que ce lot NE tranche pas :** que `RERANK_TOP_K=10` soit la bonne valeur.
 Le gain de monter ce k reste **non mesuré** faute du jeu à ancrages multiples et
