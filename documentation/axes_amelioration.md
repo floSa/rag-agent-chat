@@ -10780,3 +10780,35 @@ la réingestion, qui est précisément ce que le pipeline s'apprête à faire.
 **Non traité, et volontairement :** `/health` ne publie rien sur le nombre
 d'éléments tronqués non rallongés. Tant qu'il ne le fait pas, ce constat est une
 mesure datée, pas une propriété gardée.
+
+---
+
+### 4.69 → Le compte de sommets du graphe, réconcilié une fois pour toutes
+
+Deux chiffres circulaient entre nos deux dépôts : **15 196** côté pipeline,
+**15 173** côté agent, écart de **23**.  le 23 septembre 2026 à 08:53
+UTC contre le graphe en service : l'écart vaut **exactement le nombre de
+`Document`**, et l'hypothèse du pipeline était juste.
+
+**La définition, et elle est désormais au site** — `documentation/references/2026-09-23-troncature-du-graphe.md` :
+`sommets_tous_tags` = **15 196**, somme sur **tous** les tags de `SHOW TAGS` ;
+`sommets_sans_Document` = **15 173**. Citer l'un pour l'autre est une dispute à
+retardement, six mois plus tard, quand plus personne ne se souvient laquelle des
+deux requêtes comptait quoi.
+
+**LA LEÇON DE MÉTHODE, ET ELLE EST PAYÉE ICI.** Mon premier relevé énumérait une
+liste de tags **écrite à la main**. Elle inventait `Text` et `Title` — qui
+n'existent pas au schéma, et dont l'échec a été journalisé sans m'arrêter — et
+elle oubliait `PageHeader`, `PageFooter` et `Document`. **Elle est tombée
+juste par chance** : les oubliés valaient zéro, sauf `Document` que je
+n'entendais pas compter. Si `PageHeader` avait porté des éléments, mon chiffre
+aurait été faux **sans que rien ne le dise**. Le relevé versionné lit
+`SHOW TAGS`. **Une liste en dur ne se trompe pas bruyamment, elle se trompe en
+silence** — même famille que l'étiquette datée qui ment sur ce qu'elle désigne.
+
+**L'état d'avant est versionné**, comme les 212 clés médias l'ont été :
+**18** sommets exactement au plafond de 2000, **11** rallongés par les vecteurs,
+**7** restant amputés — tous des `Table` — et **14 `Table` coupées sur 55**,
+soit **un quart des tableaux du corpus**. Le pipeline retient ce dernier chiffre
+comme le plus grave, et il a raison : les sept sont un symptôme, le quart est
+l'ampleur.
