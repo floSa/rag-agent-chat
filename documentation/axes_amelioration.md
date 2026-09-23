@@ -10786,7 +10786,7 @@ mesure datée, pas une propriété gardée.
 ### 4.69 → Le compte de sommets du graphe, réconcilié une fois pour toutes
 
 Deux chiffres circulaient entre nos deux dépôts : **15 196** côté pipeline,
-**15 173** côté agent, écart de **23**.  le 23 septembre 2026 à 08:53
+**15 173** côté agent, écart de **23**. `mesuré` le 23 septembre 2026 à 08:53
 UTC contre le graphe en service : l'écart vaut **exactement le nombre de
 `Document`**, et l'hypothèse du pipeline était juste.
 

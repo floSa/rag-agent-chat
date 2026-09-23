@@ -993,3 +993,14 @@ Celles du 9 septembre 2026 :
 **Traite tes propres affirmations comme des hypothèses.** Vérifie avant d'écrire
 un chiffre. Relis le code avant d'affirmer ce qu'il fait. Et **quand un audit te
 contredit avec une mesure, il a raison.**
+
+> **Un heredoc non quoté exécute ce qu'il lit.** `mesuré` le 23 septembre 2026 :
+> un `cat >> … <<FIN` sans apostrophes autour du marqueur a fait interpréter les
+> accents graves du Markdown comme des substitutions de commande. Bash a tenté
+> d'exécuter `mesuré`, a écrit `command not found` **dans un flux que je ne
+> lisais pas**, et a inséré du **vide** à sa place — supprimant précisément
+> l'étiquette qui distingue un chiffre relevé d'un chiffre supposé. Le texte
+> restait lisible et la porte est restée **verte** : rien ne pouvait le signaler.
+> **Le marqueur d'un heredoc qui porte du Markdown se quote toujours** —
+> `<<'FIN'` — et une sortie de commande se relit **en entier**, pas seulement son
+> code de retour.
