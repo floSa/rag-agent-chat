@@ -117,6 +117,21 @@ _LISEZ_MOI = [
     "scripts/verifier_les_ancrages.py, et il sort en 1 au premier désaccord.",
 ]
 
+# LA RÉSERVE, ET ELLE VOYAGE AVEC LE FICHIER. Le jeu du pipeline porte la
+# sienne depuis son adoption ; celui-ci n'en portait aucune, et 138 questions se
+# lisaient comme si elles arbitraient. Elles ne le font pas : un écart de deux
+# points reste du bruit à ce nombre-là, et la borne se calcule — l'intervalle de
+# Wilson à 95 % sur 130 questions vaut environ ±5 points près de 95 %.
+# Garde : `test_la_reserve_du_jeu_de_reglage_voyage_avec_lui`.
+_RESERVE = (
+    "INSTRUMENT DE RÉGLAGE, PAS VERDICT. 130 des 138 questions portent un "
+    "ancrage, et un seul chacune. Le nombre suffit à classer deux "
+    "configurations, PAS à trancher un écart de deux points : c'est du bruit. "
+    "Tout écart se lit sur le nombre de QUESTIONS qui ont basculé, jamais sur "
+    "la différence des pourcentages. Et le rappel d'un ancrage n'est pas la "
+    "qualité d'une réponse."
+)
+
 # Suffixes qui déclenchent l'écriture en YAML. Voir le docstring du module : le
 # YAML n'est pas un goût, il garde les `element_id` hors de portée du
 # transformateur de `detect-secrets`.
@@ -564,6 +579,7 @@ def main() -> int:
         args.out,
         {
             "_lisez_moi": _LISEZ_MOI,
+            "_reserve": _RESERVE,
             "_statistiques": {
                 "questions": len(questions),
                 "par_langue": dict(langues),

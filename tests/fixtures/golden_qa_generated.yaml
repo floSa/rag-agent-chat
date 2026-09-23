@@ -16,6 +16,10 @@ _lisez_moi:
 - sans dire si la recherche est cassée ou si le jeu est périmé. C'est la
 - panne exacte que le jeu précédent a portée. L'instrument est
 - scripts/verifier_les_ancrages.py, et il sort en 1 au premier désaccord.
+_reserve: 'INSTRUMENT DE RÉGLAGE, PAS VERDICT. 130 des 138 questions portent un ancrage, et un seul chacune.
+  Le nombre suffit à classer deux configurations, PAS à trancher un écart de deux points : c''est du bruit.
+  Tout écart se lit sur le nombre de QUESTIONS qui ont basculé, jamais sur la différence des pourcentages.
+  Et le rappel d''un ancrage n''est pas la qualité d''une réponse.'
 _statistiques:
   questions: 138
   par_langue:
