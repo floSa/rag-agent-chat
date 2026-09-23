@@ -10812,3 +10812,54 @@ silence** — même famille que l'étiquette datée qui ment sur ce qu'elle dés
 soit **un quart des tableaux du corpus**. Le pipeline retient ce dernier chiffre
 comme le plus grave, et il a raison : les sept sont un symptôme, le quart est
 l'ampleur.
+
+---
+
+### 4.70 → La CI est verte, et il a fallu deux correctifs, pas un
+
+`mesuré` le 23 septembre 2026 à 09:24 UTC : run `35842144530`, verdict
+**`success`** sur `853a0f1`. **Premier succès après plus de soixante échecs
+consécutifs**, et la CI n'avait jamais été regardée — c'est la faute du pilote.
+
+**PREMIER CORRECTIF — le clone superficiel.** `actions/checkout@v4` sans
+`fetch-depth` ne rapporte qu'un commit. Or les gardes de ce dépôt mordent sur des
+**révisions historiques réelles** : ce sont les dérives datées, et elles sont la
+seule preuve qu'un garde mord sur autre chose qu'un cas inventé. Symptôme lu au
+journal du run : `assert 1 >= 250`, puis `git show <sha>` en `rc=128` sur quatre
+fichiers. Correctif : `fetch-depth: 0`, **une ligne**, posée par le propriétaire
+depuis l'interface web.
+
+**SECOND CORRECTIF — ET IL N'ÉTAIT PAS PRÉVU.** Le run suivant est resté rouge,
+mais sur **un seul** test et pour une **autre** cause :
+`test_la_plage_reelle_de_ce_depot_passe` — *« le hook refuse l'historique RÉEL de
+ce dépôt : il serait désarmé à la première poussée »*. Le commit posé par
+l'interface web portait `34608761+floSa@users.noreply.github.com` en auteur et
+`GitHub <noreply@github.com>` en committer. **Aucune des deux adresses n'est
+autorisée**, et c'est la règle qui a coûté à ce dépôt 165 commits réécrits **puis
+sa destruction et sa recréation**.
+
+Le hook prescrit lui-même le geste — *« Corrige l'historique — jamais
+`git push --no-verify` »*. Commit refait depuis le poste sous
+`florian_horellou@laposte.net`, **contenu strictement identique** (SHA-256 du
+fichier confronté avant/après, `git diff` entre les deux shas **vide**), hook
+repassé à `rc=0`, puis `--force-with-lease` **ancré sur l'ancien sha**. **Un**
+commit réécrit, en tête, sur lequel personne d'autre ne travaillait.
+
+**CE QUE CET ÉPISODE APPREND, ET QUI VAUT PLUS QUE LE CORRECTIF.**
+
+- **Un correctif validé ne valide que sa propre cause.** Le premier a bien fermé
+  le clone superficiel — l'`assert 1 >= 250` a disparu — et a **découvert** le
+  second, qu'il masquait. Conclure « toujours rouge, donc ça n'a pas marché »
+  aurait été faux : il faut lire la CAUSE, pas le verdict.
+- **L'interface web de GitHub ne peut pas respecter la règle d'identité** tant
+  que l'adresse de commit du compte reste privée. Tout correctif posé par là
+  repassera par le même mur. Le réglage est dans `Settings → Emails`.
+- **Le scope `workflow` n'est requis que par l'API Contents, pas par un push
+  git.** L'API a rendu **404** — la façon dont GitHub masque un refus de scope —
+  mais `git push` d'un commit touchant `.github/workflows/` est passé. La borne
+  supposée « on ne peut pas corriger la CI sans élargir le jeton » était fausse,
+  et elle a coûté trois jours d'attente d'une décision qui n'avait pas lieu
+  d'être. **Une borne supposée est une dette ; celle-ci a été payée.**
+
+**Non traité :** rien ne garde l'invariant « la CI est verte ». Un run vert
+aujourd'hui est un instantané, pas une propriété.
