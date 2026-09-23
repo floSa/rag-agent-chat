@@ -357,18 +357,6 @@ def _concordance_du_modele_embedding_neutre(monkeypatch):
     )
 
 
-@pytest.fixture(autouse=True)
-def _sans_sonde_en_vol():
-    """Les drapeaux « en vol » sont un état de module : un test qui abandonne une
-    sonde le laisse posé, et le test suivant croirait la sonde encore en vol.
-    """
-    from src.api import main
-
-    main._sondes_en_vol.clear()
-    yield
-    main._sondes_en_vol.clear()
-
-
 # ─── Le RÉSERVOIR DE FILS, et la sonde qu'il affamait ────────────────────────
 #
 # CE QUE CES DEUX GARDES FERMENT — B-3 de l'audit du 14 septembre 2026, et c'est

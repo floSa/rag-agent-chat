@@ -475,7 +475,6 @@ def test_une_estampille_qui_ne_revient_pas_ne_retarde_pas_health(monkeypatch) ->
         ecoule = time.monotonic() - debut
     finally:
         debloquer.set()
-        main._sondes_en_vol.clear()
 
     assert reponse.status_code == 200
     assert ecoule < 5.0, f"/health a mis {ecoule:.1f} s sur la seule lecture de l'estampille"
@@ -1068,24 +1067,6 @@ class _CollectionQuiPend:
         return {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
 
 
-@pytest.fixture
-def _drapeau_en_vol_neuf():
-    """Le drapeau des sondes vidé avant ET après.
-
-    C'est un état de MODULE, et il est partagé avec la sonde de `/health` — par
-    décision, cf. le docstring de `_concordance_avant_le_flux`. Un test qui
-    laisserait `modele_embedding` posé ferait SAUTER la lecture des tests
-    suivants, qui passeraient verts sans rien lire : le faux vert exact que la
-    fixture `autouse` de `tests/conftest.py` existe pour empêcher sur le verdict.
-    Même forme qu'à `tests/unit/test_health_parallele.py`.
-    """
-    from src.api import main
-
-    main._sondes_en_vol.clear()
-    yield
-    main._sondes_en_vol.clear()
-
-
 class _GrapheQuiNeCherchePas:
     """Le cas MAJORITAIRE de `/chat/resume` : reconstruire et générer, sans chercher.
 
@@ -1114,7 +1095,7 @@ class _GrapheQuiNeCherchePas:
 
 
 def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
-    monkeypatch, caplog, _drapeau_en_vol_neuf
+    monkeypatch, caplog
 ) -> None:
     """Une requête qui NE CHERCHE PAS ne doit pas dépendre d'un ChromaDB muet.
 
@@ -1184,7 +1165,7 @@ def test_chat_resume_rend_meme_quand_l_estampille_ne_repond_jamais(
 
 @pytest.mark.asyncio
 async def test_le_silence_du_store_ne_lache_qu_un_fil_meme_en_rafale_simultanee(
-    monkeypatch, _drapeau_en_vol_neuf
+    monkeypatch
 ) -> None:
     """LA SECONDE DÉCISION, gardée — et gardée sous la forme QUE LA PRODUCTION A.
 
@@ -1302,7 +1283,7 @@ def test_le_plafond_ne_depasse_pas_le_budget_d_une_requete_utilisateur() -> None
 
 @pytest.mark.asyncio
 async def test_le_depassement_rend_son_jeton_au_reservoir(
-    monkeypatch, _drapeau_en_vol_neuf
+    monkeypatch
 ) -> None:
     """`tache.cancel()` au dépassement, et ce que son absence coûterait.
 
@@ -1371,7 +1352,7 @@ async def test_le_depassement_rend_son_jeton_au_reservoir(
 
 @pytest.mark.asyncio
 async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
-    monkeypatch, _drapeau_en_vol_neuf
+    monkeypatch
 ) -> None:
     """L'OBJECTION QUE LE SITE OPPOSAIT À LA POSE CÔTÉ BOUCLE, gardée.
 
@@ -1466,7 +1447,7 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
 
 @pytest.mark.asyncio
 async def test_l_absorption_n_est_pas_muette_au_deuxieme_passage(
-    monkeypatch, caplog, _drapeau_en_vol_neuf
+    monkeypatch, caplog
 ) -> None:
     """« L'absorption n'est pas muette » — et elle l'était, dès le passage 2.
 
@@ -1521,7 +1502,7 @@ async def test_l_absorption_n_est_pas_muette_au_deuxieme_passage(
 
 @pytest.mark.asyncio
 async def test_le_drapeau_est_retire_quand_le_store_rend_la_main(
-    monkeypatch, _drapeau_en_vol_neuf
+    monkeypatch
 ) -> None:
     """LE TÉMOIN DE LA CORRECTION DE B-2 : borner la rafale sans acheter la cécité.
 
@@ -1574,7 +1555,7 @@ async def test_le_drapeau_est_retire_quand_le_store_rend_la_main(
 
 @pytest.mark.asyncio
 async def test_une_divergence_revenue_dans_le_plafond_est_toujours_relevee(
-    monkeypatch, _drapeau_en_vol_neuf
+    monkeypatch
 ) -> None:
     """TÉMOIN DU PLAFOND : il ne doit pas avaler ce qu'il existe pour laisser passer.
 

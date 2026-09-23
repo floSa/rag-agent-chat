@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1124 tests, aucune dépendance
+## Unitaire — 1125 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,18 +20,18 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 23 septembre 2026 à 09:19 UTC par LOT-32 : **1124** tests sur **57** fichiers,
+> `mesuré` le 23 septembre 2026 à 15:00 UTC par LOT-33 : **1125** tests sur **57** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TROIS, ET AUCUN TEST N'A ÉTÉ RETIRÉ.**
-> *(LOT-31 relevait **1121** sur **56** fichiers le 23 septembre à 08:17 UTC ; les **3** de plus
-> les **3** dans le fichier neuf `test_borne_des_sources.py`, qui tient l'invariant
-> « la borne déclarée par le schéma d'API est celle que la chaîne sert » : il
-> mesure ce que `rerank` rend vraiment sur un vivier plus grand que la borne, et
-> le confronte à ce que `AnswerRequest.max_sources` déclare — sans lire
-> `RERANK_TOP_K`, sans écrire aucun instantané du réglage. `src/` **est** touché
-> par ce lot. Le constat est au §4.72 du registre.)*
+> **CE COMPTE MONTE D'UN, ET AUCUN TEST N'A ÉTÉ RETIRÉ, NI AUCUN FICHIER AJOUTÉ.**
+> *(LOT-32 relevait **1124** sur **57** fichiers le 23 septembre à 09:19 UTC ; les **1** de plus
+> tiennent dans une scène ajoutée à `test_montage_des_tests.py`, qui garde la
+> barrière neuve de `tests/unit/conftest.py` : aucun fil de sonde ne franchit la
+> fin du test qui l'a lancé. Elle l'éprouve dans les DEUX directions — la
+> barrière ne doit pas rendre la main pendant que le fil tourne, et elle doit la
+> rendre au dernier geste de ce fil. `src/` n'est **pas** touché par ce lot. Le
+> constat est au §4.73 du registre.)*
 >
 > **UN GARDE DE CE FICHIER LISAIT LE POSTE ET NON LE CODE, et ce lot l'a fait
 > rougir sans toucher au code.** `test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche`

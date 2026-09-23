@@ -5,6 +5,8 @@ valent que pour `tests/unit/`. `tests/integration/` ouvre de VRAIES connexions,
 c'est sa raison d'être, et une barrière posée à la racine l'aurait cassé.
 """
 
+import threading
+
 import chromadb
 import pytest
 
@@ -54,3 +56,121 @@ def _aucune_vraie_connexion_chromadb(monkeypatch) -> None:
         )
 
     monkeypatch.setattr(chromadb, "HttpClient", _interdit)
+
+
+# ─── LE DRAPEAU « EN VOL », ET LE FIL QU'UN TEST LAISSE DERRIÈRE LUI ──────────
+#
+# CE QUE CETTE BARRIÈRE REMPLACE, et c'est `mesuré` : le 23 septembre 2026 la CI
+# rougissait sur `test_le_drapeau_est_retire_quand_le_store_rend_la_main` —
+# `assert 'modele_embedding' in set()` — alors que le MÊME commit rendait 1124
+# verts sur le poste, et le test seul 20 fois d'affilée. Le code n'y était pour
+# rien : la course était dans le montage des tests.
+#
+# LE MÉCANISME, ÉTABLI PAR UN MOUCHARD POSÉ SUR L'ENSEMBLE LUI-MÊME, et non
+# déduit. `_sonder` POSE le drapeau côté boucle ; `_executer_sonde` le RETIRE
+# côté fil, dans son `finally`, ET IL LE RETIRE PAR NOM. Un test qui abandonne
+# sa sonde au plafond laisse donc derrière lui un fil VIVANT qui retirera ce nom
+# plus tard — après la fin du test, et après que le test SUIVANT a posé le même
+# nom. Relevé du mouchard, les deux tests s'enchaînant :
+#
+#   POSE   modele_embedding par fil=…169984              (la boucle, test N)
+#   ENTREE lecture rang=1   par fil=…835200              (le fil, test N)
+#   POSE   modele_embedding par fil=…169984              (la boucle, test N+1)
+#   ENTREE lecture rang=2   par fil=…442496              (le fil, test N+1)
+#   RETIRE modele_embedding par fil=…835200 present=True ← le fil du test N
+#
+# CE N'EST DONC PAS « le drapeau n'est pas encore posé ». Il l'est, et le
+# mouchard le montre posé par la BOUCLE, conformément à ce que `_sondes_en_vol`
+# écrit. C'est « il a DÉJÀ été retiré », par un fil à qui il n'appartient plus.
+#
+# VIDER L'ENSEMBLE ENTRE DEUX TESTS N'Y SUFFISAIT PAS, ET L'AGGRAVAIT : le
+# `clear()` ORPHELINE le fil encore vivant, qui garde le droit de retirer un nom
+# qu'il ne détient plus. La seule fermeture est d'ATTENDRE son dernier geste
+# avant de rendre la main au test suivant.
+#
+# ET ON L'ATTEND, ON NE LE SONDE PAS À L'HORLOGE : l'ensemble est rendu
+# OBSERVABLE, et c'est le fil lui-même qui réveille la barrière en retirant son
+# drapeau. Un `sleep` plus long serait la même course avec une marge — et la
+# marge d'un poste n'est pas celle de la CI, ce qui est exactement l'écart dans
+# lequel ce défaut vivait.
+#
+# LA FORME EST CELLE-CI, ET PAS UN BRANCHEMENT PAR FICHIER, pour le motif déjà
+# écrit plus haut : un branchement ne couvre que les tests déjà écrits, et deux
+# modules lancent déjà des sondes — `test_garde_modele_embedding.py` et
+# `test_health_parallele.py`, qui partagent cet état de module sans s'importer.
+#
+# Garde : `tests/unit/test_montage_des_tests.py`, dans les DEUX directions.
+
+
+class DrapeauxDesSondes(set):
+    """`main._sondes_en_vol`, rendu OBSERVABLE pour qu'on puisse l'ATTENDRE.
+
+    Le dernier geste d'un fil de sonde est `discard(nom)`. En faire une mutation
+    observable, c'est se donner le droit d'attendre CE geste au lieu de lui
+    accorder un délai — et donc de ne rien devoir à la vitesse de la machine.
+    """
+
+    def __init__(self, *args) -> None:
+        super().__init__(*args)
+        self._mutation = threading.Condition()
+
+    def add(self, element):
+        with self._mutation:
+            super().add(element)
+            self._mutation.notify_all()
+
+    def discard(self, element):
+        with self._mutation:
+            super().discard(element)
+            self._mutation.notify_all()
+
+    def clear(self):
+        with self._mutation:
+            super().clear()
+            self._mutation.notify_all()
+
+    def attendre_le_vide(self, plafond: float) -> bool:
+        """Rend la main dès qu'aucune sonde n'est plus en vol. `False` au plafond.
+
+        Le plafond n'est pas une marge dont dépend le résultat : c'est le filet
+        qui transforme un fil qui ne revient JAMAIS en rouge nommé, au lieu d'une
+        suite qui se fige.
+        """
+        with self._mutation:
+            return self._mutation.wait_for(lambda: not self, timeout=plafond)
+
+
+# Le filet, et rien d'autre. En marche normale la barrière est réveillée par le
+# fil dans la microseconde qui suit sa libération ; ce chiffre n'est atteint que
+# par un test qui abandonne une sonde SANS jamais la débloquer, et il vaut alors
+# un rouge qui le nomme.
+_PLAFOND_DE_LA_BARRIERE_S = 10.0
+
+
+@pytest.fixture(autouse=True)
+def _aucune_sonde_en_vol_ne_franchit_la_fin_d_un_test():
+    """Aucun fil de sonde ne survit au test qui l'a lancé."""
+    from src.api import main
+
+    ancien = main._sondes_en_vol
+    drapeaux = DrapeauxDesSondes()
+    main._sondes_en_vol = drapeaux
+    try:
+        yield
+    finally:
+        # La barrière tourne AUSSI quand le test a rougi — c'est le test SUIVANT
+        # qu'elle protège, et il n'a pas à payer l'échec de celui-ci. Mais elle
+        # ne se PLAINT que si le test avait par ailleurs réussi : deux rouges
+        # pour une cause égarent.
+        revenues = drapeaux.attendre_le_vide(_PLAFOND_DE_LA_BARRIERE_S)
+        restantes = sorted(drapeaux)
+        main._sondes_en_vol = ancien
+        ancien.clear()
+    assert revenues, (
+        f"ce test rend la main en laissant {len(restantes)} sonde(s) EN VOL "
+        f"— {restantes} — après {_PLAFOND_DE_LA_BARRIERE_S} s. Le fil de cette "
+        "sonde est vivant, et son `finally` retirera ce nom PLUS TARD : il "
+        "effacera le drapeau que le test suivant aura posé, et c'est un rouge "
+        "qui ne tombera que sur une machine plus lente que celle-ci. Débloque "
+        "ce que la sonde attend avant de sortir du test"
+    )
