@@ -11306,3 +11306,194 @@ docstring de `tests/unit/conftest.py` l'écrit déjà pour la barrière réseau.
   correct dans `tests.md`. Constaté, **non corrigé** : élargir le motif à `les?`
   serait un élargissement légitime, mais toucher un garde de comptage dans un lot
   qui porte sur une course de montage mélangerait deux sujets.
+
+### 4.74 → LOT-34 : le drapeau retiré par nom, et ce qu'il coûte hors des tests
+
+Le §4.73 avait laissé ouvert le **résidu de production** : `_executer_sonde`
+retire le drapeau **par nom**, sans vérifier qu'il est le sien. Ce lot mesure
+d'abord ce que ce résidu coûte en service, puis le ferme. Base `main` =
+**`fef23da`**, arbre de travail monté par le §2.2 (anyio **4.15.1**). Toutes
+les mesures ci-dessous sont `mesuré` le **24 septembre 2026 entre 12:40 et
+13:45 UTC**, sauf mention contraire.
+
+**`src/` EST TOUCHÉ** : `src/api/main.py`, fonctions `_executer_sonde` et
+`_sonder`, et le commentaire de `_sondes_en_vol`. Le §4.18 s'applique.
+
+#### LE SITE DÉCRIVAIT MAL SA PROPRE FENÊTRE
+
+Le site écrivait : « entre l'instant où le fil est ordonnancé et celui où il
+exécute sa première instruction, une annulation ferait retirer le drapeau par
+la boucle alors que le fil va tourner ». **La fenêtre est plus étroite que cela,
+et la conséquence plus longue.**
+
+- **Plus étroite.** Le fil de travail d'AnyIO relit `future.cancelled()` AVANT
+  d'appeler la fonction (`anyio/_backends/_asyncio.py`, `WorkerThread.run`,
+  anyio 4.15.1) : un fil dont le futur est déjà annulé **ne lance rien**. La
+  fenêtre réelle va de ce contrôle au premier geste de `_executer_sonde` —
+  quelques instructions, pas « de l'ordonnancement au démarrage ».
+- **Plus longue.** Le site n'en tirait qu'« un fil de plus » pour une rafale
+  suivante. Il en manquait la suite : le fil renoncé tourne À CÔTÉ du fil de
+  l'appel suivant, et en revenant il retire **par nom** le drapeau de cet appel
+  vivant — la même forme que ce que le `clear()` du montage fabriquait au §4.73.
+
+#### 1. CE QUE LE RÉSIDU COÛTE EN SERVICE
+
+**En service, sur l'agent du port 8011, il n'a eu AUCUNE occasion — et c'est
+une absence d'occasion, pas une disculpation.** Le résidu exige qu'une
+annulation tombe au plafond ; le plafond n'a jamais tiré.
+
+| | commande | rendu |
+|---|---|---|
+| journal servi, du 22 septembre 09:52 au 24 septembre 12:40 UTC (code servi `ba6a8f0`, `_sonder` identique à la base) | `docker logs rag-agent-api` puis `grep -c` | **3869** `GET /health`, **7** `POST /chat/resume`, **0** ligne « n'a pas répondu en », **0** ligne « encore en vol » |
+| rafale provoquée, 12:42 UTC | 50 `GET /health` simultanés × 5 tours, `httpx` | **250/250** en 200, latence max **0,748 s** ; **0** plafond, **2336** lignes « encore en vol » |
+| rafale de 200 simultanés | idem, 3 tours prévus | **interrompue** au premier tour par `RemoteProtocolError` côté client ; l'agent est resté `healthy`, `RestartCount=0`. Rien n'en est tiré. |
+
+Les **2336** renoncements disent que les appels du même nom se **chevauchent**
+bel et bien en service — des `/health` concurrents — et que le drapeau les
+sérialise comme prévu. Ils ne disent rien du résidu, qui exige en plus que la
+sonde n'ait pas rendu la main en 3 s. **Je n'ai pas fait pendre un store servi**
+pour le provoquer : la pile est partagée, et la consigne du lot interdit d'y
+poser quoi que ce soit.
+
+La rafale a envoyé **652** requêtes `GET /v1/models` à `vllm-central` en
+13 s — c'est ce que coûte un `/health`, et c'est à savoir avant de la rejouer.
+
+#### 2. SA PRÉCONDITION EST ATTEIGNABLE, SA FENÊTRE NE L'A JAMAIS ÉTÉ SANS AIDE
+
+Forme de production, dans le processus : `main._sonder` appelé tel quel, avec
+`fils_gil` fils Python purs qui tournent à côté (la contention du GIL que des
+endpoints `def` chargés produiraient). Bancs hors dépôt, `latence.py` et
+`frequence.py`, sur l'arbre de BASE (`sha256` de `src/api/main.py` =
+`8a24523a…`).
+
+**Retard entre la mise en file et le premier geste du fil :**
+
+| `fils_gil` | échantillons | p50 | p99 | max |
+|---|---|---|---|---|
+| 0 | 2000 | 0,03 ms | 0,05 ms | 7,33 ms |
+| 4 | 500 | 5,27 ms | 396 ms | 2 761 ms |
+| 8 | 500 | 0,30 ms | 454 ms | 2 896 ms |
+| 16 | 500 | 0,24 ms | 1 092 ms | 8 900 ms |
+| 40 | 500 | 0,25 ms | 2 228 ms | 13 805 ms |
+
+**Le fil peut donc démarrer APRÈS le plafond de 3 s.** Au vrai plafond, sous
+40 fils, **2 annulations sur 30** sont tombées avant le démarrage du fil — et
+AnyIO les a écartées correctement : **0 résidu**.
+
+**Fréquence du résidu par annulation** (plafond tiré dans [0 ; 5 ms] pour
+multiplier les annulations sur la mise en file) :
+
+| `fils_gil` | annulations | retraits par la boucle | **résidus** |
+|---|---|---|---|
+| 0 | 3000 | 79 | **0** |
+| 16 | 3000 | 1659 | **0** |
+| 40 | 3000 prévues | — | **aucun chiffre** : tuée par `timeout 1500` (`rc=124`) avant la fin, et le banc n'écrit qu'à la fin |
+
+**CONTRÔLE POSITIF, et il dit que ce zéro sait compter.** Même banc, fil retenu
+par événement entre le contrôle d'AnyIO et son premier geste : **292 résidus
+sur 300** retraits (les 8 autres sont des annulations tombées avant le
+contrôle, où la fonction n'est pas appelée). Sur l'arbre réparé, même
+retenue : **0 sur 300**.
+
+`calculé` (règle de trois, 95 %) : moins de **3 / 1738 ≈ 0,17 %** (79 + 1659) de résidus par
+retrait de la boucle, sur ce poste, pour les formes de contention essayées.
+
+**CE ZÉRO NE DISCULPE RIEN**, pour la raison que le §4.73 a déjà écrite : une
+charge qui ne reproduit pas dit seulement que cette forme-là de contention n'a
+pas suffi. La fenêtre est de quelques instructions, sous un GIL qui ne bascule
+qu'aux 5 ms ; un ramasse-miettes ou un finaliseur déclenché dans ces
+instructions pourrait l'ouvrir. Je ne l'ai pas provoqué.
+
+#### 3. CE QU'IL COÛTE QUAND IL SE PRODUIT — LA RAFALE, PAS LA SONDE MUETTE
+
+Retard **injecté** sur le bord accusé, déclenché par événement : le fil A est
+retenu à l'entrée de `_executer_sonde` jusqu'à ce que la boucle ait TRAITÉ son
+annulation. Base :
+
+| scène | avant (base) | après (réparé), même retard |
+|---|---|---|
+| drapeau de B posé pendant que B tourne | **absent** | présent |
+| rafale de 26 appels pendant que B tourne | **1** sonde relancée, 25 renoncent | 0 relancée, 26 renoncent |
+| sondes simultanées, pic | **2** | 1 |
+| store lent, 12 maillons (un fil renoncé, puis le plus ancien rend la main à chaque appel) | **2** sondes simultanées **12 maillons sur 12** | 1 sur 12 |
+| drapeau encore posé une fois tous les fils revenus | non | non |
+
+**LEQUEL DES DEUX : LA RAFALE ROUVERTE, JAMAIS LA SONDE MUETTE.** Un retrait à
+tort ne peut que faire MANQUER un drapeau, jamais le laisser posé. Mais la
+rafale n'est pas rouverte « d'un fil, une fois », comme le site l'écrivait : sur
+un store lent, **le doublement se transmet** — chaque fil qui revient efface le
+drapeau de l'appel suivant — et dure autant que la panne.
+
+**C'est ce qui décide la réparation.** Le point 1 ne montre pas que le résidu ne
+coûte rien : il montre qu'il n'a pas eu d'occasion en 50 h sans panne. Le coût
+par occurrence est nommé et non nul, la précondition est mesurée atteignable,
+et le zéro naturel est un zéro de charge.
+
+#### 4. LA FERMETURE : UNE PRISE, ET NON UN JETON
+
+L'accusé `demarre` (un `threading.Event` que le fil posait et que la boucle
+LISAIT) devient une **prise** : un `threading.Lock` neuf par appel, que le fil
+à son entrée et la boucle dans son `except` demandent par
+`acquire(blocking=False)`. C'est un test-et-pose atomique : **un seul des deux
+gagne, le perdant ne fait RIEN.**
+
+- Le fil perd → il rend `None` sans sonder, dans un futur que plus personne
+  n'attend (`WorkerThread._report_result` ne pose rien dans un futur annulé).
+- La boucle perd → le fil tient la prise et retirera le drapeau en revenant.
+
+**Pourquoi pas le jeton d'appartenance du §4.73.** Un jeton empêche le fil
+renoncé de RETIRER un drapeau qui n'est pas le sien — mais il le laisse
+**sonder** : le store qui pend reçoit quand même deux fils. La prise ferme les
+deux. Elle garde aussi `_sondes_en_vol` en `set[str]`, donc la barrière du
+lot 33 (`DrapeauxDesSondes`, `tests/unit/conftest.py`) n'a pas bougé d'un
+caractère. **Aucun des deux côtés n'attend l'autre** : la boucle ne se bloque
+jamais sur un fil.
+
+**Le lot 33 n'est pas défait** : la barrière et son garde dans
+`test_montage_des_tests.py` restent. Ils gardent le côté TESTS — un fil laissé
+vivant par un test — que cette prise ne couvre pas : un fil qui a gagné la
+sienne retire toujours par nom, et un `clear()` du montage l'orphelinerait
+encore.
+
+#### 5. LA PREUVE
+
+**Garde neuf** :
+`test_un_fil_renonce_par_la_boucle_ne_retire_pas_le_drapeau_d_un_appel_vivant`,
+dans `test_garde_modele_embedding.py`. Base : **10 rouges sur 10**, au message
+« le fil A, que la boucle avait RENONCÉ, a retiré le drapeau de B » ; réparé,
+même retard : **10 verts sur 10**.
+
+**Mutations du PRODUCTEUR** (`src/api/main.py`), site relevé par motif avec
+assertion d'unicité, `py_compile` avant mesure, SHA-256 relevé avant et après,
+restauration par octets confrontée au SHA-256 d'origine. Mesure : `pytest` sur
+`test_garde_modele_embedding.py`, `test_health_parallele.py`,
+`test_montage_des_tests.py`.
+
+| mutation | SHA-256 avant → après | garde attendue | rendu |
+|---|---|---|---|
+| **témoin inerte** | `e5acc0fcfccf` → `e5acc0fcfccf` (inchangé, voulu) | aucune | `rc=0`, **69 passés** |
+| M1 — le fil perdant sonde ET retire | `e5acc0fcfccf` → `2e58011779dd` | le garde neuf, message « drapeau » | `rc=1`, 1 rouge : le garde neuf, message « a retiré le drapeau de B » |
+| M2 — le fil perdant sonde sans retirer | `e5acc0fcfccf` → `d4901b8004e3` | le garde neuf, message « pic » | `rc=1`, 1 rouge : le garde neuf, message « 2 sondes … ont tourné EN MÊME TEMPS » |
+| M3 — le fil ne prend jamais la prise | `e5acc0fcfccf` → `c10b19b3d2ec` | la rafale et le garde neuf | `rc=1`, 4 rouges, dont `…ne_lache_qu_un_fil_meme_en_rafale_simultanee` et le garde neuf |
+| M4 — la boucle retire même perdante (sens 1 de la relation) | `e5acc0fcfccf` → `031815d042d7` | la rafale | `rc=1`, 3 rouges, dont `…en_rafale_simultanee` et `…ne_relance_pas_un_second_fil` |
+| M5 — la boucle ne retire jamais (sens 2) | `e5acc0fcfccf` → `ad9197e99f9d` | `…qui_ne_demarre_jamais…` | `rc=1`, 2 rouges et 2 erreurs de la barrière du lot 33 : `…ne_laisse_pas_le_drapeau_pose` et le garde neuf |
+
+SHA-256 tronqués à 12 caractères, relevés le 24 septembre 2026 à 13:44 UTC sur
+le `src/api/main.py` livré ; après la dernière ligne, le fichier est revenu à
+`e5acc0fcfccf`, confronté. M4 ne fait pas rougir le garde neuf, et c'est voulu :
+sa scène fait GAGNER la boucle, que M4 ne touche pas.
+
+#### CE QUE CE LOT N'A PAS PROUVÉ
+
+- **Le résidu n'a jamais été observé sans injection**, ni en service, ni en
+  forme de production sous contention. La réparation ferme une fenêtre dont
+  seule la précondition et la conséquence sont mesurées.
+- **Le coût en service est une absence d'occasion** : 50 h sans que le
+  plafond tire. Pendant une vraie panne de store, sous charge, rien n'a été
+  mesuré.
+- **La contention essayée est d'une seule forme** — des fils Python purs. Un
+  ramasse-miettes long, un finaliseur, une extension C qui garde le GIL n'ont
+  pas été essayés.
+- **La propriété d'AnyIO dont dépend l'analyse** — `future.cancelled()` relu
+  avant l'appel — est lue dans le code d'**une** version (4.15.1). La prise ne
+  dépend pas de cette propriété ; l'analyse de la fenêtre, si.

@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1125 tests, aucune dépendance
+## Unitaire — 1126 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,18 +20,17 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 23 septembre 2026 à 15:00 UTC par LOT-33 : **1125** tests sur **57** fichiers,
+> `mesuré` le 24 septembre 2026 à 13:05 UTC par LOT-34 : **1126** tests sur **57** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
 > **CE COMPTE MONTE D'UN, ET AUCUN TEST N'A ÉTÉ RETIRÉ, NI AUCUN FICHIER AJOUTÉ.**
-> *(LOT-32 relevait **1124** sur **57** fichiers le 23 septembre à 09:19 UTC ; les **1** de plus
-> tiennent dans une scène ajoutée à `test_montage_des_tests.py`, qui garde la
-> barrière neuve de `tests/unit/conftest.py` : aucun fil de sonde ne franchit la
-> fin du test qui l'a lancé. Elle l'éprouve dans les DEUX directions — la
-> barrière ne doit pas rendre la main pendant que le fil tourne, et elle doit la
-> rendre au dernier geste de ce fil. `src/` n'est **pas** touché par ce lot. Le
-> constat est au §4.73 du registre.)*
+> *(LOT-33 relevait **1125** sur **57** fichiers le 23 septembre à 15:00 UTC ; les **1** de plus
+> tiennent dans une scène ajoutée à `test_garde_modele_embedding.py`, qui
+> reproduit par retard INJECTÉ le résidu de production du §4.73 — un fil que la
+> boucle a renoncé tourne quand même et retire PAR NOM le drapeau d'un appel
+> vivant — et garde sa fermeture par une prise exclusive dans `src/api/main.py`.
+> Le constat et les mesures sont au §4.74 du registre.)*
 >
 > **UN GARDE DE CE FICHIER LISAIT LE POSTE ET NON LE CODE, et ce lot l'a fait
 > rougir sans toucher au code.** `test_le_defaut_du_reglage_est_celui_que_la_campagne_a_tranche`

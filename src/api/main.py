@@ -501,21 +501,41 @@ def _reservoir_des_sondes() -> CapacityLimiter:
 # invoquée pour refuser : « tâche annulée avant que le fil démarre → drapeau
 # posé à jamais ». Elle ne pouvait de toute façon pas servir de motif, le code
 # d'avant atteignant DÉJÀ la cécité définitive dès qu'un fil pend pour de bon.
-# `_sonder` la ferme avec un accusé de démarrage posé par le fil : si l'offload
-# se termine par une exception SANS que le fil ait démarré, la boucle retire le
-# drapeau elle-même.
+# `_sonder` la ferme avec une PRISE que le fil et la boucle se disputent : si
+# l'offload se termine par une exception et que la boucle gagne la prise, le fil
+# n'a pas démarré et ne sondera plus, et la boucle retire le drapeau elle-même.
 #
-# Résidu restant, assumé et borné : entre l'instant où le fil est ordonnancé et
-# celui où il exécute sa première instruction, une annulation ferait retirer le
-# drapeau par la boucle alors que le fil va tourner. Une rafale suivante pourrait
-# alors lâcher un fil de plus. La panne remplacée est « un fil de trop », pas
-# « aveugle à jamais » — l'échange va dans le bon sens.
+# LE RÉSIDU QUE CE SITE DISAIT « ASSUMÉ ET BORNÉ » ÉTAIT RÉEL, ET IL EST FERMÉ
+# (LOT-34, §4.74 du registre). La boucle décidait « le fil n'a pas démarré » en
+# LISANT un accusé que le fil posait, et lire puis agir n'est pas atomique entre
+# deux fils. AnyIO ne lance pas une fonction dont le futur est déjà annulé, mais
+# une annulation tombée APRÈS ce contrôle et AVANT l'accusé trouvait un fil qui
+# ALLAIT tourner : la boucle retirait le drapeau, un appel suivant en posait un
+# neuf, et le fil renoncé tournait quand même — puis retirait PAR NOM le drapeau
+# de cet appel vivant. `mesuré` sous retard injecté : 26 appels en rafale
+# relancent alors UN fil de plus sur le store qui pend, et sur un store LENT le
+# doublement se transmet d'appel en appel — chaque fil qui revient efface le
+# drapeau du suivant : deux sondes au lieu d'une, 12 maillons sur 12. Aucune
+# sonde ne devient muette. SA PRÉCONDITION N'EST PAS THÉORIQUE : sous contention
+# du GIL, un fil de sonde démarre jusqu'à plusieurs secondes après sa mise en
+# file, donc au-delà du plafond. La fenêtre elle-même, quelques instructions,
+# n'a en revanche JAMAIS été atteinte sans injection : c'est écrit au §4.74, et
+# c'est ce qu'un audit doit remesurer avant de croire le contraire.
+#
+# LA FERMETURE EST UNE PRISE, ET NON UN JETON. Un `threading.Lock` neuf par appel,
+# pris SANS ATTENTE par le premier des deux qui le demande : le fil à son entrée,
+# la boucle quand l'offload se termine par une exception. `acquire(blocking=False)`
+# est un test-et-pose atomique, donc un seul des deux gagne, et le perdant ne
+# fait RIEN — ni sonde, ni retrait. Un jeton d'appartenance aurait seulement
+# empêché le retrait : le fil renoncé aurait tout de même frappé le store, à côté
+# du fil de l'appel suivant. Aucun des deux côtés n'attend l'autre, donc la
+# boucle ne se bloque jamais sur un fil.
 _sondes_en_vol: set[str] = set()
 
 
 def _executer_sonde[T](
-    nom: str, sonde: Callable[[], T], demarre: threading.Event
-) -> T:
+    nom: str, sonde: Callable[[], T], prise: threading.Lock
+) -> T | None:
     """Exécute une sonde synchrone DANS le fil du réservoir.
 
     Le drapeau « en vol » est RETIRÉ ici, par le fil lui-même, et non par la
@@ -527,11 +547,14 @@ def _executer_sonde[T](
     fil, il arrivait trop tard pour une rafale déjà passée par le test de
     `_sonder`. La pose est côté boucle ; voir le commentaire de `_sondes_en_vol`.
 
-    `demarre` est l'accusé de démarrage que `_sonder` attend pour savoir si
-    quelqu'un retirera le drapeau. Il est posé AVANT tout le reste : ce qui suit
-    peut bloquer pour toujours, et c'est précisément le cas qu'on garde.
+    `prise` décide QUI retirera le drapeau, et elle est prise AVANT tout le
+    reste : ce qui suit peut bloquer pour toujours, et c'est précisément le cas
+    qu'on garde. Si la boucle l'a prise la première, elle a déjà retiré le
+    drapeau et renoncé à ce fil : il rend None sans sonder, dans un futur que
+    plus personne n'attend. Voir le commentaire de `_sondes_en_vol`.
     """
-    demarre.set()
+    if not prise.acquire(blocking=False):
+        return None
     try:
         return sonde()
     finally:
@@ -597,7 +620,7 @@ async def _sonder[T](
         )
         return None
     _sondes_en_vol.add(nom)
-    demarre = threading.Event()
+    prise = threading.Lock()
     try:
         # `limiter=` ET C'EST TOUTE LA CORRECTION DE B-3 : sans lui, cette
         # ligne puise dans le réservoir que les endpoints `def` — donc les
@@ -607,7 +630,7 @@ async def _sonder[T](
             _executer_sonde,
             nom,
             sonde,
-            demarre,
+            prise,
             abandon_on_cancel=True,
             limiter=_reservoir_des_sondes(),
         )
@@ -616,12 +639,13 @@ async def _sonder[T](
         # n'hérite pas d'`Exception`. Justification de l'élargissement : ce bloc
         # ne rattrape rien, il RÉPARE un état de module avant de relever.
         #
-        # Le drapeau n'est retiré que si le fil n'a JAMAIS démarré : sinon c'est
-        # lui qui le retirera en revenant, et le retirer ici rouvrirait la fuite
-        # d'un fil par requête que ce garde existe pour fermer. C'est la fenêtre
-        # que ce site opposait autrefois à la pose côté boucle ; elle est traitée
-        # au lieu d'être invoquée.
-        if not demarre.is_set():
+        # Le drapeau n'est retiré que si la boucle GAGNE la prise : le fil n'a
+        # alors pas démarré, et il ne sondera plus. Perdue, c'est le fil qui la
+        # tient et qui retirera le drapeau en revenant ; le retirer ici
+        # rouvrirait la fuite d'un fil par requête que ce garde existe pour
+        # fermer. Lire un accusé de démarrage à la place de prendre ce verrou
+        # était le résidu du §4.73 : voir le commentaire de `_sondes_en_vol`.
+        if prise.acquire(blocking=False):
             _sondes_en_vol.discard(nom)
         raise
 

@@ -1363,8 +1363,9 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
     code d'avant atteignant déjà la cécité définitive dès qu'un fil pend pour de
     bon ; mais elle est réelle, et elle est traitée plutôt que laissée ouverte.
 
-    `_sonder` la ferme avec l'accusé de démarrage que le fil pose : si l'offload
-    se termine par une exception SANS que le fil ait démarré, la boucle retire le
+    `_sonder` la ferme avec la prise que le fil et la boucle se disputent
+    (§4.74) : si l'offload se termine par une exception et que la boucle gagne
+    la prise, le fil n'a pas démarré et ne sondera plus, et la boucle retire le
     drapeau elle-même. Sans ce retrait, la sonde serait morte pour la vie du
     processus.
 
@@ -1443,6 +1444,123 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
         occupe.set()
         squat.cancel()
         limiteur.total_tokens = jetons_initiaux
+
+
+@pytest.mark.asyncio
+async def test_un_fil_renonce_par_la_boucle_ne_retire_pas_le_drapeau_d_un_appel_vivant(
+    monkeypatch
+) -> None:
+    """LE RÉSIDU DE PRODUCTION DU §4.73, reproduit par retard INJECTÉ puis fermé.
+
+    LA FENÊTRE. AnyIO ne lance pas une fonction dont le futur est déjà annulé :
+    son fil de travail relit `future.cancelled()` avant d'appeler. Une
+    annulation qui tombe APRÈS ce contrôle et AVANT le premier geste du fil de
+    sonde trouve donc un fil qui VA tourner, alors que la boucle a toutes les
+    raisons de croire qu'il ne tournera pas. `mesuré` : sous contention du GIL,
+    le fil démarre jusqu'à plusieurs secondes après sa mise en file — au-delà
+    du plafond de 3 s — donc l'annulation au plafond peut tomber n'importe où
+    sur ce trajet.
+
+    CE QUE LE RÉSIDU COÛTAIT, et c'est ce que ce test observe : la boucle
+    retirait le drapeau, un appel suivant B en posait un neuf, le fil renoncé A
+    tournait QUAND MÊME à côté de B, et en revenant il retirait PAR NOM le
+    drapeau de B, vivant. Deux fils sur la même sonde, puis un drapeau absent
+    pendant que B pend : la rafale suivante repart. Pas une sonde muette — un
+    drapeau effacé ne peut que manquer, jamais rester.
+
+    LE RETARD EST DÉCLENCHÉ PAR UN ÉVÉNEMENT, JAMAIS PAR L'HORLOGE : le fil A est
+    retenu à l'entrée de `_executer_sonde` — donc après le contrôle d'AnyIO —
+    jusqu'à ce que la boucle ait TRAITÉ son annulation ; et sa sonde, si elle
+    tourne, est retenue jusqu'à ce que celle de B soit entrée. Les deux
+    chevauchements sont ainsi forcés, sur toute machine.
+    """
+    from src.api import main
+
+    nom = "sonde_du_montage"
+    reel = main._executer_sonde
+    franchi = threading.Event()
+    annulation_traitee = threading.Event()
+    a_rendu = threading.Event()
+    b_entree = threading.Event()
+    b_libere = threading.Event()
+    verrou = threading.Lock()
+    dedans = [0]
+    pic = [0]
+
+    def _compter(delta: int) -> None:
+        with verrou:
+            dedans[0] += delta
+            pic[0] = max(pic[0], dedans[0])
+
+    def _fil_retenu(nom_, sonde, *reste):
+        # Le fil A seul est retenu : il est PASSÉ par le contrôle d'AnyIO, il
+        # n'a pas encore fait son premier geste.
+        if not franchi.is_set():
+            franchi.set()
+            annulation_traitee.wait(_CAP_SECURITE_S)
+            try:
+                return reel(nom_, sonde, *reste)
+            finally:
+                a_rendu.set()
+        return reel(nom_, sonde, *reste)
+
+    def _sonde_a() -> bool:
+        _compter(+1)
+        try:
+            b_entree.wait(_CAP_SECURITE_S)
+            return True
+        finally:
+            _compter(-1)
+
+    def _sonde_b() -> bool:
+        _compter(+1)
+        try:
+            b_entree.set()
+            b_libere.wait(_CAP_SECURITE_S)
+            return True
+        finally:
+            _compter(-1)
+
+    async def _attendre(evenement: threading.Event) -> bool:
+        return await asyncio.to_thread(evenement.wait, _CAP_SECURITE_S)
+
+    monkeypatch.setattr(main, "_executer_sonde", _fil_retenu)
+    tache_b = None
+    try:
+        tache_a = asyncio.create_task(main._sonder(nom, _sonde_a, appelant="/montage"))
+        assert await _attendre(franchi), (
+            "le fil A n'a jamais atteint `_executer_sonde` : l'injection ne "
+            "retient rien, et ce test ne mesure pas la fenêtre"
+        )
+        tache_a.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await tache_a
+        assert nom not in main._sondes_en_vol, (
+            "la boucle n'a pas retiré le drapeau d'un fil qu'elle croit ne pas "
+            "avoir démarré : ce test n'atteint pas la fenêtre qu'il garde"
+        )
+        annulation_traitee.set()
+
+        tache_b = asyncio.create_task(main._sonder(nom, _sonde_b, appelant="/montage"))
+        assert await _attendre(b_entree), "la sonde B n'est jamais entrée"
+        assert await _attendre(a_rendu), "le fil A n'est jamais revenu"
+
+        assert nom in main._sondes_en_vol, (
+            "le fil A, que la boucle avait RENONCÉ, a retiré le drapeau de B "
+            "alors que B tourne encore : il retire PAR NOM un drapeau qui n'est "
+            "pas le sien. L'appel suivant lâcherait un fil de plus sur un store "
+            "qui pend — la rafale que la pose côté boucle bornait est rouverte"
+        )
+        assert pic[0] == 1, (
+            f"{pic[0]} sondes « {nom} » ont tourné EN MÊME TEMPS : le fil renoncé "
+            "par la boucle a tourné quand même, à côté de celui de l'appel suivant"
+        )
+    finally:
+        annulation_traitee.set()
+        b_entree.set()
+        b_libere.set()
+        if tache_b is not None:
+            await tache_b
 
 
 @pytest.mark.asyncio
