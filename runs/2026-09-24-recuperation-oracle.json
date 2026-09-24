@@ -1,0 +1,3465 @@
+{
+  "etape": "oracle",
+  "profondeurs": {
+    "fetch_k": 50,
+    "retrieval_top_k": 50,
+    "rerank_top_k": 10,
+    "hybrid_search": true,
+    "torch_device": "cpu"
+  },
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-24T20:24:03+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-24T21:08:38+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "lignes": [
+    {
+      "id": "D-001",
+      "gold": [
+        "6e460fc900",
+        "f3bc57cfd2"
+      ],
+      "requete_unique_sans_traduction": {
+        "6e460fc900": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f3bc57cfd2": {
+          "dense": null,
+          "lexical": 6,
+          "fusion": 15,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "6e460fc900": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "f3bc57cfd2": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What methodologies or processes can be employed to safely introduce new, potentially superior AI models into a live production environment?",
+        "What specific measures can be taken to ensure that the stability of an existing system is not compromised during the integration of new AI models?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "6e460fc900": null,
+        "f3bc57cfd2": null
+      }
+    },
+    {
+      "id": "D-002",
+      "gold": [
+        "0f4741eda9",
+        "ad7852e761"
+      ],
+      "requete_unique_sans_traduction": {
+        "0f4741eda9": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 15,
+          "rerank": 1
+        },
+        "ad7852e761": {
+          "dense": null,
+          "lexical": 49,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "0f4741eda9": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 1
+        },
+        "ad7852e761": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "How can custom validation logic be implemented at the AI Gateway level?",
+        "How can advanced agent capabilities be utilized to enhance complex application workflows in conjunction with AI Gateway validation?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          7,
+          2
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "0f4741eda9": 1,
+        "ad7852e761": 2
+      }
+    },
+    {
+      "id": "D-003",
+      "gold": [
+        "f653d1f934",
+        "54ec58051b"
+      ],
+      "requete_unique_sans_traduction": {
+        "f653d1f934": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "54ec58051b": {
+          "dense": 31,
+          "lexical": 28,
+          "fusion": 8,
+          "rerank": 6
+        }
+      },
+      "oracle_preuve": {
+        "f653d1f934": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "54ec58051b": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the role or type of professional responsible for deploying functional GenAI applications?",
+        "For what purpose would integrating a specialized agent, such as one designed to suggest alternative flight dates, be beneficial to this professional?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "f653d1f934": 1,
+        "54ec58051b": 1
+      }
+    },
+    {
+      "id": "D-004",
+      "gold": [
+        "749abf1dde",
+        "80c7ee54db"
+      ],
+      "requete_unique_sans_traduction": {
+        "749abf1dde": {
+          "dense": 31,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 5
+        },
+        "80c7ee54db": {
+          "dense": 12,
+          "lexical": null,
+          "fusion": 22,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "749abf1dde": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "80c7ee54db": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What methods are recommended for gathering feedback from end-users in a live environment?",
+        "How can gathered end-user feedback examples be organized for consistent testing?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          6
+        ],
+        [
+          6,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "749abf1dde": 6,
+        "80c7ee54db": 6
+      }
+    },
+    {
+      "id": "D-005",
+      "gold": [
+        "e8ffbae08d",
+        "6af75f2503"
+      ],
+      "requete_unique_sans_traduction": {
+        "e8ffbae08d": {
+          "dense": 19,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 7
+        },
+        "6af75f2503": {
+          "dense": 8,
+          "lexical": 6,
+          "fusion": 1,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "e8ffbae08d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "6af75f2503": {
+          "dense": 9,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What capabilities allow modern large language models to handle both text and images from a single PDF during complex document analysis?",
+        "Which specific tool is recommended for retrieving semantically similar document chunks based on meaning?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "e8ffbae08d": 1,
+        "6af75f2503": 1
+      }
+    },
+    {
+      "id": "D-006",
+      "gold": [
+        "9279ceed24",
+        "932d79806d"
+      ],
+      "requete_unique_sans_traduction": {
+        "9279ceed24": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "9279ceed24": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the maximum model size allowed for Databricks serverless optimized deployments when agent initialization and configuration are handled via a specific YAML file?",
+        "What is the model size limit when environment packaging is not employed in Databricks deployments?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "9279ceed24": null,
+        "932d79806d": 1
+      }
+    },
+    {
+      "id": "D-007",
+      "gold": [
+        "932d79806d",
+        "1e2a87fc78"
+      ],
+      "requete_unique_sans_traduction": {
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "1e2a87fc78": {
+          "dense": null,
+          "lexical": 2,
+          "fusion": 7,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "1e2a87fc78": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the specific limitation regarding the maximum model size when utilizing the serverless optimized deployment feature?",
+        "What practice is recommended to ensure that the exact development conditions can be recreated for reproducibility?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "932d79806d": 1,
+        "1e2a87fc78": 1
+      }
+    },
+    {
+      "id": "D-008",
+      "gold": [
+        "6e431fec81",
+        "72853b7eed"
+      ],
+      "requete_unique_sans_traduction": {
+        "6e431fec81": {
+          "dense": 13,
+          "lexical": 1,
+          "fusion": 3,
+          "rerank": 1
+        },
+        "72853b7eed": {
+          "dense": null,
+          "lexical": 46,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "6e431fec81": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "72853b7eed": {
+          "dense": 9,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the necessary prerequisite step for creating a tool-calling agent for Unity Airways FAQs?",
+        "What common serialization issue arises when dealing with LangChain agents?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          2
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "6e431fec81": 1,
+        "72853b7eed": 2
+      }
+    },
+    {
+      "id": "D-009",
+      "gold": [
+        "536d459c09",
+        "9112c67fa0"
+      ],
+      "requete_unique_sans_traduction": {
+        "536d459c09": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9112c67fa0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "536d459c09": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "9112c67fa0": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What mechanism allows a system to document the reasoning behind a generated response?",
+        "What broader industry standard necessitates detailed tracking of model reasoning for model reliability?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          10,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "536d459c09": 10,
+        "9112c67fa0": null
+      }
+    },
+    {
+      "id": "D-010",
+      "gold": [
+        "61e84a5266",
+        "ed1a2abcaa"
+      ],
+      "requete_unique_sans_traduction": {
+        "61e84a5266": {
+          "dense": 6,
+          "lexical": 4,
+          "fusion": 2,
+          "rerank": 2
+        },
+        "ed1a2abcaa": {
+          "dense": 47,
+          "lexical": 3,
+          "fusion": 4,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "61e84a5266": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "ed1a2abcaa": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the standard procedure for preparing a high-performing model for future deployment?",
+        "What specific use case benefits from pre-calculating and storing predictions in a database?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          2,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "61e84a5266": 1,
+        "ed1a2abcaa": 2
+      }
+    },
+    {
+      "id": "D-011",
+      "gold": [
+        "dfb078e932",
+        "c6d376218b"
+      ],
+      "requete_unique_sans_traduction": {
+        "dfb078e932": {
+          "dense": 17,
+          "lexical": null,
+          "fusion": 35,
+          "rerank": 10
+        },
+        "c6d376218b": {
+          "dense": null,
+          "lexical": 8,
+          "fusion": 18,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "dfb078e932": {
+          "dense": 17,
+          "lexical": 1,
+          "fusion": 3,
+          "rerank": 1
+        },
+        "c6d376218b": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific capability of MLflow Tracing allows developers to observe the execution flow of a complete Retrieval-Augmented Generation (RAG) pipeline?",
+        "How does MLflow Tracing enable developers to monitor the handling of sensitive data during the execution of that RAG pipeline?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          9
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "dfb078e932": null,
+        "c6d376218b": 9
+      }
+    },
+    {
+      "id": "D-012",
+      "gold": [
+        "c66abf9bb9",
+        "4e5d60c770"
+      ],
+      "requete_unique_sans_traduction": {
+        "c66abf9bb9": {
+          "dense": null,
+          "lexical": 29,
+          "fusion": null,
+          "rerank": null
+        },
+        "4e5d60c770": {
+          "dense": 18,
+          "lexical": 2,
+          "fusion": 3,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "c66abf9bb9": {
+          "dense": 8,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4e5d60c770": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the insights gathered from tracing application behavior?",
+        "How can these insights be leveraged when building a visualization tool for intent categorization?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "c66abf9bb9": null,
+        "4e5d60c770": 1
+      }
+    },
+    {
+      "id": "D-013",
+      "gold": [
+        "4e5d60c770",
+        "3b8a048acb"
+      ],
+      "requete_unique_sans_traduction": {
+        "4e5d60c770": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "3b8a048acb": {
+          "dense": 5,
+          "lexical": 3,
+          "fusion": 2,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "4e5d60c770": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "3b8a048acb": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the process for visualizing question intent categorization when using a specific dataset?",
+        "How does the implementation of the Photon engine affect this visualization process?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "4e5d60c770": 1,
+        "3b8a048acb": 1
+      }
+    },
+    {
+      "id": "D-014",
+      "gold": [
+        "e653eb481c",
+        "c06829515c"
+      ],
+      "requete_unique_sans_traduction": {
+        "e653eb481c": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 11,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 14,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "e653eb481c": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific action must be taken regarding authentication when setting up a compute environment for a single-node configuration?",
+        "What is the requirement for authentication when the compute environment setup is for non-distributed Python tasks?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "e653eb481c": 1,
+        "c06829515c": 3
+      }
+    },
+    {
+      "id": "D-015",
+      "gold": [
+        "d2f7b67beb",
+        "f0f9cb7af9"
+      ],
+      "requete_unique_sans_traduction": {
+        "d2f7b67beb": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f0f9cb7af9": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "d2f7b67beb": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "f0f9cb7af9": {
+          "dense": 11,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "How is foundation model usage attributed to a specific project when utilizing external or dedicated serving endpoints?",
+        "What specific identifiers are tracked for monitoring purposes to facilitate the attribution of foundation model usage to a project?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "d2f7b67beb": null,
+        "f0f9cb7af9": 1
+      }
+    },
+    {
+      "id": "D-016",
+      "gold": [
+        "a8caa27e46",
+        "175ce6903d"
+      ],
+      "requete_unique_sans_traduction": {
+        "a8caa27e46": {
+          "dense": null,
+          "lexical": 30,
+          "fusion": null,
+          "rerank": null
+        },
+        "175ce6903d": {
+          "dense": 1,
+          "lexical": 4,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "a8caa27e46": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "175ce6903d": {
+          "dense": 32,
+          "lexical": 1,
+          "fusion": 4,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "When deploying Lakeflow jobs without Declarative Automation Bundles, what kind of necessary coordination is required between different technical roles to ensure reliable system operation?",
+        "What specific configuration file might be needed if a Python script is being executed during the deployment of Lakeflow jobs without Declarative Automation Bundles?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          2
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "a8caa27e46": null,
+        "175ce6903d": 1
+      }
+    },
+    {
+      "id": "D-017",
+      "gold": [
+        "84aac199a3",
+        "343cfcd5c1"
+      ],
+      "requete_unique_sans_traduction": {
+        "84aac199a3": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "343cfcd5c1": {
+          "dense": 35,
+          "lexical": 13,
+          "fusion": 11,
+          "rerank": 2
+        }
+      },
+      "oracle_preuve": {
+        "84aac199a3": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "343cfcd5c1": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the specific security risks associated with data or parameter leakage in applications?",
+        "What measures are implemented to prevent data or parameter leakage when using specialized data storage systems?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "84aac199a3": null,
+        "343cfcd5c1": 1
+      }
+    },
+    {
+      "id": "D-018",
+      "gold": [
+        "cefb8ed19b",
+        "bae642fe8e"
+      ],
+      "requete_unique_sans_traduction": {
+        "cefb8ed19b": {
+          "dense": 38,
+          "lexical": 2,
+          "fusion": 3,
+          "rerank": 3
+        },
+        "bae642fe8e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "cefb8ed19b": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "bae642fe8e": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What methods can be used to manage the stability of model deployments?",
+        "How can the identity executing downstream operations be properly controlled when using agents deployed with Databricks?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "cefb8ed19b": null,
+        "bae642fe8e": 1
+      }
+    },
+    {
+      "id": "D-019",
+      "gold": [
+        "c52db7bfaf",
+        "684bcfccd0"
+      ],
+      "requete_unique_sans_traduction": {
+        "c52db7bfaf": {
+          "dense": null,
+          "lexical": 19,
+          "fusion": 38,
+          "rerank": 10
+        },
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": 15,
+          "fusion": 31,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "c52db7bfaf": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 6,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the recommended practice for defining a tool's utility?",
+        "How does defining a tool's utility relate to the process of improving user interaction with an agent?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          2,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "c52db7bfaf": 2,
+        "684bcfccd0": null
+      }
+    },
+    {
+      "id": "D-020",
+      "gold": [
+        "1a9bc53bde",
+        "4b959587f0"
+      ],
+      "requete_unique_sans_traduction": {
+        "1a9bc53bde": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4b959587f0": {
+          "dense": 25,
+          "lexical": 2,
+          "fusion": 3,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "1a9bc53bde": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4b959587f0": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the primary reason for shifting the capacity measurement from requests per second to a token-based metric?",
+        "What role do human evaluators play in ensuring the system meets real-world business needs?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "1a9bc53bde": 1,
+        "4b959587f0": 1
+      }
+    },
+    {
+      "id": "D-021",
+      "gold": [
+        "7453eeb62b",
+        "18087fe034"
+      ],
+      "requete_unique_sans_traduction": {
+        "7453eeb62b": {
+          "dense": 30,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "18087fe034": {
+          "dense": null,
+          "lexical": 28,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "7453eeb62b": {
+          "dense": 7,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "18087fe034": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 15,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the benefit of making small, reversible changes when dealing with the complexities introduced by larger models?",
+        "How does the practice of making small, reversible changes help manage the complexities introduced by additional tools?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          8,
+          4
+        ],
+        [
+          null,
+          3
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "7453eeb62b": 8,
+        "18087fe034": 3
+      }
+    },
+    {
+      "id": "D-022",
+      "gold": [
+        "e6440165bb",
+        "613070ecd8"
+      ],
+      "requete_unique_sans_traduction": {
+        "e6440165bb": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "613070ecd8": {
+          "dense": 2,
+          "lexical": 21,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "e6440165bb": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 16,
+          "rerank": 3
+        },
+        "613070ecd8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the nature of the application deployment process?",
+        "What specific integration capability does LangChain offer for this type of development?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "e6440165bb": null,
+        "613070ecd8": 1
+      }
+    },
+    {
+      "id": "D-023",
+      "gold": [
+        "e576f2c83b",
+        "dcb37d50b8"
+      ],
+      "requete_unique_sans_traduction": {
+        "e576f2c83b": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "dcb37d50b8": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 9,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "e576f2c83b": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "dcb37d50b8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What characteristic of the MLflow span object allows it to be easily integrated with OpenTelemetry standards?",
+        "What specific type of measurement does the Total Variation Distance provide regarding distribution differences?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "e576f2c83b": 1,
+        "dcb37d50b8": 1
+      }
+    },
+    {
+      "id": "D-024",
+      "gold": [
+        "6a0db29f36",
+        "bef3e20e36"
+      ],
+      "requete_unique_sans_traduction": {
+        "6a0db29f36": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "bef3e20e36": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "6a0db29f36": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "bef3e20e36": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific components, beyond application metadata, must be bundled with an application to ensure reproducibility for complex AI systems?",
+        "What aspects of integrated parts within a complex AI system necessitate bundling beyond just application metadata for reproducibility?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "6a0db29f36": null,
+        "bef3e20e36": 1
+      }
+    },
+    {
+      "id": "D-025",
+      "gold": [
+        "b927ff5d4d",
+        "58203d876d"
+      ],
+      "requete_unique_sans_traduction": {
+        "b927ff5d4d": {
+          "dense": 34,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "58203d876d": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "b927ff5d4d": {
+          "dense": 5,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "58203d876d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "How does the choice of metric aggregation granularity affect the ability to detect meaningful changes in data distribution?",
+        "How does the choice of metric aggregation granularity affect the ability to detect meaningful changes in model performance, particularly when considering the broader scope of system reliability?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "b927ff5d4d": null,
+        "58203d876d": 1
+      }
+    },
+    {
+      "id": "D-026",
+      "gold": [
+        "0f66b973ed",
+        "28c4bafad0"
+      ],
+      "requete_unique_sans_traduction": {
+        "0f66b973ed": {
+          "dense": null,
+          "lexical": 34,
+          "fusion": null,
+          "rerank": null
+        },
+        "28c4bafad0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "0f66b973ed": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "28c4bafad0": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What challenge arises when the retrieved context is incomplete?",
+        "What specific aspects of the Proof of Concept evaluation need to address the issue of incomplete retrieved context?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "0f66b973ed": 1,
+        "28c4bafad0": null
+      }
+    },
+    {
+      "id": "D-027",
+      "gold": [
+        "a0d2c369cc",
+        "b4b0461854"
+      ],
+      "requete_unique_sans_traduction": {
+        "a0d2c369cc": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "b4b0461854": {
+          "dense": 8,
+          "lexical": 3,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "a0d2c369cc": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "b4b0461854": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the implications of feature retrieval flexibility within a complex model serving scenario?",
+        "Why is response accuracy considered critically important in AI applications?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "a0d2c369cc": 1,
+        "b4b0461854": 1
+      }
+    },
+    {
+      "id": "D-028",
+      "gold": [
+        "a9748a6b45",
+        "149721fd2e"
+      ],
+      "requete_unique_sans_traduction": {
+        "a9748a6b45": {
+          "dense": 39,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "149721fd2e": {
+          "dense": 5,
+          "lexical": null,
+          "fusion": 13,
+          "rerank": 10
+        }
+      },
+      "oracle_preuve": {
+        "a9748a6b45": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 9,
+          "rerank": 1
+        },
+        "149721fd2e": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 7,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific actions must be taken regarding infrastructure configuration when implementing a continuous deployment pipeline using AWS for Databricks?",
+        "What foundational knowledge is necessary to manage ML workflows in a production setting?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          3
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "a9748a6b45": 3,
+        "149721fd2e": 1
+      }
+    },
+    {
+      "id": "D-029",
+      "gold": [
+        "633d13730b",
+        "db98d74f05"
+      ],
+      "requete_unique_sans_traduction": {
+        "633d13730b": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "db98d74f05": {
+          "dense": 4,
+          "lexical": 48,
+          "fusion": 6,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "633d13730b": {
+          "dense": 13,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "db98d74f05": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the limitations of standard visualization tools when dealing with trace data?",
+        "How can human-provided feedback be integrated into trace data managed by a serving endpoint to mitigate visualization limitations?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "633d13730b": 1,
+        "db98d74f05": 1
+      }
+    },
+    {
+      "id": "D-030",
+      "gold": [
+        "0023419387",
+        "c06829515c"
+      ],
+      "requete_unique_sans_traduction": {
+        "0023419387": {
+          "dense": 2,
+          "lexical": 8,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 10,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "0023419387": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What approach is advised for managing package dependencies when developing reusable software components?",
+        "What specific configuration files must be evaluated for authentication when running commands from a bundle working directory?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "0023419387": 1,
+        "c06829515c": 1
+      }
+    },
+    {
+      "id": "D-031",
+      "gold": [
+        "a2357ed171",
+        "cdf017ab37"
+      ],
+      "requete_unique_sans_traduction": {
+        "a2357ed171": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "cdf017ab37": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "a2357ed171": {
+          "dense": 22,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 1
+        },
+        "cdf017ab37": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the recommended modern method for model registration within the Databricks environment?",
+        "How does the recommended model registration method relate to the functional role of certain platform elements?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          6
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "a2357ed171": 1,
+        "cdf017ab37": 6
+      }
+    },
+    {
+      "id": "D-032",
+      "gold": [
+        "c43739d3d0",
+        "5ede2adb49"
+      ],
+      "requete_unique_sans_traduction": {
+        "c43739d3d0": {
+          "dense": 37,
+          "lexical": 26,
+          "fusion": 9,
+          "rerank": 3
+        },
+        "5ede2adb49": {
+          "dense": 1,
+          "lexical": 18,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "c43739d3d0": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "5ede2adb49": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific documentation requirements must be met during the data structuring phase to ensure the transition of a system to production is technically sound?",
+        "What documentation requirements must be met during the data structuring phase to ensure compliance with governance standards for a system transitioning to production?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          2
+        ],
+        [
+          2,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "c43739d3d0": 2,
+        "5ede2adb49": 2
+      }
+    },
+    {
+      "id": "D-033",
+      "gold": [
+        "e4d37ffbb9",
+        "ad7852e761"
+      ],
+      "requete_unique_sans_traduction": {
+        "e4d37ffbb9": {
+          "dense": 49,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "ad7852e761": {
+          "dense": 2,
+          "lexical": 13,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "e4d37ffbb9": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "ad7852e761": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific functional aspect of agent capabilities can be enhanced by integrating them as tools within complex applications?",
+        "What is the primary purpose of the book regarding the overall understanding of Databricks components?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          8,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "e4d37ffbb9": 1,
+        "ad7852e761": 8
+      }
+    },
+    {
+      "id": "D-034",
+      "gold": [
+        "d038dc7350",
+        "f2c2c70bb4"
+      ],
+      "requete_unique_sans_traduction": {
+        "d038dc7350": {
+          "dense": 6,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 2
+        },
+        "f2c2c70bb4": {
+          "dense": 50,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "d038dc7350": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "f2c2c70bb4": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the current challenge regarding the lack of a universal execution environment for agents?",
+        "How does the lack of a universal execution environment for agents relate to the specific responsibilities of MLflow within the Databricks ecosystem?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          3
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "d038dc7350": 3,
+        "f2c2c70bb4": 1
+      }
+    },
+    {
+      "id": "D-035",
+      "gold": [
+        "684bcfccd0",
+        "9bbfa011a5"
+      ],
+      "requete_unique_sans_traduction": {
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9bbfa011a5": {
+          "dense": null,
+          "lexical": 10,
+          "fusion": 20,
+          "rerank": 2
+        }
+      },
+      "oracle_preuve": {
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 6,
+          "rerank": 1
+        },
+        "9bbfa011a5": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the current limitations of coding assistants?",
+        "How does the process of tailoring agent interactions to specific user needs relate to these limitations?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "684bcfccd0": 1,
+        "9bbfa011a5": null
+      }
+    },
+    {
+      "id": "D-036",
+      "gold": [
+        "384cc03027",
+        "ef5b8bee12"
+      ],
+      "requete_unique_sans_traduction": {
+        "384cc03027": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "ef5b8bee12": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 2
+        }
+      },
+      "oracle_preuve": {
+        "384cc03027": {
+          "dense": 16,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 1
+        },
+        "ef5b8bee12": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific configuration steps are necessary when setting up a SQL warehouse for a Genie agent?",
+        "What is a related challenge in managing prompt behavior in MLflow?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "384cc03027": 1,
+        "ef5b8bee12": null
+      }
+    },
+    {
+      "id": "D-037",
+      "gold": [
+        "32604c8f24",
+        "cb237ecf93"
+      ],
+      "requete_unique_sans_traduction": {
+        "32604c8f24": {
+          "dense": 29,
+          "lexical": 2,
+          "fusion": 3,
+          "rerank": 3
+        },
+        "cb237ecf93": {
+          "dense": null,
+          "lexical": 7,
+          "fusion": 17,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "32604c8f24": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "cb237ecf93": {
+          "dense": 33,
+          "lexical": 1,
+          "fusion": 4,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific capabilities of the MLflow UI become available when viewing an evaluation run generated by a model designed for RAG and agent systems?",
+        "How does the MLflow UI handle traces that contain multiple types of assessments within a single evaluation run?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          2,
+          null
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "32604c8f24": null,
+        "cb237ecf93": 1
+      }
+    },
+    {
+      "id": "D-038",
+      "gold": [
+        "e2b3d4f293",
+        "87c2d10179"
+      ],
+      "requete_unique_sans_traduction": {
+        "e2b3d4f293": {
+          "dense": 34,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "87c2d10179": {
+          "dense": null,
+          "lexical": 13,
+          "fusion": 27,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "e2b3d4f293": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "87c2d10179": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific components are necessary for an evaluation process to function?",
+        "What capabilities must a system possess to effectively manage and track datasets?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          7,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "e2b3d4f293": null,
+        "87c2d10179": 7
+      }
+    },
+    {
+      "id": "D-039",
+      "gold": [
+        "dfaa35986e",
+        "f6f5f4fedc"
+      ],
+      "requete_unique_sans_traduction": {
+        "dfaa35986e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f6f5f4fedc": {
+          "dense": 23,
+          "lexical": null,
+          "fusion": 43,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "dfaa35986e": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "f6f5f4fedc": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is a common pitfall in development that can lead to impractical solutions?",
+        "What percentage of ML projects currently lack the necessary oversight to identify such issues?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "dfaa35986e": null,
+        "f6f5f4fedc": 1
+      }
+    },
+    {
+      "id": "D-040",
+      "gold": [
+        "857a947021",
+        "d3ad1729f6"
+      ],
+      "requete_unique_sans_traduction": {
+        "857a947021": {
+          "dense": 45,
+          "lexical": 31,
+          "fusion": 5,
+          "rerank": 10
+        },
+        "d3ad1729f6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "857a947021": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "d3ad1729f6": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific capabilities does MLflow offer for managing AI agents?",
+        "What kind of metrics can be observed when evaluating the performance of AI agents using MLflow?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "857a947021": null,
+        "d3ad1729f6": 1
+      }
+    },
+    {
+      "id": "D-041",
+      "gold": [
+        "9889dcd22c",
+        "4bfc8482d4"
+      ],
+      "requete_unique_sans_traduction": {
+        "9889dcd22c": {
+          "dense": 6,
+          "lexical": null,
+          "fusion": 13,
+          "rerank": 2
+        },
+        "4bfc8482d4": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 8,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "9889dcd22c": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4bfc8482d4": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What critical business need drives the requirement for automated evaluation processes when moving an LLM from development to a live environment?",
+        "How does a Retrieval-Augmented Generation (RAG) system specifically contribute to meeting this need in a sales context?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          4,
+          null
+        ],
+        [
+          null,
+          6
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "9889dcd22c": 4,
+        "4bfc8482d4": 6
+      }
+    },
+    {
+      "id": "D-042",
+      "gold": [
+        "4952d540d6",
+        "43406c2554"
+      ],
+      "requete_unique_sans_traduction": {
+        "4952d540d6": {
+          "dense": 9,
+          "lexical": null,
+          "fusion": 24,
+          "rerank": 1
+        },
+        "43406c2554": {
+          "dense": 40,
+          "lexical": 22,
+          "fusion": 9,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "4952d540d6": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "43406c2554": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "In the context of building a GenAI application using MLflow for structured model iteration, how is the concept of a 'model' defined?",
+        "What specific components might be involved in the operation of a 'model' when managed within MLflow for structured model iteration?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          3
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "4952d540d6": 1,
+        "43406c2554": null
+      }
+    },
+    {
+      "id": "D-043",
+      "gold": [
+        "4952d540d6",
+        "d548a9c3a8"
+      ],
+      "requete_unique_sans_traduction": {
+        "4952d540d6": {
+          "dense": 33,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "d548a9c3a8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "4952d540d6": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "d548a9c3a8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific components, such as models or parameters, can be found within the artifacts section of an MLflow run?",
+        "How does MLflow facilitate the development process for GenAI applications?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "4952d540d6": 1,
+        "d548a9c3a8": 1
+      }
+    },
+    {
+      "id": "D-044",
+      "gold": [
+        "4d3c5e0aa4",
+        "d4e6bb871e"
+      ],
+      "requete_unique_sans_traduction": {
+        "4d3c5e0aa4": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "d4e6bb871e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "4d3c5e0aa4": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "d4e6bb871e": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What happens to a Retrieval-Augmented Generation system when the necessary documentation for a specific product is missing?",
+        "How can one view the aggregated performance data for a machine learning experiment?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "4d3c5e0aa4": null,
+        "d4e6bb871e": null
+      }
+    },
+    {
+      "id": "D-045",
+      "gold": [
+        "f114828c3f",
+        "110fb64e55"
+      ],
+      "requete_unique_sans_traduction": {
+        "f114828c3f": {
+          "dense": 2,
+          "lexical": 9,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "110fb64e55": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "f114828c3f": {
+          "dense": 17,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "110fb64e55": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What are the operational scope and resource requirements of a unit test?",
+        "What governance capabilities are offered by integrating MLflow within the Databricks platform?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          4
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "f114828c3f": 4,
+        "110fb64e55": 1
+      }
+    },
+    {
+      "id": "D-046",
+      "gold": [
+        "2c5e2f5e88",
+        "e8818a13ba"
+      ],
+      "requete_unique_sans_traduction": {
+        "2c5e2f5e88": {
+          "dense": null,
+          "lexical": 29,
+          "fusion": null,
+          "rerank": null
+        },
+        "e8818a13ba": {
+          "dense": 37,
+          "lexical": 1,
+          "fusion": 4,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "2c5e2f5e88": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "e8818a13ba": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What aspect of the model's interaction with consumers must be validated by end-to-end tests to ensure the overall system functions correctly?",
+        "What is the specific context or scenario where validating the model's interaction with consumers is critical, particularly when data engineers are building reliable data products?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "2c5e2f5e88": 1,
+        "e8818a13ba": null
+      }
+    },
+    {
+      "id": "D-047",
+      "gold": [
+        "694407ab24",
+        "c666c63be7"
+      ],
+      "requete_unique_sans_traduction": {
+        "694407ab24": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c666c63be7": {
+          "dense": 22,
+          "lexical": null,
+          "fusion": 35,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "694407ab24": {
+          "dense": 7,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "c666c63be7": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "When manually instrumenting tracings, what is the trade-off between using high-level Fluent APIs versus low-level MLflow Client APIs?",
+        "What specific limitation exists when querying traces instrumented using these APIs?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "694407ab24": 1,
+        "c666c63be7": null
+      }
+    },
+    {
+      "id": "D-048",
+      "gold": [
+        "e4b8502ac1",
+        "cdf017ab37"
+      ],
+      "requete_unique_sans_traduction": {
+        "e4b8502ac1": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "cdf017ab37": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "e4b8502ac1": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "cdf017ab37": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the primary benefit of using the same machine learning scorers in both development and production environments?",
+        "How does the consistency of using the same machine learning scorers relate to the function of certain platform elements?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          1,
+          null
+        ],
+        [
+          2,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "e4b8502ac1": 1,
+        "cdf017ab37": null
+      }
+    },
+    {
+      "id": "D-049",
+      "gold": [
+        "c68d9c51b3",
+        "4bdb649899"
+      ],
+      "requete_unique_sans_traduction": {
+        "c68d9c51b3": {
+          "dense": 40,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "4bdb649899": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "c68d9c51b3": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4bdb649899": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific actions must be taken regarding alerts when setting up monitoring for AI agents?",
+        "How does the required alert configuration relate to the nature of the application's deployment?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          10
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "c68d9c51b3": 1,
+        "4bdb649899": null
+      }
+    },
+    {
+      "id": "D-050",
+      "gold": [
+        "8987d38458",
+        "5b143bd4f5"
+      ],
+      "requete_unique_sans_traduction": {
+        "8987d38458": {
+          "dense": null,
+          "lexical": 47,
+          "fusion": null,
+          "rerank": null
+        },
+        "5b143bd4f5": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "8987d38458": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "5b143bd4f5": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the consequence of a misalignment between two identical identifiers when they are present in different files?",
+        "What formatting convention is used to denote program elements like variable names within paragraphs?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          2,
+          null
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "8987d38458": 2,
+        "5b143bd4f5": 1
+      }
+    },
+    {
+      "id": "D-051",
+      "gold": [
+        "2ba2785617",
+        "72e888aff6"
+      ],
+      "requete_unique_sans_traduction": {
+        "2ba2785617": {
+          "dense": 25,
+          "lexical": null,
+          "fusion": 48,
+          "rerank": 3
+        },
+        "72e888aff6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "2ba2785617": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "72e888aff6": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the recommended modern approach for managing model features?",
+        "What specific type of checks are guardrails designed to perform within the operational flow?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          6
+        ],
+        [
+          2,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "2ba2785617": 6,
+        "72e888aff6": 2
+      }
+    },
+    {
+      "id": "D-052",
+      "gold": [
+        "f25fb8d8a3",
+        "091bd5a2a6"
+      ],
+      "requete_unique_sans_traduction": {
+        "f25fb8d8a3": {
+          "dense": 1,
+          "lexical": 3,
+          "fusion": 1,
+          "rerank": null
+        },
+        "091bd5a2a6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "f25fb8d8a3": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "091bd5a2a6": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the physical location of the publisher, O'Reilly Media, Inc.?",
+        "What specific topic within the book is dedicated to demonstrating how established principles apply to modern AI systems?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          2
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "f25fb8d8a3": 2,
+        "091bd5a2a6": 1
+      }
+    },
+    {
+      "id": "D-053",
+      "gold": [
+        "87bc5420e8",
+        "acf4f69a80"
+      ],
+      "requete_unique_sans_traduction": {
+        "87bc5420e8": {
+          "dense": 35,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "acf4f69a80": {
+          "dense": 4,
+          "lexical": 42,
+          "fusion": 7,
+          "rerank": 6
+        }
+      },
+      "oracle_preuve": {
+        "87bc5420e8": {
+          "dense": 19,
+          "lexical": 1,
+          "fusion": 3,
+          "rerank": 1
+        },
+        "acf4f69a80": {
+          "dense": 24,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the primary challenge when moving a successful challenger agent into a live production environment?",
+        "What specific technical issue arises when various components of a GenAI application do not communicate uniformly?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          5,
+          null
+        ],
+        [
+          null,
+          5
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "87bc5420e8": 5,
+        "acf4f69a80": 5
+      }
+    },
+    {
+      "id": "D-054",
+      "gold": [
+        "45f2322ea0",
+        "f653d1f934"
+      ],
+      "requete_unique_sans_traduction": {
+        "45f2322ea0": {
+          "dense": 23,
+          "lexical": 3,
+          "fusion": 4,
+          "rerank": 2
+        },
+        "f653d1f934": {
+          "dense": null,
+          "lexical": 15,
+          "fusion": 29,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "45f2322ea0": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "f653d1f934": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the role or nature of the 'specific agent' when it is integrated as a tool within the system?",
+        "What is the resulting change or effect on the system's state once that integrated agent has finished executing its function?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          null
+        ],
+        [
+          5,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "45f2322ea0": null,
+        "f653d1f934": 5
+      }
+    },
+    {
+      "id": "D-055",
+      "gold": [
+        "2ea3c02205",
+        "d736dea0f8"
+      ],
+      "requete_unique_sans_traduction": {
+        "2ea3c02205": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "d736dea0f8": {
+          "dense": 2,
+          "lexical": 3,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "2ea3c02205": {
+          "dense": 7,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "d736dea0f8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "When creating a minimal, frequently runnable dataset for evaluation, what practice should be considered regarding the selection of prompts?",
+        "When creating a minimal, frequently runnable dataset for evaluation, what practice should be considered regarding the definition of scoring mechanisms?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "2ea3c02205": null,
+        "d736dea0f8": 1
+      }
+    },
+    {
+      "id": "D-056",
+      "gold": [
+        "9bbfa011a5",
+        "9889dcd22c"
+      ],
+      "requete_unique_sans_traduction": {
+        "9bbfa011a5": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9889dcd22c": {
+          "dense": null,
+          "lexical": 25,
+          "fusion": 50,
+          "rerank": 2
+        }
+      },
+      "oracle_preuve": {
+        "9bbfa011a5": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "9889dcd22c": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What critical aspect of system reliability is often overlooked during the development phase?",
+        "How does the introduction of structured, repeatable procedures address this deficiency?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          2
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "9bbfa011a5": 2,
+        "9889dcd22c": null
+      }
+    },
+    {
+      "id": "D-057",
+      "gold": [
+        "c805421ba8",
+        "ba60d07ffd"
+      ],
+      "requete_unique_sans_traduction": {
+        "c805421ba8": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "ba60d07ffd": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 8,
+          "rerank": 1
+        }
+      },
+      "oracle_preuve": {
+        "c805421ba8": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "ba60d07ffd": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What specific components are recorded for each input instance when performing evaluation for stateless tasks like summarization?",
+        "What is the recommended evaluation approach for stateless tasks such as summarization?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          1
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "c805421ba8": null,
+        "ba60d07ffd": 1
+      }
+    },
+    {
+      "id": "D-058",
+      "gold": [
+        "ea7d4cf6c0",
+        "b68e36e0ab"
+      ],
+      "requete_unique_sans_traduction": {
+        "ea7d4cf6c0": {
+          "dense": null,
+          "lexical": 2,
+          "fusion": 11,
+          "rerank": 1
+        },
+        "b68e36e0ab": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "oracle_preuve": {
+        "ea7d4cf6c0": {
+          "dense": 16,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "b68e36e0ab": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the recommended method for managing parameters when implementing a tool-calling agent?",
+        "What specific scenario is the 'answer sheet' mode designed for in AI application assessment?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          2
+        ],
+        [
+          1,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "ea7d4cf6c0": 2,
+        "b68e36e0ab": 1
+      }
+    },
+    {
+      "id": "D-059",
+      "gold": [
+        "ef5b8bee12",
+        "5b3fd95b19"
+      ],
+      "requete_unique_sans_traduction": {
+        "ef5b8bee12": {
+          "dense": 35,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "5b3fd95b19": {
+          "dense": null,
+          "lexical": 23,
+          "fusion": 46,
+          "rerank": 2
+        }
+      },
+      "oracle_preuve": {
+        "ef5b8bee12": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "5b3fd95b19": {
+          "dense": 9,
+          "lexical": 1,
+          "fusion": 3,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What mechanism is recommended for managing database connections in a production agent system to avoid performance bottlenecks when handling multiple simultaneous requests?",
+        "What prerequisite must be established before deploying a production agent system?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          1
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        1,
+        0
+      ],
+      "oracle_decomposition_rerank": {
+        "ef5b8bee12": 1,
+        "5b3fd95b19": null
+      }
+    },
+    {
+      "id": "D-060",
+      "gold": [
+        "47cfec4695",
+        "5755f87642"
+      ],
+      "requete_unique_sans_traduction": {
+        "47cfec4695": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "5755f87642": {
+          "dense": 5,
+          "lexical": 16,
+          "fusion": 4,
+          "rerank": 3
+        }
+      },
+      "oracle_preuve": {
+        "47cfec4695": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "5755f87642": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "sous_questions": [
+        "What is the role of human judgment in the refinement process when analyzing execution paths?",
+        "How does the involvement of human judgment contribute to the analysis of execution paths for performance or logical errors?"
+      ],
+      "oracle_decomposition_matrice": [
+        [
+          null,
+          3
+        ],
+        [
+          null,
+          2
+        ]
+      ],
+      "oracle_decomposition_permutation": [
+        0,
+        1
+      ],
+      "oracle_decomposition_rerank": {
+        "47cfec4695": null,
+        "5755f87642": 2
+      }
+    }
+  ],
+  "secondes": 2675.0
+}

@@ -1,0 +1,1038 @@
+{
+  "etape": "textes",
+  "temoins_du_detecteur": {
+    "hors_chromadb": {
+      "element_id_fabrique": "0000000000",
+      "indexe": false,
+      "vu": true
+    },
+    "preuve_non_portee": {
+      "texte_de": "0023419387",
+      "preuve_de": "091bd5a2a6",
+      "part": 0.0,
+      "vu": true
+    },
+    "emiette": {
+      "longueur_posee": 199,
+      "vu": true
+    }
+  },
+  "seuil_preuve": 0.8,
+  "chunk_emiette": 200,
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-24T20:23:35+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-24T20:23:35+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "ancrages_distincts": 109,
+  "fiches": {
+    "0023419387": {
+      "indexe": true,
+      "longueur": 854,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Project section"
+    },
+    "091bd5a2a6": {
+      "indexe": true,
+      "longueur": 323,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "How to Contact Us"
+    },
+    "0f4741eda9": {
+      "indexe": true,
+      "longueur": 497,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Custom Guardrails"
+    },
+    "0f66b973ed": {
+      "indexe": true,
+      "longueur": 1225,
+      "n_chunks": 3,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Reason 3: LLM hallucinations"
+    },
+    "110fb64e55": {
+      "indexe": true,
+      "longueur": 445,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Unit testing"
+    },
+    "149721fd2e": {
+      "indexe": true,
+      "longueur": 377,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Continuous Deployment Pipeline"
+    },
+    "175ce6903d": {
+      "indexe": true,
+      "longueur": 320,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Declarative Automation Bundles"
+    },
+    "18087fe034": {
+      "indexe": true,
+      "longueur": 459,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Improvement Objectives"
+    },
+    "1a9bc53bde": {
+      "indexe": true,
+      "longueur": 581,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Provisioned throughput endpoints"
+    },
+    "1e2a87fc78": {
+      "indexe": true,
+      "longueur": 396,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow App Versioning"
+    },
+    "28c4bafad0": {
+      "indexe": true,
+      "longueur": 456,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Summarize What you learned in the POC"
+    },
+    "2ba2785617": {
+      "indexe": true,
+      "longueur": 435,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Guardrails"
+    },
+    "2c5e2f5e88": {
+      "indexe": true,
+      "longueur": 420,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Platform Best Practices"
+    },
+    "2ea3c02205": {
+      "indexe": true,
+      "longueur": 375,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Loading a Prompt"
+    },
+    "32604c8f24": {
+      "indexe": true,
+      "longueur": 353,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Running an evaluation"
+    },
+    "343cfcd5c1": {
+      "indexe": true,
+      "longueur": 443,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Article 15: Accuracy, Robustness, and Cybersecurity"
+    },
+    "384cc03027": {
+      "indexe": true,
+      "longueur": 504,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 3. Prompt Engineering with MLflow"
+    },
+    "3b8a048acb": {
+      "indexe": true,
+      "longueur": 409,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Photon acceleration"
+    },
+    "43406c2554": {
+      "indexe": true,
+      "longueur": 454,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Logging Model As Code"
+    },
+    "45f2322ea0": {
+      "indexe": true,
+      "longueur": 371,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Note"
+    },
+    "47cfec4695": {
+      "indexe": true,
+      "longueur": 366,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Evidence-Driven Development Workflow"
+    },
+    "4952d540d6": {
+      "indexe": true,
+      "longueur": 480,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Building a LangChain Agent and Versioning in MLflow"
+    },
+    "4b959587f0": {
+      "indexe": true,
+      "longueur": 516,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "How to Evaluate LLM Systems"
+    },
+    "4bdb649899": {
+      "indexe": true,
+      "longueur": 419,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Monitoring considerations"
+    },
+    "4bfc8482d4": {
+      "indexe": true,
+      "longueur": 951,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Question Answering Systems"
+    },
+    "4d3c5e0aa4": {
+      "indexe": true,
+      "longueur": 649,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Reason 1: No Relevant Data"
+    },
+    "4e5d60c770": {
+      "indexe": true,
+      "longueur": 312,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Custom Dashboard with Databricks AI/BI"
+    },
+    "536d459c09": {
+      "indexe": true,
+      "longueur": 602,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "RAG Improves Explainability"
+    },
+    "54ec58051b": {
+      "indexe": true,
+      "longueur": 533,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Who This Book Is For"
+    },
+    "5755f87642": {
+      "indexe": true,
+      "longueur": 389,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Human-in-the-Loop Feedback"
+    },
+    "58203d876d": {
+      "indexe": true,
+      "longueur": 617,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Note"
+    },
+    "5b143bd4f5": {
+      "indexe": true,
+      "longueur": 439,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Conventions Used in This Book"
+    },
+    "5b3fd95b19": {
+      "indexe": true,
+      "longueur": 327,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Interacting with Lakebase"
+    },
+    "5ede2adb49": {
+      "indexe": true,
+      "longueur": 441,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 0.9643,
+      "preuve_portee": true,
+      "section_title": "Dataset/context engineering"
+    },
+    "613070ecd8": {
+      "indexe": true,
+      "longueur": 859,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "LangChain and Databricks Integration"
+    },
+    "61e84a5266": {
+      "indexe": true,
+      "longueur": 439,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Feature Serving"
+    },
+    "633d13730b": {
+      "indexe": true,
+      "longueur": 368,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Note"
+    },
+    "684bcfccd0": {
+      "indexe": true,
+      "longueur": 756,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Context Engineering"
+    },
+    "694407ab24": {
+      "indexe": true,
+      "longueur": 358,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Manual Tracing"
+    },
+    "6a0db29f36": {
+      "indexe": true,
+      "longueur": 716,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 4. Building and Versioning a Tool-Calling Agent"
+    },
+    "6af75f2503": {
+      "indexe": true,
+      "longueur": 415,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Databricks AI Search versus Genie"
+    },
+    "6e431fec81": {
+      "indexe": true,
+      "longueur": 339,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Unstructured Data Preparation for Retrieval"
+    },
+    "6e460fc900": {
+      "indexe": true,
+      "longueur": 592,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Challenger Versus Champion"
+    },
+    "72853b7eed": {
+      "indexe": true,
+      "longueur": 449,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Logging with LangChain Flavor"
+    },
+    "72e888aff6": {
+      "indexe": true,
+      "longueur": 421,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Feature Engineering"
+    },
+    "7453eeb62b": {
+      "indexe": true,
+      "longueur": 503,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "What This Lifecycle Solves"
+    },
+    "749abf1dde": {
+      "indexe": true,
+      "longueur": 454,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Creating and Managing Evaluation Datasets"
+    },
+    "80c7ee54db": {
+      "indexe": true,
+      "longueur": 492,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Collecting end-user feedback"
+    },
+    "84aac199a3": {
+      "indexe": true,
+      "longueur": 339,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "LLM Application Components"
+    },
+    "857a947021": {
+      "indexe": true,
+      "longueur": 424,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow Flavors"
+    },
+    "87bc5420e8": {
+      "indexe": true,
+      "longueur": 487,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Deployment Rollout"
+    },
+    "87c2d10179": {
+      "indexe": true,
+      "longueur": 435,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow GenAI Evaluation Framework"
+    },
+    "8987d38458": {
+      "indexe": true,
+      "longueur": 422,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Tag-based cost attribution"
+    },
+    "9112c67fa0": {
+      "indexe": true,
+      "longueur": 461,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Experiment and Model Tracking for Reproducibility"
+    },
+    "9279ceed24": {
+      "indexe": true,
+      "longueur": 312,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Testing the Agent"
+    },
+    "932d79806d": {
+      "indexe": true,
+      "longueur": 456,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Registering the Agent and Preparing for Serving"
+    },
+    "9889dcd22c": {
+      "indexe": true,
+      "longueur": 492,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "LLM System Evaluation"
+    },
+    "9bbfa011a5": {
+      "indexe": true,
+      "longueur": 445,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow Skills for Coding Agents"
+    },
+    "a0d2c369cc": {
+      "indexe": true,
+      "longueur": 623,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Response Quality and Reduced Hallucinations"
+    },
+    "a2357ed171": {
+      "indexe": true,
+      "longueur": 461,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow"
+    },
+    "a8caa27e46": {
+      "indexe": true,
+      "longueur": 542,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 1. MLOps Principles and Components"
+    },
+    "a9748a6b45": {
+      "indexe": true,
+      "longueur": 377,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Serverless versus Classic Compute for Lakeflow Jobs"
+    },
+    "acf4f69a80": {
+      "indexe": true,
+      "longueur": 459,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 10. Unifying GenAI Systems with MLflow"
+    },
+    "ad7852e761": {
+      "indexe": true,
+      "longueur": 376,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Integrating Advanced Capabilities"
+    },
+    "b4b0461854": {
+      "indexe": true,
+      "longueur": 521,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Model Serving with Feature Lookup"
+    },
+    "b68e36e0ab": {
+      "indexe": true,
+      "longueur": 430,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Full Tool-Calling Agent Application"
+    },
+    "b927ff5d4d": {
+      "indexe": true,
+      "longueur": 455,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "System and Infrastructure Health"
+    },
+    "ba60d07ffd": {
+      "indexe": true,
+      "longueur": 805,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Multiturn judges and scorers"
+    },
+    "bae642fe8e": {
+      "indexe": true,
+      "longueur": 476,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Use model registry and aliases for safe promotion"
+    },
+    "bef3e20e36": {
+      "indexe": true,
+      "longueur": 413,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Packaging and Logging the Agent and Artifacts"
+    },
+    "c06829515c": {
+      "indexe": true,
+      "longueur": 454,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Using DABs"
+    },
+    "c43739d3d0": {
+      "indexe": true,
+      "longueur": 548,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 10. AI Governance"
+    },
+    "c52db7bfaf": {
+      "indexe": true,
+      "longueur": 453,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Vector Retriever Tool"
+    },
+    "c666c63be7": {
+      "indexe": true,
+      "longueur": 335,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Querying Traces"
+    },
+    "c66abf9bb9": {
+      "indexe": true,
+      "longueur": 724,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Instrumenting Traces"
+    },
+    "c68d9c51b3": {
+      "indexe": true,
+      "longueur": 410,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Deployment Considerations"
+    },
+    "c6d376218b": {
+      "indexe": true,
+      "longueur": 344,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Warning"
+    },
+    "c805421ba8": {
+      "indexe": true,
+      "longueur": 385,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Running and Comparing Evaluations in MLflow"
+    },
+    "cb237ecf93": {
+      "indexe": true,
+      "longueur": 489,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Data Model Overview"
+    },
+    "cdf017ab37": {
+      "indexe": true,
+      "longueur": 377,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Cross-Cutting Components"
+    },
+    "cefb8ed19b": {
+      "indexe": true,
+      "longueur": 528,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Authentication for Agent Endpoint"
+    },
+    "d038dc7350": {
+      "indexe": true,
+      "longueur": 566,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Note"
+    },
+    "d2f7b67beb": {
+      "indexe": true,
+      "longueur": 391,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Monitoring Implementation"
+    },
+    "d3ad1729f6": {
+      "indexe": true,
+      "longueur": 338,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Evaluation in Practice"
+    },
+    "d4e6bb871e": {
+      "indexe": true,
+      "longueur": 440,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow Run"
+    },
+    "d548a9c3a8": {
+      "indexe": true,
+      "longueur": 337,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "MLflow run"
+    },
+    "d736dea0f8": {
+      "indexe": true,
+      "longueur": 472,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Building the Minimum Evaluable Product"
+    },
+    "db98d74f05": {
+      "indexe": true,
+      "longueur": 520,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Interactively Gather Insights from Traces"
+    },
+    "dcb37d50b8": {
+      "indexe": true,
+      "longueur": 353,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Total Variation Distance"
+    },
+    "dfaa35986e": {
+      "indexe": true,
+      "longueur": 427,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Balancing Quality, Cost, Latency, Safety, and Product Feel"
+    },
+    "dfb078e932": {
+      "indexe": true,
+      "longueur": 955,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 5. MLflow Tracing for GenAI Application Observability"
+    },
+    "e2b3d4f293": {
+      "indexe": true,
+      "longueur": 436,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "How to Build an Evaluation Dataset"
+    },
+    "e4b8502ac1": {
+      "indexe": true,
+      "longueur": 477,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Register and Start Scorers for Online Monitoring"
+    },
+    "e4d37ffbb9": {
+      "indexe": true,
+      "longueur": 453,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Who and What This Book Is For"
+    },
+    "e576f2c83b": {
+      "indexe": true,
+      "longueur": 478,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Anatomy of a Trace"
+    },
+    "e6440165bb": {
+      "indexe": true,
+      "longueur": 406,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Applying the Lifecycle to the Unity Airways Use Case"
+    },
+    "e653eb481c": {
+      "indexe": true,
+      "longueur": 403,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Worker and driver nodes"
+    },
+    "e8818a13ba": {
+      "indexe": true,
+      "longueur": 532,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "End-to-end testing"
+    },
+    "e8ffbae08d": {
+      "indexe": true,
+      "longueur": 370,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "PDF processing"
+    },
+    "ea7d4cf6c0": {
+      "indexe": true,
+      "longueur": 419,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Answer-sheet evaluation"
+    },
+    "ed1a2abcaa": {
+      "indexe": true,
+      "longueur": 435,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Logging and Registering Models with MLflow"
+    },
+    "ef5b8bee12": {
+      "indexe": true,
+      "longueur": 385,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Provisioning the SQL warehouse"
+    },
+    "f0f9cb7af9": {
+      "indexe": true,
+      "longueur": 468,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Cost-monitoring dashboard"
+    },
+    "f114828c3f": {
+      "indexe": true,
+      "longueur": 484,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Enterprise-grade governance with Unity Catalog"
+    },
+    "f25fb8d8a3": {
+      "indexe": true,
+      "longueur": 589,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "How This Book Is Organized"
+    },
+    "f2c2c70bb4": {
+      "indexe": true,
+      "longueur": 465,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Decoupling Production Agent Systems from Runtime"
+    },
+    "f3bc57cfd2": {
+      "indexe": true,
+      "longueur": 630,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Enable safe and frequent releases"
+    },
+    "f653d1f934": {
+      "indexe": true,
+      "longueur": 769,
+      "n_chunks": 2,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Multiagents Orchestration and Agents As Tools"
+    },
+    "f6f5f4fedc": {
+      "indexe": true,
+      "longueur": 460,
+      "n_chunks": 1,
+      "emiette": false,
+      "part_preuve": 1.0,
+      "preuve_portee": true,
+      "section_title": "Chapter 6. Monitoring ML Applications"
+    }
+  }
+}

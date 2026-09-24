@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse recuperation-profondeurs recuperation-sous-questions recuperation-oracle recuperation-textes recuperation-causes
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -240,6 +240,58 @@ verifier-les-ancrages:
 # LA GENERATION ECRIT DANS tests/fixtures/ ET APPELLE LE MODELE : elle n'est PAS
 # un antecedent de la mesure, et la rejouer produirait un AUTRE jeu — le jeu
 # versionne est l'artefact de reference, comme celui de `generate_golden.py`.
+# LE PLAFOND DE RECUPERATION, et pourquoi il est en AMONT de la selection. Le
+# §4.76 a mesure que 67 ancrages sur 120 n'atteignent pas le top-10 du reranker
+# et a laisse la cause ouverte ; ces recettes la cherchent.
+#
+# LES PROFONDEURS PASSENT PAR L'ENVIRONNEMENT DU LANCEMENT, jamais par `src/` ni
+# par le `.env` : `FETCH_K`, `RETRIEVAL_TOP_K` et `RERANK_TOP_K` sont des alias
+# de `settings.py`, et le banc ecrit dans son bilan les valeurs REELLEMENT lues.
+#
+# L'ORDRE EST UNE DEPENDANCE, PAS UNE COMMODITE. `recuperation-causes` refuse si
+# le bilan de production ne retrouve pas, A L'UNITE PRES, les trois chiffres du
+# §4.76 : elargir a partir d'une base qui ne se recoupe pas ne mesure rien.
+recuperation-profondeurs:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape profondeurs --sortie runs/$(shell date +%Y-%m-%d)-recuperation-p50.json
+	FETCH_K=200 RETRIEVAL_TOP_K=200 RERANK_TOP_K=200 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape profondeurs --sortie runs/$(shell date +%Y-%m-%d)-recuperation-p200.json
+	FETCH_K=1000 RETRIEVAL_TOP_K=1000 RERANK_TOP_K=1000 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape profondeurs --sortie runs/$(shell date +%Y-%m-%d)-recuperation-p1000.json
+
+# LE PRODUCTEUR DU CACHE DE SOUS-QUESTIONS, et il est unique. Il APPELLE LE
+# MODELE : ce n'est pas un antecedent de la mesure, et le rejouer produirait
+# d'autres sous-questions. Le banc EXIGE le cache sans jamais le fabriquer, meme
+# discipline que le cache de traductions.
+recuperation-sous-questions:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape sous-questions \
+		--sortie runs/$(shell date +%Y-%m-%d)-recuperation-sous-questions.json
+
+recuperation-oracle:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape oracle --sortie runs/$(shell date +%Y-%m-%d)-recuperation-oracle.json
+
+recuperation-textes:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_recuperation.py \
+		--etape textes --sortie runs/$(shell date +%Y-%m-%d)-recuperation-textes.json
+
+# LA TABLE DES CAUSES N'OUVRE AUCUN STORE : elle assemble des bilans deja
+# versionnes. C'est delibere — elle se rejoue sur les memes fichiers, et deux
+# lectures du meme etat des stores ne peuvent pas diverger.
+recuperation-causes:
+	uv run --no-sync python scripts/mesurer_recuperation.py --etape causes \
+		--prod    runs/$(shell date +%Y-%m-%d)-recuperation-p50.json \
+		--profond runs/$(shell date +%Y-%m-%d)-recuperation-p200.json \
+		          runs/$(shell date +%Y-%m-%d)-recuperation-p1000.json \
+		--oracle  runs/$(shell date +%Y-%m-%d)-recuperation-oracle.json \
+		--textes  runs/$(shell date +%Y-%m-%d)-recuperation-textes.json \
+		--sortie  runs/$(shell date +%Y-%m-%d)-recuperation-causes.json
+
 generer-jeu-disperse:
 	$(_ENV_SELECTION) uv run --no-sync python scripts/generer_jeu_disperse.py \
 		--count 60 \
