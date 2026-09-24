@@ -21,10 +21,13 @@ contrôle le prouve en montrant qu'un suffixe et un préfixe d'un identifiant
 VRAI sont rejetés, là où un `endswith` ou un `in` les accepterait.
 
     uv run --no-sync python scripts/controle_perimetre_selection.py
+    uv run --no-sync python scripts/controle_perimetre_selection.py \\
+        --jeu tests/fixtures/jeu_ancrages_disperses.yaml
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -55,7 +58,16 @@ def main() -> int:
     from src.agent.graph_context import reconstruct_section
     from src.agent.retriever import rerank, retrieve
 
-    jeu = ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
+    # LE JEU EST UN ARGUMENT DEPUIS LE LOT 36, et le défaut ne bouge pas : ce
+    # contrôle établit la NATURE des identifiants, et elle est propre au JEU
+    # qu'on va mesurer. Le faire tourner sur le jeu de réglage pour couvrir une
+    # campagne jouée sur un autre jeu prouverait la nature des identifiants
+    # d'un fichier que la campagne ne lit pas.
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--jeu", type=Path, default=ROOT / "tests" / "fixtures" / "golden_qa_generated.yaml"
+    )
+    jeu = parser.parse_args().jeu
     data = yaml.safe_load(jeu.read_text(encoding="utf-8"))
     questions = [q for q in data["questions"] if q.get("gold_element_ids")]
     golds = sorted({eid for q in questions for eid in q["gold_element_ids"]})

@@ -209,6 +209,14 @@ def main() -> int:
         help="Applique le cross-encoder : mesure ce qui atteint le LLM",
     )
     parser.add_argument("--entier", action="store_true", help="Le réglage balayé est un entier")
+    parser.add_argument(
+        "--traductions-seulement",
+        action="store_true",
+        help="Remplit le cache de traductions pour ce jeu, puis sort — sans balayer. "
+             "Les bancs qui EXIGENT le cache sans le fabriquer (mesurer_selection.py, "
+             "mesurer_dispersion.py) ont besoin d'un producteur, et le producteur "
+             "est ce script : deux sites qui traduiraient ne traduiraient pas pareil.",
+    )
     args = parser.parse_args()
 
     from src.agent.settings import settings
@@ -219,6 +227,16 @@ def main() -> int:
     traductions = (
         {} if args.sans_traduction else cache_traductions(questions, args.llm_host, args.model)
     )
+
+    if args.traductions_seulement:
+        # LA COUVERTURE EST VERIFIEE ICI, ET C'EST UNE INTERSECTION, PAS UN
+        # COMPTE. Le cache versionne du 23 septembre 2026 portait 130 entrees
+        # pour un jeu de 130 questions et une intersection NULLE avec lui : il
+        # venait d'un jeu anterieur. Sortir en 0 sur la seule taille aurait
+        # rendu vert un cache du mauvais jeu.
+        couvertes = sum(1 for q in questions if q["question"] in traductions)
+        print(f"cache : {len(traductions)} entrees, {couvertes}/{len(questions)} du jeu couvertes")
+        return 0 if couvertes == len(questions) else 1
 
     if args.sans_traduction:
         resultat = resumer(evaluer_config(questions, {}, False, args.rerank)["lignes"])

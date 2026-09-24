@@ -1,0 +1,2038 @@
+_lisez_moi:
+- JEU A ANCRAGES MULTIPLES ET DISPERSES. Chaque question exige
+- l'information de DEUX sections distinctes, et porte un ancrage par
+- 'section. Il repond a la dette ouverte au §4.67 du registre : les deux'
+- jeux anterieurs ne peuvent pas arbitrer AUTO_SELECT_TOP_K — le jeu de
+- reglage est AVEUGLE a la selection (120 ancrages sur 130 au prompt des
+- k=1, plus aucun de k=3 a k=20), et le jeu de controle la voit mais ne
+- porte que 26 questions.
+- ''
+- METHODE DE CONSTRUCTION, par scripts/generer_jeu_disperse.py. Deux
+- passages de deux sections differentes sont tires du corpus, puis une
+- question est ecrite a partir des DEUX. Trois conditions independantes
+- 'la retiennent, et AUCUNE ne regarde le retrieval :'
+- ''
+- '  1. CONDITION DE RECONSTRUCTION, la seule qui soit une preuve. La'
+- '     section de chaque ancrage est reconstruite par reconstruct_section,'
+- '     et le markdown de l''une ne doit PAS porter l''autre ancrage, dans'
+- '     les DEUX sens. Sans elle, deux ancrages voisins seraient ramenes'
+- '     par UNE seule reconstruction et la question se reussirait a k=1.'
+- '  2. CONDITION DE NON-SUFFISANCE : le modele juge chaque passage PRIS'
+- '     SEUL, en deux appels separes ; la question n''est gardee que si'
+- '     aucun des deux ne suffit.'
+- '  3. GARDES LEXICAUX repris de generate_golden.py : preuve recopiee mot'
+- '     pour mot dans SON passage, vocabulaire distinctif partage avec'
+- '     CHACUN des deux passages, question qui ne recopie aucune preuve.'
+- ''
+- 'Les sections de RESUME sont ecartees en amont, par leur titre :'
+- conclusion, points cles, preface, sommaire. Elles redisent ce que
+- d'autres sections detaillent, donc leur passage n'est plus le seul a
+- porter le fait et l'ancrage cesse d'etre une verite terrain.
+- ''
+- LA LIMITE, ET ELLE EST STRUCTURELLE. La question reste ecrite POUR ses
+- 'deux passages : la circularite n''est pas supprimee, elle est DEPLACEE.'
+- Chaque moitie de la question peut encore retrouver son passage au rang
+- 1. Ce que ce jeu casse est l'equivalence « une section reconstruite
+- suffit », qui est exactement ce que le quatrieme etage tronque. Et le
+- 'juge de non-suffisance est le MODELE QUI A ECRIT LA QUESTION : il n''est'
+- pas independant, et une paire qu'il declare a tort insuffisante passe.
+- ''
+- 'LE JEU EST MONOLINGUE ANGLAIS, et ce n''etait pas voulu : le generateur'
+- tirait 30 % de questions francaises, et le garde de vocabulaire partage
+- les a TOUTES rejetees — les passages sont anglais, une question
+- francaise n'en partage pas deux jetons. L'axe translinguistique que les
+- deux autres jeux portent est donc ABSENT de celui-ci.
+- ''
+- 'reviewed: false = non relu par un humain, sur AUCUNE question.'
+- ''
+- CE JEU NE PROUVE RIEN TANT QUE SES `gold_element_ids` N'ONT PAS ETE
+- 'CONFRONTES AUX STORES : un jeu qui designe le vide rend 0 % de rappel'
+- sans dire si la recherche est cassee ou si le jeu est perime.
+- L'instrument est scripts/verifier_les_ancrages.py, et il sort en 1 au
+- premier desaccord.
+_reserve: 'INSTRUMENT DE SELECTION, PAS VERDICT. Ce jeu est fait pour voir k, et il ne dit rien d''autre
+  : le rappel d''un ancrage au prompt n''est pas la qualite d''une reponse, et aucune generation n''entre
+  dans sa fabrication au-dela de l''ecriture des questions. Tout ecart se lit sur le nombre de QUESTIONS
+  qui ont bascule, jamais sur la difference des pourcentages. La grandeur qui compte ici est le nombre
+  de questions dont TOUS les ancrages atteignent le prompt : celle d''AU MOINS UN se sature des k=1 par
+  construction et ne mesure que la recuperation. Et ce jeu decrit L''ETAT DES STORES A SA DATE : il ne
+  survit pas a une reingestion.'
+_statistiques:
+  questions: 60
+  ancrages: 120
+  ancrages_par_question: 2
+  par_langue_de_la_question:
+    en: 60
+  par_strate:
+    deux-sections-inter_chapitres: 27
+    deux-sections-intra_chapitre: 33
+  paires_examinees: 140
+  rejetees:
+    gardes_lexicaux: 67
+    sections_non_disjointes: 4
+    un_passage_suffit: 8
+  raisons_de_fin:
+    stop: 271
+  pannes_d_appel: 0
+  graine: 36
+  secondes: 478.5
+  corpus:
+    chunks_indexes: 4367
+    passages_exploitables: 1189
+    sections_porteuses: 520
+    chapitres_porteurs: 23
+questions:
+- id: D-001
+  question: How can a team ensure that new, potentially superior AI models are introduced into a live
+    production environment without compromising the stability of the existing system?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 6e460fc900
+  - f3bc57cfd2
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 6e460fc900
+      section_id: ae4b67c916
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Challenger Versus Champion
+      page_no: 1
+      preuve: Instead of replacing the production system immediately, the challenger is evaluated alongside
+        the champion to determine whether it truly performs better.
+    ancrage_b:
+      element_id: f3bc57cfd2
+      section_id: 0257e398ab
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Enable safe and frequent releases
+      page_no: 1
+      preuve: Practices such as automated pipelines for evaluation, code quality, and CI/CD for deploying
+        new agent versions allow teams to release updates confidently while maintaining the ability to
+        quickly roll back if issues arise.
+  reviewed: false
+- id: D-002
+  question: How can the implementation of custom validation logic at the AI Gateway level be used in conjunction
+    with advanced agent capabilities to enhance complex application workflows?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 0f4741eda9
+  - ad7852e761
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 0f4741eda9
+      section_id: c7373ef1ff
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Custom Guardrails
+      page_no: 1
+      preuve: This allows teams to define their own validation logic or filtering rules tailored to their
+        specific domain or compliance requirements.
+    ancrage_b:
+      element_id: ad7852e761
+      section_id: be7465e35d
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Integrating Advanced Capabilities
+      page_no: 1
+      preuve: In this section, we will explore some techniques to continue adding depth to our agents
+        around managing conversation history, the use of MCP servers as external tools, and the integration
+        of agents as tools to drive more powerful, flexible workflows in complex applications.
+  reviewed: false
+- id: D-003
+  question: For what type of professional, who is tasked with deploying functional GenAI applications,
+    would it be beneficial to integrate a specialized agent, such as one designed to suggest alternative
+    flight dates?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - f653d1f934
+  - 54ec58051b
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: f653d1f934
+      section_id: 9ee6f9a9f9
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Multiagents Orchestration and Agents As Tools
+      page_no: 1
+      preuve: We can add this agent specialized in flight recommendation as a tool to our GenAI application.
+    ancrage_b:
+      element_id: 54ec58051b
+      section_id: fc4ade38fb
+      source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+      section_title: Who This Book Is For
+      page_no: 1
+      preuve: This book is written for practitioners who have moved past curiosity and are now responsible
+        for delivering GenAI applications that hold up under real use.
+  reviewed: false
+- id: D-004
+  question: What methods are recommended for gathering feedback from end-users in a live environment,
+    and how can these gathered examples be organized for consistent testing?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 749abf1dde
+  - 80c7ee54db
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 749abf1dde
+      section_id: 4a35f436ae
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Creating and Managing Evaluation Datasets
+      page_no: 1
+      preuve: In this section, we show how to assemble these examples into a versioned evaluation dataset
+        in MLflow so the same cases can be used consistently for testing, comparison, and review.
+    ancrage_b:
+      element_id: 80c7ee54db
+      section_id: 411e89dd95
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Collecting end-user feedback
+      page_no: 1
+      preuve: In production, you should collect signals with as little friction as possible.
+  reviewed: false
+- id: D-005
+  question: When dealing with complex document analysis, what capabilities allow modern large language
+    models to handle both text and images from a single PDF, and which specific tool is recommended for
+    retrieving semantically similar document chunks based on meaning?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - e8ffbae08d
+  - 6af75f2503
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: e8ffbae08d
+      section_id: f7b25700e4
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: PDF processing
+      page_no: 1
+      preuve: Models like GPT-5, Claude Sonnet 4.5, and Gemini 3 Pro can see the document layout, understand
+        context, handle both native text and scanned images, and extract structured data in a single pass.
+    ancrage_b:
+      element_id: 6af75f2503
+      section_id: f27e40465d
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: Databricks AI Search versus Genie
+      page_no: 1
+      preuve: Databricks AI Search is the best fit here, as it retrieves semantically similar paper chunks
+        based on meaning rather than structured counts.
+  reviewed: false
+- id: D-006
+  question: What is the maximum model size allowed for Databricks serverless optimized deployments when
+    compared to the size limit when environment packaging is not employed, given that agent initialization
+    and configuration are handled via a specific YAML file?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 9279ceed24
+  - 932d79806d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 9279ceed24
+      section_id: b56c4a53dc
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: Testing the Agent
+      page_no: 1
+      preuve: 'Key settings-such as the MLflow experiment name, the Lakebase project ID, which LLM endpoint
+        to use, and the system prompt-are defined in the *project_config.yml* file:'
+    ancrage_b:
+      element_id: 932d79806d
+      section_id: 7ae2e71951
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: Registering the Agent and Preparing for Serving
+      page_no: 1
+      preuve: Databricks serverless optimized deployments support a maximum model size of *1 GB*, compared
+        to *4 GB* when environment packaging is not used.
+  reviewed: false
+- id: D-007
+  question: What is the specific limitation regarding the maximum model size when utilizing the serverless
+    optimized deployment feature, and what practice is recommended to ensure that the exact development
+    conditions can be recreated for reproducibility?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 932d79806d
+  - 1e2a87fc78
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 932d79806d
+      section_id: 7ae2e71951
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: Registering the Agent and Preparing for Serving
+      page_no: 1
+      preuve: Databricks serverless optimized deployments support a maximum model size of 1 GB, compared
+        to 4 GB when environment packaging is not used.
+    ancrage_b:
+      element_id: 1e2a87fc78
+      section_id: 96565952b0
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: MLflow App Versioning
+      page_no: 1
+      preuve: One approach is to link each version to a Git commit hash and track runtime details (like
+        Databricks Runtime version) and Delta Table version as metadata.
+  reviewed: false
+- id: D-008
+  question: What is the necessary prerequisite step for creating a tool-calling agent for Unity Airways
+    FAQs, and what common serialization issue arises when dealing with LangChain agents?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 6e431fec81
+  - 72853b7eed
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 6e431fec81
+      section_id: 61126ac224
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Unstructured Data Preparation for Retrieval
+      page_no: 1
+      preuve: 'The data preparation process includes the following steps, which [Figure 4-1](#ch04_vm_figure_1_1782841693944779)
+        illustrates:
+
+        - Parsing of documents
+
+        - Text chunking
+
+        - Embedding and indexing chunks'
+    ancrage_b:
+      element_id: 72853b7eed
+      section_id: 948159dd0e
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Logging with LangChain Flavor
+      page_no: 1
+      preuve: In contrast, LangChain agents often contain complex, nonserializable objects such as functions,
+        tool definitions, and runtime state.
+  reviewed: false
+- id: D-009
+  question: What mechanism allows a system to document the reasoning behind a generated response, and
+    what broader industry standard necessitates such detailed tracking for model reliability?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 536d459c09
+  - 9112c67fa0
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  - pdfs
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 536d459c09
+      section_id: 6cdf97dd9b
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: RAG Improves Explainability
+      page_no: 21
+      preuve: LLMs in a RAG application can be further instructed, through proper prompts, to explain
+        how it reaches an answer by processing the retrieved information and reasoning about it.
+    ancrage_b:
+      element_id: 9112c67fa0
+      section_id: ff12841c38
+      source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for
+        GenAI on Databricks.html
+      section_title: Experiment and Model Tracking for Reproducibility
+      page_no: 1
+      preuve: Trustworthy, reproducible models are central to production best practices, particularly
+        in regulated domains such as finance and healthcare, where a complete, auditable model history
+        is often required.
+  reviewed: false
+- id: D-010
+  question: What is the standard procedure for preparing a high-performing model for future deployment,
+    and what specific use case benefits from pre-calculating and storing predictions in a database?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 61e84a5266
+  - ed1a2abcaa
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 61e84a5266
+      section_id: 6fa6f83f90
+      source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+      section_title: Feature Serving
+      page_no: 1
+      preuve: Serving batch predictions is probably one of the most popular and underestimated types of
+        ML model deployment.
+    ancrage_b:
+      element_id: ed1a2abcaa
+      section_id: 0e1f9c9210
+      source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+      section_title: Logging and Registering Models with MLflow
+      page_no: 1
+      preuve: To let you go beyond simply saving a file, MLflow provides a standardized format called
+        an MLflow Model.
+  reviewed: false
+- id: D-011
+  question: What specific capability of MLflow Tracing allows developers to see how sensitive data is
+    handled during the execution of a complete Retrieval-Augmented Generation (RAG) pipeline?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - dfb078e932
+  - c6d376218b
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: dfb078e932
+      section_id: 775237bab1
+      source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+        Observability.html
+      section_title: Chapter 5. MLflow Tracing for GenAI Application Observability
+      page_no: 1
+      preuve: Built on open standards, MLflow Tracing captures detailed information for every step in
+        your GenAI applications.
+    ancrage_b:
+      element_id: c6d376218b
+      section_id: 27ea98c3f4
+      source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+        Observability.html
+      section_title: Warning
+      page_no: 1
+      preuve: A trace breakdown displaying inputs and outputs, where an email address has been redacted
+        from the query, demonstrating sensitive information redaction in practice.
+  reviewed: false
+- id: D-012
+  question: How can the insights gathered from tracing application behavior be leveraged when building
+    a visualization tool for intent categorization?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - c66abf9bb9
+  - 4e5d60c770
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: c66abf9bb9
+      section_id: 18bdd9fd74
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Instrumenting Traces
+      page_no: 1
+      preuve: The traces you collected during development and testing can be reused as is in production.
+    ancrage_b:
+      element_id: 4e5d60c770
+      section_id: 0062148790
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Custom Dashboard with Databricks AI/BI
+      page_no: 1
+      preuve: With the dataset, we can then create a dashboard to visualize the question intent categorization
+  reviewed: false
+- id: D-013
+  question: How does the implementation of the Photon engine affect the process of visualizing question
+    intent categorization using a specific dataset?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 4e5d60c770
+  - 3b8a048acb
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 4e5d60c770
+      section_id: 0062148790
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Custom Dashboard with Databricks AI/BI
+      page_no: 1
+      preuve: Screenshot of the Databricks interface showing SQL query and result table for creating a
+        dataset named "question_category," used to categorize question intent.
+    ancrage_b:
+      element_id: 3b8a048acb
+      section_id: c3f6ff6be6
+      source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+      section_title: Photon acceleration
+      page_no: 1
+      preuve: While enabling Photon increases the DBU rate per hour, it often reduces total cost per workload
+        because jobs complete significantly faster.
+  reviewed: false
+- id: D-014
+  question: When setting up a compute environment, what must be done regarding authentication if the setup
+    requires a single-node configuration for non-distributed Python tasks?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - e653eb481c
+  - c06829515c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: e653eb481c
+      section_id: 44f48d35d2
+      source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+      section_title: Worker and driver nodes
+      page_no: 1
+      preuve: In a single-node setup, you do not have an option to set up worker and driver nodes. You
+        can only choose the size of the single node that acts as both master and worker node.
+    ancrage_b:
+      element_id: c06829515c
+      section_id: 8e18e62bd8
+      source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+      section_title: Using DABs
+      page_no: 1
+      preuve: For any command run from the bundle working directory , evaluate and authenticate the values
+        of fields within a project's bundle setting files.
+  reviewed: false
+- id: D-015
+  question: How is foundation model usage attributed to a specific project when using external or dedicated
+    serving endpoints, and what specific identifiers are tracked for monitoring purposes to facilitate
+    this process?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - d2f7b67beb
+  - f0f9cb7af9
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: d2f7b67beb
+      section_id: d936a9a5aa
+      source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+      section_title: Monitoring Implementation
+      page_no: 1
+      preuve: For monitoring purposes, we are interested in the trace id, total execution duration (latency),
+        number of tool calls, number of LLM calls, and token usage.
+    ancrage_b:
+      element_id: f0f9cb7af9
+      section_id: a0eaf1346e
+      source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+      section_title: Cost-monitoring dashboard
+      page_no: 1
+      preuve: An external model endpoint or a dedicated serving endpoint used by only one project attributes
+        to that project by endpoint name, and you can tag it directly since you created it.
+  reviewed: false
+- id: D-016
+  question: When deploying Lakeflow jobs without Declarative Automation Bundles, what kind of necessary
+    coordination is required between different technical roles to ensure reliable system operation, and
+    what specific configuration file might be needed if a Python script is being executed?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - a8caa27e46
+  - 175ce6903d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: a8caa27e46
+      section_id: a9f9511433
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Chapter 1. MLOps Principles and Components
+      page_no: 1
+      preuve: This means that there needs to be closer collaboration between data practitioners and platform
+        or DevOps teams to ensure that models can be deployed, monitored, and maintained in a reliable
+        and repeatable way.
+    ancrage_b:
+      element_id: 175ce6903d
+      section_id: 79617eb222
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Declarative Automation Bundles
+      page_no: 1
+      preuve: For example, if you wanted to execute a Python script (let's call it main.py) that requires
+        a *project_config.yml*
+  reviewed: false
+- id: D-017
+  question: What security risks are addressed when implementing measures to prevent data or parameter
+    leakage in applications that utilize specialized data storage systems?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 84aac199a3
+  - 343cfcd5c1
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 84aac199a3
+      section_id: c3a56ae902
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: LLM Application Components
+      page_no: 1
+      preuve: Some of these, like vector databases, are not exclusive to LLMs but have gained significant
+        traction because of them.
+    ancrage_b:
+      element_id: 343cfcd5c1
+      section_id: e0d825124c
+      source_path: htms/MLOps with Databricks/10. AI Governance.html
+      section_title: 'Article 15: Accuracy, Robustness, and Cybersecurity'
+      page_no: 1
+      preuve: Confidentiality or extraction attacks
+  reviewed: false
+- id: D-018
+  question: How can one manage the stability of model deployments while ensuring that the identity executing
+    downstream operations when using agents deployed with Databricks is properly controlled?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - cefb8ed19b
+  - bae642fe8e
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: cefb8ed19b
+      section_id: c113bf909f
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Authentication for Agent Endpoint
+      page_no: 1
+      preuve: Authentication ensures that access to the agent endpoint is secure and that requests can
+        be traced to a specific identity.
+    ancrage_b:
+      element_id: bae642fe8e
+      section_id: d1e108a5af
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Use model registry and aliases for safe promotion
+      page_no: 1
+      preuve: Instead of referencing version numbers in application code, assign environment aliases such
+        as "dev," "staging," and "prod" to the appropriate model versions.
+  reviewed: false
+- id: D-019
+  question: What is the recommended practice for defining a tool's utility and how does this relate to
+    the process of improving user interaction with an agent?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - c52db7bfaf
+  - 684bcfccd0
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: c52db7bfaf
+      section_id: 0c7fe15ed9
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Vector Retriever Tool
+      page_no: 1
+      preuve: must be as clear as possible, by describing what the tool can do, information on when to
+        call it, and potential keywords that might be associated with the tool usage.
+    ancrage_b:
+      element_id: 684bcfccd0
+      section_id: 378422000a
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Context Engineering
+      page_no: 1
+      preuve: The goal here is to facilitate usage of the application and make its adoption smoother,
+        which starts by understanding how users are to interact with the agent.
+  reviewed: false
+- id: D-020
+  question: What is the primary reason for shifting the capacity measurement from requests per second
+    to a token-based metric, and what role do human evaluators play in ensuring the system meets real-world
+    business needs?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 1a9bc53bde
+  - 4b959587f0
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 1a9bc53bde
+      section_id: dd2f0944cc
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: Provisioned throughput endpoints
+      page_no: 1
+      preuve: Since LLM requests vary widely in token length, requests per second is no longer a reliable
+        measure of capacity.
+    ancrage_b:
+      element_id: 4b959587f0
+      section_id: 75398f6110
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: How to Evaluate LLM Systems
+      page_no: 1
+      preuve: Human graders are essential for defining evaluation criteria, calibrating model-based graders,
+        and reviewing edge cases.
+  reviewed: false
+- id: D-021
+  question: How does the practice of making small, reversible changes help manage the complexities introduced
+    by larger models and additional tools?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 7453eeb62b
+  - 18087fe034
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 7453eeb62b
+      section_id: b87128f09d
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: What This Lifecycle Solves
+      page_no: 1
+      preuve: Recording per-step usage, timing, and configuration turns trade-offs into transparent decisions.
+    ancrage_b:
+      element_id: 18087fe034
+      section_id: 9fa196e7e1
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Improvement Objectives
+      page_no: 1
+      preuve: Change one thing with clear intent, and keep rollback straightforward.
+  reviewed: false
+- id: D-022
+  question: What is the nature of the application deployment process and what specific integration capability
+    does LangChain offer for this type of development?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - e6440165bb
+  - 613070ecd8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: e6440165bb
+      section_id: 9240d3f516
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Applying the Lifecycle to the Unity Airways Use Case
+      page_no: 1
+      preuve: Deployment promotes a versioned application behind a controlled serving surface.
+    ancrage_b:
+      element_id: 613070ecd8
+      section_id: fca26641a5
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: LangChain and Databricks Integration
+      page_no: 1
+      preuve: LangChain also has third-party integrations with many providers, including Databricks.
+  reviewed: false
+- id: D-023
+  question: What characteristic of the MLflow span object allows it to be easily integrated with OpenTelemetry
+    standards, and what specific type of measurement does the Total Variation Distance provide regarding
+    distribution differences?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - e576f2c83b
+  - dcb37d50b8
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: e576f2c83b
+      section_id: 1b38be1b49
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: Anatomy of a Trace
+      page_no: 1
+      preuve: MLflow's span object is designed to be fully compatible with the OpenTelemetry span specification.
+    ancrage_b:
+      element_id: dcb37d50b8
+      section_id: 5637c84cfe
+      source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+      section_title: Total Variation Distance
+      page_no: 1
+      preuve: Unlike the chi-squared test, which relies on statistical significance and *p*-values, the
+        TVD is a *direct numerical measure* of how much two distributions diverge independent of sample
+        size.
+  reviewed: false
+- id: D-024
+  question: What specific components, beyond just application metadata, must be bundled with an application
+    when ensuring reproducibility for complex AI systems that utilize various integrated parts?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 6a0db29f36
+  - bef3e20e36
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 6a0db29f36
+      section_id: 61bc332e35
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Chapter 4. Building and Versioning a Tool-Calling Agent
+      page_no: 1
+      preuve: GenAI applications are often more complex than traditional ML projects, involving the integration
+        of multiple components like large language models (LLMs), vector databases, tools, and prompt
+        templates.
+    ancrage_b:
+      element_id: bef3e20e36
+      section_id: b31f1a6e8f
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Packaging and Logging the Agent and Artifacts
+      page_no: 1
+      preuve: In practice, we also need to package the application code together with supporting artifacts
+        such as custom code dependencies, configuration files, or even images containing visualizations.
+  reviewed: false
+- id: D-025
+  question: How does the choice of metric aggregation granularity affect the ability to detect meaningful
+    changes in data distribution or model performance, particularly when considering the broader scope
+    of system reliability?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - b927ff5d4d
+  - 58203d876d
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: b927ff5d4d
+      section_id: 5ce0de939f
+      source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+      section_title: System and Infrastructure Health
+      page_no: 1
+      preuve: Monitoring system health, errors, latency, and infrastructure costs is part of every robust
+        MLOps setup.
+    ancrage_b:
+      element_id: 58203d876d
+      section_id: db67c5a052
+      source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+      section_title: Note
+      page_no: 1
+      preuve: On the other hand, if the granularity is too large, genuine changes in data distribution
+        or model performance may be smoothed out, and that can make it difficult for you to detect meaningful
+        drift in time.
+  reviewed: false
+- id: D-026
+  question: What challenge arises when the retrieved context is incomplete, and what specific aspects
+    of the Proof of Concept evaluation need to address this issue?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 0f66b973ed
+  - 28c4bafad0
+  gold_documents:
+  - pdfs
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 0f66b973ed
+      section_id: 9c3f70f611
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: 'Reason 3: LLM hallucinations'
+      page_no: 43
+      preuve: In many cases, the documents returned by the retrieval component may not cover the full
+        scope of information required to answer the query, leading the generative model to fill in gaps
+        with inferred information.
+    ancrage_b:
+      element_id: 28c4bafad0
+      section_id: ec2837dae3
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: Summarize What you learned in the POC
+      page_no: 61
+      preuve: Did response quality meet your expectations for the POC?
+  reviewed: false
+- id: D-027
+  question: How can the flexibility of feature retrieval in a complex model serving scenario relate to
+    the critical importance of response accuracy in AI applications?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - a0d2c369cc
+  - b4b0461854
+  gold_documents:
+  - htms/MLOps with Databricks
+  - pdfs
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: a0d2c369cc
+      section_id: ffc87ed595
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: Response Quality and Reduced Hallucinations
+      page_no: 41
+      preuve: Users tend to disengage from an application they cannot trust, so if many of the responses
+        are inaccurate or include hallucinations, user trust in this application dramatically reduces,
+        rendering it essentially unusable.
+    ancrage_b:
+      element_id: b4b0461854
+      section_id: '1199569154'
+      source_path: htms/MLOps with Databricks/4. Model Serving： Architectures and Implementation.html
+      section_title: Model Serving with Feature Lookup
+      page_no: 1
+      preuve: In this setup, a model request doesn't need to contain all the features.
+  reviewed: false
+- id: D-028
+  question: What specific actions must be taken regarding infrastructure configuration when implementing
+    a continuous deployment pipeline using AWS for Databricks, and what foundational knowledge is necessary
+    to manage ML workflows in a production setting?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - a9748a6b45
+  - 149721fd2e
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: a9748a6b45
+      section_id: 7a47b30634
+      source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+      section_title: Serverless versus Classic Compute for Lakeflow Jobs
+      page_no: 1
+      preuve: That foundation is key for managing ML workflows in production.
+    ancrage_b:
+      element_id: 149721fd2e
+      section_id: 1d85c43278
+      source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+      section_title: Continuous Deployment Pipeline
+      page_no: 1
+      preuve: Note that in such a case, our cluster specification would need modification as well.
+  reviewed: false
+- id: D-029
+  question: How can the limitations of standard visualization tools be mitigated when integrating human-provided
+    feedback into the trace data managed by a serving endpoint?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 633d13730b
+  - db98d74f05
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 633d13730b
+      section_id: b46ebc3303
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Note
+      page_no: 1
+      preuve: As a result, the application must explicitly forward this feedback to MLflow to maintain
+        consistency and ensure data parity.
+    ancrage_b:
+      element_id: db98d74f05
+      section_id: b465e8e042
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Interactively Gather Insights from Traces
+      page_no: 1
+      preuve: In practice, that means instead of building lots of dashboards, you can simply ask about
+        the trace data captured in MLflow and get the insights you need, right when you need them.
+  reviewed: false
+- id: D-030
+  question: When developing reusable software components, what approach is advised for managing package
+    dependencies, and what specific configuration files must be evaluated for authentication when running
+    commands from a bundle working directory?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 0023419387
+  - c06829515c
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 0023419387
+      section_id: 514a029f42
+      source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+      section_title: Project section
+      page_no: 1
+      preuve: So for reusable packages, it is generally recommended to define a supported range of Python
+        versions and dependency versions instead.
+    ancrage_b:
+      element_id: c06829515c
+      section_id: 8e18e62bd8
+      source_path: htms/MLOps with Databricks/2. Developing on Databricks.html
+      section_title: Using DABs
+      page_no: 1
+      preuve: 1. For any command run from the bundle working directory , evaluate and authenticate the
+        values of fields within a project's bundle setting files.
+  reviewed: false
+- id: D-031
+  question: What is the recommended modern method for model registration within the Databricks environment,
+    and how does this relate to the functional role of certain platform elements?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - a2357ed171
+  - cdf017ab37
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: a2357ed171
+      section_id: 31725656b4
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: MLflow
+      page_no: 1
+      preuve: the recommended approach today is to register models in the Unity Catalog using the MLflow
+        library.
+    ancrage_b:
+      element_id: cdf017ab37
+      section_id: e150d99207
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Cross-Cutting Components
+      page_no: 1
+      preuve: 'several Databricks components play a different role: they cut across multiple categories,
+        or they provide infrastructure that enables other components to work together.'
+  reviewed: false
+- id: D-032
+  question: What specific documentation requirements must be met during the data structuring phase to
+    ensure that the transition of a system to production is both technically sound and compliant with
+    governance standards?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - c43739d3d0
+  - 5ede2adb49
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: c43739d3d0
+      section_id: c542a5c7cd
+      source_path: htms/MLOps with Databricks/10. AI Governance.html
+      section_title: Chapter 10. AI Governance
+      page_no: 1
+      preuve: Before they promote systems to production, teams need to validate not only those systems'
+        technical performance and compliance but also their operational readiness.
+    ancrage_b:
+      element_id: 5ede2adb49
+      section_id: 3c0ea17bda
+      source_path: htms/MLOps with Databricks/10. AI Governance.html
+      section_title: Dataset/context engineering
+      page_no: 1
+      preuve: 'Article 10 mandates data governance practices and explicitly requires documentation of
+        the following: - Data collection processes and origin - Data preparation operations, such as labeling,
+        cleaning, and aggregation - Analysis of potential biases and measures to mitigate them - Identification
+        of gap'
+  reviewed: false
+- id: D-033
+  question: What specific functional aspect of agent capabilities can be enhanced by integrating them
+    as tools within complex applications, and what is the primary purpose of the book regarding the overall
+    understanding of Databricks components?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - e4d37ffbb9
+  - ad7852e761
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: e4d37ffbb9
+      section_id: 0b124bfebc
+      source_path: htms/MLOps with Databricks/Preface.html
+      section_title: Who and What This Book Is For
+      page_no: 1
+      preuve: I hope this book will provide those examples for you, save you a lot of time, and help you
+        on your MLOps journey.
+    ancrage_b:
+      element_id: ad7852e761
+      section_id: be7465e35d
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Integrating Advanced Capabilities
+      page_no: 1
+      preuve: In this section, we will explore some techniques to continue adding depth to our agents
+        around managing conversation history, the use of MCP servers as external tools, and the integration
+        of agents as tools to drive more powerful, flexible workflows in complex applications.
+  reviewed: false
+- id: D-034
+  question: What is the current challenge regarding the lack of a universal execution environment for
+    agents, and how does this relate to the specific responsibilities of MLflow within the Databricks
+    ecosystem?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - d038dc7350
+  - f2c2c70bb4
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: d038dc7350
+      section_id: fdaa1cf79d
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Note
+      page_no: 1
+      preuve: MLflow's role is to manage the agent lifecycle, versioning, and deployment, while Databricks
+        Unity Catalog handles identity, authorization, and secure access to resources.
+    ancrage_b:
+      element_id: f2c2c70bb4
+      section_id: 46e220a97e
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Decoupling Production Agent Systems from Runtime
+      page_no: 1
+      preuve: '- **No widely adopted and standardized runtime layer for agents**'
+  reviewed: false
+- id: D-035
+  question: How does the process of tailoring agent interactions to specific user needs relate to the
+    limitations of current coding assistants?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 684bcfccd0
+  - 9bbfa011a5
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 684bcfccd0
+      section_id: 378422000a
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Context Engineering
+      page_no: 1
+      preuve: There are many possible techniques here that can be applied in applications, depending on
+        what user types will be using the agent.
+    ancrage_b:
+      element_id: 9bbfa011a5
+      section_id: 344265add3
+      source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+        MLflow.html
+      section_title: MLflow Skills for Coding Agents
+      page_no: 1
+      preuve: One of the recurring frustrations with coding assistants is that they often know a little
+        about everything but do not understand the specific workflow you care about.
+  reviewed: false
+- id: D-036
+  question: What specific configuration steps are necessary when setting up a SQL warehouse for a Genie
+    agent, and what is a related challenge in managing prompt behavior in MLflow?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 384cc03027
+  - ef5b8bee12
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 384cc03027
+      section_id: e065b4edc6
+      source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+      section_title: Chapter 3. Prompt Engineering with MLflow
+      page_no: 1
+      preuve: How do we update prompt behavior without redeploying the application every time a sentence
+        changes?
+    ancrage_b:
+      element_id: ef5b8bee12
+      section_id: d4614b0835
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: Provisioning the SQL warehouse
+      page_no: 1
+      preuve: In this example, we deliberately choose the smallest serverless warehouse size, configure
+        auto-termination after five minutes of inactivity, and apply a usage policy so that costs can
+        be tracked and allocated later.
+  reviewed: false
+- id: D-037
+  question: What specific capabilities of the MLflow UI become available when viewing an evaluation run
+    generated by a model designed for RAG and agent systems, particularly when that model's traces contain
+    multiple types of assessments?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 32604c8f24
+  - cb237ecf93
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 32604c8f24
+      section_id: 1e84e8f42c
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Running an evaluation
+      page_no: 1
+      preuve: When executed on a Databricks notebook, the MLflow UI, displaying the evaluation run details,
+        is automatically embedded below the code cell.
+    ancrage_b:
+      element_id: cb237ecf93
+      section_id: 88b8bebebd
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Data Model Overview
+      page_no: 1
+      preuve: Because these assessments stay attached to the trace, you can later search traces by assessment
+        fields, inputs, tags, and other attributes, then inspect the exact execution path behind the judgment.
+  reviewed: false
+- id: D-038
+  question: What specific components are necessary for an evaluation process to function, considering
+    the capabilities of a system that manages and tracks datasets?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - e2b3d4f293
+  - 87c2d10179
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: e2b3d4f293
+      section_id: 25262470f0
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: How to Build an Evaluation Dataset
+      page_no: 1
+      preuve: This SDK allows you to create, manage, and version datasets directly from code.
+    ancrage_b:
+      element_id: 87c2d10179
+      section_id: 34ae6aca41
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: MLflow GenAI Evaluation Framework
+      page_no: 1
+      preuve: 'At a minimum, every evaluation requires scorers to have access to two things: *inputs*
+        (what was provided to the system) and *outputs* (what the system produced).'
+  reviewed: false
+- id: D-039
+  question: What is a common pitfall in development that can lead to impractical solutions, and what percentage
+    of ML projects currently lack the necessary oversight to identify such issues?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - dfaa35986e
+  - f6f5f4fedc
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: dfaa35986e
+      section_id: 35cf0a0bc5
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Balancing Quality, Cost, Latency, Safety, and Product Feel
+      page_no: 1
+      preuve: A development loop that optimizes only for correctness can produce something that looks
+        good in testing but fails in practice because it is too slow or too expensive to run at scale.
+    ancrage_b:
+      element_id: f6f5f4fedc
+      section_id: bff8964d7f
+      source_path: htms/MLOps with Databricks/6. Monitoring ML Applications.html
+      section_title: Chapter 6. Monitoring ML Applications
+      page_no: 1
+      preuve: According to The Institute for Ethical AI & Machine Learning, 42% of ML projects do not
+        have monitoring in place (see [Figure 6-1](#ch06_figure_1_1783350086809019)).
+  reviewed: false
+- id: D-040
+  question: What specific capabilities does MLflow offer for managing AI agents, and what kind of metrics
+    can be observed when evaluating the performance of these agents?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 857a947021
+  - d3ad1729f6
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 857a947021
+      section_id: 6c49c5f9a2
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: MLflow Flavors
+      page_no: 1
+      preuve: In the same way, MLflow provides specialized flavors for agentic frameworks, including DSPy,
+        LangChain, and LlamaIndex.
+    ancrage_b:
+      element_id: d3ad1729f6
+      section_id: ce3473f2c7
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: Evaluation in Practice
+      page_no: 1
+      preuve: Screenshot of evaluation results in the MLflow tracing UI showing agent response assessments,
+        including metrics for hook presence, politeness, and word count compliance, with pass and fail
+        rates.
+  reviewed: false
+- id: D-041
+  question: What critical business need drives the requirement for automated evaluation processes when
+    moving an LLM from development to a live environment, and how does a Retrieval-Augmented Generation
+    (RAG) system specifically contribute to meeting this need in a sales context?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 9889dcd22c
+  - 4bfc8482d4
+  gold_documents:
+  - htms/MLOps with Databricks
+  - pdfs
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 9889dcd22c
+      section_id: f80170d12d
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: LLM System Evaluation
+      page_no: 1
+      preuve: And after you receive complaints and make changes to the system, there will be no reliable
+        way to know whether other behaviors have not silently regressed.
+    ancrage_b:
+      element_id: 4bfc8482d4
+      section_id: cd70fdc3ad
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: Question Answering Systems
+      page_no: 30
+      preuve: When a sales team needs to prepare a tailored proposal, the RAG system pulls relevant historical
+        data, product specifications, pricing details, and customer interactions from internal databases,
+        and then constructs a coherent, customized response.
+  reviewed: false
+- id: D-042
+  question: When building a GenAI application using MLflow for structured model iteration, how is the
+    concept of a 'model' defined in this context, and what specific components might be involved in its
+    operation?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 4952d540d6
+  - 43406c2554
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 4952d540d6
+      section_id: 1fd0fe6363
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Building a LangChain Agent and Versioning in MLflow
+      page_no: 1
+      preuve: The examples provided here will focus on MLflow and its integration with LangChain.
+    ancrage_b:
+      element_id: 43406c2554
+      section_id: c4dbc33968
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Logging Model As Code
+      page_no: 1
+      preuve: In GenAI applications, a model is no longer an object but rather a system composed of multiple
+        interconnected services, orchestrated by multiple tool calls.
+  reviewed: false
+- id: D-043
+  question: What specific components, like models or parameters, can be found within the artifacts section
+    of an MLflow run, and how does MLflow facilitate the development process for GenAI applications?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 4952d540d6
+  - d548a9c3a8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 4952d540d6
+      section_id: 1fd0fe6363
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Building a LangChain Agent and Versioning in MLflow
+      page_no: 1
+      preuve: The examples provided here will focus on MLflow and its integration with LangChain.
+    ancrage_b:
+      element_id: d548a9c3a8
+      section_id: d9035ae836
+      source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for
+        GenAI on Databricks.html
+      section_title: MLflow run
+      page_no: 1
+      preuve: These resources are stored in the *artifacts* section of the run and can be retrieved for
+        assessment or to reproduce the model for testing or audit ( [Figure 1-7](#ch01_vm_figure_7_1782841686529823)
+        ).
+  reviewed: false
+- id: D-044
+  question: What happens to a Retrieval-Augmented Generation system when the necessary documentation for
+    a specific product is missing, and how can one view the aggregated performance data for a machine
+    learning experiment?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 4d3c5e0aa4
+  - d4e6bb871e
+  gold_documents:
+  - htms/MLOps with Databricks
+  - pdfs
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 4d3c5e0aa4
+      section_id: 5c56faead3
+      source_path: pdfs/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch.pdf
+      section_title: 'Reason 1: No Relevant Data'
+      page_no: 41
+      preuve: If the user asks a question about a specific Samsung TV model, but the user manual for that
+        model is not included in the data, then clearly the system has no information to ground its response
+        in.
+    ancrage_b:
+      element_id: d4e6bb871e
+      section_id: be07448f07
+      source_path: htms/MLOps with Databricks/3. MLflow for Traditional ML.html
+      section_title: MLflow Run
+      page_no: 1
+      preuve: All the logged information can be also found in the UI.
+  reviewed: false
+- id: D-045
+  question: How does the operational scope and resource requirement of a unit test compare to the governance
+    capabilities offered by integrating MLflow within the Databricks platform?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - f114828c3f
+  - 110fb64e55
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: f114828c3f
+      section_id: 7ae62fc596
+      source_path: htms/Practical MLflow for Generative AI on Databricks/1. Introduction to MLflow for
+        GenAI on Databricks.html
+      section_title: Enterprise-grade governance with Unity Catalog
+      page_no: 1
+      preuve: This is thanks to Databricks UC, where we can enforce granular access controls and track
+        lineage of models and data.
+    ancrage_b:
+      element_id: 110fb64e55
+      section_id: a3cef1221a
+      source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+      section_title: Unit testing
+      page_no: 1
+      preuve: 'A *unit test* isolates a small piece of logic and runs entirely locally: with no Databricks
+        workspace, no cluster startup, no Unity Catalog access, and no network calls.'
+  reviewed: false
+- id: D-046
+  question: What aspect of the model's interaction with consumers must be validated by end-to-end tests
+    to ensure the overall system functions correctly, especially when data engineers are building reliable
+    data products?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 2c5e2f5e88
+  - e8818a13ba
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 2c5e2f5e88
+      section_id: 4313e88b8e
+      source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+      section_title: Platform Best Practices
+      page_no: 1
+      preuve: Data engineers focus on building trusted data products, while ML teams build and deploy
+        models independently on a consistent foundation of production-grade data.
+    ancrage_b:
+      element_id: e8818a13ba
+      section_id: a0a6abbee5
+      source_path: htms/MLOps with Databricks/5. Machine Learning Model Deployment.html
+      section_title: End-to-end testing
+      page_no: 1
+      preuve: The contract between the model and its consumer is a real interface that consists of the
+        request format, response schema, latency expectations, error handling, and fallback behavior.
+  reviewed: false
+- id: D-047
+  question: When manually instrumenting tracings, what is the trade-off between using high-level Fluent
+    APIs versus low-level MLflow Client APIs, and what specific limitation exists when querying these
+    traces?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 694407ab24
+  - c666c63be7
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 694407ab24
+      section_id: 0929b18807
+      source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+        Observability.html
+      section_title: Manual Tracing
+      page_no: 1
+      preuve: 'Low-level MLflow Client APIs
+
+        - Provides fine-grained control, as compared to Fluent APIs; however, it can be more complex to
+        implement.'
+    ancrage_b:
+      element_id: c666c63be7
+      section_id: da81e22863
+      source_path: htms/Practical MLflow for Generative AI on Databricks/5. MLflow Tracing for GenAI Application
+        Observability.html
+      section_title: Querying Traces
+      page_no: 1
+      preuve: '- OR operators are not supported (yes, you read that correctly)'
+  reviewed: false
+- id: D-048
+  question: What is the primary benefit of using the same machine learning scorers in both development
+    and production environments, and how does this relate to the function of certain platform elements?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - e4b8502ac1
+  - cdf017ab37
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: e4b8502ac1
+      section_id: 7dc1034cf8
+      source_path: htms/Practical MLflow for Generative AI on Databricks/9. Production Monitoring with
+        MLflow.html
+      section_title: Register and Start Scorers for Online Monitoring
+      page_no: 1
+      preuve: The key idea is to apply a consistent set of scorers in both offline and online settings,
+        ensuring that the same metrics are used to measure application quality across development and
+        production.
+    ancrage_b:
+      element_id: cdf017ab37
+      section_id: e150d99207
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Cross-Cutting Components
+      page_no: 1
+      preuve: 'However, several Databricks components play a different role: they cut across multiple
+        categories, or they provide infrastructure that enables other components to work together.'
+  reviewed: false
+- id: D-049
+  question: When setting up monitoring for AI agents, what must be done regarding alerts, and how does
+    this relate to the nature of the application's deployment?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - c68d9c51b3
+  - 4bdb649899
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: c68d9c51b3
+      section_id: cb44eb20c2
+      source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+      section_title: Deployment Considerations
+      page_no: 1
+      preuve: Prompts and orchestration logic are generally environment agnostic, while other components,
+        such as AI Search indexes and external connections, may be environment specific. As a result,
+        we must execute and deploy the system in each environment.
+    ancrage_b:
+      element_id: 4bdb649899
+      section_id: bc4cbc23df
+      source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+      section_title: Monitoring considerations
+      page_no: 1
+      preuve: 'A dashboard on its own is not sufficient: you also need to define alerts based on the underlying
+        traces table.'
+  reviewed: false
+- id: D-050
+  question: What is the consequence of a misalignment between two identical identifiers when they are
+    present in different files, and what formatting convention is used to denote program elements like
+    variable names within paragraphs?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 8987d38458
+  - 5b143bd4f5
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 8987d38458
+      section_id: 33364c8af3
+      source_path: htms/MLOps with Databricks/9. Deploying in Monitoring LLM-Based Systems.html
+      section_title: Tag-based cost attribution
+      page_no: 1
+      preuve: If they drift, the bundle's jobs and the SDK-created resources end up tagged under different
+        policies.
+    ancrage_b:
+      element_id: 5b143bd4f5
+      section_id: 6761178cd0
+      source_path: htms/MLOps with Databricks/Preface.html
+      section_title: Conventions Used in This Book
+      page_no: 1
+      preuve: Used for program listings, as well as within paragraphs to refer to program elements such
+        as variable or function names, databases, data types, environment variables, statements, and keywords.
+  reviewed: false
+- id: D-051
+  question: What is the recommended modern approach for managing model features, and what specific type
+    of checks are guardrails designed to perform within the operational flow?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 2ba2785617
+  - 72e888aff6
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 2ba2785617
+      section_id: f117905bb9
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Guardrails
+      page_no: 1
+      preuve: 'Conceptually, guardrails are closely related to evaluation: they are evaluation checks
+        that run in the production path, rather than offline.'
+    ancrage_b:
+      element_id: 72e888aff6
+      section_id: 107f7c3e98
+      source_path: htms/MLOps with Databricks/1. MLOps Principles and Components.html
+      section_title: Feature Engineering
+      page_no: 1
+      preuve: Databricks recommends Feature Engineering in Unity Catalog for handling model features.
+  reviewed: false
+- id: D-052
+  question: What is the physical location of the publisher, O'Reilly Media, Inc., and what specific topic
+    within the book is dedicated to demonstrating how established principles apply to modern AI systems?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - f25fb8d8a3
+  - 091bd5a2a6
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: f25fb8d8a3
+      section_id: 8412b11d93
+      source_path: htms/MLOps with Databricks/Preface.html
+      section_title: How This Book Is Organized
+      page_no: 1
+      preuve: form a special section in which I focus on the LLM capabilities of Databricks and show you
+        how the principles I cover throughout the book apply to AI applications in practice.
+    ancrage_b:
+      element_id: 091bd5a2a6
+      section_id: e40c5a88a5
+      source_path: htms/Practical MLflow for Generative AI on Databricks/Preface.html
+      section_title: How to Contact Us
+      page_no: 1
+      preuve: 141 Stony Circle, Suite 195
+  reviewed: false
+- id: D-053
+  question: What is the primary challenge when moving a successful challenger agent into a live production
+    environment, and what specific technical issue arises when various components of a GenAI application
+    do not communicate uniformly?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 87bc5420e8
+  - acf4f69a80
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 87bc5420e8
+      section_id: cd30bef5d4
+      source_path: htms/Practical MLflow for Generative AI on Databricks/8. Deploying a GenAI Application
+        with MLflow.html
+      section_title: Deployment Rollout
+      page_no: 1
+      preuve: 'Two common strategies used with Databricks model serving include:
+
+        - Blue-green deployment
+
+        - A/B testing'
+    ancrage_b:
+      element_id: acf4f69a80
+      section_id: 3eb1c7af1e
+      source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+        MLflow.html
+      section_title: Chapter 10. Unifying GenAI Systems with MLflow
+      page_no: 1
+      preuve: Your application framework, agent runtime, retrieval layer, tools, background services,
+        IDE assistant, and evaluation stack may all produce useful signals, but if each one speaks a different
+        dialect, every failure becomes harder to investigate and every improvement becomes harder to verify.
+  reviewed: false
+- id: D-054
+  question: What happens to the system's state after a specific agent, which is integrated as a tool,
+    completes its function?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 45f2322ea0
+  - f653d1f934
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 45f2322ea0
+      section_id: 2067e176c1
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Note
+      page_no: 1
+      preuve: 4. After the node tools run, the state returns to the agent node to decide if another tool
+        is needed or not, repeating until termination (back to step 3).
+    ancrage_b:
+      element_id: f653d1f934
+      section_id: 9ee6f9a9f9
+      source_path: htms/Practical MLflow for Generative AI on Databricks/7. Advanced Agents and Tools.html
+      section_title: Multiagents Orchestration and Agents As Tools
+      page_no: 1
+      preuve: We can add this agent specialized in flight recommendation as a tool to our GenAI application.
+  reviewed: false
+- id: D-055
+  question: When creating a minimal, frequently runnable dataset for evaluation, what two related practices
+    should be considered regarding the selection of prompts and the definition of scoring mechanisms?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 2ea3c02205
+  - d736dea0f8
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 2ea3c02205
+      section_id: 6fb1ebe57c
+      source_path: htms/Practical MLflow for Generative AI on Databricks/3. Prompt Engineering with MLflow.html
+      section_title: Loading a Prompt
+      page_no: 1
+      preuve: Use an alias when you are running in production or any environment where promotion and rollback
+        should not require code changes.
+    ancrage_b:
+      element_id: d736dea0f8
+      section_id: efbea77de4
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Building the Minimum Evaluable Product
+      page_no: 1
+      preuve: Then define a minimal set of scorers that reflect non-negotiables for your use case.
+  reviewed: false
+- id: D-056
+  question: What critical aspect of system reliability is often overlooked during the development phase,
+    and how does the introduction of structured, repeatable procedures address this deficiency?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - 9bbfa011a5
+  - 9889dcd22c
+  gold_documents:
+  - htms/MLOps with Databricks
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: 9bbfa011a5
+      section_id: 344265add3
+      source_path: htms/Practical MLflow for Generative AI on Databricks/10. Unifying GenAI Systems with
+        MLflow.html
+      section_title: MLflow Skills for Coding Agents
+      page_no: 1
+      preuve: MLflow Skills fills that gap by packaging repeatable engineering playbooks that coding agents
+        can follow.
+    ancrage_b:
+      element_id: 9889dcd22c
+      section_id: f80170d12d
+      source_path: htms/MLOps with Databricks/8. MLflow for GenAI.html
+      section_title: LLM System Evaluation
+      page_no: 1
+      preuve: And after you receive complaints and make changes to the system, there will be no reliable
+        way to know whether other behaviors have not silently regressed.
+  reviewed: false
+- id: D-057
+  question: When performing evaluation for stateless tasks like summarization, what specific components
+    are recorded for each input instance, and what is the recommended evaluation approach in such cases?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - c805421ba8
+  - ba60d07ffd
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: c805421ba8
+      section_id: 33c3ce211b
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Running and Comparing Evaluations in MLflow
+      page_no: 1
+      preuve: One trace for each input example in your evaluation dataset. A trace captures request and
+        response content, intermediate steps, retrievals, timing, token counts, and tool calls where applicable.
+    ancrage_b:
+      element_id: ba60d07ffd
+      section_id: 79d6813201
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Multiturn judges and scorers
+      page_no: 1
+      preuve: For applications that are inherently stateless such as summarization or classification,
+        where prior context does not affect output quality, single-turn evaluation remains the more appropriate
+        choice.
+  reviewed: false
+- id: D-058
+  question: What is the recommended method for managing parameters when implementing a tool-calling agent,
+    and what specific scenario is the 'answer sheet' mode designed for in AI application assessment?
+  language: en
+  doc_language: en
+  type: deux-sections-inter_chapitres
+  gold_element_ids:
+  - ea7d4cf6c0
+  - b68e36e0ab
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: inter_chapitres
+    ancrage_a:
+      element_id: ea7d4cf6c0
+      section_id: 912a0e4824
+      source_path: htms/Practical MLflow for Generative AI on Databricks/6. Evaluating GenAI Applications
+        with MLflow.html
+      section_title: Answer-sheet evaluation
+      page_no: 1
+      preuve: MLflow then compares each candidate output against these reference results, making this
+        mode well suited for regression testing, benchmarking, and promotion decisions based on curated
+        production traces.
+    ancrage_b:
+      element_id: b68e36e0ab
+      section_id: 57faba8fa8
+      source_path: htms/Practical MLflow for Generative AI on Databricks/4. Building and Versioning a
+        Tool-Calling Agent.html
+      section_title: Full Tool-Calling Agent Application
+      page_no: 1
+      preuve: To manage these configurations more efficiently, we will store them in a YAML file.
+  reviewed: false
+- id: D-059
+  question: What mechanism is recommended for managing database connections in a production agent system
+    to avoid performance bottlenecks when handling multiple simultaneous requests, and what prerequisite
+    must be established before deploying such an agent?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - ef5b8bee12
+  - 5b3fd95b19
+  gold_documents:
+  - htms/MLOps with Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: ef5b8bee12
+      section_id: d4614b0835
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: Provisioning the SQL warehouse
+      page_no: 1
+      preuve: Before creating a Genie agent, we must provision a SQL warehouse, as Genie relies on a warehouse
+        to query tables.
+    ancrage_b:
+      element_id: 5b3fd95b19
+      section_id: 688e331354
+      source_path: htms/MLOps with Databricks/7. Foundation Models and Context Engineering.html
+      section_title: Interacting with Lakebase
+      page_no: 1
+      preuve: We solve this with a connection pool.
+  reviewed: false
+- id: D-060
+  question: How does the involvement of human judgment contribute to the refinement process when analyzing
+    execution paths for performance or logical errors?
+  language: en
+  doc_language: en
+  type: deux-sections-intra_chapitre
+  gold_element_ids:
+  - 47cfec4695
+  - 5755f87642
+  gold_documents:
+  - htms/Practical MLflow for Generative AI on Databricks
+  unanswerable: false
+  _origine:
+    strate: intra_chapitre
+    ancrage_a:
+      element_id: 47cfec4695
+      section_id: 98c56aea48
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Evidence-Driven Development Workflow
+      page_no: 1
+      preuve: This lets you replay execution paths, identify token and latency hotspots, and pinpoint
+        issues such as empty retrieval context, tool timeouts, or prompt logic that is not doing what
+        you intended.
+    ancrage_b:
+      element_id: 5755f87642
+      section_id: 572ddb62ab
+      source_path: htms/Practical MLflow for Generative AI on Databricks/2. End-to-End GenAI Application
+        Lifecycle with MLflow.html
+      section_title: Human-in-the-Loop Feedback
+      page_no: 1
+      preuve: Humans help define what "good" means, identify subtle errors, and validate that scorers
+        and judges match domain standards.
+  reviewed: false

@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -229,4 +229,40 @@ verifier-les-ancrages:
 		--chroma-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
 		--nebula-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' graphd)" \
 		tests/fixtures/golden_qa_generated.yaml \
-		tests/fixtures/jeu_de_questions_pipeline.yaml
+		tests/fixtures/jeu_de_questions_pipeline.yaml \
+		tests/fixtures/jeu_ancrages_disperses.yaml
+
+# LE JEU A ANCRAGES MULTIPLES ET DISPERSES, et ce qui le mesure. Il repond a la
+# dette ouverte au §4.67 : les deux jeux anterieurs ne peuvent pas arbitrer
+# AUTO_SELECT_TOP_K, le premier parce qu'il est AVEUGLE a la selection, le
+# second parce qu'il ne porte que 26 questions.
+#
+# LA GENERATION ECRIT DANS tests/fixtures/ ET APPELLE LE MODELE : elle n'est PAS
+# un antecedent de la mesure, et la rejouer produirait un AUTRE jeu — le jeu
+# versionne est l'artefact de reference, comme celui de `generate_golden.py`.
+generer-jeu-disperse:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/generer_jeu_disperse.py \
+		--count 60 \
+		--chroma-host "$$(docker inspect -f '{{.NetworkSettings.Networks.rag_network.IPAddress}}' rag-ingestion-pipeline-chromadb-1)" \
+		--chroma-port 8000 \
+		--journal runs/$(shell date +%Y-%m-%d)-generation-jeu-disperse.json
+
+# LE PRODUCTEUR DU CACHE DE TRADUCTIONS, et il est unique. Les deux bancs
+# EXIGENT le cache sans le fabriquer : une traduction manquante deplacerait le
+# rappel translinguistique en silence, et fabriquer sur place ferait de chaque
+# banc un second site de traduction.
+traductions-du-jeu-disperse:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/sweep_retrieval.py \
+		--golden tests/fixtures/jeu_ancrages_disperses.yaml --traductions-seulement
+
+# LA MESURE. `verifier-les-ancrages` d'abord, pour la meme raison que `eval` :
+# un rappel mesure sur un jeu qui designe le vide rend 0 sans dire pourquoi.
+# Les valeurs vont de 1 a RERANK_TOP_K=10 : au-dela, `rerank` ne rend plus rien
+# a tronquer (§4.67, point 1).
+mesurer-dispersion: verifier-les-ancrages
+	$(_ENV_SELECTION) uv run --no-sync python scripts/controle_perimetre_selection.py \
+		--jeu tests/fixtures/jeu_ancrages_disperses.yaml
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_dispersion.py \
+		--jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--valeurs 1,2,3,4,5,6,7,8,9,10 \
+		--sortie runs/$(shell date +%Y-%m-%d)-dispersion.json

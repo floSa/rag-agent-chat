@@ -1,0 +1,692 @@
+{
+  "journal": [
+    {
+      "paire": 1,
+      "motif": "retenue",
+      "id": "D-001"
+    },
+    {
+      "paire": 2,
+      "motif": "retenue",
+      "id": "D-002"
+    },
+    {
+      "paire": 3,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 4,
+      "motif": "retenue",
+      "id": "D-003"
+    },
+    {
+      "paire": 5,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 6,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 7,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 8,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 9,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 10,
+      "motif": "retenue",
+      "id": "D-004"
+    },
+    {
+      "paire": 11,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 12,
+      "motif": "retenue",
+      "id": "D-005"
+    },
+    {
+      "paire": 13,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 14,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 15,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 16,
+      "motif": "retenue",
+      "id": "D-006"
+    },
+    {
+      "paire": 17,
+      "motif": "retenue",
+      "id": "D-007"
+    },
+    {
+      "paire": 18,
+      "motif": "retenue",
+      "id": "D-008"
+    },
+    {
+      "paire": 19,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 20,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 21,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 22,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 23,
+      "motif": "retenue",
+      "id": "D-009"
+    },
+    {
+      "paire": 24,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 25,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 26,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 27,
+      "motif": "retenue",
+      "id": "D-010"
+    },
+    {
+      "paire": 28,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 29,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 30,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 31,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 32,
+      "motif": "retenue",
+      "id": "D-011"
+    },
+    {
+      "paire": 33,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 34,
+      "motif": "retenue",
+      "id": "D-012"
+    },
+    {
+      "paire": 35,
+      "motif": "retenue",
+      "id": "D-013"
+    },
+    {
+      "paire": 36,
+      "motif": "retenue",
+      "id": "D-014"
+    },
+    {
+      "paire": 37,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 38,
+      "motif": "retenue",
+      "id": "D-015"
+    },
+    {
+      "paire": 39,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 40,
+      "motif": "retenue",
+      "id": "D-016"
+    },
+    {
+      "paire": 41,
+      "motif": "retenue",
+      "id": "D-017"
+    },
+    {
+      "paire": 42,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 43,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 44,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 45,
+      "motif": "retenue",
+      "id": "D-018"
+    },
+    {
+      "paire": 46,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 47,
+      "motif": "retenue",
+      "id": "D-019"
+    },
+    {
+      "paire": 48,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 49,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 50,
+      "motif": "sections_non_disjointes",
+      "detail": {
+        "section_id_a": "245d8e0fd3",
+        "section_id_b": "b94a231816",
+        "b_dans_a": false,
+        "a_dans_b": false,
+        "a_dans_a": true,
+        "b_dans_b": false
+      }
+    },
+    {
+      "paire": 51,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 52,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 53,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 54,
+      "motif": "sections_non_disjointes",
+      "detail": {
+        "section_id_a": "cd24b37fe3",
+        "section_id_b": "9fa196e7e1",
+        "b_dans_a": false,
+        "a_dans_b": false,
+        "a_dans_a": false,
+        "b_dans_b": true
+      }
+    },
+    {
+      "paire": 55,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 56,
+      "motif": "retenue",
+      "id": "D-020"
+    },
+    {
+      "paire": 57,
+      "motif": "retenue",
+      "id": "D-021"
+    },
+    {
+      "paire": 58,
+      "motif": "retenue",
+      "id": "D-022"
+    },
+    {
+      "paire": 59,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 60,
+      "motif": "retenue",
+      "id": "D-023"
+    },
+    {
+      "paire": 61,
+      "motif": "retenue",
+      "id": "D-024"
+    },
+    {
+      "paire": 62,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 63,
+      "motif": "retenue",
+      "id": "D-025"
+    },
+    {
+      "paire": 64,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 65,
+      "motif": "retenue",
+      "id": "D-026"
+    },
+    {
+      "paire": 66,
+      "motif": "retenue",
+      "id": "D-027"
+    },
+    {
+      "paire": 67,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 68,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 69,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 70,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 71,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 72,
+      "motif": "retenue",
+      "id": "D-028"
+    },
+    {
+      "paire": 73,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 74,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 75,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 76,
+      "motif": "retenue",
+      "id": "D-029"
+    },
+    {
+      "paire": 77,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 78,
+      "motif": "retenue",
+      "id": "D-030"
+    },
+    {
+      "paire": 79,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 80,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 81,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 82,
+      "motif": "retenue",
+      "id": "D-031"
+    },
+    {
+      "paire": 83,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 84,
+      "motif": "retenue",
+      "id": "D-032"
+    },
+    {
+      "paire": 85,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 86,
+      "motif": "retenue",
+      "id": "D-033"
+    },
+    {
+      "paire": 87,
+      "motif": "retenue",
+      "id": "D-034"
+    },
+    {
+      "paire": 88,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 89,
+      "motif": "retenue",
+      "id": "D-035"
+    },
+    {
+      "paire": 90,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 91,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 92,
+      "motif": "retenue",
+      "id": "D-036"
+    },
+    {
+      "paire": 93,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 94,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 95,
+      "motif": "retenue",
+      "id": "D-037"
+    },
+    {
+      "paire": 96,
+      "motif": "retenue",
+      "id": "D-038"
+    },
+    {
+      "paire": 97,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 98,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 99,
+      "motif": "retenue",
+      "id": "D-039"
+    },
+    {
+      "paire": 100,
+      "motif": "retenue",
+      "id": "D-040"
+    },
+    {
+      "paire": 101,
+      "motif": "retenue",
+      "id": "D-041"
+    },
+    {
+      "paire": 102,
+      "motif": "retenue",
+      "id": "D-042"
+    },
+    {
+      "paire": 103,
+      "motif": "retenue",
+      "id": "D-043"
+    },
+    {
+      "paire": 104,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 105,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 106,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 107,
+      "motif": "retenue",
+      "id": "D-044"
+    },
+    {
+      "paire": 108,
+      "motif": "un_passage_suffit",
+      "verdicts": [
+        false,
+        true
+      ]
+    },
+    {
+      "paire": 109,
+      "motif": "retenue",
+      "id": "D-045"
+    },
+    {
+      "paire": 110,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 111,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 112,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 113,
+      "motif": "retenue",
+      "id": "D-046"
+    },
+    {
+      "paire": 114,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 115,
+      "motif": "retenue",
+      "id": "D-047"
+    },
+    {
+      "paire": 116,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 117,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 118,
+      "motif": "retenue",
+      "id": "D-048"
+    },
+    {
+      "paire": 119,
+      "motif": "sections_non_disjointes",
+      "detail": {
+        "section_id_a": "f5fd7fc1d6",
+        "section_id_b": "bc3e81739a",
+        "b_dans_a": false,
+        "a_dans_b": false,
+        "a_dans_a": true,
+        "b_dans_b": false
+      }
+    },
+    {
+      "paire": 120,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 121,
+      "motif": "retenue",
+      "id": "D-049"
+    },
+    {
+      "paire": 122,
+      "motif": "retenue",
+      "id": "D-050"
+    },
+    {
+      "paire": 123,
+      "motif": "retenue",
+      "id": "D-051"
+    },
+    {
+      "paire": 124,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 125,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 126,
+      "motif": "retenue",
+      "id": "D-052"
+    },
+    {
+      "paire": 127,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 128,
+      "motif": "retenue",
+      "id": "D-053"
+    },
+    {
+      "paire": 129,
+      "motif": "retenue",
+      "id": "D-054"
+    },
+    {
+      "paire": 130,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 131,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 132,
+      "motif": "sections_non_disjointes",
+      "detail": {
+        "section_id_a": "bf7fde5552",
+        "section_id_b": "b94a231816",
+        "b_dans_a": false,
+        "a_dans_b": false,
+        "a_dans_a": true,
+        "b_dans_b": false
+      }
+    },
+    {
+      "paire": 133,
+      "motif": "retenue",
+      "id": "D-055"
+    },
+    {
+      "paire": 134,
+      "motif": "retenue",
+      "id": "D-056"
+    },
+    {
+      "paire": 135,
+      "motif": "retenue",
+      "id": "D-057"
+    },
+    {
+      "paire": 136,
+      "motif": "retenue",
+      "id": "D-058"
+    },
+    {
+      "paire": 137,
+      "motif": "retenue",
+      "id": "D-059"
+    },
+    {
+      "paire": 138,
+      "motif": "gardes_lexicaux"
+    },
+    {
+      "paire": 139,
+      "motif": "retenue",
+      "id": "D-060"
+    }
+  ],
+  "motifs": {
+    "un_passage_suffit": 8,
+    "gardes_lexicaux": 67,
+    "sections_non_disjointes": 4
+  },
+  "raisons_de_fin": {
+    "stop": 271
+  }
+}

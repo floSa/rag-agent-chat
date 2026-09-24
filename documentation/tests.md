@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1128 tests, aucune dépendance
+## Unitaire — 1160 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,29 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 24 septembre 2026 à 16:35 UTC par LOT-35 : **1128** tests sur **57** fichiers,
+> `mesuré` le 24 septembre 2026 à 19:20 UTC par LOT-36 : **1160** tests sur **58** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE DEUX, ET AUCUN TEST N'A ÉTÉ RETIRÉ, NI AUCUN FICHIER AJOUTÉ.**
+> **CE COMPTE MONTE DE TRENTE-DEUX, ET `src/` N'EST PAS TOUCHÉ.**
+> *(LOT-35 relevait **1128** sur **57** fichiers le 24 septembre à 16:35 UTC ; les **32** de plus
+> sont **32** dans le fichier neuf `test_jeu_ancrages_disperses.py`, et
+> rien d'autre. Ils gardent le jeu à ancrages multiples et dispersés et le banc
+> qui le mesure : que chaque question porte au moins **deux** ancrages, que les
+> deux vivent dans des `section_id` **différents** — ceux que le GRAPHE rend, pas
+> le `reference_id` du chunk —, que la limite de la méthode voyage dans le
+> fichier, que les jetons de moins de trois caractères soient écartés de la
+> mesure de présence du TEXTE — sans quoi elle serait toujours vraie —, que
+> l'histogramme des rangs compte l'`absent` à part du lointain, que la
+> condition de reconstruction tienne ses **quatre** directions — contrôle positif
+> compris : une reconstruction qui ne rend RIEN satisfait la disjonction —, et
+> qu'une question ne soit comptée réussie que si **TOUS** ses ancrages arrivent,
+> `all` et jamais `any`, sur cinq états écrits et les deux natures de présence,
+> et enfin que l'en-tête du jeu — sa méthode et sa limite — soit celui que son
+> producteur écrit, deux sites ne pouvant pas diverger sans rien dire.
+> Les mesures sont au §4.76 du registre.)*
+>
+> **LE RELEVÉ ANTÉRIEUR, ET IL MONTAIT DE DEUX SANS QU'AUCUN TEST NE SOIT RETIRÉ NI AUCUN FICHIER AJOUTÉ.**
 > *(LOT-34 relevait **1126** sur **57** fichiers le 24 septembre à 13:05 UTC ; les **2** de plus
 > tiennent dans deux scènes ajoutées à `test_capture_usage.py`. La première
 > reproduit par retard INJECTÉ, déclenché par un ÉVÉNEMENT, la disparition du
