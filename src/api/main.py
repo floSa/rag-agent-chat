@@ -513,10 +513,14 @@ def _reservoir_des_sondes() -> CapacityLimiter:
 # ALLAIT tourner : la boucle retirait le drapeau, un appel suivant en posait un
 # neuf, et le fil renoncé tournait quand même — puis retirait PAR NOM le drapeau
 # de cet appel vivant. `mesuré` sous retard injecté : 26 appels en rafale
-# relancent alors UN fil de plus sur le store qui pend ; aucune sonde ne devient
-# muette. Et la fenêtre n'est pas théorique : sous contention du GIL, un fil de
-# sonde démarre jusqu'à plusieurs secondes après sa mise en file, donc au-delà du
-# plafond.
+# relancent alors UN fil de plus sur le store qui pend, et sur un store LENT le
+# doublement se transmet d'appel en appel — chaque fil qui revient efface le
+# drapeau du suivant : deux sondes au lieu d'une, 12 maillons sur 12. Aucune
+# sonde ne devient muette. SA PRÉCONDITION N'EST PAS THÉORIQUE : sous contention
+# du GIL, un fil de sonde démarre jusqu'à plusieurs secondes après sa mise en
+# file, donc au-delà du plafond. La fenêtre elle-même, quelques instructions,
+# n'a en revanche JAMAIS été atteinte sans injection : c'est écrit au §4.74, et
+# c'est ce qu'un audit doit remesurer avant de croire le contraire.
 #
 # LA FERMETURE EST UNE PRISE, ET NON UN JETON. Un `threading.Lock` neuf par appel,
 # pris SANS ATTENTE par le premier des deux qui le demande : le fil à son entrée,
