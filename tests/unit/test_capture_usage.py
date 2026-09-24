@@ -563,6 +563,149 @@ async def test_la_taille_est_mesurable_sans_creer_le_fichier(base) -> None:
     assert pleine.enabled
 
 
+@pytest.mark.asyncio
+async def test_le_wal_disparu_entre_exists_et_stat_ne_vide_pas_l_actif(base) -> None:
+    """Le `-wal` que SQLite replie peut disparaître ENTRE `exists()` et `stat()`.
+
+    C'est le constat E de l'audit 34 (§7) : `stats()` testait puis utilisait.
+    Le `FileNotFoundError` du `stat()` remontait à l'`except` général, et
+    `/health` publiait un actif de capture VIDE — 0 interaction, 0 octet pour
+    une base qui en porte —, en incrémentant `failures` définitivement. Or le
+    commentaire de `src/api/main.py` dit que l'inventer en zéros « décrirait
+    une base vide ».
+
+    La fenêtre est reproduite par un retard INJECTÉ déclenché par un ÉVÉNEMENT,
+    jamais par l'horloge : le double supprime le `-wal` à l'instant précis où
+    `exists()` vient de répondre vrai, et il l'asserte (sans quoi un vert ne
+    dirait rien). Le double reconnaît le fichier par égalité de chemin ENTIER,
+    pas par suffixe : `usage.sqlite-wal` et `usage.sqlite-shm` se ressemblent.
+
+    La propriété tenue n'est pas un instantané : le poids reste vrai, ou
+    sous-évalué du SEUL `-wal` ; les comptes ne tombent pas à zéro ; `failures`
+    ne bouge pas.
+    """
+    # Le mode WAL est posé au démarrage de l'API et nulle part ailleurs : sans
+    # ce geste-là, la base reste en journal de restauration et aucun `-wal`
+    # n'existe jamais — le garde mesurerait un autre montage que la production.
+    await usage.initialiser()
+    await usage.record_start(
+        thread_id="t-wal-1", endpoint="chat", question="q",
+        ranking=[_chunk("aaaaaaaaa1", 0.9)],
+    )
+    wal = base.with_name(base.name + "-wal")
+    # Un second lien ouvert AVANT la seconde écriture maintient le `-wal` sur le
+    # disque : SQLite ne le replie qu'à la fermeture du DERNIER lien, et sans
+    # cela la fenêtre visée n'existe simplement pas.
+    lien = sqlite3.connect(base)
+    lien.execute("SELECT COUNT(*) FROM interactions").fetchone()
+    await usage.record_start(
+        thread_id="t-wal-2", endpoint="chat", question="q",
+        ranking=[_chunk("aaaaaaaaa2", 0.9)],
+    )
+    assert wal.exists(), "sans -wal sur le disque, ce garde ne mesurerait rien"
+    poids_principal = base.stat().st_size
+    poids_wal = wal.stat().st_size
+
+    exists_reel = pathlib.Path.exists
+    fenetre = []
+
+    def exists_puis_disparition(self, *args, **kwargs):
+        repondu = exists_reel(self, *args, **kwargs)
+        if repondu and os.fspath(self) == os.fspath(wal):
+            os.unlink(wal)
+            fenetre.append(os.fspath(self))
+        return repondu
+
+    try:
+        pathlib.Path.exists = exists_puis_disparition
+        etat = await usage.stats()
+    finally:
+        pathlib.Path.exists = exists_reel
+        lien.close()
+
+    assert fenetre == [os.fspath(wal)], (
+        "la fenêtre n'a pas tiré : le garde n'a pas atteint son cas, "
+        f"appels interceptés = {fenetre}"
+    )
+    assert (etat.interactions, etat.sources) == (2, 2), (
+        "un -wal disparu pendant la mesure a fait publier un actif de capture "
+        f"VIDE : interactions={etat.interactions}, sources={etat.sources}, "
+        "là où la base en porte 2 et 2"
+    )
+    assert poids_principal <= etat.size_bytes <= poids_principal + poids_wal + 65536, (
+        "le poids doit rester vrai, ou sous-évalué du SEUL -wal : "
+        f"size_bytes={etat.size_bytes} hors de "
+        f"[{poids_principal} ; {poids_principal + poids_wal + 65536}]"
+    )
+    assert etat.failures == 0, (
+        f"`failures` a monté à {etat.failures} pour un -wal replié, "
+        "et il ne redescend jamais"
+    )
+
+
+@pytest.mark.asyncio
+async def test_une_annexe_illisible_reste_une_panne_et_se_compte(base) -> None:
+    """Le rattrapage du `-wal` replié ne doit PAS avaler les vraies pannes.
+
+    Le garde ci-dessus tient le cas normal ; celui-ci tient sa BORNE. Une annexe
+    que SQLite a repliée est absente — c'est un état normal. Une annexe illisible
+    (`PermissionError`), un chemin devenu dossier, un volume démonté ne le sont
+    pas : ils doivent continuer à monter dans l'`except` général, qui les compte
+    dans `failures` et les journalise. Sans ce garde, élargir le rattrapage de
+    `FileNotFoundError` à `OSError` ne fait rougir RIEN — mesuré, mutation M3 du
+    lot 35 : 1127 passés.
+    """
+    await usage.initialiser()
+    await usage.record_start(
+        thread_id="t-annexe-1", endpoint="chat", question="q",
+        ranking=[_chunk("aaaaaaaaa1", 0.9)],
+    )
+    wal = base.with_name(base.name + "-wal")
+    lien = sqlite3.connect(base)
+    lien.execute("SELECT COUNT(*) FROM interactions").fetchone()
+    await usage.record_start(
+        thread_id="t-annexe-2", endpoint="chat", question="q",
+        ranking=[_chunk("aaaaaaaaa2", 0.9)],
+    )
+    assert wal.exists(), "sans -wal sur le disque, ce garde ne mesurerait rien"
+
+    stat_reel = pathlib.Path.stat
+    appels = []
+
+    def stat_qui_refuse(self, *args, **kwargs):
+        # Reconnu par égalité de chemin ENTIER : `-wal` et `-shm` se ressemblent.
+        if os.fspath(self) != os.fspath(wal):
+            return stat_reel(self, *args, **kwargs)
+        appels.append(os.fspath(self))
+        # Le PREMIER appel est celui d'`exists()`, et il doit RÉUSSIR : `exists()`
+        # relaie déjà `PermissionError` (seuls ENOENT, ENOTDIR, EBADF et ELOOP
+        # sont avalés), et refuser là ne mesurerait pas le `stat()` visé — ce
+        # garde a été vert pour cette mauvaise raison avant d'être corrigé. Le
+        # refus tombe sur le SECOND appel, celui du corps de la boucle.
+        if len(appels) == 1:
+            return stat_reel(self, *args, **kwargs)
+        raise PermissionError(13, "Permission denied", os.fspath(self))
+
+    try:
+        pathlib.Path.stat = stat_qui_refuse
+        etat = await usage.stats()
+    finally:
+        pathlib.Path.stat = stat_reel
+        lien.close()
+
+    assert len(appels) == 2, (  # noqa: PLR2004
+        "le refus n'a pas tiré sur le `stat()` du corps de la boucle : le garde "
+        f"n'a pas atteint son cas, appels sur le -wal = {appels}"
+    )
+    assert etat.failures == 1, (
+        "une annexe ILLISIBLE n'est pas une annexe repliée : elle doit se "
+        f"compter dans `failures`, qui vaut {etat.failures}"
+    )
+    assert (etat.interactions, etat.sources, etat.size_bytes) == (0, 0, 0), (
+        "une panne se signale par l'actif vide ET le compteur, pas par un "
+        f"poids partiel muet : {etat}"
+    )
+
 # ─── L'export ─────────────────────────────────────────────────────────────────
 
 _RACINE = pathlib.Path(__file__).resolve().parents[2]

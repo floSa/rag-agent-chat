@@ -557,7 +557,31 @@ async def stats() -> UsageStats:
         for suffixe in ("-wal", "-shm"):
             annexe = chemin.with_name(chemin.name + suffixe)
             if annexe.exists():
-                poids += annexe.stat().st_size
+                try:
+                    poids += annexe.stat().st_size
+                except FileNotFoundError:
+                    # `exists()` puis `stat()` est un test-puis-usage : SQLite
+                    # replie et SUPPRIME le `-wal` (puis le `-shm`) dès que le
+                    # dernier lien se ferme, et cela peut tomber entre les deux
+                    # appels. Une annexe qui disparaît là est un état NORMAL, pas
+                    # une panne : elle est traitée comme absente, exactement comme
+                    # si `exists()` avait répondu faux une instruction plus tôt —
+                    # `Path.exists()` avale déjà ce même `FileNotFoundError`, donc
+                    # une disparition AVANT le test ne coûtait déjà rien.
+                    # Sans ce rattrapage, l'erreur remontait à l'`except` général
+                    # ci-dessous : /health publiait 0 interaction et 0 octet pour
+                    # une base pleine, et `failures` montait définitivement — or
+                    # « l'inventer en zéros décrirait une base vide », dit le
+                    # commentaire de `src/api/main.py`.
+                    # RIEN D'AUTRE n'est rattrapé, et c'est délibéré : une annexe
+                    # illisible (`PermissionError`), un chemin devenu dossier
+                    # (`IsADirectoryError`), un volume démonté (`OSError`) ne sont
+                    # pas des états normaux — ils doivent continuer à monter dans
+                    # l'`except` général, qui les compte et les journalise. Le seul
+                    # coût de ce rattrapage est un poids sous-évalué de l'annexe
+                    # repliée, ce que le repli vient justement de reporter sur le
+                    # fichier principal.
+                    continue
         return UsageStats(
             enabled=capture_active(),
             path=settings.usage_db_path,
