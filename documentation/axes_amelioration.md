@@ -11497,3 +11497,35 @@ sa scène fait GAGNER la boucle, que M4 ne touche pas.
 - **La propriété d'AnyIO dont dépend l'analyse** — `future.cancelled()` relu
   avant l'appel — est lue dans le code d'**une** version (4.15.1). La prise ne
   dépend pas de cette propriété ; l'analyse de la fenêtre, si.
+
+#### L'AUDIT, ET CE QU'IL LAISSE AU REGISTRE (24 septembre 2026)
+
+**AUDIT-34 : RIEN DE BLOQUANT** (`documentation/audits/2026-09-24-audit-lot-34.md`).
+Le §12 ferme le lot. Ses sept non bloquantes sont inscrites ici et **n'appellent
+pas de réparation dans ce lot** :
+
+- **A** — une mesure étiquetée `mesuré` **sans date** dans le commentaire neuf
+  de `_sondes_en_vol` (`src/api/main.py`) ;
+- **B** — « n'a JAMAIS été atteinte sans injection », au même site : instantané
+  non borné. L'audit l'a remesuré et il tient (0 sur 250 sous une autre
+  contention), mais un « jamais » reste une affirmation qui périme ;
+- **C** — les bancs des tableaux du §2 ci-dessus sont **hors dépôt** et ne se
+  rejouent pas. Ce qui n'est pas versionné n'existe pas : ces tableaux sont des
+  témoignages, pas des instruments ;
+- **D** — la barrière du lot 33 n'est défendue que par **son propre garde**
+  (sous mutation : 1 rouge sur 1126) ;
+- **E** — **`src/agent/usage.py`, lignes 557-559 à la lecture de l'audit, ANTÉRIEUR
+  AU LOT** : `annexe.exists()` puis `annexe.stat()` sur `usage.sqlite-wal`, que
+  SQLite supprime à la fermeture du dernier lien. **Non reproduit** sur 4000
+  appels contre 32 957 fermetures concurrentes. **Coût `mesuré` par l'audit,
+  fenêtre tirée une fois avec assert** : `/health` publie **0 interaction, 0
+  octet** pour une base qui en porte **500** et **226 272**, pendant un tick, et
+  `failures` monte de 1 **définitivement**. C'est la seule sortie fausse nommée
+  par l'audit ;
+- **F** — `grep -rn '_sonder\b'` rend 58 lignes, parce qu'une fixture
+  **homonyme** existe dans `tests/unit/test_moteur_llm.py` ; les appelants de
+  production sont **5**. Piège de relevé ;
+- **G** — méthode : un détecteur de résidus qui lit « drapeau absent » comme
+  « la boucle l'a retiré » confond deux retireurs et rend des chiffres faux
+  **dans les deux sens** — 18 résidus fabriqués sur la branche réparée, puis un
+  « 55 sur 500 » retiré avant le rendu.
