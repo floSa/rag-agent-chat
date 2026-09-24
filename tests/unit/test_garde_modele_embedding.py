@@ -1363,8 +1363,9 @@ async def test_un_fil_qui_ne_demarre_jamais_ne_laisse_pas_le_drapeau_pose(
     code d'avant atteignant déjà la cécité définitive dès qu'un fil pend pour de
     bon ; mais elle est réelle, et elle est traitée plutôt que laissée ouverte.
 
-    `_sonder` la ferme avec l'accusé de démarrage que le fil pose : si l'offload
-    se termine par une exception SANS que le fil ait démarré, la boucle retire le
+    `_sonder` la ferme avec la prise que le fil et la boucle se disputent
+    (§4.74) : si l'offload se termine par une exception et que la boucle gagne
+    la prise, le fil n'a pas démarré et ne sondera plus, et la boucle retire le
     drapeau elle-même. Sans ce retrait, la sonde serait morte pour la vie du
     processus.
 

@@ -501,9 +501,9 @@ def _reservoir_des_sondes() -> CapacityLimiter:
 # invoquée pour refuser : « tâche annulée avant que le fil démarre → drapeau
 # posé à jamais ». Elle ne pouvait de toute façon pas servir de motif, le code
 # d'avant atteignant DÉJÀ la cécité définitive dès qu'un fil pend pour de bon.
-# `_sonder` la ferme avec un accusé de démarrage posé par le fil : si l'offload
-# se termine par une exception SANS que le fil ait démarré, la boucle retire le
-# drapeau elle-même.
+# `_sonder` la ferme avec une PRISE que le fil et la boucle se disputent : si
+# l'offload se termine par une exception et que la boucle gagne la prise, le fil
+# n'a pas démarré et ne sondera plus, et la boucle retire le drapeau elle-même.
 #
 # LE RÉSIDU QUE CE SITE DISAIT « ASSUMÉ ET BORNÉ » ÉTAIT RÉEL, ET IL EST FERMÉ
 # (LOT-34, §4.74 du registre). La boucle décidait « le fil n'a pas démarré » en
