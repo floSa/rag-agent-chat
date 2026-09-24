@@ -10973,6 +10973,35 @@ doublon. Ce lot n'est pas donné tant que le pipeline n'a pas tranché entre (a)
 (e) et (f). **Et deux noms écrits plus haut sont périmés** : la fonction
 s'appelle `_restore_full_text` et se trouve à la ligne **852** ; `git grep
 _fill_full_texts -- src/` rend **0** le 24 septembre.
+
+**DÉCISION DU PIPELINE, 24 SEPTEMBRE 2026 (message 29 de la série alternée) :
+OPTION (a), LES PUCES VIDES NE SONT PAS RÉPARÉES.** (f) nous cassait, (e) doublait
+le texte au prompt, et le texte y arrive déjà par les fragments frères. Le lot de
+la condition de candidature n'a **plus d'objet** ; il n'est pas donné. Le défaut
+réel, l'**ÉMIETTEMENT** (un `<li>` ou un paragraphe mis en forme devient
+plusieurs éléments, parfois d'un seul caractère), est consigné chez eux, non
+corrigé, parce que le corriger déplace des milliers d'identifiants.
+
+**CE QUE COÛTENT LES CORPS VIDES AU PROMPT, SUR LES DEUX JEUX.** `mesuré` le 24
+septembre 2026 à 15:02 UTC, dans le conteneur servi (`ba6a8f0`), par
+`reconstruct_section` sur les **172** ancrages distincts des deux jeux →
+**148** sections uniques, 0 échec, **1 751** éléments rendus (section, voisines
+avant et après). Vides : **20 `code` sur 152** et **26 `list_item` sur 289**.
+**Les deux ne coûtent pas la même chose, LU dans `_render_element`** : une puce
+vide rend `""` et disparaît du markdown ; un `code` vide rend un bloc vide
+suivi d'un marqueur `[src:ID]` citable qui ne cite rien, **20 sur 1 698
+marqueurs** du markdown. Les deux prennent une place de la fenêtre, qui se
+compte en éléments AVANT le rendu : **46 places sur 1 751**. **Non réparé** : un
+coût mesuré de cet ordre ne justifie pas un lot tant que le déploiement de
+`main` est en retard. La réparation juste filtrerait AVANT le fenêtrage, et pas
+seulement au rendu.
+
+**UNE BRANCHE MORTE, `mesuré` le même jour, sur les 15 173 sommets** : le label
+des 1 748 `ListItem` est `list_item`, **1 748 sur 1 748**. La branche
+`"listitem"` de `_render_element` n'est donc jamais prise. Les puces tombent
+dans la dernière ligne, qui rend la même chose. Ce n'est pas un défaut de rendu,
+c'est un nom faux au site. Relevé par le pipeline à la lecture, confirmé ici par
+la mesure.
 ### 4.72 → LOT-32 : une promesse d'API que la chaîne ne tient pas, et ce qu'il en coûterait de la tenir
 
 Le §4.67 l'avait relevé en passant : `AnswerRequest.max_sources` était borné
