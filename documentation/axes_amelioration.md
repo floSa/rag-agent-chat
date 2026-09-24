@@ -11529,3 +11529,182 @@ pas de réparation dans ce lot** :
   « la boucle l'a retiré » confond deux retireurs et rend des chiffres faux
   **dans les deux sens** — 18 résidus fabriqués sur la branche réparée, puis un
   « 55 sur 500 » retiré avant le rendu.
+
+### 4.75 → LOT-35 : le `-wal` qui disparaît entre `exists()` et `stat()`, et l'actif vide que /health publiait
+
+Ce lot ferme le **constat E de l'audit 34** (§4.74 ci-dessus, et
+`documentation/audits/2026-09-24-audit-lot-34.md` §7) : le seul des sept non
+bloquantes qui nomme une **sortie fausse**. Base `main` =
+**`6dd53e8474aa1dd048bc10c7e78e9c288bab824c`**, arbre détaché monté par le §2.2.
+Sauf mention contraire, tout ci-dessous est `mesuré` le **24 septembre 2026
+entre 15:59 et 17:10 UTC** (`date -u`), sur cet arbre.
+
+**`src/` EST TOUCHÉ** : `src/agent/usage.py`, fonction `stats()`, la boucle sur
+les annexes `-wal` et `-shm`. Le §4.18 s'applique.
+
+#### LE DÉFAUT, RELEVÉ PAR MOTIF
+
+Le site a été relevé **par motif**, jamais par numéro : l'audit l'avait lu aux
+lignes 557-559, il est aux **lignes 557-559** sur cette base aussi
+(`grep -n 'suffixe in\|-wal\|-shm' src/agent/usage.py`, `mesuré` à 15:59 UTC).
+
+```python
+for suffixe in ("-wal", "-shm"):
+    annexe = chemin.with_name(chemin.name + suffixe)
+    if annexe.exists():
+        poids += annexe.stat().st_size
+```
+
+C'est un **test-puis-usage**. SQLite replie et supprime le `-wal` dès que le
+dernier lien se ferme, et cela peut tomber **entre** les deux appels. Le
+`FileNotFoundError` du `stat()` remontait à l'`except Exception` général de
+`stats()`, qui rend `vide()` : `/health` publiait alors **0 interaction, 0
+source et 0 octet** pour une base pleine, et `failures` montait de 1
+**définitivement**. C'est exactement ce que le commentaire de `src/api/main.py`
+dit qu'il ne faut pas faire — *« l'inventer en zéros décrirait une base vide »*.
+
+**Nuance, et elle réduit la fenêtre** (`mesuré` par l'audit 34, relue dans
+CPython 3.12.13 sur ce poste) : `Path.exists()` appelle `Path.stat()` et avale
+`ENOENT`, `ENOTDIR`, `EBADF` et `ELOOP`. Une disparition **avant** `exists()` ne
+coûte donc rien — la ligne est sautée et le poids sous-évalué du seul `-wal`.
+**Seul le second appel coûte.** Ce lot a repayé cette lecture au prix fort :
+`exists()` **relaie** en revanche `PermissionError`, et mon premier garde de
+borne en est resté vert pour cette mauvaise raison (cf. plus bas).
+
+**Reproductibilité naturelle : néant, et c'est un zéro de charge.** L'audit 34
+ne l'a pas vu sur **4000** appels de `stats()` contre **32 957** fermetures
+concurrentes (`usage._echecs` = 0). Ce lot n'a **pas rejoué** ce banc — il est
+hors dépôt, comme le dit le constat C. Un zéro de charge ne disculpe rien.
+
+#### 1. LE GARDE, ROUGE D'ABORD
+
+`test_le_wal_disparu_entre_exists_et_stat_ne_vide_pas_l_actif`, dans
+`tests/unit/test_capture_usage.py`. La fenêtre est reproduite par un retard
+**INJECTÉ, déclenché par un ÉVÉNEMENT et jamais par l'horloge** : un double de
+`pathlib.Path.exists` supprime le `-wal` à l'instant précis où l'appel vient de
+répondre vrai.
+
+Trois précautions, chacune payée par une erreur de ce lot :
+
+- **La fenêtre est assertée** (`assert fenetre == [os.fspath(wal)]`) avant toute
+  autre assertion : sans elle, un vert ne dirait rien.
+- **Le double reconnaît le fichier par égalité de chemin ENTIER**, pas par
+  suffixe : `usage.sqlite-wal` et `usage.sqlite-shm` se ressemblent, et le
+  fichier principal se termine par le nom des deux.
+- **Le montage pose ce qu'il mesure.** Le `-wal` n'existe que si la base est en
+  mode WAL — posé par `usage.initialiser()` et **nulle part ailleurs** — et
+  qu'un lien reste ouvert : SQLite le replie à la fermeture du **dernier**. Les
+  deux premiers jets du garde ont rougi sur `assert wal.exists()`, « sans -wal
+  sur le disque, ce garde ne mesurerait rien », c'est-à-dire sur leur propre
+  montage.
+
+La propriété assertée n'est **pas un instantané** : le poids reste vrai ou
+sous-évalué du seul `-wal`
+(`poids_principal <= size_bytes <= poids_principal + poids_wal + 65536`), les
+comptes ne tombent pas à 0, `failures` ne bouge pas.
+
+| | commande | rendu |
+|---|---|---|
+| **rouge sur la base** (`6dd53e8`, `src/` intouché) | `pytest tests/unit/test_capture_usage.py -k wal_disparu` | `rc=1`, **1 rouge**, message : *« un -wal disparu pendant la mesure a fait publier un actif de capture VIDE : interactions=0, sources=0, là où la base en porte 2 et 2 »*, sur un `FileNotFoundError` levé en `src/agent/usage.py:560` |
+| **vert après réparation** | même commande | `rc=0`, 1 passé |
+
+#### 2. LA RÉPARATION, AU PLUS PETIT
+
+`try` / `except FileNotFoundError` autour du **seul** `stat()` de l'annexe,
+traitée alors comme absente. L'`exists()` est **conservé** : le retirer aurait
+élargi le geste au-delà du défaut, puisque `exists()` avale aussi `ENOTDIR`,
+`EBADF` et `ELOOP` — le rattrapage n'aurait plus été « au plus petit ».
+La justification est écrite **au site**, et elle nomme ce qui est rattrapé
+(`FileNotFoundError` seul, état normal du repli) et pourquoi rien d'autre ne
+l'est (`PermissionError`, `IsADirectoryError`, toute autre `OSError` doivent
+continuer à monter dans l'`except` général, qui les compte et les journalise).
+Le seul coût est un poids sous-évalué de l'annexe repliée — ce que le repli
+vient justement de reporter sur le fichier principal.
+
+#### 3. LES SŒURS, PAR MOTIF — 5 SITES, AUCUN AUTRE À RÉPARER
+
+```bash
+grep -rn --include='*.py' -E '(\.exists\(\)|\.is_file\(\)|\.is_dir\(\)|os\.path\.(exists|isfile|isdir)\()' src/ \
+  | grep -vE '^[^:]+:[0-9]+:\s*#'
+```
+
+`mesuré` le 24 septembre 2026 à 16:52 UTC : **5** lignes. **Contrôle positif
+asserté** : le site connu (`src/agent/usage.py:559`) est **dans** le relevé —
+`grep -c 'usage.py:559'` rend **1**. Sans lui, un « 4 sœurs, rien à voir »
+n'aurait rien voulu dire.
+
+| site | forme | un autre acteur peut-il supprimer entre les deux ? | suite |
+|---|---|---|---|
+| `src/agent/usage.py:559` | `exists()` → `stat()` sur `usage.sqlite-wal` / `-shm` | **oui** : SQLite replie à la fermeture du dernier lien | **réparé par ce lot** |
+| `src/agent/usage.py:547` | `chemin.exists()` → `aiosqlite.connect(chemin)` | **non connu** : aucune purge n'existe pour `usage.sqlite` (c'est écrit dans la docstring de `stats()`), et rien dans le dépôt ne le supprime. Et la conséquence diffère : `connect` **créerait** le fichier au lieu d'échouer | laissé |
+| `src/agent/usage.py:213` | `rglob("*") if p.is_file()` → `fichier.read_bytes()` (l. 217) | **non connu** : le dossier de prompts est embarqué dans l'image et monté en lecture | laissé |
+| `src/agent/llm.py:22` | `path.exists()` → `path.read_text()` sur `system.txt` | idem | laissé |
+| `src/agent/llm.py:39` | `configured.is_dir()` → le dossier est ensuite lu | idem | laissé |
+
+**Ce que ce relevé ne prouve pas** : qu'aucun acteur hors dépôt (un opérateur,
+un volume démonté, un `docker cp`) ne supprime un prompt en vol. Il prouve
+qu'aucun **acteur du dépôt** ne le fait. Les quatre sites laissés partagent la
+forme, pas le producteur de la course.
+
+#### 4. LES MUTATIONS DU PRODUCTEUR
+
+`src/agent/usage.py`. Site relevé **par motif**, **unicité assertée AVANT**
+d'écrire (`assert t.count(motif) == 1`), SHA-256 relevé avant et **asserté
+CHANGÉ**, `py_compile` vert avant toute mesure, **restauration par octets
+confrontée au SHA-256 d'origine** après chaque ligne (`confronte=True` sur les
+quatre). Mesure : `pytest tests/unit/` **entier**, pas un sous-ensemble.
+
+SHA-256 tronqués à 12 caractères. Origine et état livré : **`78d2711ffe0d`**.
+
+| mutation | SHA-256 avant → après | rendu | ce qui a rougi |
+|---|---|---|---|
+| **témoin inerte** (13 lignes vides en tête) | `78d2711ffe0d` → `a90bf6bd3211` | `rc=0`, **1128 passés** — **le compte attendu** | rien, et c'est ce qui est attendu |
+| **M1** — le rattrapage retiré (forme exacte de la base) | `78d2711ffe0d` → `87f212d4db9b` | `rc=1`, **1 rouge, 1127 passés** | `…le_wal_disparu_entre_exists_et_stat…`, message *« a fait publier un actif de capture VIDE : interactions=0, sources=0 »* |
+| **M2** — le rattrapage élargi à TOUT le calcul (`except FileNotFoundError: return vide()` sur le corps de `stats()`, `exists()`/`stat()` remis en test-puis-usage) | `78d2711ffe0d` → `de37ab2772d3` | `rc=1`, **1 rouge, 1127 passés** | le même garde, le même message |
+| **M3** — le rattrapage élargi en NATURE (`except OSError` au lieu de `except FileNotFoundError`) | `78d2711ffe0d` → `ff780d487f8b` | `rc=1`, **1 rouge, 1127 passés** | `…une_annexe_illisible_reste_une_panne_et_se_compte`, message *« une annexe ILLISIBLE n'est pas une annexe repliée : elle doit se compter dans `failures`, qui vaut 0 »* |
+
+**M3 A D'ABORD SURVÉCU, ET C'EST LA TROUVAILLE DE MÉTHODE DE CE LOT.** Au
+premier tour, `except OSError` passait sous **1127 passés** : rien dans la
+suite ne distinguait le rattrapage étroit du rattrapage large, donc la
+justification écrite au site n'était **pas mesurée**. Un second garde a été
+ajouté pour tenir cette **borne** —
+`test_une_annexe_illisible_reste_une_panne_et_se_compte` — et lui aussi est
+resté vert sous M3, **pour une mauvaise raison** : son double refusait dès le
+**premier** `stat()` du `-wal`, qui est celui d'`exists()` ; or `exists()`
+**relaie** `PermissionError` (il n'avale que `ENOENT`, `ENOTDIR`, `EBADF`,
+`ELOOP`), de sorte que le `stat()` visé n'était jamais atteint et que le garde
+mesurait le mauvais site. Corrigé — le refus tombe sur le **second** appel, et
+le garde compte ses appels et l'asserte (`assert len(appels) == 2`) —, M3 meurt.
+
+#### 5. LA PORTE
+
+| | commande | rc | rendu |
+|---|---|---|---|
+| lint | `make lint` (`rc_lint`) | **0** | `mypy src/` : 22 fichiers, aucun problème ; `ruff check src/ tests/ scripts/` : tout passe |
+| tests | `make test` (`rc_test`) | **0** | **1128 passés** |
+
+`make` rend 2 là où `pytest` rend 1 : les rc ci-dessus sont ceux de `make`,
+relevés dans des variables, et les deux valent 0.
+
+Compte de `documentation/tests.md` mis à jour : **1128** tests sur **57**
+fichiers, `mesuré` le 24 septembre 2026 à 16:35 UTC, les deux comptes de la
+recette concordant. **Aucun fichier de test ajouté** : les 2 de plus sont deux
+scènes dans `test_capture_usage.py`.
+
+#### CE QUE CE LOT N'A PAS PROUVÉ
+
+- **Que la fenêtre soit atteignable sans injection.** Elle ne l'a jamais été :
+  ni par l'audit 34 (4000 appels, 32 957 fermetures), ni ici — ce lot **n'a pas
+  rejoué** ce banc, qui est hors dépôt. La réparation ferme une fenêtre dont
+  seules la forme et la conséquence sont mesurées.
+- **Ce qu'elle coûte en service.** Rien n'a été provoqué sur la base servie
+  `usage.sqlite` ni sur le port 8011 : la consigne du lot l'interdit, et
+  l'agent a été laissé intact.
+- **Que les 4 sœurs laissées soient sûres.** Le relevé montre qu'aucun acteur
+  **du dépôt** ne supprime leurs fichiers en vol ; il ne dit rien d'un acteur
+  extérieur.
+- **Que le `-shm` se comporte comme le `-wal`.** Le garde tire sur le `-wal` ;
+  le `-shm` est couvert par le même rattrapage, dans la même boucle, mais
+  n'a pas été exercé séparément.
+- **Que la nuance sur `Path.exists()` tienne hors de CPython 3.12.13.** La liste
+  des errno avalés est lue dans **une** version, sur ce poste.
