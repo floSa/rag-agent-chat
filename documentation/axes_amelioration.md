@@ -11111,3 +11111,137 @@ diverger.
 Le gain de monter ce k reste **non mesuré** faute du jeu à ancrages multiples et
 dispersés que le §4.67 a ouvert en dette — ce lot ne fait que rendre la promesse
 conforme au réglage, quel qu'il soit.
+
+### 4.73 → LOT-33 : la CI rougit sur une course du MONTAGE, et le code est bon
+
+La CI était rouge sur `4d4a785` (run `35872551099`) sur un seul test —
+`tests/unit/test_garde_modele_embedding.py::test_le_drapeau_est_retire_quand_le_store_rend_la_main`,
+`AssertionError … assert 'modele_embedding' in set()` — et le même commit
+rendait la porte verte sur le poste. `mesuré` le **23 septembre 2026 de 14:40 à
+15:20 UTC**, base `main` = **`d6455f8`**, arbre de travail monté par le §2.2.
+
+**`src/` n'est PAS touché par ce lot** : `git diff --stat -- src/` est **vide**.
+
+#### LEQUEL DES DEUX BORDS, et il n'est pas celui qu'on suppose
+
+Deux lectures étaient ouvertes — « le drapeau n'est pas encore posé » et « il a
+déjà été retiré » — et elles n'appellent pas le même correctif. Tranché **par un
+mouchard posé sur l'ensemble lui-même**, qui journalise chaque `add` et chaque
+`discard` avec l'identité du fil, et non par l'ordre des lignes :
+
+```
+POSE   modele_embedding par fil=…169984              (la boucle, test N)
+ENTREE lecture rang=1   par fil=…835200              (le fil,    test N)
+POSE   modele_embedding par fil=…169984              (la boucle, test N+1)
+ENTREE lecture rang=2   par fil=…442496              (le fil,    test N+1)
+RETIRE modele_embedding par fil=…835200 present=True ← le fil du test N
+```
+
+**Le drapeau EST posé, et par la BOUCLE** — le docstring de `_sondes_en_vol` dit
+donc vrai, et le code fait ce qu'il écrit. Il a **déjà été retiré**, par le fil
+d'une sonde qu'un test **antérieur** a abandonnée au plafond. `present=True` dit
+que ce fil a effacé un drapeau **vivant**, celui du test suivant.
+
+**LE MÉCANISME.** `_executer_sonde` retire **PAR NOM**, dans son `finally`. Un
+test qui abandonne sa sonde au plafond laisse derrière lui un fil que rien ne
+joint ; ce fil retirera ce nom plus tard, et le nom est **partagé**. Sur ce
+poste il le retire avant que le test suivant ne démarre ; sur une machine plus
+lente et plus chargée, il le retire **pendant** la fenêtre de 0,2 s du test
+suivant. *C'est exactement dans l'écart entre les deux machines que le défaut
+vivait, et c'est pourquoi 20 exécutions vertes en isolation n'avaient rien
+prouvé.*
+
+**CE QUI PRÉTENDAIT FERMER CE CAS L'AGGRAVAIT.** Trois sites vidaient
+`_sondes_en_vol` entre deux tests (deux fixtures et un `finally` en ligne). Un
+`clear()` n'arrête aucun fil : il **ORPHELINE** celui qui tourne encore, et lui
+laisse le droit de retirer un nom qu'il ne détient plus.
+
+#### La reproduction, AVANT le correctif
+
+Une réparation dont on n'a jamais vu le rouge est une supposition. Le bord
+accusé — le fil périmé — a été **ralenti par injection**, et non par l'horloge :
+le fil périmé est retenu jusqu'à ce qu'une sonde **plus récente** soit entrée
+dans la lecture, donc jusqu'à ce qu'elle ait posé son drapeau. La libération est
+déclenchée par un `Event`, pas par un délai.
+
+| | commande | rendu |
+|---|---|---|
+| **témoin inerte** | `pytest tests/unit/` sur l'arbre nu | `rc=0`, **1124** passés — le compte que le pilote publie, donc le bon arbre |
+| **avant, retard injecté** | `pytest …test_garde_modele_embedding.py -k "absorption_n_est_pas_muette or drapeau_est_retire_quand_le_store"` × 20 | **10 rouges sur 10**, au message **exact** de la CI |
+| **après, MÊME retard** | idem | **0 rouge sur 10**, et le fichier entier vert |
+
+Les deux tests sont pris **en séquence** : le premier est celui qui laisse le
+fil, le second est celui qui rougit. Seul est rouge celui de la CI.
+
+#### Le correctif : une barrière qui ATTEND, pas un délai plus long
+
+Un `sleep` plus long aurait été la même course avec une marge, et la marge d'un
+poste n'est pas celle de la CI. `tests/unit/conftest.py` porte désormais une
+barrière `autouse` : **aucun fil de sonde ne franchit la fin du test qui l'a
+lancé.** L'ensemble `main._sondes_en_vol` est rendu **observable** — chaque
+mutation réveille une `threading.Condition` —, de sorte que la barrière attend
+le **dernier geste du fil**, qui est précisément son `discard`. C'est le fil
+lui-même qui la réveille ; rien n'est accordé à l'horloge. Le plafond de 10 s
+n'est pas une marge dont dépend le résultat : c'est le filet qui transforme un
+fil qui ne revient **jamais** en rouge nommé au lieu d'une suite figée.
+
+Les trois `clear()` orphelinants sont retirés au profit de ce site unique.
+
+**LA BARRIÈRE EST GARDÉE DANS LES DEUX DIRECTIONS**
+(`test_montage_des_tests.py`), et c'est tout le garde : qu'elle rende la main
+quand le fil est revenu ne prouve **rien** si elle la rendait aussi quand il
+tourne encore — c'est exactement ce que faisait le `clear()` qu'elle remplace, et
+un garde qui n'assertait que le retour serait **vert sur le défaut**. Elle est
+assertée depuis le côté qui produit la garantie : un **vrai** fil lancé par
+`_sonder`.
+
+#### Les scènes sœurs, relevées PAR MOTIF
+
+**8 scènes** libèrent un double qui pend et laissent donc derrière elles un fil
+de sonde vivant — 6 dans `test_garde_modele_embedding.py` (L445, L1116, L1186,
+L1304, L1468, L1523) et 2 dans `test_health_parallele.py` (le helper
+`_delai_du_healthcheck` L214, et L1022). **Une seule sur 8** attendait quoi que
+ce soit avant de sortir, et elle attendait *un* retrait, pas *le sien*.
+
+**Je n'en laisse aucune non couverte, et c'est la barrière qui les couvre
+toutes**, sans toucher aux 8 scènes : elle est `autouse` sur
+`tests/unit/`. Périmètre borné et mesuré : `git grep -ln '_sondes_en_vol\|_sonder('`
+ne rend **rien** hors de `tests/unit/` (`rc=1`), donc aucune sonde ne vit hors de
+sa portée. `tests/integration/` reste délibérément hors barrière, comme le
+docstring de `tests/unit/conftest.py` l'écrit déjà pour la barrière réseau.
+
+#### CE QUE CE LOT N'A PAS PROUVÉ
+
+- **Le rouge de la CI n'a pas été reproduit sur la machine de CI.** Il l'a été
+  sur ce poste, sous un retard injecté qui **nomme** le bord accusé. La chaîne
+  causale est établie ; l'identité avec l'incident de la CI est une **inférence
+  forte**, pas une mesure — le message d'assertion et l'ensemble vide
+  concordent, mais je n'ai pas relancé le run `35872551099`.
+- **LA REPRODUCTION SOUS CHARGE A ÉCHOUÉ, et c'est écrit tel quel.** `mesuré`
+  le 23 septembre 2026 à 15:35 UTC sur l'arbre de BASE : **44 brouilleurs CPU
+  pour 22 cœurs**, charge tenue tout du long (44 vivants sur 44 à la fin),
+  **0 rouge sur 8**. Une tentative antérieure — 12 brouilleurs co-épinglés avec
+  `pytest` sur 2 cœurs par `taskset`, `nice 19` — a été **interrompue en cours de
+  boucle** : son « 0 sur 20 » porte sur un mélange de tours chargés et de tours
+  libres, et **il ne vaut rien** ; il n'est cité que pour qu'on ne le retrouve
+  pas ailleurs pris pour une mesure. Une charge qui ne reproduit pas **ne
+  disculpe rien** : elle dit seulement que cette forme-là de contention n'a pas
+  suffi à décaler le réveil du fil dans la fenêtre de 0,2 s. Ce qui vaut preuve
+  ici est la reproduction **ciblée** par retard injecté, pas la répétition.
+- **Le RÉSIDU DE PRODUCTION reste ouvert, et il n'est pas de ce lot.**
+  `_executer_sonde` retire **par nom** sans vérifier que le drapeau qu'il retire
+  est le sien. Le site le documente déjà — « résidu restant, assumé et borné »
+  du bloc `_sondes_en_vol` : une annulation entre l'ordonnancement du fil et sa
+  première instruction fait retirer le drapeau **par la boucle** alors que le fil
+  va tourner, et ce fil retirera ensuite le drapeau d'une sonde **suivante**.
+  C'est la même forme que ce que le montage des tests fabriquait avec son
+  `clear()`. Ce lot **ne touche pas `src/`** et ne tranche donc pas ce résidu ;
+  il constate qu'il est **réel** et non seulement théorique, puisqu'il vient de
+  coûter un rouge de CI dans sa version « montage ». La fermeture propre serait
+  un jeton d'appartenance (le fil ne retire que le drapeau qu'il a lui-même vu
+  poser) — **non mesurée, non chiffrée, ouverte ici.**
+- **La verrue du garde de comptage.** `_MOTIF_DU_MAILLON` exige littéralement
+  `; les **N** de plus`, donc un écart de **1** ne peut pas s'écrire en français
+  correct dans `tests.md`. Constaté, **non corrigé** : élargir le motif à `les?`
+  serait un élargissement légitime, mais toucher un garde de comptage dans un lot
+  qui porte sur une course de montage mélangerait deux sujets.
