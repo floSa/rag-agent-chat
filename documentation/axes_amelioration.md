@@ -10647,6 +10647,21 @@ sélection. Répartition des ancrages par tag : `Paragraph` **104**, `ListItem`
 divergence entre les deux stores, donc une trouvaille pour le PIPELINE**, à lui
 rendre ; l'agent ne peut pas la réparer, il ne peut que la constater.
 
+**CORRECTION DU 24 SEPTEMBRE 2026 — CE PARAGRAPHE MESURAIT UN IDENTIFIANT, PAS UN
+TEXTE.** « Perdues à TOUS les k » est faux pour le modèle et vrai seulement pour
+la métrique. `mesuré` le 24 septembre 2026 à 14:50 UTC, dans le conteneur servi
+(`ba6a8f0`), en reconstruisant les deux sections par `reconstruct_section` et en
+cherchant les mots de 3 lettres ou plus du chunk ChromaDB dans le markdown :
+**20 sur 22** pour `1adfce548d`, **55 sur 63** pour `842a8884da`. Le texte ARRIVE
+au prompt, porté par des FRÈRES de la puce (`text`, `list_item`) sous le même
+`SectionHeader` ; seul le marqueur `[src:<puce>]` en est absent. Ce n'est donc
+pas une divergence entre les stores : le pipeline l'a établi (message 27 de la
+série alternée) — Docling découpe le `<li>` en fragments, chaque fragment devient
+un élément, et le sommet de la puce reste vide. Le banc du §4.67 teste la présence
+de l'ANCRE ; il compte donc comme perdue une question dont le texte est servi.
+**Réserve** : ce paragraphe donnait 367 caractères pour le chunk de
+`842a8884da`, et `full_texts` en rend **570** le 24 septembre. Non recoupé.
+
 #### Comment cette mesure a été prouvée comme instrument
 
 **CONTRÔLE POSITIF, DOUBLÉ ET DANS LES DEUX SENS.** À k=1 le rappel chute
@@ -10941,6 +10956,23 @@ mériterait d'être redemandé aux vecteurs **quelle que soit** la valeur du
 plafond. Non fait : ce serait une modification de `src/`, et elle doit être
 mesurée — combien d'appels de plus à l'index, pour combien d'éléments
 réellement récupérés.
+
+**CORRECTION DU 24 SEPTEMBRE 2026 — LA PRÉMISSE DE CE PARAGRAPHE EST RETIRÉE PAR
+LE PIPELINE, ET LE LOT QU'ELLE APPELAIT EST SUSPENDU.** Les « 37 pertes sèches »
+n'existent pas (message 27 de la série alternée) : les 202 puces vides n'ont
+**aucun enfant**, et leur texte vit dans **727 fragments FRÈRES** (546 texte,
+181 `Code`). `mesuré` chez nous le 24 septembre 2026 à 14:49 UTC, dans le
+conteneur servi : les **15 173** arêtes `PARENT_OF` partent toutes d'un
+`SectionHeader` (**15 007**) ou d'un `Document` (**166**), par
+`GO 1 TO 12 STEPS` depuis les 23 `Document`. Aucun autre élément n'a d'enfant.
+Les deux ancrages concernés ont leur texte au prompt (correction au §4.67 b).
+**CONSÉQUENCE SUR LA CONDITION DE CANDIDATURE** : faire rallonger une puce vide
+par les vecteurs recopierait dans la puce un texte que ses frères portent déjà
+au prompt. Ce serait l'option (e) du pipeline, écrite de notre côté, avec son
+doublon. Ce lot n'est pas donné tant que le pipeline n'a pas tranché entre (a),
+(e) et (f). **Et deux noms écrits plus haut sont périmés** : la fonction
+s'appelle `_restore_full_text` et se trouve à la ligne **852** ; `git grep
+_fill_full_texts -- src/` rend **0** le 24 septembre.
 ### 4.72 → LOT-32 : une promesse d'API que la chaîne ne tient pas, et ce qu'il en coûterait de la tenir
 
 Le §4.67 l'avait relevé en passant : `AnswerRequest.max_sources` était borné
