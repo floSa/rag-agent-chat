@@ -11708,3 +11708,300 @@ scènes dans `test_capture_usage.py`.
   n'a pas été exercé séparément.
 - **Que la nuance sur `Path.exists()` tienne hors de CPython 3.12.13.** La liste
   des errno avalés est lue dans **une** version, sur ce poste.
+
+---
+
+### 4.76 → LOT-36 : un jeu qui VOIT la sélection, et ce que sa première mesure dit du quatrième étage
+
+`mesuré` le **24 septembre 2026 de 18:28 à 19:23 UTC**, base `origin/main` =
+**`722f27d`**, dans un arbre de travail détaché monté par le protocole du §2.2.
+**`src/` n'est pas touché** — `git diff HEAD -- src/` rend vide — et **aucun
+réglage par défaut n'est changé**. Instruments neufs :
+`scripts/generer_jeu_disperse.py` (sha256 `75226b476b9e…`) et
+`scripts/mesurer_dispersion.py` (`d35d6f38766d…`) ; jeu versionné
+`tests/fixtures/jeu_ancrages_disperses.yaml` (`978c2647a368…`). Recettes
+`make generer-jeu-disperse`, `make traductions-du-jeu-disperse` et
+`make mesurer-dispersion`. Bilans versionnés : `runs/2026-09-24-dispersion.json`,
+`runs/2026-09-24-dispersion-temoin-golden_qa_generated.json`,
+`runs/2026-09-24-dispersion-temoin-jeu_de_questions_pipeline.json` et
+`runs/2026-09-24-generation-jeu-disperse.json`.
+
+**AUCUNE RÉPONSE N'EST GÉNÉRÉE PAR LE BANC.** Il rejoue `_dense_search` →
+`retrieve` → `rerank` → `ranking[:k]` → `reconstruct_section` → `fit_prompt`, et
+lit le markdown **réellement soumis**. Le modèle n'entre que dans la
+**fabrication** du jeu et dans les traductions de questions, et les traductions
+sont **exigées en cache, jamais fabriquées par le banc**.
+
+#### Ce que ce lot ferme, et ce qu'il ne ferme pas
+
+Le §4.67 a laissé une dette nommée : *un jeu à ancrages MULTIPLES et DISPERSÉS,
+en nombre*. Ce lot le livre et le mesure. **Il ne tranche pas
+`AUTO_SELECT_TOP_K`** : ce lot produit un instrument, et la décision reste
+ouverte — les chiffres qui la préparent sont au bas de cette section.
+
+#### La méthode de construction, et sa limite
+
+Une question est écrite à partir de **deux** passages vivant dans **deux
+sections différentes**, et trois conditions indépendantes la retiennent.
+**Aucune des trois ne regarde le retrieval** : filtrer les questions sur le rang
+mesuré de leurs ancrages rendrait l'instrument **tautologique**.
+
+1. **LA CONDITION DE RECONSTRUCTION, et c'est la seule qui soit une PREUVE.**
+   `reconstruct_section` ne rend pas un élément, il rend sa section **et ses
+   voisines** : deux ancrages proches seraient ramenés par **une seule**
+   reconstruction, et la question se réussirait à k=1. La section de chaque
+   ancrage est donc reconstruite, et on **exige** que le markdown de l'une ne
+   porte pas l'autre, **dans les deux sens**, chaque ancrage étant présent dans
+   **sa propre** reconstruction — sans ce dernier point, une reconstruction qui
+   ne rendrait **rien** satisferait la disjonction. `mesuré` : **4** paires
+   rejetées à ce titre sur 139 examinées, donc la condition **mord sur données
+   réelles**.
+2. **LA CONDITION DE NON-SUFFISANCE**, jugée par le modèle sur chaque passage
+   **pris seul**, en **deux appels séparés** : **8** paires rejetées.
+3. **LES GARDES LEXICAUX**, repris de `generate_golden.py` : preuve recopiée mot
+   pour mot dans **son** passage, vocabulaire distinctif partagé avec **chacun**
+   des deux passages, question qui ne recopie aucune preuve. **67** paires
+   rejetées.
+
+**LA LIMITE, ET ELLE EST STRUCTURELLE : la circularité n'est pas supprimée, elle
+est DÉPLACÉE.** La question reste écrite **pour** ses deux passages, et chaque
+moitié peut encore retrouver son passage au rang 1 — la mesure ci-dessous le
+montre : **30 ancrages sur 120 sortent au rang 1 du reranker**. Ce que le jeu
+casse est l'équivalence *« une section reconstruite suffit »*, et c'est
+exactement ce que le quatrième étage tronque. **Seconde limite** : le juge de
+non-suffisance est **le modèle qui a écrit la question** ; il n'est pas
+indépendant, et une paire qu'il déclare à tort insuffisante passe.
+
+#### Le jeu, et sa confrontation aux stores
+
+**60 questions, 120 ancrages, deux par question, 109 ancrages distincts.**
+`verifier_les_ancrages.py`, `rc=0` : **109/109** dans le graphe, **109/109** dans
+ChromaDB. `reviewed: false` sur les **60**. Deux strates : **33**
+`intra_chapitre` (deux sections du même chapitre, séparées d'au moins six rangs)
+et **27** `inter_chapitres`. **271 générations, `finish_reason: stop` 271 fois,
+0 panne d'appel absorbée** — et les prompts sont distincts par construction, deux
+passages différents et une question différente à chaque appel.
+
+**LE JEU EST MONOLINGUE ANGLAIS, ET CE N'ÉTAIT PAS VOULU.** Le générateur tirait
+**30 %** de questions françaises ; le jeu en porte **0 sur 60**. La cause est
+`mesurée` et elle est au site : le garde de vocabulaire partagé exige deux jetons
+communs avec **chacun** des deux passages, les passages sont anglais, et une
+question française n'en partage pas deux. Elles ont donc **toutes** été rejetées,
+ce qui explique aussi le taux de rejet lexical. **L'axe translinguistique que les
+deux autres jeux portent est ABSENT de celui-ci**, et c'est écrit dans son
+`_lisez_moi`.
+
+#### LA MESURE : le rappel par k, en QUESTIONS — 60 questions, 120 ancrages
+
+La grandeur publiée est **le nombre de questions dont TOUS les ancrages
+atteignent le prompt**. « Au moins un » ne dit rien ici : chaque question en
+porte deux et le retrieval en trouve presque toujours un.
+
+| k | questions (identifiant) | IC 95 % (Wilson) | questions (texte) | ancrages (id) | ancrages (txt) | sections servies | éléments au prompt |
+|---|---|---|---|---|---|---|---|
+| **1** | **0** | [0,000 – 0,060] | 0 | 31/120 | 29/120 | 1,00 | 12,2 |
+| 2 | 2 | [0,009 – 0,114] | 2 | 41/120 | 40/120 | 1,93 | 22,9 |
+| **3** *(défaut)* | **6** | [0,047 – 0,202] | 6 | 49/120 | 48/120 | 2,78 | 33,5 |
+| 4 | 7 | [0,058 – 0,222] | 8 | 52/120 | 52/120 | 3,62 | 42,7 |
+| 5 | 7 | [0,058 – 0,222] | 8 | 52/120 | 52/120 | 4,53 | 53,5 |
+| **6** | **7** | [0,058 – 0,222] | 8 | 54/120 | 54/120 | 5,37 | 63,3 |
+| 7 | 8 | [0,069 – 0,242] | 10 | 55/120 | 58/120 | 6,22 | 73,5 |
+| 8 | 8 | [0,069 – 0,242] | 10 | 55/120 | 58/120 | 7,00 | 82,3 |
+| 9 | 9 | [0,081 – 0,261] | 11 | 57/120 | 60/120 | 7,82 | 93,0 |
+| **10** | **10** | [0,093 – 0,280] | 12 | 58/120 | 61/120 | 8,62 | 102,5 |
+
+**Bascules, et aucune question n'est jamais perdue** : 1→2 **+2**, 2→3 **+4**,
+3→4 **+1**, 6→7 **+1**, 8→9 **+1**, 9→10 **+1** ; **0 perdue sur les neuf
+transitions**. **De 3 à 6 : +1 question. De 3 à 10 : +4 questions.**
+
+#### LA CONDITION DE RECETTE : L'INSTRUMENT VOIT k, ET LE CONTRÔLE EST DANS LES DEUX SENS
+
+**À k=1, `0` question sur 60 a tous ses ancrages au prompt. À k=10, `10`.
++10 gagnées, −0 perdue.** C'était la condition posée : un jeu qui rendrait le
+même compte aux deux bouts serait aveugle, comme l'est le jeu de réglage, et le
+banc le dirait — il publie un champ `voit_k` calculé, pas une phrase.
+
+**ET VOICI LA MESURE QUI TRANCHE, PARCE QU'ELLE FAIT TOURNER LE MÊME BANC SUR
+LES TROIS JEUX.** Rang de chaque ancrage dans le classement **reranqué**,
+`absent` compté à part du lointain :
+
+| jeu | rang 1 | rang 2 | **rangs 3 à 10** | absent du top-10 | ancrages |
+|---|---|---|---|---|---|
+| réglage (130 q) | 122 | 5 | **0** | 3 | 130 |
+| contrôle pipeline (26 q) | 17 | 4 | **12** | 14 | 47 |
+| **dispersé (60 q)** | 30 | 7 | **16** | 67 | 120 |
+
+**Le jeu de réglage n'a AUCUN ancrage entre les rangs 3 et 10** — le banc de ce
+lot retrouve **exactement** le chiffre du §4.67, par un chemin différent, et
+retrouve aussi son tableau à l'unité près (**120** questions à k=1, **124** de
+k=2 à k=10). **Le jeu neuf en a 16.** C'est la propriété qui manquait, et c'est
+elle qui fait qu'au-delà de k=3 il gagne encore **4** questions là où le jeu de
+réglage en gagne **0**.
+
+**LE MÊME BANC SUR LE JEU DE RÉGLAGE, EN TÉMOIN** : k=1 **120** questions →
+k=10 **124**, et **toutes les bascules après k=2 valent +0**. Le plateau est une
+propriété **du jeu**, pas du banc : le banc, lui, distingue les k dès qu'on lui
+donne de quoi.
+
+#### LES DEUX COMPTES — L'IDENTIFIANT ET LE TEXTE — ET LEUR ÉCART A DEUX SIGNES
+
+Le §4.67 b a établi que le banc de la sélection teste la présence de
+l'**identifiant** d'ancrage, pas celle de son **texte**. Les deux sont donc
+mesurés ici : le texte est déclaré présent quand **80 %** au moins des jetons de
+trois caractères du chunk ChromaDB se retrouvent dans le markdown soumis, et la
+**part brute** est écrite ancrage par ancrage dans le bilan, pour qu'on puisse
+rejuger le seuil sans relancer.
+
+| jeu | k | ancrages (id) | ancrages (txt) | écart | texte SANS identifiant | identifiant SANS texte |
+|---|---|---|---|---|---|---|
+| dispersé | 1 | 31 | 29 | **−2** | 0 | **2** (parts 0,607 et 0,774) |
+| dispersé | 10 | 58 | 61 | **+3** | **3** | 0 |
+| réglage | 1 | 120 | 117 | −3 | **2** | **5** |
+| réglage | 10 | 124 | 126 | **+2** | **2** | 0 |
+| contrôle | 10 | 33 | 39 | **+6** | **7** | 1 |
+
+**LA CORRECTION DU §4.67 b EST REPRODUITE, ET PAR UNE AUTRE ROUTE.** Les **2**
+ancrages du jeu de réglage dont le texte arrive sans l'identifiant sont
+`1adfce548d` (part **0,947**) et `842a8884da` (**0,862**) — ce sont **G-112 et
+G-121**, exactement les deux que le §4.67 comptait « perdues à tous les k ».
+**Elles ne sont pas perdues ; leur marqueur l'est.**
+
+**ET L'ÉCART A L'AUTRE SIGNE AUSSI, CE QUE LE §4.67 b NE DISAIT PAS.** Cinq
+ancrages du jeu de réglage à k=1, et deux du jeu dispersé, ont leur **identifiant
+au prompt** et **moins de 80 %** de leur texte (parts mesurées **0,595 à
+0,774**) : la fenêtre de la section les tronque. **Le seuil n'est donc pas une
+formalité** — il décide du signe de l'écart, et c'est pourquoi les parts brutes
+sont versionnées.
+
+#### Trois choses que ce banc établit en passant
+
+1. **LE BUDGET DE FENÊTRE N'ÉCARTE AUCUNE SECTION, sur les 216 questions des
+   trois jeux et pour les DIX valeurs de k.** `questions_avec_section_ecartee`
+   vaut **0** partout, sous `LLM_NUM_CTX=32768` relevé sur le conteneur servi.
+   C'est la cinquième mesure à dire que le plafond du contexte est la
+   **sélection**.
+2. **LA STRATE QUI DISPERSE LE PLUS N'EST PAS CELLE QU'ON ATTENDAIT.** Les
+   paires **intra-chapitre** portent **11** ancrages aux rangs 3 à 10 et passent
+   de **3** questions complètes à k=3 à **7** à k=10 ; les paires
+   **inter-chapitres** en portent **5**, et restent à **3** de k=3 à k=10. Deux
+   sections d'un même chapitre, éloignées de six rangs, se disputent le
+   classement ; deux chapitres différents donnent une question dont une moitié
+   ne remonte jamais.
+3. **LE PLAFOND DE CE JEU EST BAS, ET IL EST EN AMONT DE LA SÉLECTION.** À k=10,
+   **58** ancrages sur 120 atteignent le prompt, et **67 sur 120 ne sont même
+   pas dans le top-10 du reranker** — **46** ne sont pas dans les 50 fusionnés.
+   Ce que ce jeu mesure de la sélection vit donc **entre 0 et 10 questions sur
+   60** ; le reste se perd plus haut. Une question écrite abstraitement sur deux
+   sections est une question **difficile**, et ce banc ne sépare pas « k trop
+   petit » de « le retrieval n'a jamais vu le passage » ailleurs que dans les
+   histogrammes de rang — qui, eux, le séparent.
+
+#### Comment cet instrument a été prouvé comme instrument
+
+**CONTRÔLE DE PÉRIMÈTRE, `rc=0`, SUR LE JEU MESURÉ ET NON SUR UN AUTRE.**
+`controle_perimetre_selection.py` prend désormais son jeu en argument — le faire
+tourner sur le jeu de réglage pour couvrir une campagne jouée ailleurs
+prouverait la nature des identifiants d'un fichier que la campagne ne lit pas.
+Sur le jeu dispersé : **109** `gold_element_ids` en `^[a-f0-9]{10}$`, **110** du
+classement, **34** graines, **345** en `[src:]` et **12** en `[img:]`, tous en
+forme ; **411** marqueurs rendant chacun **exactement un** identifiant ;
+**9/12** sondages où un ancrage est effectivement présent au prompt — sans quoi
+un rappel bas ne dirait pas si la chaîne est cassée ou si les deux ensembles ne
+se parlent pas ; et sur le témoin `0026fa510a`, l'égalité exacte rejette les
+quatre leurres quand un `endswith` en accepterait **deux**.
+
+**LE CACHE DE TRADUCTIONS EST VÉRIFIÉ PAR INTERSECTION, PAS PAR TAILLE.** Il
+passe de **286** à **346** entrées, et la couverture publiée est **60/60 du jeu**
+— un cache de la bonne taille peut être celui du mauvais jeu, et c'est arrivé le
+23 septembre.
+
+**ONZE MUTATIONS DU PRODUCTEUR, ONZE ROUGES, TOUTES COMPILANT**, et les fichiers
+restaurés **identiques au SHA-256** : jetons courts admis → 1 ; rang 0-indexé →
+1 ; `absent` fondu dans `au-delà` → 1 ; `all` → `any` sur les ancrages → 1 ;
+question sans ancrage mesurable déclarée réussie → 1 ; contrôle positif de la
+reconstruction retiré → 1 ; disjonction testée dans un seul sens → 1 ; sections
+identiques admises → 1 ; vocabulaire partagé exigé du seul passage A → 1 ;
+preuve de B cherchée dans A → 1 ; en-tête du producteur divergent → 1.
+
+**CINQ MUTATIONS DU JEU LUI-MÊME, CINQ ROUGES**, et un **témoin** qui réécrit le
+fichier par le même sérialiseur **sans rien changer** → `rc=0` : deux fois le
+même ancrage → 2 rouges ; les deux ancrages dans la même section → 1 ; une
+question déclarée relue → 1 ; la limite retirée du `_lisez_moi` → 1 ;
+statistiques fausses → 1.
+
+**UNE MUTATION A SURVÉCU À MON PREMIER TÉMOIN, ET C'EST LA MÊME FAUTE DEUX
+FOIS.** Retirer l'exigence de vocabulaire partagé avec le passage **B** laissait
+les scènes **vertes** : ma question témoin générique tombait déjà sur l'exigence
+côté **A**. *Une garde à deux côtés doit être éprouvée des deux côtés.* La scène
+ajoutée pour cela est morte **par un autre chemin** au premier essai — elle
+reprenait les mots de `preuve_a`, donc elle tombait sur la garde « la question
+recopie sa preuve », et la mutation restait verte une seconde fois. C'est la
+troisième version qui mord.
+
+**TÉMOIN INERTE** de treize lignes de commentaire dans
+`scripts/mesurer_dispersion.py` → `rc_test(make)=0`, **1160** passés, le compte
+de la porte ; SHA-256 revenu à l'intact.
+
+#### L'état des stores, relevé aux DEUX bouts de chaque campagne
+
+| moment | heure UTC | `/health` | chunks |
+|---|---|---|---|
+| début | 2026-09-24 18:43:55 | `ok`, quatre services `true`, `code_servi` = `13acdb1` | **4367** |
+| fin | 2026-09-24 18:56:24 | `ok`, quatre services `true`, `code_servi` = `13acdb1` | **4367** |
+
+Le compte n'a pas bougé et aucun service n'est passé au rouge : les trois
+tableaux décrivent **un seul** état des stores. **Le code servi est `13acdb1`,
+un commit derrière `origin/main` = `722f27d`** — l'écart est un commit de
+journal, sans effet sur la chaîne mesurée.
+
+#### L'ENVIRONNEMENT, ET CE QUI LE SÉPARE DU CONTENEUR SERVI
+
+Arbre détaché, `.venv` monté par le §2.2, **aucun `.env`** : il vit dans le
+clone principal et rien n'en a été recopié. Adresses **découvertes** par
+`docker inspect` et non figées — et le rappel du §4.67 vaut toujours : **le 8080
+de l'hôte est tenu par `data-analyst-agent-proxy-1`, étranger à ce projet**, et
+l'y pointer interrogerait un serveur qui répond sans être le bon. Le LLM est
+joint sur le **8100** publié par `vllm-central`, jamais sur le port interne.
+
+**Les poids des deux modèles ont été SORTIS DU CONTENEUR SERVI**, `docker cp` du
+volume `rag_hf_cache` vers un répertoire de travail, puis `HF_HUB_OFFLINE=1` :
+le cache HuggingFace du poste appartient à `root` et n'en porte aucun. Rien n'a
+été écrit dans le conteneur, rien n'a été téléchargé.
+
+**L'ÉCART QUI RESTE, ET IL EST LE MÊME QU'AU §4.67 : ce banc tourne en `cpu`, le
+conteneur servi en `cuda`.** Les poids sont les mêmes ; ce qu'un écart d'arrondi
+flottant pourrait déplacer dans l'ordre du reranking **n'est pas mesuré ici**.
+
+#### CE QUE CETTE MESURE NE DIT PAS, ET LES TROIS QUESTIONS QU'ELLE OUVRE
+
+1. **LE RAPPEL D'UN ANCRAGE N'EST PAS LA QUALITÉ D'UNE RÉPONSE.** Rien ici ne
+   dit ce que le modèle fait du passage qui arrive.
+2. **AUCUN COÛT N'EST MESURÉ.** Les +44 % de latence du §4.66 viennent de six
+   questions et d'une génération réelle ; ce banc ne génère pas.
+3. **60 QUESTIONS NE TRANCHENT PAS UN RÉGLAGE**, et la réserve du jeu le dit :
+   les intervalles de Wilson de k=3 et de k=10 **se recouvrent** ([0,047–0,202]
+   contre [0,093–0,280]).
+4. **CE JEU DÉCRIT L'ÉTAT DES STORES DU 24 SEPTEMBRE 2026, 4367 chunks.** Il ne
+   survit pas à une réingestion.
+5. **AUCUNE QUESTION N'EST RELUE PAR UN HUMAIN.** `reviewed: false` sur les 60,
+   et la relecture est ce qui promouvrait ce jeu au rang d'arbitre.
+
+**QUESTION OUVERTE 1 — `AUTO_SELECT_TOP_K`, et voici le chiffre qui la prépare.**
+Sur le seul jeu qui voie la sélection, passer de **3 à 6** gagne **+1 question
+sur 60**, et de **3 à 10** **+4 sur 60**. Le signe est constant et **aucune
+question n'est jamais perdue**, sur neuf transitions et trois jeux. Le coût de
+3 → 6 est connu (§4.66 : +44 % de latence, prompt à 15 % du plafond). **Ce lot
+ne propose pas de changer le défaut** : 60 questions à ancrages non relus ne
+valent pas mieux que 130 non relues, et l'écart reste dans l'intervalle.
+
+**QUESTION OUVERTE 2 — l'axe translinguistique du jeu dispersé est à zéro.**
+Le réparer demande de juger le vocabulaire partagé sur la **traduction** de la
+question, donc un second appel au modèle dans la fabrication du jeu. **Non
+fait**, et ce serait un lot avec sa propre mesure.
+
+**QUESTION OUVERTE 3 — 67 ancrages sur 120 n'entrent pas dans le top-10 du
+reranker.** Ce n'est pas un défaut de sélection, c'est un plafond de
+**récupération**, et il borne ce que ce jeu peut mesurer du quatrième étage.
+Savoir si ces 67 sont hors d'atteinte du corpus ou seulement du classement
+demanderait de rejouer les étages amont sous d'autres réglages — `FETCH_K`,
+`RETRIEVAL_TOP_K`, le poids de la traduction. **Non mesuré.**
