@@ -42,6 +42,35 @@ dérive directement. La valeur retenue est **8192**, celle qui s'exécute. Monte
 la latence de génération est déjà à 12,4 s au p95 : c'est un changement qui se
 mesure par une campagne, pas qui se décrète dans une table.
 
+> **CORRECTION DATÉE DU 25 SEPTEMBRE 2026 — LA PHRASE « CELLE QUI S'EXÉCUTE »
+> N'EST PLUS VRAIE DU SERVICE, ET LE RESTE DU PARAGRAPHE TIENT.** Rien n'est
+> retiré ci-dessus.
+>
+> Les deux moitiés de la phrase se sont séparées le **22 septembre 2026** :
+>
+> - **Le défaut du dépôt vaut toujours `8192`**, et le tableau ci-dessus est
+>   juste — `grep -n LLM_NUM_CTX .env.example` rend `LLM_NUM_CTX=8192` (l. 66) et
+>   `src/agent/settings.py:86` porte `default=8192` (`mesuré` le 25 septembre
+>   2026 à 08:32 UTC).
+> - **Ce qui s'exécute sur ce poste vaut `32768`** : le `.env` du clone
+>   principal a été porté à cette valeur le 22 septembre 2026, et
+>   `curl -s http://localhost:8011/health` publie `moteur_llm.options.num_ctx`
+>   et `fenetre_servie` à **32768** (`mesuré` le 25 septembre 2026 à 08:10 UTC,
+>   code servi `97bba20`).
+>
+> **Ce changement a coûté quelque chose, et c'est écrit** : dix scènes de tests
+> **héritaient** du plafond au lieu de le **poser**, et la fenêtre élargie ne les
+> a pas fait échouer — *elle les a privées de leur sujet*, pendant deux jours,
+> sans qu'aucune porte ne rougisse. Site canonique :
+> [axes_amelioration.md](axes_amelioration.md) §4.63 et §4.64, ligne **81** du
+> journal de [pilotage_du_chantier.md](pilotage_du_chantier.md).
+>
+> **Et la campagne que ce paragraphe appelle n'a pas été faite** : élargir la
+> fenêtre n'a pas été mesuré comme un gain. Trois mesures disent au contraire
+> que **ce n'était pas le levier** — le plus gros prompt mesuré au §4.66 vaut
+> **4849** jetons, soit **15 %** de la fenêtre servie, et *le budget n'écarte
+> rien, ni à 3 ni à 6* sources.
+
 ## Le budget de contexte
 
 ### La formule
