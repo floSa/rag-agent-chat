@@ -1,0 +1,3342 @@
+{
+  "etape": "fusion",
+  "jeu": "jeu_ancrages_disperses.yaml",
+  "questions": 60,
+  "ancrages": 120,
+  "seuil_du_haut": 10,
+  "profondeurs": {
+    "fetch_k": 50,
+    "retrieval_top_k": 50,
+    "rerank_top_k": 10,
+    "rrf_k": 60,
+    "hybrid_search": true,
+    "torch_device": "cpu"
+  },
+  "natures_de_decomposition": {
+    "decomposee": 56,
+    "vide": 0,
+    "une_seule": 4,
+    "quasi_identique": 0
+  },
+  "passage_de_chauffe": {
+    "requete": "corpus warm-up probe, scored and discarded",
+    "ms": 4868.8,
+    "exclu_des_statistiques": true
+  },
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-25T03:54:39+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-25T04:01:46+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "resultats": {
+    "unique_avec_traduction": {
+      "ancrages_dans_le_haut": 53,
+      "questions_completes": 7,
+      "questions_completes_ids": [
+        "D-003",
+        "D-010",
+        "D-013",
+        "D-014",
+        "D-029",
+        "D-030",
+        "D-032"
+      ]
+    },
+    "unique_sans_traduction": {
+      "ancrages_dans_le_haut": 57,
+      "questions_completes": 6,
+      "questions_completes_ids": [
+        "D-003",
+        "D-010",
+        "D-013",
+        "D-014",
+        "D-029",
+        "D-032"
+      ]
+    },
+    "fusion_rerank_entiere": {
+      "ancrages_dans_le_haut": 60,
+      "questions_completes": 8,
+      "questions_completes_ids": [
+        "D-010",
+        "D-013",
+        "D-014",
+        "D-028",
+        "D-029",
+        "D-030",
+        "D-032",
+        "D-060"
+      ]
+    },
+    "fusion_rerank_sous_questions": {
+      "ancrages_dans_le_haut": 72,
+      "questions_completes": 19,
+      "questions_completes_ids": [
+        "D-002",
+        "D-004",
+        "D-005",
+        "D-007",
+        "D-008",
+        "D-010",
+        "D-013",
+        "D-014",
+        "D-020",
+        "D-023",
+        "D-028",
+        "D-029",
+        "D-030",
+        "D-032",
+        "D-042",
+        "D-050",
+        "D-052",
+        "D-053",
+        "D-060"
+      ]
+    }
+  },
+  "non_regression_vs_sans_traduction": {
+    "unique_avec_traduction": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [
+        "D-030"
+      ],
+      "n_perdues": 0,
+      "n_gagnees": 1,
+      "solde": 1
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "D-003"
+      ],
+      "gagnees": [
+        "D-028",
+        "D-030",
+        "D-060"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 3,
+      "solde": 2
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "D-003"
+      ],
+      "gagnees": [
+        "D-002",
+        "D-004",
+        "D-005",
+        "D-007",
+        "D-008",
+        "D-020",
+        "D-023",
+        "D-028",
+        "D-030",
+        "D-042",
+        "D-050",
+        "D-052",
+        "D-053",
+        "D-060"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 14,
+      "solde": 13
+    }
+  },
+  "non_regression_vs_production": {
+    "unique_sans_traduction": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "D-030"
+      ],
+      "gagnees": [],
+      "n_perdues": 1,
+      "n_gagnees": 0,
+      "solde": -1
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "D-003"
+      ],
+      "gagnees": [
+        "D-028",
+        "D-060"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 2,
+      "solde": 1
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "D-003"
+      ],
+      "gagnees": [
+        "D-002",
+        "D-004",
+        "D-005",
+        "D-007",
+        "D-008",
+        "D-020",
+        "D-023",
+        "D-028",
+        "D-042",
+        "D-050",
+        "D-052",
+        "D-053",
+        "D-060"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 13,
+      "solde": 12
+    }
+  },
+  "couts": {
+    "latences_ms": {
+      "decomposition_recuperation_ms": {
+        "n": 60,
+        "mediane": 120.0,
+        "p95": 1721.3
+      },
+      "fusion_rerank_entiere_ms": {
+        "n": 60,
+        "mediane": 828.0,
+        "p95": 3209.1
+      },
+      "fusion_rerank_sous_questions_ms": {
+        "n": 60,
+        "mediane": 1519.1,
+        "p95": 8483.4
+      },
+      "unique_avec_traduction_recuperation_ms": {
+        "n": 60,
+        "mediane": 130.1,
+        "p95": 1630.5
+      },
+      "unique_avec_traduction_rerank_ms": {
+        "n": 60,
+        "mediane": 757.2,
+        "p95": 3203.5
+      },
+      "unique_sans_traduction_recuperation_ms": {
+        "n": 60,
+        "mediane": 61.5,
+        "p95": 808.6
+      },
+      "unique_sans_traduction_rerank_ms": {
+        "n": 60,
+        "mediane": 790.2,
+        "p95": 3493.4
+      }
+    },
+    "paires_rerankees_total": {
+      "unique_avec_traduction": 3000,
+      "unique_sans_traduction": 3000,
+      "fusion_rerank_entiere": 3000,
+      "fusion_rerank_sous_questions": 6100
+    }
+  },
+  "secondes": 421.8,
+  "lignes": [
+    {
+      "id": "D-001",
+      "gold": [
+        "6e460fc900",
+        "f3bc57cfd2"
+      ],
+      "sous_questions": [
+        "What strategies can be used to introduce new, potentially superior AI models into a live production environment?",
+        "How can the stability of an existing production system be maintained while testing new AI models?",
+        "What methods ensure that the deployment of new AI models does not compromise system stability?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 117.0,
+        "unique_avec_traduction_rerank_ms": 660.0,
+        "unique_sans_traduction_recuperation_ms": 54.6,
+        "unique_sans_traduction_rerank_ms": 594.2,
+        "decomposition_recuperation_ms": 150.4,
+        "fusion_rerank_entiere_ms": 874.0,
+        "fusion_rerank_sous_questions_ms": 3880.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6e460fc900": null,
+          "f3bc57cfd2": null
+        },
+        "unique_sans_traduction": {
+          "6e460fc900": null,
+          "f3bc57cfd2": 1
+        },
+        "fusion_rerank_entiere": {
+          "6e460fc900": null,
+          "f3bc57cfd2": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "6e460fc900": null,
+          "f3bc57cfd2": 2
+        }
+      }
+    },
+    {
+      "id": "D-002",
+      "gold": [
+        "0f4741eda9",
+        "ad7852e761"
+      ],
+      "sous_questions": [
+        "How can custom validation logic implemented at the AI Gateway level be utilized?",
+        "How can advanced agent capabilities be leveraged to enhance complex application workflows?",
+        "What is the synergy between custom AI Gateway validation and advanced agent capabilities for complex workflows?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 158.0,
+        "unique_avec_traduction_rerank_ms": 1556.1,
+        "unique_sans_traduction_recuperation_ms": 57.6,
+        "unique_sans_traduction_rerank_ms": 765.9,
+        "decomposition_recuperation_ms": 172.7,
+        "fusion_rerank_entiere_ms": 781.8,
+        "fusion_rerank_sous_questions_ms": 9770.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0f4741eda9": 1,
+          "ad7852e761": null
+        },
+        "unique_sans_traduction": {
+          "0f4741eda9": 1,
+          "ad7852e761": null
+        },
+        "fusion_rerank_entiere": {
+          "0f4741eda9": 1,
+          "ad7852e761": null
+        },
+        "fusion_rerank_sous_questions": {
+          "0f4741eda9": 1,
+          "ad7852e761": 2
+        }
+      }
+    },
+    {
+      "id": "D-003",
+      "gold": [
+        "f653d1f934",
+        "54ec58051b"
+      ],
+      "sous_questions": [
+        "What type of professional is tasked with deploying functional GenAI applications?",
+        "For what professional would integrating a specialized agent, such as one designed to suggest alternative flight dates, be beneficial?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1607.2,
+        "unique_avec_traduction_rerank_ms": 2171.2,
+        "unique_sans_traduction_recuperation_ms": 454.7,
+        "unique_sans_traduction_rerank_ms": 4030.5,
+        "decomposition_recuperation_ms": 1928.6,
+        "fusion_rerank_entiere_ms": 4737.3,
+        "fusion_rerank_sous_questions_ms": 9314.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f653d1f934": 1,
+          "54ec58051b": 6
+        },
+        "unique_sans_traduction": {
+          "f653d1f934": 1,
+          "54ec58051b": 6
+        },
+        "fusion_rerank_entiere": {
+          "f653d1f934": 1,
+          "54ec58051b": null
+        },
+        "fusion_rerank_sous_questions": {
+          "f653d1f934": null,
+          "54ec58051b": null
+        }
+      }
+    },
+    {
+      "id": "D-004",
+      "gold": [
+        "749abf1dde",
+        "80c7ee54db"
+      ],
+      "sous_questions": [
+        "What methods are recommended for gathering feedback from end-users in a live environment?",
+        "How can gathered end-user feedback examples be organized for consistent testing?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 2170.6,
+        "unique_avec_traduction_rerank_ms": 3371.8,
+        "unique_sans_traduction_recuperation_ms": 1272.9,
+        "unique_sans_traduction_rerank_ms": 4613.1,
+        "decomposition_recuperation_ms": 1719.6,
+        "fusion_rerank_entiere_ms": 3209.1,
+        "fusion_rerank_sous_questions_ms": 8483.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "749abf1dde": 4,
+          "80c7ee54db": null
+        },
+        "unique_sans_traduction": {
+          "749abf1dde": 5,
+          "80c7ee54db": null
+        },
+        "fusion_rerank_entiere": {
+          "749abf1dde": 5,
+          "80c7ee54db": null
+        },
+        "fusion_rerank_sous_questions": {
+          "749abf1dde": 9,
+          "80c7ee54db": 10
+        }
+      }
+    },
+    {
+      "id": "D-005",
+      "gold": [
+        "e8ffbae08d",
+        "6af75f2503"
+      ],
+      "sous_questions": [
+        "What capabilities allow modern large language models to handle both text and images from a single PDF?",
+        "Which specific tool is recommended for retrieving semantically similar document chunks based on meaning?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 971.6,
+        "unique_avec_traduction_rerank_ms": 3431.2,
+        "unique_sans_traduction_recuperation_ms": 323.6,
+        "unique_sans_traduction_rerank_ms": 3493.4,
+        "decomposition_recuperation_ms": 577.4,
+        "fusion_rerank_entiere_ms": 3544.3,
+        "fusion_rerank_sous_questions_ms": 8448.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e8ffbae08d": 4,
+          "6af75f2503": null
+        },
+        "unique_sans_traduction": {
+          "e8ffbae08d": 7,
+          "6af75f2503": null
+        },
+        "fusion_rerank_entiere": {
+          "e8ffbae08d": 4,
+          "6af75f2503": null
+        },
+        "fusion_rerank_sous_questions": {
+          "e8ffbae08d": 1,
+          "6af75f2503": 2
+        }
+      }
+    },
+    {
+      "id": "D-006",
+      "gold": [
+        "9279ceed24",
+        "932d79806d"
+      ],
+      "sous_questions": [
+        "What is the maximum model size allowed for Databricks serverless optimized deployments?",
+        "How does the maximum model size for Databricks serverless optimized deployments compare to the size limit when environment packaging is not employed?",
+        "Does the method of handling agent initialization and configuration via a specific YAML file affect the maximum model size limit for Databricks serverless optimized deployments?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 849.0,
+        "unique_avec_traduction_rerank_ms": 2666.0,
+        "unique_sans_traduction_recuperation_ms": 89.0,
+        "unique_sans_traduction_rerank_ms": 2376.2,
+        "decomposition_recuperation_ms": 169.9,
+        "fusion_rerank_entiere_ms": 887.3,
+        "fusion_rerank_sous_questions_ms": 2311.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9279ceed24": null,
+          "932d79806d": 1
+        },
+        "unique_sans_traduction": {
+          "9279ceed24": null,
+          "932d79806d": 1
+        },
+        "fusion_rerank_entiere": {
+          "9279ceed24": null,
+          "932d79806d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "9279ceed24": null,
+          "932d79806d": 1
+        }
+      }
+    },
+    {
+      "id": "D-007",
+      "gold": [
+        "932d79806d",
+        "1e2a87fc78"
+      ],
+      "sous_questions": [
+        "What is the specific limitation regarding the maximum model size when utilizing the serverless optimized deployment feature?",
+        "What practice is recommended to ensure that the exact development conditions can be recreated for reproducibility?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 131.6,
+        "unique_avec_traduction_rerank_ms": 755.6,
+        "unique_sans_traduction_recuperation_ms": 71.0,
+        "unique_sans_traduction_rerank_ms": 3350.9,
+        "decomposition_recuperation_ms": 1695.2,
+        "fusion_rerank_entiere_ms": 2982.1,
+        "fusion_rerank_sous_questions_ms": 2811.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "932d79806d": 1,
+          "1e2a87fc78": null
+        },
+        "unique_sans_traduction": {
+          "932d79806d": 1,
+          "1e2a87fc78": null
+        },
+        "fusion_rerank_entiere": {
+          "932d79806d": 1,
+          "1e2a87fc78": null
+        },
+        "fusion_rerank_sous_questions": {
+          "932d79806d": 2,
+          "1e2a87fc78": 1
+        }
+      }
+    },
+    {
+      "id": "D-008",
+      "gold": [
+        "6e431fec81",
+        "72853b7eed"
+      ],
+      "sous_questions": [
+        "What is the necessary prerequisite step for creating a tool-calling agent for Unity Airways FAQs?",
+        "What common serialization issue arises when dealing with LangChain agents?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1571.0,
+        "unique_avec_traduction_rerank_ms": 758.8,
+        "unique_sans_traduction_recuperation_ms": 58.8,
+        "unique_sans_traduction_rerank_ms": 635.8,
+        "decomposition_recuperation_ms": 101.5,
+        "fusion_rerank_entiere_ms": 1071.5,
+        "fusion_rerank_sous_questions_ms": 2767.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6e431fec81": 1,
+          "72853b7eed": null
+        },
+        "unique_sans_traduction": {
+          "6e431fec81": 1,
+          "72853b7eed": null
+        },
+        "fusion_rerank_entiere": {
+          "6e431fec81": 1,
+          "72853b7eed": null
+        },
+        "fusion_rerank_sous_questions": {
+          "6e431fec81": 1,
+          "72853b7eed": 7
+        }
+      }
+    },
+    {
+      "id": "D-009",
+      "gold": [
+        "536d459c09",
+        "9112c67fa0"
+      ],
+      "sous_questions": [
+        "What mechanism allows a system to document the reasoning behind a generated response?",
+        "What broader industry standard necessitates detailed tracking of reasoning for model reliability?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 107.8,
+        "unique_avec_traduction_rerank_ms": 668.7,
+        "unique_sans_traduction_recuperation_ms": 67.2,
+        "unique_sans_traduction_rerank_ms": 2360.9,
+        "decomposition_recuperation_ms": 1497.4,
+        "fusion_rerank_entiere_ms": 2510.2,
+        "fusion_rerank_sous_questions_ms": 3359.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "536d459c09": null,
+          "9112c67fa0": null
+        },
+        "unique_sans_traduction": {
+          "536d459c09": null,
+          "9112c67fa0": null
+        },
+        "fusion_rerank_entiere": {
+          "536d459c09": null,
+          "9112c67fa0": null
+        },
+        "fusion_rerank_sous_questions": {
+          "536d459c09": 9,
+          "9112c67fa0": null
+        }
+      }
+    },
+    {
+      "id": "D-010",
+      "gold": [
+        "61e84a5266",
+        "ed1a2abcaa"
+      ],
+      "sous_questions": [
+        "What is the standard procedure for preparing a high-performing model for future deployment?",
+        "What specific use case benefits from pre-calculating and storing predictions in a database?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 806.8,
+        "unique_avec_traduction_rerank_ms": 3090.9,
+        "unique_sans_traduction_recuperation_ms": 808.6,
+        "unique_sans_traduction_rerank_ms": 2979.9,
+        "decomposition_recuperation_ms": 1721.3,
+        "fusion_rerank_entiere_ms": 2160.4,
+        "fusion_rerank_sous_questions_ms": 3287.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "61e84a5266": 2,
+          "ed1a2abcaa": 1
+        },
+        "unique_sans_traduction": {
+          "61e84a5266": 2,
+          "ed1a2abcaa": 1
+        },
+        "fusion_rerank_entiere": {
+          "61e84a5266": 2,
+          "ed1a2abcaa": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "61e84a5266": 3,
+          "ed1a2abcaa": 1
+        }
+      }
+    },
+    {
+      "id": "D-011",
+      "gold": [
+        "dfb078e932",
+        "c6d376218b"
+      ],
+      "sous_questions": [
+        "What specific capability of MLflow Tracing allows developers to see how sensitive data is handled during the execution of a complete Retrieval-Augmented Generation (RAG) pipeline?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 122.9,
+        "unique_avec_traduction_rerank_ms": 712.6,
+        "unique_sans_traduction_recuperation_ms": 59.3,
+        "unique_sans_traduction_rerank_ms": 600.8,
+        "decomposition_recuperation_ms": 59.3,
+        "fusion_rerank_entiere_ms": 600.8,
+        "fusion_rerank_sous_questions_ms": 600.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "dfb078e932": 9,
+          "c6d376218b": null
+        },
+        "unique_sans_traduction": {
+          "dfb078e932": 10,
+          "c6d376218b": null
+        },
+        "fusion_rerank_entiere": {
+          "dfb078e932": 10,
+          "c6d376218b": null
+        },
+        "fusion_rerank_sous_questions": {
+          "dfb078e932": 10,
+          "c6d376218b": null
+        }
+      }
+    },
+    {
+      "id": "D-012",
+      "gold": [
+        "c66abf9bb9",
+        "4e5d60c770"
+      ],
+      "sous_questions": [
+        "How can insights from tracing application behavior be used to improve intent categorization in a visualization tool?",
+        "What are the specific applications of application behavior tracing data when developing intent categorization visualizations?",
+        "How does tracing application behavior inform the design of a visualization tool for intent categorization?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 108.8,
+        "unique_avec_traduction_rerank_ms": 682.9,
+        "unique_sans_traduction_recuperation_ms": 55.2,
+        "unique_sans_traduction_rerank_ms": 925.5,
+        "decomposition_recuperation_ms": 842.6,
+        "fusion_rerank_entiere_ms": 661.7,
+        "fusion_rerank_sous_questions_ms": 4900.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c66abf9bb9": null,
+          "4e5d60c770": 2
+        },
+        "unique_sans_traduction": {
+          "c66abf9bb9": null,
+          "4e5d60c770": 3
+        },
+        "fusion_rerank_entiere": {
+          "c66abf9bb9": null,
+          "4e5d60c770": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "c66abf9bb9": null,
+          "4e5d60c770": 3
+        }
+      }
+    },
+    {
+      "id": "D-013",
+      "gold": [
+        "4e5d60c770",
+        "3b8a048acb"
+      ],
+      "sous_questions": [
+        "How does the Photon engine affect the process of visualizing question intent categorization?",
+        "What is the role of the Photon engine in visualizing question intent categorization when using a specific dataset?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 157.5,
+        "unique_avec_traduction_rerank_ms": 742.0,
+        "unique_sans_traduction_recuperation_ms": 58.2,
+        "unique_sans_traduction_rerank_ms": 593.8,
+        "decomposition_recuperation_ms": 96.7,
+        "fusion_rerank_entiere_ms": 630.5,
+        "fusion_rerank_sous_questions_ms": 1396.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4e5d60c770": 1,
+          "3b8a048acb": 3
+        },
+        "unique_sans_traduction": {
+          "4e5d60c770": 1,
+          "3b8a048acb": 3
+        },
+        "fusion_rerank_entiere": {
+          "4e5d60c770": 1,
+          "3b8a048acb": 3
+        },
+        "fusion_rerank_sous_questions": {
+          "4e5d60c770": 1,
+          "3b8a048acb": 3
+        }
+      }
+    },
+    {
+      "id": "D-014",
+      "gold": [
+        "e653eb481c",
+        "c06829515c"
+      ],
+      "sous_questions": [
+        "What authentication steps are required when setting up a compute environment for a single-node configuration?",
+        "How should authentication be handled for non-distributed Python tasks during compute environment setup?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 123.1,
+        "unique_avec_traduction_rerank_ms": 727.5,
+        "unique_sans_traduction_recuperation_ms": 56.8,
+        "unique_sans_traduction_rerank_ms": 725.3,
+        "decomposition_recuperation_ms": 93.7,
+        "fusion_rerank_entiere_ms": 1118.8,
+        "fusion_rerank_sous_questions_ms": 6404.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e653eb481c": 1,
+          "c06829515c": 3
+        },
+        "unique_sans_traduction": {
+          "e653eb481c": 1,
+          "c06829515c": 3
+        },
+        "fusion_rerank_entiere": {
+          "e653eb481c": 1,
+          "c06829515c": 3
+        },
+        "fusion_rerank_sous_questions": {
+          "e653eb481c": 2,
+          "c06829515c": 1
+        }
+      }
+    },
+    {
+      "id": "D-015",
+      "gold": [
+        "d2f7b67beb",
+        "f0f9cb7af9"
+      ],
+      "sous_questions": [
+        "How is foundation model usage attributed to a specific project when using external or dedicated serving endpoints?",
+        "What specific identifiers are tracked for monitoring purposes to facilitate the attribution of foundation model usage to a specific project?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1678.5,
+        "unique_avec_traduction_rerank_ms": 1776.1,
+        "unique_sans_traduction_recuperation_ms": 593.6,
+        "unique_sans_traduction_rerank_ms": 2844.7,
+        "decomposition_recuperation_ms": 109.0,
+        "fusion_rerank_entiere_ms": 750.2,
+        "fusion_rerank_sous_questions_ms": 1257.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d2f7b67beb": null,
+          "f0f9cb7af9": 1
+        },
+        "unique_sans_traduction": {
+          "d2f7b67beb": null,
+          "f0f9cb7af9": 1
+        },
+        "fusion_rerank_entiere": {
+          "d2f7b67beb": null,
+          "f0f9cb7af9": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d2f7b67beb": null,
+          "f0f9cb7af9": 1
+        }
+      }
+    },
+    {
+      "id": "D-016",
+      "gold": [
+        "a8caa27e46",
+        "175ce6903d"
+      ],
+      "sous_questions": [
+        "What kind of necessary coordination is required between different technical roles when deploying Lakeflow jobs without Declarative Automation Bundles to ensure reliable system operation?",
+        "What specific configuration file might be needed if a Python script is being executed when deploying Lakeflow jobs without Declarative Automation Bundles?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 175.6,
+        "unique_avec_traduction_rerank_ms": 898.6,
+        "unique_sans_traduction_recuperation_ms": 73.3,
+        "unique_sans_traduction_rerank_ms": 908.8,
+        "decomposition_recuperation_ms": 292.9,
+        "fusion_rerank_entiere_ms": 869.2,
+        "fusion_rerank_sous_questions_ms": 1408.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a8caa27e46": null,
+          "175ce6903d": 1
+        },
+        "unique_sans_traduction": {
+          "a8caa27e46": null,
+          "175ce6903d": 1
+        },
+        "fusion_rerank_entiere": {
+          "a8caa27e46": null,
+          "175ce6903d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a8caa27e46": null,
+          "175ce6903d": 1
+        }
+      }
+    },
+    {
+      "id": "D-017",
+      "gold": [
+        "84aac199a3",
+        "343cfcd5c1"
+      ],
+      "sous_questions": [
+        "What security risks are addressed by preventing data leakage in applications using specialized data storage systems?",
+        "What security risks are addressed by preventing parameter leakage in applications using specialized data storage systems?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 114.8,
+        "unique_avec_traduction_rerank_ms": 635.9,
+        "unique_sans_traduction_recuperation_ms": 54.3,
+        "unique_sans_traduction_rerank_ms": 660.4,
+        "decomposition_recuperation_ms": 95.7,
+        "fusion_rerank_entiere_ms": 836.3,
+        "fusion_rerank_sous_questions_ms": 1590.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "84aac199a3": null,
+          "343cfcd5c1": 2
+        },
+        "unique_sans_traduction": {
+          "84aac199a3": null,
+          "343cfcd5c1": 2
+        },
+        "fusion_rerank_entiere": {
+          "84aac199a3": null,
+          "343cfcd5c1": null
+        },
+        "fusion_rerank_sous_questions": {
+          "84aac199a3": null,
+          "343cfcd5c1": null
+        }
+      }
+    },
+    {
+      "id": "D-018",
+      "gold": [
+        "cefb8ed19b",
+        "bae642fe8e"
+      ],
+      "sous_questions": [
+        "How can model deployment stability be managed in Databricks?",
+        "How can the identity executing downstream operations when using agents deployed with Databricks be properly controlled?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 126.5,
+        "unique_avec_traduction_rerank_ms": 802.3,
+        "unique_sans_traduction_recuperation_ms": 67.1,
+        "unique_sans_traduction_rerank_ms": 738.9,
+        "decomposition_recuperation_ms": 104.8,
+        "fusion_rerank_entiere_ms": 772.8,
+        "fusion_rerank_sous_questions_ms": 1527.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "cefb8ed19b": 3,
+          "bae642fe8e": null
+        },
+        "unique_sans_traduction": {
+          "cefb8ed19b": 3,
+          "bae642fe8e": null
+        },
+        "fusion_rerank_entiere": {
+          "cefb8ed19b": 3,
+          "bae642fe8e": null
+        },
+        "fusion_rerank_sous_questions": {
+          "cefb8ed19b": 1,
+          "bae642fe8e": null
+        }
+      }
+    },
+    {
+      "id": "D-019",
+      "gold": [
+        "c52db7bfaf",
+        "684bcfccd0"
+      ],
+      "sous_questions": [
+        "What is the recommended practice for defining a tool's utility?",
+        "How does defining a tool's utility relate to improving user interaction with an agent?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 160.1,
+        "unique_avec_traduction_rerank_ms": 914.2,
+        "unique_sans_traduction_recuperation_ms": 77.5,
+        "unique_sans_traduction_rerank_ms": 2875.4,
+        "decomposition_recuperation_ms": 1558.9,
+        "fusion_rerank_entiere_ms": 2975.7,
+        "fusion_rerank_sous_questions_ms": 3180.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c52db7bfaf": null,
+          "684bcfccd0": null
+        },
+        "unique_sans_traduction": {
+          "c52db7bfaf": 10,
+          "684bcfccd0": null
+        },
+        "fusion_rerank_entiere": {
+          "c52db7bfaf": null,
+          "684bcfccd0": null
+        },
+        "fusion_rerank_sous_questions": {
+          "c52db7bfaf": null,
+          "684bcfccd0": null
+        }
+      }
+    },
+    {
+      "id": "D-020",
+      "gold": [
+        "1a9bc53bde",
+        "4b959587f0"
+      ],
+      "sous_questions": [
+        "What is the primary reason for shifting the capacity measurement from requests per second to a token-based metric?",
+        "What role do human evaluators play in ensuring the system meets real-world business needs?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1178.3,
+        "unique_avec_traduction_rerank_ms": 828.4,
+        "unique_sans_traduction_recuperation_ms": 67.8,
+        "unique_sans_traduction_rerank_ms": 883.9,
+        "decomposition_recuperation_ms": 399.7,
+        "fusion_rerank_entiere_ms": 804.2,
+        "fusion_rerank_sous_questions_ms": 1510.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "1a9bc53bde": 1,
+          "4b959587f0": null
+        },
+        "unique_sans_traduction": {
+          "1a9bc53bde": 1,
+          "4b959587f0": null
+        },
+        "fusion_rerank_entiere": {
+          "1a9bc53bde": 1,
+          "4b959587f0": null
+        },
+        "fusion_rerank_sous_questions": {
+          "1a9bc53bde": 2,
+          "4b959587f0": 1
+        }
+      }
+    },
+    {
+      "id": "D-021",
+      "gold": [
+        "7453eeb62b",
+        "18087fe034"
+      ],
+      "sous_questions": [
+        "How does making small, reversible changes help manage the complexities introduced by larger models?",
+        "What is the benefit of using small, reversible changes when integrating additional tools with larger models?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 105.8,
+        "unique_avec_traduction_rerank_ms": 691.3,
+        "unique_sans_traduction_recuperation_ms": 53.3,
+        "unique_sans_traduction_rerank_ms": 676.2,
+        "decomposition_recuperation_ms": 98.8,
+        "fusion_rerank_entiere_ms": 973.2,
+        "fusion_rerank_sous_questions_ms": 1193.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7453eeb62b": 4,
+          "18087fe034": null
+        },
+        "unique_sans_traduction": {
+          "7453eeb62b": null,
+          "18087fe034": null
+        },
+        "fusion_rerank_entiere": {
+          "7453eeb62b": 4,
+          "18087fe034": null
+        },
+        "fusion_rerank_sous_questions": {
+          "7453eeb62b": 4,
+          "18087fe034": null
+        }
+      }
+    },
+    {
+      "id": "D-022",
+      "gold": [
+        "e6440165bb",
+        "613070ecd8"
+      ],
+      "sous_questions": [
+        "What is the nature of the application deployment process?",
+        "What specific integration capability does LangChain offer for application development?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 119.4,
+        "unique_avec_traduction_rerank_ms": 3203.5,
+        "unique_sans_traduction_recuperation_ms": 845.6,
+        "unique_sans_traduction_rerank_ms": 1873.5,
+        "decomposition_recuperation_ms": 84.6,
+        "fusion_rerank_entiere_ms": 642.3,
+        "fusion_rerank_sous_questions_ms": 1466.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e6440165bb": null,
+          "613070ecd8": 1
+        },
+        "unique_sans_traduction": {
+          "e6440165bb": null,
+          "613070ecd8": 1
+        },
+        "fusion_rerank_entiere": {
+          "e6440165bb": null,
+          "613070ecd8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "e6440165bb": null,
+          "613070ecd8": 1
+        }
+      }
+    },
+    {
+      "id": "D-023",
+      "gold": [
+        "e576f2c83b",
+        "dcb37d50b8"
+      ],
+      "sous_questions": [
+        "What characteristic of the MLflow span object allows it to be easily integrated with OpenTelemetry standards?",
+        "What specific type of measurement does the Total Variation Distance provide regarding distribution differences?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 127.3,
+        "unique_avec_traduction_rerank_ms": 785.3,
+        "unique_sans_traduction_recuperation_ms": 62.1,
+        "unique_sans_traduction_rerank_ms": 736.1,
+        "decomposition_recuperation_ms": 169.7,
+        "fusion_rerank_entiere_ms": 773.1,
+        "fusion_rerank_sous_questions_ms": 5531.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e576f2c83b": 1,
+          "dcb37d50b8": null
+        },
+        "unique_sans_traduction": {
+          "e576f2c83b": 1,
+          "dcb37d50b8": null
+        },
+        "fusion_rerank_entiere": {
+          "e576f2c83b": 1,
+          "dcb37d50b8": null
+        },
+        "fusion_rerank_sous_questions": {
+          "e576f2c83b": 1,
+          "dcb37d50b8": 2
+        }
+      }
+    },
+    {
+      "id": "D-024",
+      "gold": [
+        "6a0db29f36",
+        "bef3e20e36"
+      ],
+      "sous_questions": [
+        "What specific components, beyond application metadata, must be bundled with an application for ensuring reproducibility in complex AI systems?",
+        "What are the necessary components to bundle with an AI application to ensure reproducibility, considering integrated parts?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 117.1,
+        "unique_avec_traduction_rerank_ms": 689.5,
+        "unique_sans_traduction_recuperation_ms": 65.1,
+        "unique_sans_traduction_rerank_ms": 2115.5,
+        "decomposition_recuperation_ms": 110.0,
+        "fusion_rerank_entiere_ms": 1582.7,
+        "fusion_rerank_sous_questions_ms": 6303.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6a0db29f36": null,
+          "bef3e20e36": null
+        },
+        "unique_sans_traduction": {
+          "6a0db29f36": null,
+          "bef3e20e36": null
+        },
+        "fusion_rerank_entiere": {
+          "6a0db29f36": null,
+          "bef3e20e36": null
+        },
+        "fusion_rerank_sous_questions": {
+          "6a0db29f36": null,
+          "bef3e20e36": null
+        }
+      }
+    },
+    {
+      "id": "D-025",
+      "gold": [
+        "b927ff5d4d",
+        "58203d876d"
+      ],
+      "sous_questions": [
+        "How does the choice of metric aggregation granularity affect the detection of meaningful changes in data distribution?",
+        "How does the choice of metric aggregation granularity affect the detection of meaningful changes in model performance?",
+        "How does metric aggregation granularity impact the assessment of broader system reliability?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1630.5,
+        "unique_avec_traduction_rerank_ms": 1676.5,
+        "unique_sans_traduction_recuperation_ms": 59.3,
+        "unique_sans_traduction_rerank_ms": 591.1,
+        "decomposition_recuperation_ms": 131.5,
+        "fusion_rerank_entiere_ms": 631.0,
+        "fusion_rerank_sous_questions_ms": 2103.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b927ff5d4d": null,
+          "58203d876d": 1
+        },
+        "unique_sans_traduction": {
+          "b927ff5d4d": null,
+          "58203d876d": 1
+        },
+        "fusion_rerank_entiere": {
+          "b927ff5d4d": null,
+          "58203d876d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b927ff5d4d": null,
+          "58203d876d": 1
+        }
+      }
+    },
+    {
+      "id": "D-026",
+      "gold": [
+        "0f66b973ed",
+        "28c4bafad0"
+      ],
+      "sous_questions": [
+        "What challenge arises when the retrieved context is incomplete?",
+        "What specific aspects of the Proof of Concept evaluation need to address the issue of incomplete retrieved context?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 97.4,
+        "unique_avec_traduction_rerank_ms": 2060.0,
+        "unique_sans_traduction_recuperation_ms": 321.1,
+        "unique_sans_traduction_rerank_ms": 969.3,
+        "decomposition_recuperation_ms": 98.5,
+        "fusion_rerank_entiere_ms": 805.1,
+        "fusion_rerank_sous_questions_ms": 1290.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0f66b973ed": null,
+          "28c4bafad0": null
+        },
+        "unique_sans_traduction": {
+          "0f66b973ed": null,
+          "28c4bafad0": null
+        },
+        "fusion_rerank_entiere": {
+          "0f66b973ed": 1,
+          "28c4bafad0": null
+        },
+        "fusion_rerank_sous_questions": {
+          "0f66b973ed": 1,
+          "28c4bafad0": null
+        }
+      }
+    },
+    {
+      "id": "D-027",
+      "gold": [
+        "a0d2c369cc",
+        "b4b0461854"
+      ],
+      "sous_questions": [
+        "How does the flexibility of feature retrieval in a complex model serving scenario relate to maintaining high response accuracy in AI applications?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 108.7,
+        "unique_avec_traduction_rerank_ms": 842.3,
+        "unique_sans_traduction_recuperation_ms": 54.7,
+        "unique_sans_traduction_rerank_ms": 2454.4,
+        "decomposition_recuperation_ms": 54.7,
+        "fusion_rerank_entiere_ms": 2454.4,
+        "fusion_rerank_sous_questions_ms": 2454.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a0d2c369cc": null,
+          "b4b0461854": 1
+        },
+        "unique_sans_traduction": {
+          "a0d2c369cc": null,
+          "b4b0461854": 1
+        },
+        "fusion_rerank_entiere": {
+          "a0d2c369cc": null,
+          "b4b0461854": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a0d2c369cc": null,
+          "b4b0461854": 1
+        }
+      }
+    },
+    {
+      "id": "D-028",
+      "gold": [
+        "a9748a6b45",
+        "149721fd2e"
+      ],
+      "sous_questions": [
+        "What specific actions must be taken regarding infrastructure configuration when implementing a continuous deployment pipeline using AWS for Databricks?",
+        "What foundational knowledge is necessary to manage ML workflows in a production setting?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1548.7,
+        "unique_avec_traduction_rerank_ms": 1553.3,
+        "unique_sans_traduction_recuperation_ms": 59.8,
+        "unique_sans_traduction_rerank_ms": 921.4,
+        "decomposition_recuperation_ms": 100.0,
+        "fusion_rerank_entiere_ms": 1611.8,
+        "fusion_rerank_sous_questions_ms": 4871.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a9748a6b45": null,
+          "149721fd2e": null
+        },
+        "unique_sans_traduction": {
+          "a9748a6b45": null,
+          "149721fd2e": 10
+        },
+        "fusion_rerank_entiere": {
+          "a9748a6b45": 10,
+          "149721fd2e": 9
+        },
+        "fusion_rerank_sous_questions": {
+          "a9748a6b45": 1,
+          "149721fd2e": 7
+        }
+      }
+    },
+    {
+      "id": "D-029",
+      "gold": [
+        "633d13730b",
+        "db98d74f05"
+      ],
+      "sous_questions": [
+        "What are the limitations of standard visualization tools when analyzing trace data?",
+        "How can human-provided feedback be integrated into trace data managed by a serving endpoint?",
+        "What methods can mitigate the limitations of standard visualization tools when incorporating human feedback into trace data?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 113.6,
+        "unique_avec_traduction_rerank_ms": 581.5,
+        "unique_sans_traduction_recuperation_ms": 56.1,
+        "unique_sans_traduction_rerank_ms": 588.9,
+        "decomposition_recuperation_ms": 197.1,
+        "fusion_rerank_entiere_ms": 530.4,
+        "fusion_rerank_sous_questions_ms": 1658.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "633d13730b": 1,
+          "db98d74f05": 3
+        },
+        "unique_sans_traduction": {
+          "633d13730b": 1,
+          "db98d74f05": 3
+        },
+        "fusion_rerank_entiere": {
+          "633d13730b": 1,
+          "db98d74f05": 3
+        },
+        "fusion_rerank_sous_questions": {
+          "633d13730b": 1,
+          "db98d74f05": 2
+        }
+      }
+    },
+    {
+      "id": "D-030",
+      "gold": [
+        "0023419387",
+        "c06829515c"
+      ],
+      "sous_questions": [
+        "What approach is advised for managing package dependencies when developing reusable software components?",
+        "What specific configuration files must be evaluated for authentication when running commands from a bundle working directory?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 169.5,
+        "unique_avec_traduction_rerank_ms": 709.5,
+        "unique_sans_traduction_recuperation_ms": 60.9,
+        "unique_sans_traduction_rerank_ms": 571.9,
+        "decomposition_recuperation_ms": 107.5,
+        "fusion_rerank_entiere_ms": 746.8,
+        "fusion_rerank_sous_questions_ms": 4010.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0023419387": 1,
+          "c06829515c": 10
+        },
+        "unique_sans_traduction": {
+          "0023419387": 1,
+          "c06829515c": null
+        },
+        "fusion_rerank_entiere": {
+          "0023419387": 1,
+          "c06829515c": 10
+        },
+        "fusion_rerank_sous_questions": {
+          "0023419387": 2,
+          "c06829515c": 1
+        }
+      }
+    },
+    {
+      "id": "D-031",
+      "gold": [
+        "a2357ed171",
+        "cdf017ab37"
+      ],
+      "sous_questions": [
+        "What is the recommended modern method for model registration within the Databricks environment?",
+        "How does model registration within Databricks relate to the functional role of certain platform elements?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 114.2,
+        "unique_avec_traduction_rerank_ms": 625.5,
+        "unique_sans_traduction_recuperation_ms": 62.4,
+        "unique_sans_traduction_rerank_ms": 571.9,
+        "decomposition_recuperation_ms": 153.4,
+        "fusion_rerank_entiere_ms": 556.2,
+        "fusion_rerank_sous_questions_ms": 1058.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a2357ed171": null,
+          "cdf017ab37": null
+        },
+        "unique_sans_traduction": {
+          "a2357ed171": null,
+          "cdf017ab37": null
+        },
+        "fusion_rerank_entiere": {
+          "a2357ed171": null,
+          "cdf017ab37": null
+        },
+        "fusion_rerank_sous_questions": {
+          "a2357ed171": null,
+          "cdf017ab37": 7
+        }
+      }
+    },
+    {
+      "id": "D-032",
+      "gold": [
+        "c43739d3d0",
+        "5ede2adb49"
+      ],
+      "sous_questions": [
+        "What specific documentation requirements must be met during the data structuring phase to ensure a technically sound transition to production?",
+        "What documentation is required during the data structuring phase to ensure compliance with governance standards during a system transition to production?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 151.0,
+        "unique_avec_traduction_rerank_ms": 725.6,
+        "unique_sans_traduction_recuperation_ms": 60.1,
+        "unique_sans_traduction_rerank_ms": 817.7,
+        "decomposition_recuperation_ms": 112.1,
+        "fusion_rerank_entiere_ms": 634.9,
+        "fusion_rerank_sous_questions_ms": 1171.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c43739d3d0": 3,
+          "5ede2adb49": 1
+        },
+        "unique_sans_traduction": {
+          "c43739d3d0": 3,
+          "5ede2adb49": 1
+        },
+        "fusion_rerank_entiere": {
+          "c43739d3d0": 4,
+          "5ede2adb49": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c43739d3d0": 3,
+          "5ede2adb49": 1
+        }
+      }
+    },
+    {
+      "id": "D-033",
+      "gold": [
+        "e4d37ffbb9",
+        "ad7852e761"
+      ],
+      "sous_questions": [
+        "What specific functional aspect of agent capabilities can be enhanced by integrating them as tools within complex applications?",
+        "What is the primary purpose of the book regarding the overall understanding of Databricks components?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 128.6,
+        "unique_avec_traduction_rerank_ms": 2233.4,
+        "unique_sans_traduction_recuperation_ms": 63.4,
+        "unique_sans_traduction_rerank_ms": 1076.2,
+        "decomposition_recuperation_ms": 95.4,
+        "fusion_rerank_entiere_ms": 1537.2,
+        "fusion_rerank_sous_questions_ms": 1501.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e4d37ffbb9": null,
+          "ad7852e761": 1
+        },
+        "unique_sans_traduction": {
+          "e4d37ffbb9": null,
+          "ad7852e761": 1
+        },
+        "fusion_rerank_entiere": {
+          "e4d37ffbb9": null,
+          "ad7852e761": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "e4d37ffbb9": null,
+          "ad7852e761": 1
+        }
+      }
+    },
+    {
+      "id": "D-034",
+      "gold": [
+        "d038dc7350",
+        "f2c2c70bb4"
+      ],
+      "sous_questions": [
+        "What is the current challenge regarding the lack of a universal execution environment for agents?",
+        "How does the lack of a universal execution environment for agents relate to the specific responsibilities of MLflow within the Databricks ecosystem?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 119.0,
+        "unique_avec_traduction_rerank_ms": 1813.1,
+        "unique_sans_traduction_recuperation_ms": 64.7,
+        "unique_sans_traduction_rerank_ms": 907.1,
+        "decomposition_recuperation_ms": 1086.0,
+        "fusion_rerank_entiere_ms": 860.8,
+        "fusion_rerank_sous_questions_ms": 1147.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d038dc7350": 2,
+          "f2c2c70bb4": null
+        },
+        "unique_sans_traduction": {
+          "d038dc7350": 2,
+          "f2c2c70bb4": null
+        },
+        "fusion_rerank_entiere": {
+          "d038dc7350": 2,
+          "f2c2c70bb4": null
+        },
+        "fusion_rerank_sous_questions": {
+          "d038dc7350": 1,
+          "f2c2c70bb4": null
+        }
+      }
+    },
+    {
+      "id": "D-035",
+      "gold": [
+        "684bcfccd0",
+        "9bbfa011a5"
+      ],
+      "sous_questions": [
+        "How does tailoring agent interactions to specific user needs relate to the limitations of current coding assistants?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 101.8,
+        "unique_avec_traduction_rerank_ms": 669.6,
+        "unique_sans_traduction_recuperation_ms": 56.9,
+        "unique_sans_traduction_rerank_ms": 542.8,
+        "decomposition_recuperation_ms": 56.9,
+        "fusion_rerank_entiere_ms": 542.8,
+        "fusion_rerank_sous_questions_ms": 542.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "684bcfccd0": null,
+          "9bbfa011a5": 2
+        },
+        "unique_sans_traduction": {
+          "684bcfccd0": null,
+          "9bbfa011a5": 2
+        },
+        "fusion_rerank_entiere": {
+          "684bcfccd0": null,
+          "9bbfa011a5": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "684bcfccd0": null,
+          "9bbfa011a5": 2
+        }
+      }
+    },
+    {
+      "id": "D-036",
+      "gold": [
+        "384cc03027",
+        "ef5b8bee12"
+      ],
+      "sous_questions": [
+        "What specific configuration steps are necessary when setting up a SQL warehouse for a Genie agent?",
+        "What is a related challenge in managing prompt behavior in MLflow?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 108.1,
+        "unique_avec_traduction_rerank_ms": 631.5,
+        "unique_sans_traduction_recuperation_ms": 53.9,
+        "unique_sans_traduction_rerank_ms": 602.8,
+        "decomposition_recuperation_ms": 91.5,
+        "fusion_rerank_entiere_ms": 585.1,
+        "fusion_rerank_sous_questions_ms": 1105.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "384cc03027": null,
+          "ef5b8bee12": 1
+        },
+        "unique_sans_traduction": {
+          "384cc03027": null,
+          "ef5b8bee12": 2
+        },
+        "fusion_rerank_entiere": {
+          "384cc03027": null,
+          "ef5b8bee12": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "384cc03027": null,
+          "ef5b8bee12": 1
+        }
+      }
+    },
+    {
+      "id": "D-037",
+      "gold": [
+        "32604c8f24",
+        "cb237ecf93"
+      ],
+      "sous_questions": [
+        "What specific capabilities of the MLflow UI are available when viewing an evaluation run generated by a model designed for RAG and agent systems?",
+        "How does the MLflow UI handle traces containing multiple types of assessments within a RAG/agent model evaluation run?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 190.7,
+        "unique_avec_traduction_rerank_ms": 1024.5,
+        "unique_sans_traduction_recuperation_ms": 58.9,
+        "unique_sans_traduction_rerank_ms": 1108.1,
+        "decomposition_recuperation_ms": 1988.9,
+        "fusion_rerank_entiere_ms": 2243.0,
+        "fusion_rerank_sous_questions_ms": 1749.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "32604c8f24": 3,
+          "cb237ecf93": null
+        },
+        "unique_sans_traduction": {
+          "32604c8f24": 3,
+          "cb237ecf93": null
+        },
+        "fusion_rerank_entiere": {
+          "32604c8f24": 3,
+          "cb237ecf93": null
+        },
+        "fusion_rerank_sous_questions": {
+          "32604c8f24": 1,
+          "cb237ecf93": null
+        }
+      }
+    },
+    {
+      "id": "D-038",
+      "gold": [
+        "e2b3d4f293",
+        "87c2d10179"
+      ],
+      "sous_questions": [
+        "What specific components are necessary for an evaluation process to function?",
+        "How do the capabilities of a system that manages and tracks datasets influence the necessary components of an evaluation process?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 207.0,
+        "unique_avec_traduction_rerank_ms": 556.0,
+        "unique_sans_traduction_recuperation_ms": 59.6,
+        "unique_sans_traduction_rerank_ms": 613.6,
+        "decomposition_recuperation_ms": 111.0,
+        "fusion_rerank_entiere_ms": 626.4,
+        "fusion_rerank_sous_questions_ms": 1127.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e2b3d4f293": null,
+          "87c2d10179": null
+        },
+        "unique_sans_traduction": {
+          "e2b3d4f293": null,
+          "87c2d10179": null
+        },
+        "fusion_rerank_entiere": {
+          "e2b3d4f293": null,
+          "87c2d10179": null
+        },
+        "fusion_rerank_sous_questions": {
+          "e2b3d4f293": null,
+          "87c2d10179": null
+        }
+      }
+    },
+    {
+      "id": "D-039",
+      "gold": [
+        "dfaa35986e",
+        "f6f5f4fedc"
+      ],
+      "sous_questions": [
+        "What is a common pitfall in development that can lead to impractical solutions?",
+        "What percentage of ML projects currently lack the necessary oversight to identify such issues?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 224.2,
+        "unique_avec_traduction_rerank_ms": 662.1,
+        "unique_sans_traduction_recuperation_ms": 55.0,
+        "unique_sans_traduction_rerank_ms": 3069.0,
+        "decomposition_recuperation_ms": 527.7,
+        "fusion_rerank_entiere_ms": 848.3,
+        "fusion_rerank_sous_questions_ms": 1449.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "dfaa35986e": null,
+          "f6f5f4fedc": 3
+        },
+        "unique_sans_traduction": {
+          "dfaa35986e": null,
+          "f6f5f4fedc": 3
+        },
+        "fusion_rerank_entiere": {
+          "dfaa35986e": null,
+          "f6f5f4fedc": 3
+        },
+        "fusion_rerank_sous_questions": {
+          "dfaa35986e": null,
+          "f6f5f4fedc": 1
+        }
+      }
+    },
+    {
+      "id": "D-040",
+      "gold": [
+        "857a947021",
+        "d3ad1729f6"
+      ],
+      "sous_questions": [
+        "What specific capabilities does MLflow offer for managing AI agents?",
+        "What kind of metrics can be observed when evaluating the performance of AI agents using MLflow?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 130.4,
+        "unique_avec_traduction_rerank_ms": 733.9,
+        "unique_sans_traduction_recuperation_ms": 87.8,
+        "unique_sans_traduction_rerank_ms": 735.0,
+        "decomposition_recuperation_ms": 231.6,
+        "fusion_rerank_entiere_ms": 1392.4,
+        "fusion_rerank_sous_questions_ms": 1444.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "857a947021": null,
+          "d3ad1729f6": null
+        },
+        "unique_sans_traduction": {
+          "857a947021": 10,
+          "d3ad1729f6": null
+        },
+        "fusion_rerank_entiere": {
+          "857a947021": null,
+          "d3ad1729f6": null
+        },
+        "fusion_rerank_sous_questions": {
+          "857a947021": null,
+          "d3ad1729f6": null
+        }
+      }
+    },
+    {
+      "id": "D-041",
+      "gold": [
+        "9889dcd22c",
+        "4bfc8482d4"
+      ],
+      "sous_questions": [
+        "What critical business need drives the requirement for automated evaluation processes when moving an LLM from development to a live environment?",
+        "How does a Retrieval-Augmented Generation (RAG) system specifically contribute to meeting this need in a sales context?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 202.4,
+        "unique_avec_traduction_rerank_ms": 880.0,
+        "unique_sans_traduction_recuperation_ms": 74.8,
+        "unique_sans_traduction_rerank_ms": 1032.2,
+        "decomposition_recuperation_ms": 1013.6,
+        "fusion_rerank_entiere_ms": 1330.5,
+        "fusion_rerank_sous_questions_ms": 1156.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9889dcd22c": 3,
+          "4bfc8482d4": null
+        },
+        "unique_sans_traduction": {
+          "9889dcd22c": 2,
+          "4bfc8482d4": null
+        },
+        "fusion_rerank_entiere": {
+          "9889dcd22c": 4,
+          "4bfc8482d4": null
+        },
+        "fusion_rerank_sous_questions": {
+          "9889dcd22c": null,
+          "4bfc8482d4": 5
+        }
+      }
+    },
+    {
+      "id": "D-042",
+      "gold": [
+        "4952d540d6",
+        "43406c2554"
+      ],
+      "sous_questions": [
+        "How is the concept of a 'model' defined when building a GenAI application using MLflow for structured model iteration?",
+        "What specific components might be involved in the operation of a 'model' within the context of MLflow for GenAI applications?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 117.5,
+        "unique_avec_traduction_rerank_ms": 671.2,
+        "unique_sans_traduction_recuperation_ms": 60.5,
+        "unique_sans_traduction_rerank_ms": 1054.9,
+        "decomposition_recuperation_ms": 152.9,
+        "fusion_rerank_entiere_ms": 641.6,
+        "fusion_rerank_sous_questions_ms": 2460.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4952d540d6": 1,
+          "43406c2554": null
+        },
+        "unique_sans_traduction": {
+          "4952d540d6": 1,
+          "43406c2554": null
+        },
+        "fusion_rerank_entiere": {
+          "4952d540d6": 1,
+          "43406c2554": null
+        },
+        "fusion_rerank_sous_questions": {
+          "4952d540d6": 2,
+          "43406c2554": 3
+        }
+      }
+    },
+    {
+      "id": "D-043",
+      "gold": [
+        "4952d540d6",
+        "d548a9c3a8"
+      ],
+      "sous_questions": [
+        "What specific components, like models or parameters, can be found within the artifacts section of an MLflow run?",
+        "How does MLflow facilitate the development process for GenAI applications?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 117.5,
+        "unique_avec_traduction_rerank_ms": 681.2,
+        "unique_sans_traduction_recuperation_ms": 59.4,
+        "unique_sans_traduction_rerank_ms": 925.0,
+        "decomposition_recuperation_ms": 98.0,
+        "fusion_rerank_entiere_ms": 819.8,
+        "fusion_rerank_sous_questions_ms": 1042.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4952d540d6": null,
+          "d548a9c3a8": 1
+        },
+        "unique_sans_traduction": {
+          "4952d540d6": null,
+          "d548a9c3a8": 1
+        },
+        "fusion_rerank_entiere": {
+          "4952d540d6": null,
+          "d548a9c3a8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4952d540d6": null,
+          "d548a9c3a8": 4
+        }
+      }
+    },
+    {
+      "id": "D-044",
+      "gold": [
+        "4d3c5e0aa4",
+        "d4e6bb871e"
+      ],
+      "sous_questions": [
+        "What happens to a Retrieval-Augmented Generation system when the necessary documentation for a specific product is missing?",
+        "How can one view the aggregated performance data for a machine learning experiment?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 959.9,
+        "unique_avec_traduction_rerank_ms": 1381.6,
+        "unique_sans_traduction_recuperation_ms": 62.0,
+        "unique_sans_traduction_rerank_ms": 698.6,
+        "decomposition_recuperation_ms": 113.2,
+        "fusion_rerank_entiere_ms": 2760.5,
+        "fusion_rerank_sous_questions_ms": 4098.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4d3c5e0aa4": null,
+          "d4e6bb871e": null
+        },
+        "unique_sans_traduction": {
+          "4d3c5e0aa4": null,
+          "d4e6bb871e": null
+        },
+        "fusion_rerank_entiere": {
+          "4d3c5e0aa4": null,
+          "d4e6bb871e": null
+        },
+        "fusion_rerank_sous_questions": {
+          "4d3c5e0aa4": null,
+          "d4e6bb871e": null
+        }
+      }
+    },
+    {
+      "id": "D-045",
+      "gold": [
+        "f114828c3f",
+        "110fb64e55"
+      ],
+      "sous_questions": [
+        "What is the operational scope and resource requirement of a unit test?",
+        "How does integrating MLflow within the Databricks platform provide governance capabilities?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 149.0,
+        "unique_avec_traduction_rerank_ms": 702.1,
+        "unique_sans_traduction_recuperation_ms": 77.5,
+        "unique_sans_traduction_rerank_ms": 692.1,
+        "decomposition_recuperation_ms": 91.8,
+        "fusion_rerank_entiere_ms": 718.5,
+        "fusion_rerank_sous_questions_ms": 1903.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f114828c3f": 1,
+          "110fb64e55": null
+        },
+        "unique_sans_traduction": {
+          "f114828c3f": 1,
+          "110fb64e55": null
+        },
+        "fusion_rerank_entiere": {
+          "f114828c3f": 1,
+          "110fb64e55": null
+        },
+        "fusion_rerank_sous_questions": {
+          "f114828c3f": 1,
+          "110fb64e55": null
+        }
+      }
+    },
+    {
+      "id": "D-046",
+      "gold": [
+        "2c5e2f5e88",
+        "e8818a13ba"
+      ],
+      "sous_questions": [
+        "What aspect of the model's interaction with consumers requires validation via end-to-end tests?",
+        "Why is end-to-end testing crucial for ensuring the overall system functions correctly when data engineers build reliable data products?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 115.1,
+        "unique_avec_traduction_rerank_ms": 752.6,
+        "unique_sans_traduction_recuperation_ms": 70.2,
+        "unique_sans_traduction_rerank_ms": 639.9,
+        "decomposition_recuperation_ms": 128.3,
+        "fusion_rerank_entiere_ms": 789.2,
+        "fusion_rerank_sous_questions_ms": 1374.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2c5e2f5e88": null,
+          "e8818a13ba": 1
+        },
+        "unique_sans_traduction": {
+          "2c5e2f5e88": null,
+          "e8818a13ba": 1
+        },
+        "fusion_rerank_entiere": {
+          "2c5e2f5e88": null,
+          "e8818a13ba": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "2c5e2f5e88": null,
+          "e8818a13ba": 1
+        }
+      }
+    },
+    {
+      "id": "D-047",
+      "gold": [
+        "694407ab24",
+        "c666c63be7"
+      ],
+      "sous_questions": [
+        "What is the trade-off between using high-level Fluent APIs versus low-level MLflow Client APIs when manually instrumenting tracings?",
+        "What specific limitation exists when querying traces instrumented using these APIs?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 181.4,
+        "unique_avec_traduction_rerank_ms": 761.9,
+        "unique_sans_traduction_recuperation_ms": 57.5,
+        "unique_sans_traduction_rerank_ms": 690.5,
+        "decomposition_recuperation_ms": 91.9,
+        "fusion_rerank_entiere_ms": 687.9,
+        "fusion_rerank_sous_questions_ms": 1115.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "694407ab24": 1,
+          "c666c63be7": null
+        },
+        "unique_sans_traduction": {
+          "694407ab24": 1,
+          "c666c63be7": null
+        },
+        "fusion_rerank_entiere": {
+          "694407ab24": 1,
+          "c666c63be7": null
+        },
+        "fusion_rerank_sous_questions": {
+          "694407ab24": 1,
+          "c666c63be7": null
+        }
+      }
+    },
+    {
+      "id": "D-048",
+      "gold": [
+        "e4b8502ac1",
+        "cdf017ab37"
+      ],
+      "sous_questions": [
+        "What is the primary benefit of using the same machine learning scorers in both development and production environments?",
+        "How does using the same machine learning scorers in both development and production relate to the function of certain platform elements?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 126.1,
+        "unique_avec_traduction_rerank_ms": 806.8,
+        "unique_sans_traduction_recuperation_ms": 243.2,
+        "unique_sans_traduction_rerank_ms": 633.1,
+        "decomposition_recuperation_ms": 121.6,
+        "fusion_rerank_entiere_ms": 640.9,
+        "fusion_rerank_sous_questions_ms": 1272.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e4b8502ac1": 1,
+          "cdf017ab37": null
+        },
+        "unique_sans_traduction": {
+          "e4b8502ac1": 1,
+          "cdf017ab37": null
+        },
+        "fusion_rerank_entiere": {
+          "e4b8502ac1": 1,
+          "cdf017ab37": null
+        },
+        "fusion_rerank_sous_questions": {
+          "e4b8502ac1": 1,
+          "cdf017ab37": null
+        }
+      }
+    },
+    {
+      "id": "D-049",
+      "gold": [
+        "c68d9c51b3",
+        "4bdb649899"
+      ],
+      "sous_questions": [
+        "What must be done regarding alerts when setting up monitoring for AI agents?",
+        "How does the requirement for alerts in AI agent monitoring relate to the nature of the application's deployment?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 128.7,
+        "unique_avec_traduction_rerank_ms": 677.9,
+        "unique_sans_traduction_recuperation_ms": 56.0,
+        "unique_sans_traduction_rerank_ms": 649.0,
+        "decomposition_recuperation_ms": 117.7,
+        "fusion_rerank_entiere_ms": 1157.3,
+        "fusion_rerank_sous_questions_ms": 1277.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c68d9c51b3": null,
+          "4bdb649899": 1
+        },
+        "unique_sans_traduction": {
+          "c68d9c51b3": null,
+          "4bdb649899": 1
+        },
+        "fusion_rerank_entiere": {
+          "c68d9c51b3": null,
+          "4bdb649899": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c68d9c51b3": null,
+          "4bdb649899": 1
+        }
+      }
+    },
+    {
+      "id": "D-050",
+      "gold": [
+        "8987d38458",
+        "5b143bd4f5"
+      ],
+      "sous_questions": [
+        "What is the consequence of a misalignment between two identical identifiers when they are present in different files?",
+        "What formatting convention is used to denote program elements like variable names within paragraphs?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 134.6,
+        "unique_avec_traduction_rerank_ms": 675.7,
+        "unique_sans_traduction_recuperation_ms": 65.2,
+        "unique_sans_traduction_rerank_ms": 767.7,
+        "decomposition_recuperation_ms": 98.4,
+        "fusion_rerank_entiere_ms": 837.0,
+        "fusion_rerank_sous_questions_ms": 1205.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "8987d38458": null,
+          "5b143bd4f5": null
+        },
+        "unique_sans_traduction": {
+          "8987d38458": null,
+          "5b143bd4f5": null
+        },
+        "fusion_rerank_entiere": {
+          "8987d38458": 4,
+          "5b143bd4f5": null
+        },
+        "fusion_rerank_sous_questions": {
+          "8987d38458": 4,
+          "5b143bd4f5": 1
+        }
+      }
+    },
+    {
+      "id": "D-051",
+      "gold": [
+        "2ba2785617",
+        "72e888aff6"
+      ],
+      "sous_questions": [
+        "What is the recommended modern approach for managing model features?",
+        "What specific type of checks are guardrails designed to perform within the operational flow?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 146.7,
+        "unique_avec_traduction_rerank_ms": 1376.2,
+        "unique_sans_traduction_recuperation_ms": 56.7,
+        "unique_sans_traduction_rerank_ms": 2839.8,
+        "decomposition_recuperation_ms": 1488.4,
+        "fusion_rerank_entiere_ms": 2926.2,
+        "fusion_rerank_sous_questions_ms": 2130.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2ba2785617": null,
+          "72e888aff6": null
+        },
+        "unique_sans_traduction": {
+          "2ba2785617": 3,
+          "72e888aff6": null
+        },
+        "fusion_rerank_entiere": {
+          "2ba2785617": 3,
+          "72e888aff6": null
+        },
+        "fusion_rerank_sous_questions": {
+          "2ba2785617": 2,
+          "72e888aff6": null
+        }
+      }
+    },
+    {
+      "id": "D-052",
+      "gold": [
+        "f25fb8d8a3",
+        "091bd5a2a6"
+      ],
+      "sous_questions": [
+        "What is the physical location of O'Reilly Media, Inc.?",
+        "What specific topic within the book is dedicated to demonstrating how established principles apply to modern AI systems?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 121.7,
+        "unique_avec_traduction_rerank_ms": 719.3,
+        "unique_sans_traduction_recuperation_ms": 64.0,
+        "unique_sans_traduction_rerank_ms": 812.8,
+        "decomposition_recuperation_ms": 122.5,
+        "fusion_rerank_entiere_ms": 711.2,
+        "fusion_rerank_sous_questions_ms": 1423.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f25fb8d8a3": null,
+          "091bd5a2a6": 2
+        },
+        "unique_sans_traduction": {
+          "f25fb8d8a3": null,
+          "091bd5a2a6": null
+        },
+        "fusion_rerank_entiere": {
+          "f25fb8d8a3": null,
+          "091bd5a2a6": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "f25fb8d8a3": 4,
+          "091bd5a2a6": 1
+        }
+      }
+    },
+    {
+      "id": "D-053",
+      "gold": [
+        "87bc5420e8",
+        "acf4f69a80"
+      ],
+      "sous_questions": [
+        "What is the primary challenge when moving a successful challenger agent into a live production environment?",
+        "What specific technical issue arises when various components of a GenAI application do not communicate uniformly?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 137.5,
+        "unique_avec_traduction_rerank_ms": 831.5,
+        "unique_sans_traduction_recuperation_ms": 59.2,
+        "unique_sans_traduction_rerank_ms": 2385.1,
+        "decomposition_recuperation_ms": 143.6,
+        "fusion_rerank_entiere_ms": 1095.0,
+        "fusion_rerank_sous_questions_ms": 1806.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "87bc5420e8": null,
+          "acf4f69a80": 6
+        },
+        "unique_sans_traduction": {
+          "87bc5420e8": null,
+          "acf4f69a80": 6
+        },
+        "fusion_rerank_entiere": {
+          "87bc5420e8": null,
+          "acf4f69a80": 10
+        },
+        "fusion_rerank_sous_questions": {
+          "87bc5420e8": 7,
+          "acf4f69a80": 9
+        }
+      }
+    },
+    {
+      "id": "D-054",
+      "gold": [
+        "45f2322ea0",
+        "f653d1f934"
+      ],
+      "sous_questions": [
+        "What is the effect on the system's state after a specific agent, integrated as a tool, finishes its function?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1444.9,
+        "unique_avec_traduction_rerank_ms": 1774.4,
+        "unique_sans_traduction_recuperation_ms": 52.4,
+        "unique_sans_traduction_rerank_ms": 594.4,
+        "decomposition_recuperation_ms": 52.4,
+        "fusion_rerank_entiere_ms": 594.4,
+        "fusion_rerank_sous_questions_ms": 594.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "45f2322ea0": 2,
+          "f653d1f934": null
+        },
+        "unique_sans_traduction": {
+          "45f2322ea0": 2,
+          "f653d1f934": null
+        },
+        "fusion_rerank_entiere": {
+          "45f2322ea0": 2,
+          "f653d1f934": null
+        },
+        "fusion_rerank_sous_questions": {
+          "45f2322ea0": 2,
+          "f653d1f934": null
+        }
+      }
+    },
+    {
+      "id": "D-055",
+      "gold": [
+        "2ea3c02205",
+        "d736dea0f8"
+      ],
+      "sous_questions": [
+        "What two related practices should be considered when selecting prompts for a minimal, frequently runnable dataset for evaluation?",
+        "What two related practices should be considered regarding the definition of scoring mechanisms when creating a minimal, frequently runnable dataset for evaluation?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 142.4,
+        "unique_avec_traduction_rerank_ms": 665.4,
+        "unique_sans_traduction_recuperation_ms": 67.8,
+        "unique_sans_traduction_rerank_ms": 613.1,
+        "decomposition_recuperation_ms": 118.5,
+        "fusion_rerank_entiere_ms": 810.3,
+        "fusion_rerank_sous_questions_ms": 1293.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2ea3c02205": null,
+          "d736dea0f8": 1
+        },
+        "unique_sans_traduction": {
+          "2ea3c02205": null,
+          "d736dea0f8": 1
+        },
+        "fusion_rerank_entiere": {
+          "2ea3c02205": null,
+          "d736dea0f8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "2ea3c02205": null,
+          "d736dea0f8": 1
+        }
+      }
+    },
+    {
+      "id": "D-056",
+      "gold": [
+        "9bbfa011a5",
+        "9889dcd22c"
+      ],
+      "sous_questions": [
+        "What critical aspect of system reliability is often overlooked during the development phase?",
+        "How does the introduction of structured, repeatable procedures address the overlooked aspect of system reliability?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 113.9,
+        "unique_avec_traduction_rerank_ms": 796.1,
+        "unique_sans_traduction_recuperation_ms": 57.1,
+        "unique_sans_traduction_rerank_ms": 1712.7,
+        "decomposition_recuperation_ms": 1692.1,
+        "fusion_rerank_entiere_ms": 2980.6,
+        "fusion_rerank_sous_questions_ms": 1720.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9bbfa011a5": null,
+          "9889dcd22c": null
+        },
+        "unique_sans_traduction": {
+          "9bbfa011a5": null,
+          "9889dcd22c": 2
+        },
+        "fusion_rerank_entiere": {
+          "9bbfa011a5": null,
+          "9889dcd22c": 4
+        },
+        "fusion_rerank_sous_questions": {
+          "9bbfa011a5": null,
+          "9889dcd22c": 2
+        }
+      }
+    },
+    {
+      "id": "D-057",
+      "gold": [
+        "c805421ba8",
+        "ba60d07ffd"
+      ],
+      "sous_questions": [
+        "What specific components are recorded for each input instance when performing evaluation for stateless tasks like summarization?",
+        "What is the recommended evaluation approach for stateless tasks like summarization?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 129.8,
+        "unique_avec_traduction_rerank_ms": 721.5,
+        "unique_sans_traduction_recuperation_ms": 58.3,
+        "unique_sans_traduction_rerank_ms": 1223.6,
+        "decomposition_recuperation_ms": 94.5,
+        "fusion_rerank_entiere_ms": 748.4,
+        "fusion_rerank_sous_questions_ms": 1237.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c805421ba8": null,
+          "ba60d07ffd": 1
+        },
+        "unique_sans_traduction": {
+          "c805421ba8": null,
+          "ba60d07ffd": 1
+        },
+        "fusion_rerank_entiere": {
+          "c805421ba8": null,
+          "ba60d07ffd": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c805421ba8": null,
+          "ba60d07ffd": 1
+        }
+      }
+    },
+    {
+      "id": "D-058",
+      "gold": [
+        "ea7d4cf6c0",
+        "b68e36e0ab"
+      ],
+      "sous_questions": [
+        "What is the recommended method for managing parameters when implementing a tool-calling agent?",
+        "What specific scenario is the 'answer sheet' mode designed for in AI application assessment?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 127.3,
+        "unique_avec_traduction_rerank_ms": 708.2,
+        "unique_sans_traduction_recuperation_ms": 66.5,
+        "unique_sans_traduction_rerank_ms": 660.5,
+        "decomposition_recuperation_ms": 157.4,
+        "fusion_rerank_entiere_ms": 704.7,
+        "fusion_rerank_sous_questions_ms": 1281.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ea7d4cf6c0": 1,
+          "b68e36e0ab": null
+        },
+        "unique_sans_traduction": {
+          "ea7d4cf6c0": 1,
+          "b68e36e0ab": null
+        },
+        "fusion_rerank_entiere": {
+          "ea7d4cf6c0": 1,
+          "b68e36e0ab": null
+        },
+        "fusion_rerank_sous_questions": {
+          "ea7d4cf6c0": 1,
+          "b68e36e0ab": null
+        }
+      }
+    },
+    {
+      "id": "D-059",
+      "gold": [
+        "ef5b8bee12",
+        "5b3fd95b19"
+      ],
+      "sous_questions": [
+        "What mechanism is recommended for managing database connections in a production agent system to avoid performance bottlenecks when handling multiple simultaneous requests?",
+        "What prerequisite must be established before deploying a production agent system that uses a recommended database connection management mechanism?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 127.1,
+        "unique_avec_traduction_rerank_ms": 726.8,
+        "unique_sans_traduction_recuperation_ms": 61.1,
+        "unique_sans_traduction_rerank_ms": 710.2,
+        "decomposition_recuperation_ms": 113.3,
+        "fusion_rerank_entiere_ms": 851.2,
+        "fusion_rerank_sous_questions_ms": 1586.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ef5b8bee12": null,
+          "5b3fd95b19": null
+        },
+        "unique_sans_traduction": {
+          "ef5b8bee12": null,
+          "5b3fd95b19": 2
+        },
+        "fusion_rerank_entiere": {
+          "ef5b8bee12": null,
+          "5b3fd95b19": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "ef5b8bee12": null,
+          "5b3fd95b19": 1
+        }
+      }
+    },
+    {
+      "id": "D-060",
+      "gold": [
+        "47cfec4695",
+        "5755f87642"
+      ],
+      "sous_questions": [
+        "How does human judgment contribute to refining the analysis of execution paths for performance errors?",
+        "How does human judgment contribute to refining the analysis of execution paths for logical errors?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 101.7,
+        "unique_avec_traduction_rerank_ms": 781.5,
+        "unique_sans_traduction_recuperation_ms": 67.5,
+        "unique_sans_traduction_rerank_ms": 562.9,
+        "decomposition_recuperation_ms": 94.4,
+        "fusion_rerank_entiere_ms": 782.2,
+        "fusion_rerank_sous_questions_ms": 1144.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "47cfec4695": null,
+          "5755f87642": 3
+        },
+        "unique_sans_traduction": {
+          "47cfec4695": null,
+          "5755f87642": 3
+        },
+        "fusion_rerank_entiere": {
+          "47cfec4695": 5,
+          "5755f87642": 3
+        },
+        "fusion_rerank_sous_questions": {
+          "47cfec4695": 4,
+          "5755f87642": 2
+        }
+      }
+    }
+  ],
+  "controle_positif": {
+    "reference": "2026-09-24-recuperation-p50.json",
+    "cles_attendues": 120,
+    "cles_mesurees": 120,
+    "cles_communes": 120,
+    "rangs_identiques": 120,
+    "desaccords": [],
+    "n_desaccords": 0,
+    "attendu_4_77": {
+      "ancrages_dans_le_haut": 53,
+      "questions_completes": 7
+    },
+    "mesure": {
+      "ancrages_dans_le_haut": 53,
+      "questions_completes": 7
+    },
+    "accord": true
+  }
+}
