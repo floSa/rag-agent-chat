@@ -17,7 +17,7 @@ jamais exécuté une ligne en production — §4.42 du registre.
 
 | | |
 |---|---|
-| arbre de travail | `/home/ubuntu/RAG/rag-agent-chat/.claude/worktrees/lot-8-rag-agent-deploy-45d55d`, branche `claude/lot-8-rag-agent-deploy-45d55d`, **repartie de la branche du lot 4** (`0cd1c48`, 0 en retard sur `main`) |
+| arbre de travail | `<arbre de travail>`, branche `<branche de session>`, **repartie de la branche du lot 4** (`0cd1c48`, 0 en retard sur `main`) |
 | `docker compose` | lancé **depuis le clone principal uniquement** (`--project-directory /home/ubuntu/RAG/rag-agent-chat`), pour le seul service `agent-api`, `main` = `origin/main` = `85b5a7a` dans le clone, arbre propre |
 | environnement | monté par le §2.2 du mandat dans l'arbre du lot ; `UV_NO_SYNC=1` devant `make eval` — voir §5 |
 | stores | ChromaDB `rag_documents`, **4 367** chunks, estampille `paraphrase-multilingual-MiniLM-L12-v2` ; NebulaGraph `rag_space` ; **aucune écriture** dans l'un ni l'autre |
@@ -160,7 +160,7 @@ sont identiques entre le commit embarqué (`8bc0485`) et `main` (`git diff
 --stat 8bc0485 main -- requirements.txt Dockerfile.agent` : vide), donc les
 couches `pip` sont sorties du cache et seules les couches `COPY src/…` ont été
 refaites. `mesuré` : le clone principal était à `main` = `85b5a7a`, arbre propre
-(`git status --short` : `?? .claude/` seulement), et les trois fichiers copiés
+(`git status --short` : `?? <répertoire de l'outillage>/` seulement), et les trois fichiers copiés
 portaient l'empreinte de `main` avant le `build`.
 
 **Le chemin de retour, si quelque chose casse** — non exercé, écrit ici :

@@ -29,6 +29,38 @@ avant que la réponse ne soit écrite (*human-in-the-loop*).
 
 ---
 
+## 0. Reprendre le projet
+
+Pour qui reprend ce dépôt, dans cet ordre :
+
+1. **Lire l'état et la suite** : [etat_du_projet.md](documentation/etat_du_projet.md)
+   (ce qui marche, avec ses mesures, et ce qui ne marche pas), puis
+   [prochaines_etapes.md](documentation/prochaines_etapes.md) (les questions
+   ouvertes, ordonnées par le coût de l'échec).
+2. **Savoir où vivent les faits** : chaque constat a UN site canonique, le
+   registre [axes_amelioration.md](documentation/axes_amelioration.md) ; l'ordre
+   des lots, leurs mesures et les gestes de déploiement sont au journal de
+   [pilotage_du_chantier.md](documentation/pilotage_du_chantier.md), dont le §2.2
+   décrit l'environnement de mesure. On corrige le registre en AJOUTANT, daté,
+   jamais en effaçant ; les rapports de `documentation/audits/` ne se réécrivent pas.
+3. **Monter le poste** : l'environnement du §4 ci-dessous, puis `make install`
+   depuis le clone principal (il arme les garde-fous git : identité d'auteur
+   autorisée, aucune forme d'attribution, porte avant la poussée). Si un outillage
+   pose des arbres de travail dans un répertoire caché du clone, l'exclure dans
+   `.git/info/exclude` AVANT le premier `make image` : sinon `git status` le voit,
+   l'image est gravée `arbre=sale`, et `/health` le publie.
+4. **Configurer** : `cp .env.example .env` dans le clone principal (§2.2).
+5. **Vérifier les stores avant toute mesure** : `make verifier-les-ancrages`
+   (0 désaccord attendu sur les trois jeux), puis `POST /reindex` : l'index
+   lexical se construit à la première recherche, et doit être reconstruit après
+   chaque réingestion du pipeline.
+6. **Déployer** par la marche du §4 de
+   [identite_du_code_servi.md](documentation/identite_du_code_servi.md) :
+   étiqueter l'image servie AVANT de construire, puis vérifier `code_servi`
+   dans `/health`.
+
+La version livrée est l'étiquette git **`v1.0.0`** (25 septembre 2026).
+
 ## 1. Ce que l'agent fait
 
 ### 1.1 La chaîne de récupération, en quatre étages
@@ -160,9 +192,11 @@ cp .env.example .env
 > lancé depuis un arbre l'ancrerait au mauvais endroit. Ce lot travaille dans un
 > arbre détaché et n'a lu aucun `.env`.
 
-`.env.example` est versionné et complet. Les valeurs de secret — dont
-`MINIO_ROOT_PASSWORD`, qui doit être **la même** que celle du projet
-d'ingestion — ne sont écrites nulle part dans ce dépôt, qui est public.
+`.env.example` est versionné et complet. Les valeurs de secret ne sont écrites
+nulle part dans ce dépôt, qui est public. Pour le stockage objet, l'agent ne fait
+que LIRE : `MINIO_ROOT_USER` et `MINIO_ROOT_PASSWORD` reçoivent le jeu **lecture
+seule** que publie le projet d'ingestion (`SEAWEEDFS_RO_ACCESS_KEY` et
+`SEAWEEDFS_RO_SECRET_KEY` de son `.env`), et non ses clés d'administration.
 
 ### 2.3 Démarrer la pile
 

@@ -36,7 +36,10 @@ tmp/
 # `requirements.txt`, `src/agent` et `src/api`).
 # Le cas, le geste de contournement du lot 24 et la correction de fond sont au
 # §4 bis de `documentation/identite_du_code_servi.md`.
-.claude/
+# L'EXCLUSION ELLE-MÊME N'EST PAS ICI : elle est posée dans `.git/info/exclude`,
+# local à chaque poste, pour que le nom de l'outillage n'entre pas dans le dépôt.
+# Sur un poste neuf, y ajouter le répertoire de l'outillage AVANT le premier
+# `make image` (README, section « Reprendre le projet »).
 
 # IDE
 .idea/

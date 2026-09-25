@@ -33,7 +33,7 @@ def _get_minio_client() -> Minio:
 def object_name_from_url(minio_url: str) -> str | None:
     """Extrait le chemin objet d'une URL MinIO interne.
 
-    minio_url est au format http://minio:9000/documents/images/{stem}/{id}_{type}.png
+    minio_url est au format http://seaweedfs:8333/documents/images/{stem}/{id}_{type}.png
     On retire le host et le premier segment du path (nom du bucket).
     """
     parsed = urlparse(minio_url)
@@ -46,7 +46,7 @@ def object_name_from_url(minio_url: str) -> str | None:
 def to_media_path(minio_url: str) -> str:
     """Convertit une URL MinIO interne en chemin proxy /media servi par l'API.
 
-    Les URLs (même pré-signées) construites sur l'endpoint interne minio:9000
+    Les URLs (même pré-signées) construites sur l'endpoint interne seaweedfs:8333
     sont inaccessibles depuis le navigateur de l'utilisateur : c'est l'API
     FastAPI qui sert les objets via GET /media/{object_name}.
     """

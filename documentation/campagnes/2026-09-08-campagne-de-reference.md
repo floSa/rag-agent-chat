@@ -37,7 +37,7 @@ comparer, appariée, question par question.
 | | |
 |---|---|
 | date | **8 septembre 2026**, `date -u` relevée à chaque bloc de mesure |
-| arbre de travail | `/home/ubuntu/RAG/rag-agent-chat/.claude/worktrees/nifty-gates-28edab`, branche `claude/lot-5-jeu-et-campagne`, créée depuis `main` = `4eedb2a` — **pas** le clone principal |
+| arbre de travail | `<arbre de travail>`, branche `<branche de session>`, créée depuis `main` = `4eedb2a` — **pas** le clone principal |
 | agent | `rag-agent-api`, `GET /health` → HTTP **200**, `status: ok`, port **8011** de l'hôte |
 | ChromaDB | `rag_documents`, **4 367** chunks, **3 750** `element_id` distincts, estampille `paraphrase-multilingual-MiniLM-L12-v2` |
 | NebulaGraph | `rag_space`, **15 196** sommets, **15 173** arêtes `PARENT_OF`, **23** documents — le 15 196 est **reconstruit**, sa commande est juste en dessous |

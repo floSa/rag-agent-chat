@@ -2115,7 +2115,7 @@ async def feedback(req: FeedbackRequest) -> FeedbackResponse:
 def media(object_name: str) -> Response:
     """Sert un objet MinIO (image croppée) au navigateur.
 
-    L'endpoint interne minio:9000 n'est pas résolvable hors du réseau Docker :
+    L'endpoint interne seaweedfs:8333 n'est pas résolvable hors du réseau Docker :
     l'API joue le rôle de proxy pour les images référencées dans les réponses.
     """
     data = get_object_bytes(object_name)

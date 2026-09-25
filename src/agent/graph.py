@@ -491,7 +491,7 @@ def resolve_citations(
             ", ".join(refuses),
         )
 
-    # Images servies via le proxy /media : les URLs internes minio:9000 ne sont
+    # Images servies via le proxy /media : les URLs internes seaweedfs:8333 ne sont
     # pas résolvables depuis le navigateur.
     images: list[ImageRef] = []
     vus: set[str] = set()

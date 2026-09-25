@@ -111,7 +111,7 @@ PAS.** Le build affiche une ligne `#N [internal] load build context /
 transferring context: …`. **Ce n'est pas la taille du contexte de ce dépôt.**
 `mesuré` le 16 septembre 2026 à 13:39 UTC par le lot 24 : `make image` annonce
 **278,38 kB**, alors que le clone principal pèse **2,0 Go hors `.git`**
-(`du -sb --exclude=.git --exclude=.claude` → 1 999 480 836 o, dont `.venv`
+(`du -sb --exclude=.git --exclude=<répertoire de l'outillage>` → 1 999 480 836 o, dont `.venv`
 1,84 Go, `.mypy_cache` 145 Mo) **et qu'il n'existe aucun `.dockerignore`**
 (`transferring context: 2B` à l'étape `load .dockerignore` : la liste est vide).
 
@@ -332,19 +332,19 @@ principal :
 
 ```
 $ git status --porcelain -uall
-?? .claude/worktrees/audit-rag-agent-chat-eefc61/
-?? .claude/worktrees/redeploy-rag-agent-chat-f942ec/
+?? <arbre de travail>/
+?? <arbre de travail>/
 
 $ git status --porcelain --untracked-files=no
 (vide — AUCUN fichier suivi ne s'écarte de HEAD)
 ```
 
 Les deux seules saletés étaient les **arbres de travail de l'outillage de
-session**, `.claude/worktrees/` n'étant couvert par aucun `.gitignore` du dépôt.
+session**, `.<branche de session>/` n'étant couvert par aucun `.gitignore` du dépôt.
 Le lot qui redéploie salit donc l'arbre **par sa seule présence**.
 
 **CE QUE LE LOT 24 A FAIT, ET IL LE DIT PLUTÔT QUE DE LE TAIRE.** Il a ajouté
-`/.claude/worktrees/` à `.git/info/exclude` — **local, non versionné, et retiré
+`/.<branche de session>/` à `.git/info/exclude` — **local, non versionné, et retiré
 juste après le déploiement**, le fichier étant restauré à son SHA-256 d'origine
 (`6671fe83…`, vérifié). Motif volontairement **ÉTROIT** : toute AUTRE saleté doit
 continuer à faire graver `sale`. *Contrôle positif posé avant de construire* : un
@@ -359,7 +359,7 @@ qui a été fait, et `18/18` fichiers concordent au SHA-256.
 **LA CORRECTION DURABLE N'EST PAS CELLE-LÀ.** Deux chemins, et le second est le
 bon :
 
-- ajouter `.claude/` au `.gitignore` **versionné** — le lot 24 le propose sur sa
+- ajouter `<répertoire de l'outillage>/` au `.gitignore` **versionné** — le lot 24 le propose sur sa
   branche ; il ferme le cas précis, pas la classe ;
 - faire porter la sonde de propreté **sur les chemins que le `COPY` réclame**,
   par exemple `git status --porcelain -- requirements.txt src/agent src/api`.

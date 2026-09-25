@@ -381,7 +381,7 @@ L'agent peut copier ces schemas ou les importer comme dependance.
 | Composant        | Choix                   | Raison                                          |
 |------------------|-------------------------|-------------------------------------------------|
 | Framework agent  | **LangGraph**           | Machine a etats, tools natifs, debug avec LangSmith |
-| LLM principal    | **Claude Sonnet/Opus**  | Long context (200K), multimodal natif, tool-use |
+| LLM principal    | **LLM commercial à long contexte**  | Long context (200K), multimodal natif, tool-use |
 | LLM fallback     | **GPT-4o**              | Alternative si besoin                           |
 | Embedding query  | **all-MiniLM-L6-v2**   | Obligatoire : meme modele que l'ingestion       |
 | Reranking        | **cross-encoder/ms-marco-MiniLM-L6-v2** | Local, pas de cout API, bon compromis |
@@ -418,7 +418,7 @@ agent-llm-rag/
             retriever.py       # ChromaDB query + reranking
             graph_context.py   # Reconstruction via NebulaGraph
             minio_client.py    # Recuperation images MinIO
-            llm.py             # Client LLM (Claude/GPT)
+            llm.py             # Client LLM (API commerciale)
             tools.py           # Tool search_vectors pour l'agentic loop
             guardrails.py      # Validation input/output
             settings.py        # pydantic-settings
@@ -519,8 +519,8 @@ MINIO_ROOT_PASSWORD=            # meme que le projet d'ingestion
 MINIO_BUCKET=documents
 
 # --- LLM ---
-ANTHROPIC_API_KEY=              # ou OPENAI_API_KEY
-LLM_MODEL=claude-sonnet-4-20250514
+LLM_API_KEY=                    # clé du fournisseur commercial
+LLM_MODEL=<modèle commercial>
 LLM_TEMPERATURE=0.1
 LLM_MAX_TOKENS=4096
 
@@ -563,7 +563,7 @@ LANGFUSE_SECRET_KEY=
 - Assemblage du contexte enrichi en markdown structure
 
 ### Phase 4 — LLM Generation (2 jours)
-- Integration Claude via Anthropic SDK
+- Intégration d'un LLM commercial par son SDK
 - Prompt systeme avec instructions de citation
 - Injection du contexte enrichi (texte + images multimodal)
 - Streaming de la reponse

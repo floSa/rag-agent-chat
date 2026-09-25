@@ -24,7 +24,9 @@ __pycache__/
 
 # Rien de tout cela n'est copié par `Dockerfile.agent`, mais un `COPY .` ajouté
 # un jour par distraction les emporterait.
-.claude/
+# Tout fichier ou répertoire CACHÉ de la racine : l'outillage de session, la CI,
+# les exemples de configuration. `Dockerfile.agent` n'en copie aucun.
+.*
 documentation/
 runs/
 tests/

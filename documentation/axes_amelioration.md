@@ -3957,11 +3957,11 @@ deux phrases fausses qu'il nomme, et des cinq non-bloquantes. `mesuré` le
 **7 septembre 2026**, `anyio 4.15.1`, sur `c8cb37d`.
 
 **Où ce travail a été fait, et il faut le dire d'abord.** Le prompt situait
-l'arbre à `.claude/worktrees/embedding-model-validation-e6c6c3`, branche
-`claude/embedding-model-validation-e6c6c3`, `c8cb37d`. **La conversation a été
+l'arbre à `<arbre de travail>`, branche
+`<branche de session>`, `c8cb37d`. **La conversation a été
 lancée dans un AUTRE arbre au nom ressemblant** :
-`.claude/worktrees/audit-async-repar-6-f1e2a1`, branche
-`claude/audit-async-repar-6-f1e2a1`, qui pointait sur `86d1433` — c'est-à-dire
+`<arbre de travail>`, branche
+`<branche de session>`, qui pointait sur `86d1433` — c'est-à-dire
 sur `main` exactement, sans une seule des six commits du lot. L'arbre visé a été
 laissé **intact** (`c8cb37d`, arbre propre, vérifié avant et après), et la
 branche de cette conversation a été portée sur `c8cb37d` par `reset --hard` :
@@ -4377,8 +4377,8 @@ mesure du pilote confirme qu'elle était sans dégât.
 ### 4.29 → FERMÉ — les deux trappes, et l'inventaire dédoublé
 
 **Lot LOT-DETTE, livré le 8 septembre 2026.** Branche
-`claude/trappes-ouvertes-dette-ec749d`, arbre de travail
-`.claude/worktrees/trappes-ouvertes-dette-ec749d`, montée depuis `main` =
+`<branche de session>`, arbre de travail
+`<arbre de travail>`, montée depuis `main` =
 `origin/main` = **`c5028d6`**, avance 0 — **pas** le clone principal. Porte de
 référence remesurée sur ce commit avant tout travail, `rc` du processus non
 filtré : `make lint` → `rc=0`, `make test` → `rc=0`, **603 passés**. *Le chiffre
@@ -4866,7 +4866,7 @@ lit ; il est donc le seul dont la dérive ne rougit pas. C'est exactement ce que
 ### 4.32 → CLOS par le §4.35 — le lot 6 livré : un garde qui SIGNALE, et un cadrage que le pilote avait encore laissé vieillir
 
 `Conv' 40` (LOT-6) a livré le 8 septembre 2026 deux commits, `a2d2081` et
-`e6fc175`, **non poussés**, sur `claude/reranker-guard-affectations-782d7e`.
+`e6fc175`, **non poussés**, sur `<branche de session>`.
 
 **Ce que le pilote a mesuré de ses mains**, le 8 septembre 2026 à 14:18 UTC,
 avant toute décision :
@@ -4874,9 +4874,9 @@ avant toute décision :
 | | `mesuré` |
 |---|---|
 | identité des deux commits | auteur ET committer `Florian Horellou <florian_horellou@laposte.net>` sur les deux — **adresse autorisée**. `git log --format='%h %an <%ae> %cn <%ce>'` |
-| attribution d'assistant | **aucune occurrence** de `claude`, `anthropic`, `co-authored`, `generated`, `assistant` ni d'émoji de robot dans les deux messages complets (`git log --format='%B' \| grep -inE`) |
-| position de la branche | `git rev-list --left-right --count main...claude/reranker-…` rend **`0 2`** : la branche est **0 en retard**, 2 en avance |
-| `main` est-il un ancêtre ? | `git merge-base --is-ancestor main claude/reranker-…` rend **`rc=0`**. **Donc l'arbre d'une fusion `--no-ff` est exactement l'arbre de la branche**, et la porte passée sur la branche EST la porte sur le résultat de fusion. Ce n'est pas une supposition, c'est ce `rc=0` |
+| attribution d'assistant | **aucune occurrence** des motifs d'attribution (nom d'assistant ou d'éditeur, `co-authored`, `generated`, `assistant`, émoji) dans les deux messages complets (`git log --format='%B' \| grep -inE`) |
+| position de la branche | `git rev-list --left-right --count main...<branche de session>` rend **`0 2`** : la branche est **0 en retard**, 2 en avance |
+| `main` est-il un ancêtre ? | `git merge-base --is-ancestor main <branche de session>` rend **`rc=0`**. **Donc l'arbre d'une fusion `--no-ff` est exactement l'arbre de la branche**, et la porte passée sur la branche EST la porte sur le résultat de fusion. Ce n'est pas une supposition, c'est ce `rc=0` |
 | la porte, dans l'arbre du lot, sur son propre `.venv` | `make lint` → **`rc=0`** (mypy 18 fichiers, ruff *All checks passed*) ; `make test` → **`rc=0`**, **643 passés** en 28,92 s. `rc` du processus `make`, jamais derrière un tube |
 | propreté de l'arbre du lot | `git status --porcelain` **vide** : les mutations ont bien été restaurées, rien n'a été laissé tomber |
 
@@ -5208,7 +5208,7 @@ mesurablement fausse.*
 ### 4.34 → La réparation du lot 6 : les deux bloquantes fermées, et quatre phrases retirées
 
 `Conv' 42` (REPAR-7) a livré le **9 septembre 2026** sur la branche du lot,
-`claude/reranker-guard-affectations-782d7e`, rattrapée sur `main` par une
+`<branche de session>`, rattrapée sur `main` par une
 **fusion** — jamais un rebase.
 
 **Le cadrage du prompt était juste sur ses six lignes, et c'est la deuxième fois
@@ -5469,7 +5469,7 @@ exactement celle du §12 : remesurer juste avant de sceller le prompt.*
 
 ### 4.36 → FERMÉ — le lot 7 : les deux formes réflexives, le garde de numérotation, et le `pre-push` qui manquait
 
-> Livré le **9 septembre 2026** sur `claude/lot-7-rag-agent-chat-425c4e`, sur
+> Livré le **9 septembre 2026** sur `<branche de session>`, sur
 > `main` = `origin/main` = **`d56ffab`**. Porte **VERTE** : `make lint` `rc=0`,
 > `make test` `rc=0`, **682 passés** sur **43** fichiers (+35 sur les 647 du
 > cadrage), par la recette du site — `pytest tests/unit/`. **Rien de poussé.**
@@ -5720,13 +5720,13 @@ qu'aucun garde d'affectation ne voit (§4.32), et la forme d'affectation
 > §4.37 sur `main` seul y laisserait un **TROU** — `4.35` puis `4.37` —, soit
 > précisément l'une des quatre dérives que ce lot vient de rendre rougissantes.
 > Le pilote a donc **retenu sa propre fusion** : ce commit reste sur
-> `claude/audit-rag-agent-chat-eefc61` jusqu'à ce que le lot 7 soit fusionné,
+> `<branche de session>` jusqu'à ce que le lot 7 soit fusionné,
 > après quoi la suite est complète de `4.1` à `4.37`. *Le trou a été trouvé en
 > relisant la queue du fichier avant d'y ajouter un numéro — la consigne écrite
 > au §12 la veille, après la collision `4.34`.*
 
 `Conv' 43` (LOT-7) a livré le 9 septembre 2026 six commits sur
-`claude/lot-7-rag-agent-chat-425c4e`, rattrapés sur `main` par une **fusion** du
+`<branche de session>`, rattrapés sur `main` par une **fusion** du
 pilote (`c628b0a`). **Non poussés.**
 
 #### Ce que le pilote a mesuré de ses mains
@@ -6053,7 +6053,7 @@ destruction, et un test vert dit que c'est normal.*
 ### 4.39 → La réparation du lot 7 : la bloquante fermée par un VRAI `git push`, et trois chiffres du chantier remesurés
 
 `Conv' 45` (REPAR-8) a livré le 9 septembre 2026 sur la branche du lot,
-`claude/lot-7-rag-agent-chat-425c4e`. **697** passés sur **43** fichiers,
+`<branche de session>`. **697** passés sur **43** fichiers,
 `rc=0` / `rc=0`, **non poussés**. La bloquante du §4.38 est fermée, les six
 resserrements aussi, les trois chiffres corrigés — et **trois faux verts trouvés
 contre lui-même**, plus **deux affirmations du chantier démenties par la mesure**.
@@ -6234,7 +6234,7 @@ déjà la forme qui lui échappait, et personne ne l'avait lu comme telle.*
 
 #### Le trou de numérotation est fermé par la fusion, et non par un numéro de plus
 
-Les §4.37 et §4.38 vivaient sur `claude/audit-rag-agent-chat-eefc61`, le §4.36
+Les §4.37 et §4.38 vivaient sur `<branche de session>`, le §4.36
 sur la branche du lot : **chacune des deux portait un trou que l'autre
 comblait**, et c'est pour cela que le pilote retenait sa fusion. Les porter
 ensemble était la seule façon de ne pas laisser sur `main` la dérive même que ce
@@ -6600,7 +6600,7 @@ montant `./prompts`.
 > ajouter un numéro.*
 
 `Conv' 46` (LOT-4) a livré le 10 septembre 2026 neuf commits sur
-`claude/lot-4-audit-rag-agent-041346`, **non poussés**. Porte verte : `make lint`
+`<branche de session>`, **non poussés**. Porte verte : `make lint`
 `rc=0`, `make test` `rc=0`, **720 passés** sur 44 fichiers, vérifiée par le
 pilote dans l'arbre du lot.
 
@@ -7101,7 +7101,7 @@ occurrence.
 ### 4.46 → Le lot 10 : l'attribution refusée AU COMMIT, la borne de temps enfin gardée, et `torch` innocenté au profit du PÉRIPHÉRIQUE
 
 `Conv' 49` (LOT-10) a livré le 11 septembre 2026, sur
-`claude/lot-10-contribution-rules-e015ea`. Porte verte : `make lint` `rc=0`,
+`<branche de session>`. Porte verte : `make lint` `rc=0`,
 `make test` `rc=0`, **752 passés** sur **44** fichiers.
 
 #### Les deux faits qui décidaient de la fermeture (1) sont VRAIS, remesurés
@@ -7114,7 +7114,7 @@ occurrence.
 **Deux chiffres du mandat sont périmés, et c'est sans conséquence** : l'histoire
 fait **335** commits et non 333 (`git rev-list --count main`, les deux commits du
 lot 9 s'étant ajoutés), et il existe **un arbre de travail de plus** que ceux
-annoncés — `claude/audit-rag-agent-chat-eefc61`, posé sur `2234ba3`, ancêtre de
+annoncés — `<branche de session>`, posé sur `2234ba3`, ancêtre de
 `main`. La propriété qui compte, elle, tient : **zéro** `Co-Authored-By`, **zéro**
 ligne de signature, **zéro** auteur ou committer hors des deux adresses
 autorisées (`git log --format='%ae%n%ce' main | sort -u`). La seule occurrence que
@@ -9566,7 +9566,7 @@ SEUL OCTET** ajouté à `flux_llm.py`. Elle discrimine.
 
 `make image` décide de `code.arbre` sur `git status --porcelain`, **QUI COMPTE
 LES FICHIERS NON SUIVIS**. Or les arbres de travail de l'outillage de session
-vivent sous `.claude/` : **le lot qui redéploie salit l'arbre par sa seule
+vivent sous `<répertoire de l'outillage>/` : **le lot qui redéploie salit l'arbre par sa seule
 présence**. L'image aurait gravé `arbre_sale`, donc `/health` aurait rendu « ne
 pas comparer », donc **une campagne appariée refusée** — pour un arbre dont aucun
 fichier suivi ne s'écartait de `HEAD`, et dont rien n'entre dans l'image
@@ -9583,7 +9583,7 @@ SENS** sur le résultat de fusion :
 | état de l'arbre | ce que la recette rend |
 |---|---|
 | tel quel | `propre` |
-| + un arbre de travail sous `.claude/` | **`propre`** — le faux positif est éteint |
+| + un arbre de travail sous `<répertoire de l'outillage>/` | **`propre`** — le faux positif est éteint |
 | + un fichier non suivi **ailleurs** | **`sale`** |
 | + un fichier **SUIVI** modifié | **`sale`** |
 

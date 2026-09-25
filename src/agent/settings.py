@@ -23,8 +23,8 @@ class Settings(BaseSettings):
     nebula_timeout_ms: int = Field(default=15_000, alias="NEBULA_TIMEOUT_MS")
 
     # MinIO
-    minio_endpoint: str = Field(default="minio:9000", alias="MINIO_ENDPOINT")
-    minio_root_user: str = Field(default="minioadmin", alias="MINIO_ROOT_USER")
+    minio_endpoint: str = Field(default="seaweedfs:8333", alias="MINIO_ENDPOINT")
+    minio_root_user: str = Field(default="", alias="MINIO_ROOT_USER")
     minio_root_password: str = Field(default="", alias="MINIO_ROOT_PASSWORD")
     minio_bucket: str = Field(default="documents", alias="MINIO_BUCKET")
     minio_secure: bool = Field(default=False, alias="MINIO_SECURE")

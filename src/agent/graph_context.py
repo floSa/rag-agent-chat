@@ -670,7 +670,7 @@ def media_object_names() -> set[str]:
         )
         for row in rows:
             url = str(row.get("url") or "")
-            # http://minio:9000/{bucket}/{objet} → {objet}
+            # http://seaweedfs:8333/{bucket}/{objet} → {objet}
             parts = url.split("/", 4)
             if len(parts) == 5:  # noqa: PLR2004
                 noms.add(parts[4])
