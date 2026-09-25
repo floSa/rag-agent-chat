@@ -1,0 +1,6369 @@
+{
+  "etape": "fusion",
+  "jeu": "golden_qa_generated.yaml",
+  "questions": 130,
+  "ancrages": 130,
+  "seuil_du_haut": 10,
+  "profondeurs": {
+    "fetch_k": 50,
+    "retrieval_top_k": 50,
+    "rerank_top_k": 10,
+    "rrf_k": 60,
+    "hybrid_search": true,
+    "torch_device": "cpu"
+  },
+  "natures_de_decomposition": {
+    "decomposee": 60,
+    "vide": 0,
+    "une_seule": 69,
+    "quasi_identique": 1
+  },
+  "passage_de_chauffe": {
+    "requete": "corpus warm-up probe, scored and discarded",
+    "ms": 4577.5,
+    "exclu_des_statistiques": true
+  },
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-25T04:04:03+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-25T04:12:35+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "resultats": {
+    "unique_avec_traduction": {
+      "ancrages_dans_le_haut": 127,
+      "questions_completes": 127,
+      "questions_completes_ids": [
+        "G-001",
+        "G-002",
+        "G-003",
+        "G-004",
+        "G-005",
+        "G-006",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-010",
+        "G-011",
+        "G-012",
+        "G-013",
+        "G-014",
+        "G-015",
+        "G-016",
+        "G-017",
+        "G-018",
+        "G-019",
+        "G-020",
+        "G-021",
+        "G-022",
+        "G-023",
+        "G-025",
+        "G-026",
+        "G-027",
+        "G-028",
+        "G-029",
+        "G-030",
+        "G-031",
+        "G-032",
+        "G-033",
+        "G-034",
+        "G-035",
+        "G-036",
+        "G-037",
+        "G-038",
+        "G-039",
+        "G-040",
+        "G-041",
+        "G-042",
+        "G-043",
+        "G-044",
+        "G-045",
+        "G-046",
+        "G-047",
+        "G-048",
+        "G-049",
+        "G-050",
+        "G-051",
+        "G-052",
+        "G-053",
+        "G-054",
+        "G-055",
+        "G-056",
+        "G-057",
+        "G-058",
+        "G-059",
+        "G-060",
+        "G-061",
+        "G-062",
+        "G-063",
+        "G-064",
+        "G-065",
+        "G-066",
+        "G-067",
+        "G-068",
+        "G-069",
+        "G-070",
+        "G-071",
+        "G-072",
+        "G-073",
+        "G-074",
+        "G-075",
+        "G-076",
+        "G-077",
+        "G-078",
+        "G-079",
+        "G-080",
+        "G-081",
+        "G-082",
+        "G-083",
+        "G-084",
+        "G-085",
+        "G-086",
+        "G-087",
+        "G-088",
+        "G-089",
+        "G-090",
+        "G-091",
+        "G-092",
+        "G-093",
+        "G-094",
+        "G-095",
+        "G-097",
+        "G-098",
+        "G-099",
+        "G-100",
+        "G-102",
+        "G-103",
+        "G-104",
+        "G-105",
+        "G-106",
+        "G-107",
+        "G-108",
+        "G-109",
+        "G-110",
+        "G-111",
+        "G-112",
+        "G-113",
+        "G-114",
+        "G-115",
+        "G-116",
+        "G-117",
+        "G-118",
+        "G-119",
+        "G-120",
+        "G-121",
+        "G-122",
+        "G-123",
+        "G-124",
+        "G-125",
+        "G-126",
+        "G-127",
+        "G-128",
+        "G-129",
+        "G-130"
+      ]
+    },
+    "unique_sans_traduction": {
+      "ancrages_dans_le_haut": 125,
+      "questions_completes": 125,
+      "questions_completes_ids": [
+        "G-001",
+        "G-002",
+        "G-003",
+        "G-004",
+        "G-005",
+        "G-006",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-010",
+        "G-011",
+        "G-012",
+        "G-013",
+        "G-014",
+        "G-015",
+        "G-016",
+        "G-017",
+        "G-018",
+        "G-019",
+        "G-020",
+        "G-021",
+        "G-022",
+        "G-023",
+        "G-025",
+        "G-026",
+        "G-027",
+        "G-028",
+        "G-029",
+        "G-030",
+        "G-031",
+        "G-032",
+        "G-033",
+        "G-034",
+        "G-035",
+        "G-036",
+        "G-037",
+        "G-038",
+        "G-039",
+        "G-040",
+        "G-041",
+        "G-042",
+        "G-043",
+        "G-044",
+        "G-045",
+        "G-046",
+        "G-047",
+        "G-048",
+        "G-049",
+        "G-050",
+        "G-051",
+        "G-052",
+        "G-053",
+        "G-054",
+        "G-055",
+        "G-056",
+        "G-057",
+        "G-058",
+        "G-059",
+        "G-060",
+        "G-061",
+        "G-062",
+        "G-063",
+        "G-064",
+        "G-065",
+        "G-066",
+        "G-067",
+        "G-068",
+        "G-069",
+        "G-070",
+        "G-071",
+        "G-072",
+        "G-073",
+        "G-074",
+        "G-075",
+        "G-076",
+        "G-077",
+        "G-078",
+        "G-079",
+        "G-080",
+        "G-081",
+        "G-082",
+        "G-083",
+        "G-084",
+        "G-085",
+        "G-086",
+        "G-087",
+        "G-088",
+        "G-089",
+        "G-090",
+        "G-091",
+        "G-092",
+        "G-093",
+        "G-094",
+        "G-095",
+        "G-098",
+        "G-099",
+        "G-100",
+        "G-102",
+        "G-103",
+        "G-104",
+        "G-105",
+        "G-106",
+        "G-107",
+        "G-108",
+        "G-109",
+        "G-110",
+        "G-111",
+        "G-112",
+        "G-113",
+        "G-114",
+        "G-115",
+        "G-116",
+        "G-117",
+        "G-118",
+        "G-120",
+        "G-121",
+        "G-122",
+        "G-123",
+        "G-124",
+        "G-125",
+        "G-126",
+        "G-127",
+        "G-128",
+        "G-129",
+        "G-130"
+      ]
+    },
+    "fusion_rerank_entiere": {
+      "ancrages_dans_le_haut": 124,
+      "questions_completes": 124,
+      "questions_completes_ids": [
+        "G-001",
+        "G-002",
+        "G-003",
+        "G-004",
+        "G-005",
+        "G-006",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-010",
+        "G-011",
+        "G-012",
+        "G-013",
+        "G-014",
+        "G-015",
+        "G-016",
+        "G-017",
+        "G-018",
+        "G-019",
+        "G-020",
+        "G-021",
+        "G-022",
+        "G-023",
+        "G-025",
+        "G-026",
+        "G-027",
+        "G-028",
+        "G-029",
+        "G-030",
+        "G-031",
+        "G-032",
+        "G-033",
+        "G-034",
+        "G-035",
+        "G-036",
+        "G-037",
+        "G-038",
+        "G-039",
+        "G-040",
+        "G-041",
+        "G-042",
+        "G-043",
+        "G-044",
+        "G-045",
+        "G-046",
+        "G-047",
+        "G-048",
+        "G-049",
+        "G-050",
+        "G-051",
+        "G-052",
+        "G-053",
+        "G-054",
+        "G-055",
+        "G-056",
+        "G-057",
+        "G-058",
+        "G-059",
+        "G-060",
+        "G-061",
+        "G-062",
+        "G-063",
+        "G-064",
+        "G-065",
+        "G-066",
+        "G-067",
+        "G-068",
+        "G-069",
+        "G-070",
+        "G-071",
+        "G-072",
+        "G-073",
+        "G-074",
+        "G-075",
+        "G-076",
+        "G-077",
+        "G-078",
+        "G-079",
+        "G-080",
+        "G-081",
+        "G-082",
+        "G-083",
+        "G-084",
+        "G-085",
+        "G-086",
+        "G-087",
+        "G-088",
+        "G-089",
+        "G-090",
+        "G-091",
+        "G-092",
+        "G-093",
+        "G-094",
+        "G-095",
+        "G-098",
+        "G-099",
+        "G-100",
+        "G-102",
+        "G-103",
+        "G-104",
+        "G-105",
+        "G-106",
+        "G-107",
+        "G-108",
+        "G-109",
+        "G-111",
+        "G-112",
+        "G-113",
+        "G-114",
+        "G-115",
+        "G-116",
+        "G-117",
+        "G-118",
+        "G-120",
+        "G-121",
+        "G-122",
+        "G-123",
+        "G-124",
+        "G-125",
+        "G-126",
+        "G-127",
+        "G-128",
+        "G-129",
+        "G-130"
+      ]
+    },
+    "fusion_rerank_sous_questions": {
+      "ancrages_dans_le_haut": 124,
+      "questions_completes": 124,
+      "questions_completes_ids": [
+        "G-001",
+        "G-002",
+        "G-003",
+        "G-004",
+        "G-005",
+        "G-006",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-010",
+        "G-011",
+        "G-012",
+        "G-013",
+        "G-014",
+        "G-015",
+        "G-016",
+        "G-017",
+        "G-018",
+        "G-019",
+        "G-020",
+        "G-021",
+        "G-022",
+        "G-023",
+        "G-025",
+        "G-026",
+        "G-027",
+        "G-028",
+        "G-029",
+        "G-030",
+        "G-031",
+        "G-032",
+        "G-033",
+        "G-034",
+        "G-035",
+        "G-036",
+        "G-037",
+        "G-038",
+        "G-039",
+        "G-040",
+        "G-041",
+        "G-042",
+        "G-043",
+        "G-044",
+        "G-045",
+        "G-046",
+        "G-047",
+        "G-048",
+        "G-049",
+        "G-050",
+        "G-051",
+        "G-052",
+        "G-053",
+        "G-054",
+        "G-055",
+        "G-056",
+        "G-057",
+        "G-058",
+        "G-059",
+        "G-060",
+        "G-061",
+        "G-062",
+        "G-063",
+        "G-064",
+        "G-065",
+        "G-066",
+        "G-067",
+        "G-068",
+        "G-069",
+        "G-070",
+        "G-071",
+        "G-072",
+        "G-073",
+        "G-074",
+        "G-075",
+        "G-076",
+        "G-077",
+        "G-078",
+        "G-079",
+        "G-080",
+        "G-081",
+        "G-082",
+        "G-083",
+        "G-084",
+        "G-085",
+        "G-086",
+        "G-087",
+        "G-088",
+        "G-089",
+        "G-090",
+        "G-091",
+        "G-092",
+        "G-093",
+        "G-094",
+        "G-095",
+        "G-098",
+        "G-099",
+        "G-100",
+        "G-102",
+        "G-103",
+        "G-104",
+        "G-105",
+        "G-106",
+        "G-107",
+        "G-108",
+        "G-109",
+        "G-111",
+        "G-112",
+        "G-113",
+        "G-114",
+        "G-115",
+        "G-116",
+        "G-117",
+        "G-118",
+        "G-120",
+        "G-121",
+        "G-122",
+        "G-123",
+        "G-124",
+        "G-125",
+        "G-126",
+        "G-127",
+        "G-128",
+        "G-129",
+        "G-130"
+      ]
+    }
+  },
+  "non_regression_vs_sans_traduction": {
+    "unique_avec_traduction": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [
+        "G-097",
+        "G-119"
+      ],
+      "n_perdues": 0,
+      "n_gagnees": 2,
+      "solde": 2
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "G-110"
+      ],
+      "gagnees": [],
+      "n_perdues": 1,
+      "n_gagnees": 0,
+      "solde": -1
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "G-110"
+      ],
+      "gagnees": [],
+      "n_perdues": 1,
+      "n_gagnees": 0,
+      "solde": -1
+    }
+  },
+  "non_regression_vs_production": {
+    "unique_sans_traduction": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "G-097",
+        "G-119"
+      ],
+      "gagnees": [],
+      "n_perdues": 2,
+      "n_gagnees": 0,
+      "solde": -2
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "G-097",
+        "G-110",
+        "G-119"
+      ],
+      "gagnees": [],
+      "n_perdues": 3,
+      "n_gagnees": 0,
+      "solde": -3
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "G-097",
+        "G-110",
+        "G-119"
+      ],
+      "gagnees": [],
+      "n_perdues": 3,
+      "n_gagnees": 0,
+      "solde": -3
+    }
+  },
+  "couts": {
+    "latences_ms": {
+      "decomposition_recuperation_ms": {
+        "n": 130,
+        "mediane": 95.2,
+        "p95": 1006.1
+      },
+      "fusion_rerank_entiere_ms": {
+        "n": 130,
+        "mediane": 653.0,
+        "p95": 2467.7
+      },
+      "fusion_rerank_sous_questions_ms": {
+        "n": 130,
+        "mediane": 1168.2,
+        "p95": 4878.5
+      },
+      "unique_avec_traduction_recuperation_ms": {
+        "n": 130,
+        "mediane": 112.8,
+        "p95": 1277.0
+      },
+      "unique_avec_traduction_rerank_ms": {
+        "n": 130,
+        "mediane": 625.1,
+        "p95": 2910.2
+      },
+      "unique_sans_traduction_recuperation_ms": {
+        "n": 130,
+        "mediane": 53.6,
+        "p95": 760.5
+      },
+      "unique_sans_traduction_rerank_ms": {
+        "n": 130,
+        "mediane": 656.3,
+        "p95": 2430.3
+      }
+    },
+    "paires_rerankees_total": {
+      "unique_avec_traduction": 6500,
+      "unique_sans_traduction": 6500,
+      "fusion_rerank_entiere": 6500,
+      "fusion_rerank_sous_questions": 10400
+    }
+  },
+  "secondes": 507.1,
+  "lignes": [
+    {
+      "id": "G-001",
+      "gold": [
+        "a1d47a35bc"
+      ],
+      "sous_questions": [
+        "Who provided discussions that pushed the author to think in new ways?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 80.5,
+        "unique_avec_traduction_rerank_ms": 662.6,
+        "unique_sans_traduction_recuperation_ms": 61.3,
+        "unique_sans_traduction_rerank_ms": 609.3,
+        "decomposition_recuperation_ms": 61.3,
+        "fusion_rerank_entiere_ms": 609.3,
+        "fusion_rerank_sous_questions_ms": 609.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a1d47a35bc": 1
+        },
+        "unique_sans_traduction": {
+          "a1d47a35bc": 1
+        },
+        "fusion_rerank_entiere": {
+          "a1d47a35bc": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a1d47a35bc": 1
+        }
+      }
+    },
+    {
+      "id": "G-002",
+      "gold": [
+        "d6c7b77af5"
+      ],
+      "sous_questions": [
+        "Quels types de scénarios aériens réalistes peuvent être testés dans un environnement Staging ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 142.9,
+        "unique_avec_traduction_rerank_ms": 625.6,
+        "unique_sans_traduction_recuperation_ms": 47.9,
+        "unique_sans_traduction_rerank_ms": 588.3,
+        "decomposition_recuperation_ms": 47.9,
+        "fusion_rerank_entiere_ms": 588.3,
+        "fusion_rerank_sous_questions_ms": 588.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d6c7b77af5": 1
+        },
+        "unique_sans_traduction": {
+          "d6c7b77af5": 1
+        },
+        "fusion_rerank_entiere": {
+          "d6c7b77af5": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d6c7b77af5": 1
+        }
+      }
+    },
+    {
+      "id": "G-003",
+      "gold": [
+        "cb7f66f0b8"
+      ],
+      "sous_questions": [
+        "What are the three key areas to focus on to maintain workflow utility over time?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 129.8,
+        "unique_avec_traduction_rerank_ms": 953.9,
+        "unique_sans_traduction_recuperation_ms": 54.7,
+        "unique_sans_traduction_rerank_ms": 616.2,
+        "decomposition_recuperation_ms": 54.7,
+        "fusion_rerank_entiere_ms": 616.2,
+        "fusion_rerank_sous_questions_ms": 616.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "cb7f66f0b8": 1
+        },
+        "unique_sans_traduction": {
+          "cb7f66f0b8": 1
+        },
+        "fusion_rerank_entiere": {
+          "cb7f66f0b8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "cb7f66f0b8": 1
+        }
+      }
+    },
+    {
+      "id": "G-004",
+      "gold": [
+        "96c9c664f4"
+      ],
+      "sous_questions": [
+        "What are the specific operations that require the use of the span type?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 427.7,
+        "unique_avec_traduction_rerank_ms": 3223.8,
+        "unique_sans_traduction_recuperation_ms": 199.4,
+        "unique_sans_traduction_rerank_ms": 557.1,
+        "decomposition_recuperation_ms": 199.4,
+        "fusion_rerank_entiere_ms": 557.1,
+        "fusion_rerank_sous_questions_ms": 557.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "96c9c664f4": 1
+        },
+        "unique_sans_traduction": {
+          "96c9c664f4": 1
+        },
+        "fusion_rerank_entiere": {
+          "96c9c664f4": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "96c9c664f4": 1
+        }
+      }
+    },
+    {
+      "id": "G-005",
+      "gold": [
+        "15e10d52cb"
+      ],
+      "sous_questions": [
+        "What is a common pattern for handling model artifacts in traditional ML systems?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 93.5,
+        "unique_avec_traduction_rerank_ms": 1882.2,
+        "unique_sans_traduction_recuperation_ms": 760.5,
+        "unique_sans_traduction_rerank_ms": 2659.0,
+        "decomposition_recuperation_ms": 760.5,
+        "fusion_rerank_entiere_ms": 2659.0,
+        "fusion_rerank_sous_questions_ms": 2659.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "15e10d52cb": 1
+        },
+        "unique_sans_traduction": {
+          "15e10d52cb": 1
+        },
+        "fusion_rerank_entiere": {
+          "15e10d52cb": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "15e10d52cb": 1
+        }
+      }
+    },
+    {
+      "id": "G-006",
+      "gold": [
+        "091bd5a2a6"
+      ],
+      "sous_questions": [
+        "What is the international telephone number for O'Reilly Media, Inc.?",
+        "What is the local telephone number for O'Reilly Media, Inc.?"
+      ],
+      "nature": "quasi_identique",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 249.4,
+        "unique_avec_traduction_rerank_ms": 563.1,
+        "unique_sans_traduction_recuperation_ms": 65.0,
+        "unique_sans_traduction_rerank_ms": 697.2,
+        "decomposition_recuperation_ms": 65.0,
+        "fusion_rerank_entiere_ms": 697.2,
+        "fusion_rerank_sous_questions_ms": 697.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "091bd5a2a6": 1
+        },
+        "unique_sans_traduction": {
+          "091bd5a2a6": 1
+        },
+        "fusion_rerank_entiere": {
+          "091bd5a2a6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "091bd5a2a6": 1
+        }
+      }
+    },
+    {
+      "id": "G-007",
+      "gold": [
+        "4ae7eb92b1"
+      ],
+      "sous_questions": [
+        "Quelles sont les trois modalités d'accès mentionnées ?",
+        "Quelle condition doit être remplie pour utiliser les emplacements de scripts initiaux et de roues en mode d'accès standard ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 145.1,
+        "unique_avec_traduction_rerank_ms": 629.1,
+        "unique_sans_traduction_recuperation_ms": 63.9,
+        "unique_sans_traduction_rerank_ms": 731.0,
+        "decomposition_recuperation_ms": 94.3,
+        "fusion_rerank_entiere_ms": 837.9,
+        "fusion_rerank_sous_questions_ms": 1267.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4ae7eb92b1": 1
+        },
+        "unique_sans_traduction": {
+          "4ae7eb92b1": 1
+        },
+        "fusion_rerank_entiere": {
+          "4ae7eb92b1": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4ae7eb92b1": 1
+        }
+      }
+    },
+    {
+      "id": "G-008",
+      "gold": [
+        "0f72b267a2"
+      ],
+      "sous_questions": [
+        "Quel fichier contient les enregistrements des cas de test ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 90.2,
+        "unique_avec_traduction_rerank_ms": 595.5,
+        "unique_sans_traduction_recuperation_ms": 50.3,
+        "unique_sans_traduction_rerank_ms": 559.1,
+        "decomposition_recuperation_ms": 50.3,
+        "fusion_rerank_entiere_ms": 559.1,
+        "fusion_rerank_sous_questions_ms": 559.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0f72b267a2": 1
+        },
+        "unique_sans_traduction": {
+          "0f72b267a2": 1
+        },
+        "fusion_rerank_entiere": {
+          "0f72b267a2": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "0f72b267a2": 1
+        }
+      }
+    },
+    {
+      "id": "G-009",
+      "gold": [
+        "027789f768"
+      ],
+      "sous_questions": [
+        "What configurations or parameters are currently not possible to specify for a SQL warehouse?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 105.8,
+        "unique_avec_traduction_rerank_ms": 516.6,
+        "unique_sans_traduction_recuperation_ms": 45.0,
+        "unique_sans_traduction_rerank_ms": 565.9,
+        "decomposition_recuperation_ms": 45.0,
+        "fusion_rerank_entiere_ms": 565.9,
+        "fusion_rerank_sous_questions_ms": 565.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "027789f768": 1
+        },
+        "unique_sans_traduction": {
+          "027789f768": 1
+        },
+        "fusion_rerank_entiere": {
+          "027789f768": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "027789f768": 1
+        }
+      }
+    },
+    {
+      "id": "G-010",
+      "gold": [
+        "b61ecd1c18"
+      ],
+      "sous_questions": [
+        "What mechanism is typically used by an application backend to pass conversation history to stateless AI agent endpoints?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 110.8,
+        "unique_avec_traduction_rerank_ms": 603.8,
+        "unique_sans_traduction_recuperation_ms": 53.4,
+        "unique_sans_traduction_rerank_ms": 1291.2,
+        "decomposition_recuperation_ms": 53.4,
+        "fusion_rerank_entiere_ms": 1291.2,
+        "fusion_rerank_sous_questions_ms": 1291.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b61ecd1c18": 1
+        },
+        "unique_sans_traduction": {
+          "b61ecd1c18": 1
+        },
+        "fusion_rerank_entiere": {
+          "b61ecd1c18": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b61ecd1c18": 1
+        }
+      }
+    },
+    {
+      "id": "G-011",
+      "gold": [
+        "060f125779"
+      ],
+      "sous_questions": [
+        "What types of future work are typically identified after an initial smooth launch of a product or project?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 79.3,
+        "unique_avec_traduction_rerank_ms": 2506.3,
+        "unique_sans_traduction_recuperation_ms": 676.3,
+        "unique_sans_traduction_rerank_ms": 1151.9,
+        "decomposition_recuperation_ms": 676.3,
+        "fusion_rerank_entiere_ms": 1151.9,
+        "fusion_rerank_sous_questions_ms": 1151.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "060f125779": 1
+        },
+        "unique_sans_traduction": {
+          "060f125779": 1
+        },
+        "fusion_rerank_entiere": {
+          "060f125779": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "060f125779": 1
+        }
+      }
+    },
+    {
+      "id": "G-012",
+      "gold": [
+        "764ec9f8e0"
+      ],
+      "sous_questions": [
+        "What type of compute did the authors use for their MLOps jobs when serverless compute lacked features like Ray Tune for hyperparameter tuning?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 223.0,
+        "unique_avec_traduction_rerank_ms": 777.1,
+        "unique_sans_traduction_recuperation_ms": 78.0,
+        "unique_sans_traduction_rerank_ms": 719.8,
+        "decomposition_recuperation_ms": 78.0,
+        "fusion_rerank_entiere_ms": 719.8,
+        "fusion_rerank_sous_questions_ms": 719.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "764ec9f8e0": 1
+        },
+        "unique_sans_traduction": {
+          "764ec9f8e0": 1
+        },
+        "fusion_rerank_entiere": {
+          "764ec9f8e0": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "764ec9f8e0": 1
+        }
+      }
+    },
+    {
+      "id": "G-013",
+      "gold": [
+        "93aaa30c97"
+      ],
+      "sous_questions": [
+        "Quels éléments sont visibles sur la page de configuration pour créer un nouveau cluster de calcul sur Databricks ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 140.3,
+        "unique_avec_traduction_rerank_ms": 564.5,
+        "unique_sans_traduction_recuperation_ms": 61.4,
+        "unique_sans_traduction_rerank_ms": 510.4,
+        "decomposition_recuperation_ms": 61.4,
+        "fusion_rerank_entiere_ms": 510.4,
+        "fusion_rerank_sous_questions_ms": 510.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "93aaa30c97": 1
+        },
+        "unique_sans_traduction": {
+          "93aaa30c97": 1
+        },
+        "fusion_rerank_entiere": {
+          "93aaa30c97": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "93aaa30c97": 1
+        }
+      }
+    },
+    {
+      "id": "G-014",
+      "gold": [
+        "42152b4037"
+      ],
+      "sous_questions": [
+        "What are the methods available for querying an AI Search index?",
+        "What is an AI Search index created from a Delta table?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 108.3,
+        "unique_avec_traduction_rerank_ms": 548.3,
+        "unique_sans_traduction_recuperation_ms": 60.4,
+        "unique_sans_traduction_rerank_ms": 525.5,
+        "decomposition_recuperation_ms": 85.4,
+        "fusion_rerank_entiere_ms": 1532.6,
+        "fusion_rerank_sous_questions_ms": 1328.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "42152b4037": 1
+        },
+        "unique_sans_traduction": {
+          "42152b4037": 1
+        },
+        "fusion_rerank_entiere": {
+          "42152b4037": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "42152b4037": 1
+        }
+      }
+    },
+    {
+      "id": "G-015",
+      "gold": [
+        "bbff056b09"
+      ],
+      "sous_questions": [
+        "What is the purpose of the *ml_pipeline.yml* file?",
+        "What specific components of data preprocessing are included in *ml_pipeline.yml*?",
+        "How does *ml_pipeline.yml* integrate model retraining and evaluation?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 105.8,
+        "unique_avec_traduction_rerank_ms": 624.6,
+        "unique_sans_traduction_recuperation_ms": 54.4,
+        "unique_sans_traduction_rerank_ms": 575.9,
+        "decomposition_recuperation_ms": 153.3,
+        "fusion_rerank_entiere_ms": 642.0,
+        "fusion_rerank_sous_questions_ms": 2072.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "bbff056b09": 1
+        },
+        "unique_sans_traduction": {
+          "bbff056b09": 1
+        },
+        "fusion_rerank_entiere": {
+          "bbff056b09": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "bbff056b09": 1
+        }
+      }
+    },
+    {
+      "id": "G-016",
+      "gold": [
+        "a0bacf564c"
+      ],
+      "sous_questions": [
+        "Quels éléments sont nécessaires pour construire une base solide d'observabilité en production ?",
+        "Comment l'observabilité en production garantit-elle la fiabilité d'une application ?",
+        "Quels sont les bénéfices de l'observabilité en production pour garantir des résultats de haute qualité d'une application ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 109.3,
+        "unique_avec_traduction_rerank_ms": 697.9,
+        "unique_sans_traduction_recuperation_ms": 55.9,
+        "unique_sans_traduction_rerank_ms": 632.8,
+        "decomposition_recuperation_ms": 192.8,
+        "fusion_rerank_entiere_ms": 641.8,
+        "fusion_rerank_sous_questions_ms": 2314.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a0bacf564c": 1
+        },
+        "unique_sans_traduction": {
+          "a0bacf564c": 1
+        },
+        "fusion_rerank_entiere": {
+          "a0bacf564c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a0bacf564c": 1
+        }
+      }
+    },
+    {
+      "id": "G-017",
+      "gold": [
+        "5e16433da6"
+      ],
+      "sous_questions": [
+        "What specific types of information does MLflow tracing capture for every request?",
+        "How does MLflow tracing transform an agent's 'black box' into a transparent process?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 179.9,
+        "unique_avec_traduction_rerank_ms": 2910.2,
+        "unique_sans_traduction_recuperation_ms": 289.5,
+        "unique_sans_traduction_rerank_ms": 700.3,
+        "decomposition_recuperation_ms": 103.3,
+        "fusion_rerank_entiere_ms": 619.0,
+        "fusion_rerank_sous_questions_ms": 1070.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5e16433da6": 1
+        },
+        "unique_sans_traduction": {
+          "5e16433da6": 1
+        },
+        "fusion_rerank_entiere": {
+          "5e16433da6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "5e16433da6": 1
+        }
+      }
+    },
+    {
+      "id": "G-018",
+      "gold": [
+        "a83dfac3d8"
+      ],
+      "sous_questions": [
+        "Quelle est la convention de nommage à trois parties utilisée pour faire référence aux assets dans Unity Catalog ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 91.4,
+        "unique_avec_traduction_rerank_ms": 499.2,
+        "unique_sans_traduction_recuperation_ms": 48.9,
+        "unique_sans_traduction_rerank_ms": 609.8,
+        "decomposition_recuperation_ms": 48.9,
+        "fusion_rerank_entiere_ms": 609.8,
+        "fusion_rerank_sous_questions_ms": 609.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a83dfac3d8": 1
+        },
+        "unique_sans_traduction": {
+          "a83dfac3d8": 1
+        },
+        "fusion_rerank_entiere": {
+          "a83dfac3d8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a83dfac3d8": 1
+        }
+      }
+    },
+    {
+      "id": "G-019",
+      "gold": [
+        "a396026511"
+      ],
+      "sous_questions": [
+        "What capabilities does MLflow offer concerning the behavior of agents?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 86.0,
+        "unique_avec_traduction_rerank_ms": 557.1,
+        "unique_sans_traduction_recuperation_ms": 43.1,
+        "unique_sans_traduction_rerank_ms": 950.7,
+        "decomposition_recuperation_ms": 43.1,
+        "fusion_rerank_entiere_ms": 950.7,
+        "fusion_rerank_sous_questions_ms": 950.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a396026511": 1
+        },
+        "unique_sans_traduction": {
+          "a396026511": 1
+        },
+        "fusion_rerank_entiere": {
+          "a396026511": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a396026511": 1
+        }
+      }
+    },
+    {
+      "id": "G-020",
+      "gold": [
+        "73ee4519d6"
+      ],
+      "sous_questions": [
+        "What is the impact of data arrival order on the reproducibility of a training set when rerunning preprocessing scripts?",
+        "Under what circumstances might rerunning preprocessing scripts fail to reproduce an original training set when data arrival order is a factor?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 528.7,
+        "unique_avec_traduction_rerank_ms": 804.9,
+        "unique_sans_traduction_recuperation_ms": 60.5,
+        "unique_sans_traduction_rerank_ms": 687.1,
+        "decomposition_recuperation_ms": 129.7,
+        "fusion_rerank_entiere_ms": 737.7,
+        "fusion_rerank_sous_questions_ms": 1458.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "73ee4519d6": 1
+        },
+        "unique_sans_traduction": {
+          "73ee4519d6": 1
+        },
+        "fusion_rerank_entiere": {
+          "73ee4519d6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "73ee4519d6": 1
+        }
+      }
+    },
+    {
+      "id": "G-021",
+      "gold": [
+        "9e2569371c"
+      ],
+      "sous_questions": [
+        "What type of tests are performed on critical data slices?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 160.3,
+        "unique_avec_traduction_rerank_ms": 583.8,
+        "unique_sans_traduction_recuperation_ms": 52.3,
+        "unique_sans_traduction_rerank_ms": 775.8,
+        "decomposition_recuperation_ms": 52.3,
+        "fusion_rerank_entiere_ms": 775.8,
+        "fusion_rerank_sous_questions_ms": 775.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9e2569371c": 1
+        },
+        "unique_sans_traduction": {
+          "9e2569371c": 1
+        },
+        "fusion_rerank_entiere": {
+          "9e2569371c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "9e2569371c": 1
+        }
+      }
+    },
+    {
+      "id": "G-022",
+      "gold": [
+        "25be0dced3"
+      ],
+      "sous_questions": [
+        "Where can captured traces be viewed in real time?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 95.0,
+        "unique_avec_traduction_rerank_ms": 608.4,
+        "unique_sans_traduction_recuperation_ms": 50.4,
+        "unique_sans_traduction_rerank_ms": 477.1,
+        "decomposition_recuperation_ms": 50.4,
+        "fusion_rerank_entiere_ms": 477.1,
+        "fusion_rerank_sous_questions_ms": 477.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "25be0dced3": 1
+        },
+        "unique_sans_traduction": {
+          "25be0dced3": 1
+        },
+        "fusion_rerank_entiere": {
+          "25be0dced3": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "25be0dced3": 1
+        }
+      }
+    },
+    {
+      "id": "G-023",
+      "gold": [
+        "d7c8da118b"
+      ],
+      "sous_questions": [
+        "What are the two specific Databricks resources that the tool-calling agent relies on?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 105.6,
+        "unique_avec_traduction_rerank_ms": 552.2,
+        "unique_sans_traduction_recuperation_ms": 57.6,
+        "unique_sans_traduction_rerank_ms": 511.7,
+        "decomposition_recuperation_ms": 57.6,
+        "fusion_rerank_entiere_ms": 511.7,
+        "fusion_rerank_sous_questions_ms": 511.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d7c8da118b": 1
+        },
+        "unique_sans_traduction": {
+          "d7c8da118b": 1
+        },
+        "fusion_rerank_entiere": {
+          "d7c8da118b": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d7c8da118b": 1
+        }
+      }
+    },
+    {
+      "id": "G-024",
+      "gold": [
+        "7540352a91"
+      ],
+      "sous_questions": [
+        "What criteria should be used to evaluate the quality of GenAI outputs?",
+        "What factors contribute to determining the 'goodness' of a Generative AI application's results?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 90.4,
+        "unique_avec_traduction_rerank_ms": 647.9,
+        "unique_sans_traduction_recuperation_ms": 53.0,
+        "unique_sans_traduction_rerank_ms": 1264.9,
+        "decomposition_recuperation_ms": 432.7,
+        "fusion_rerank_entiere_ms": 3001.9,
+        "fusion_rerank_sous_questions_ms": 3079.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7540352a91": null
+        },
+        "unique_sans_traduction": {
+          "7540352a91": null
+        },
+        "fusion_rerank_entiere": {
+          "7540352a91": null
+        },
+        "fusion_rerank_sous_questions": {
+          "7540352a91": null
+        }
+      }
+    },
+    {
+      "id": "G-025",
+      "gold": [
+        "dcdf61586e"
+      ],
+      "sous_questions": [
+        "Qu'est-ce que le Serverless Model and Feature Serving sur Databricks ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 101.0,
+        "unique_avec_traduction_rerank_ms": 602.5,
+        "unique_sans_traduction_recuperation_ms": 52.8,
+        "unique_sans_traduction_rerank_ms": 613.4,
+        "decomposition_recuperation_ms": 52.8,
+        "fusion_rerank_entiere_ms": 613.4,
+        "fusion_rerank_sous_questions_ms": 613.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "dcdf61586e": 1
+        },
+        "unique_sans_traduction": {
+          "dcdf61586e": 1
+        },
+        "fusion_rerank_entiere": {
+          "dcdf61586e": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "dcdf61586e": 1
+        }
+      }
+    },
+    {
+      "id": "G-026",
+      "gold": [
+        "b6d6bc9f53"
+      ],
+      "sous_questions": [
+        "What temporal split structure is recommended for time-series data with time-correlated features?",
+        "How should one structure temporal splits when dealing with features that vary seasonally, such as product recommendations?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 116.1,
+        "unique_avec_traduction_rerank_ms": 740.2,
+        "unique_sans_traduction_recuperation_ms": 53.1,
+        "unique_sans_traduction_rerank_ms": 858.4,
+        "decomposition_recuperation_ms": 116.3,
+        "fusion_rerank_entiere_ms": 926.2,
+        "fusion_rerank_sous_questions_ms": 1389.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b6d6bc9f53": 1
+        },
+        "unique_sans_traduction": {
+          "b6d6bc9f53": 1
+        },
+        "fusion_rerank_entiere": {
+          "b6d6bc9f53": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b6d6bc9f53": 1
+        }
+      }
+    },
+    {
+      "id": "G-027",
+      "gold": [
+        "b2f909b05a"
+      ],
+      "sous_questions": [
+        "What defines a traditional Retrieval-Augmented Generation (RAG) system?",
+        "What characteristics define an agentic system in the context of LLMs?",
+        "Under what conditions or mechanisms does a system evolve from a traditional RAG architecture to an agentic one?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 113.0,
+        "unique_avec_traduction_rerank_ms": 2791.8,
+        "unique_sans_traduction_recuperation_ms": 58.1,
+        "unique_sans_traduction_rerank_ms": 661.2,
+        "decomposition_recuperation_ms": 166.4,
+        "fusion_rerank_entiere_ms": 612.8,
+        "fusion_rerank_sous_questions_ms": 1751.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b2f909b05a": 1
+        },
+        "unique_sans_traduction": {
+          "b2f909b05a": 1
+        },
+        "fusion_rerank_entiere": {
+          "b2f909b05a": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b2f909b05a": 1
+        }
+      }
+    },
+    {
+      "id": "G-028",
+      "gold": [
+        "3e557b736e"
+      ],
+      "sous_questions": [
+        "What is the function of Optuna when integrated with Ray Tune?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 101.9,
+        "unique_avec_traduction_rerank_ms": 633.6,
+        "unique_sans_traduction_recuperation_ms": 45.0,
+        "unique_sans_traduction_rerank_ms": 1081.6,
+        "decomposition_recuperation_ms": 45.0,
+        "fusion_rerank_entiere_ms": 1081.6,
+        "fusion_rerank_sous_questions_ms": 1081.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3e557b736e": 1
+        },
+        "unique_sans_traduction": {
+          "3e557b736e": 1
+        },
+        "fusion_rerank_entiere": {
+          "3e557b736e": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3e557b736e": 1
+        }
+      }
+    },
+    {
+      "id": "G-029",
+      "gold": [
+        "25e41b1150"
+      ],
+      "sous_questions": [
+        "What capabilities does MLflow provide for versioning a developed agent on Databricks?",
+        "How does MLflow support the deployment of a developed agent on Databricks?",
+        "What governance features does MLflow offer when managing a developed agent on Databricks?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 308.3,
+        "unique_avec_traduction_rerank_ms": 2914.9,
+        "unique_sans_traduction_recuperation_ms": 803.5,
+        "unique_sans_traduction_rerank_ms": 730.0,
+        "decomposition_recuperation_ms": 270.7,
+        "fusion_rerank_entiere_ms": 656.2,
+        "fusion_rerank_sous_questions_ms": 1776.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "25e41b1150": 2
+        },
+        "unique_sans_traduction": {
+          "25e41b1150": 2
+        },
+        "fusion_rerank_entiere": {
+          "25e41b1150": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "25e41b1150": 2
+        }
+      }
+    },
+    {
+      "id": "G-030",
+      "gold": [
+        "5755f87642"
+      ],
+      "sous_questions": [
+        "What specific subjective qualities can human input possess?",
+        "How can human input transform subjective qualities into structured feedback?",
+        "What is the purpose of using structured feedback to guide future versions of a product or system?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 104.6,
+        "unique_avec_traduction_rerank_ms": 599.4,
+        "unique_sans_traduction_recuperation_ms": 49.6,
+        "unique_sans_traduction_rerank_ms": 582.3,
+        "decomposition_recuperation_ms": 139.4,
+        "fusion_rerank_entiere_ms": 1641.2,
+        "fusion_rerank_sous_questions_ms": 4878.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5755f87642": 1
+        },
+        "unique_sans_traduction": {
+          "5755f87642": 1
+        },
+        "fusion_rerank_entiere": {
+          "5755f87642": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "5755f87642": 1
+        }
+      }
+    },
+    {
+      "id": "G-031",
+      "gold": [
+        "aa9cb1d2c6"
+      ],
+      "sous_questions": [
+        "Quelles sont les catégories de questions les plus fréquemment posées par les utilisateurs finaux ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 137.4,
+        "unique_avec_traduction_rerank_ms": 582.5,
+        "unique_sans_traduction_recuperation_ms": 55.4,
+        "unique_sans_traduction_rerank_ms": 567.7,
+        "decomposition_recuperation_ms": 55.4,
+        "fusion_rerank_entiere_ms": 567.7,
+        "fusion_rerank_sous_questions_ms": 567.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "aa9cb1d2c6": 1
+        },
+        "unique_sans_traduction": {
+          "aa9cb1d2c6": 1
+        },
+        "fusion_rerank_entiere": {
+          "aa9cb1d2c6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "aa9cb1d2c6": 1
+        }
+      }
+    },
+    {
+      "id": "G-032",
+      "gold": [
+        "53bffca1a8"
+      ],
+      "sous_questions": [
+        "Quelles capacités permettent aux agents de réaliser un raisonnement multiétapes ?",
+        "Quelles capacités permettent aux agents de prendre des décisions autonomes dans le développement d'applications GenAI ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 99.5,
+        "unique_avec_traduction_rerank_ms": 703.0,
+        "unique_sans_traduction_recuperation_ms": 52.9,
+        "unique_sans_traduction_rerank_ms": 613.8,
+        "decomposition_recuperation_ms": 106.2,
+        "fusion_rerank_entiere_ms": 772.6,
+        "fusion_rerank_sous_questions_ms": 1684.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "53bffca1a8": 1
+        },
+        "unique_sans_traduction": {
+          "53bffca1a8": 1
+        },
+        "fusion_rerank_entiere": {
+          "53bffca1a8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "53bffca1a8": 1
+        }
+      }
+    },
+    {
+      "id": "G-033",
+      "gold": [
+        "e5b222f8f3"
+      ],
+      "sous_questions": [
+        "Quel est l'avantage théorique des 'pre-commit hooks' ?",
+        "Quel risque les 'pre-commit hooks' présentent-ils en pratique ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 108.6,
+        "unique_avec_traduction_rerank_ms": 3248.2,
+        "unique_sans_traduction_recuperation_ms": 764.5,
+        "unique_sans_traduction_rerank_ms": 2916.4,
+        "decomposition_recuperation_ms": 1584.5,
+        "fusion_rerank_entiere_ms": 2833.8,
+        "fusion_rerank_sous_questions_ms": 2446.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e5b222f8f3": 1
+        },
+        "unique_sans_traduction": {
+          "e5b222f8f3": 1
+        },
+        "fusion_rerank_entiere": {
+          "e5b222f8f3": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "e5b222f8f3": 1
+        }
+      }
+    },
+    {
+      "id": "G-034",
+      "gold": [
+        "15014f9d6c"
+      ],
+      "sous_questions": [
+        "Quelles informations sont nécessaires pour afficher les traces OTel dans MLflow ?",
+        "Comment rendre les traces OTel significatives dans MLflow ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 139.0,
+        "unique_avec_traduction_rerank_ms": 619.9,
+        "unique_sans_traduction_recuperation_ms": 60.1,
+        "unique_sans_traduction_rerank_ms": 560.0,
+        "decomposition_recuperation_ms": 92.5,
+        "fusion_rerank_entiere_ms": 600.3,
+        "fusion_rerank_sous_questions_ms": 1100.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "15014f9d6c": 1
+        },
+        "unique_sans_traduction": {
+          "15014f9d6c": 1
+        },
+        "fusion_rerank_entiere": {
+          "15014f9d6c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "15014f9d6c": 1
+        }
+      }
+    },
+    {
+      "id": "G-035",
+      "gold": [
+        "c666c63be7"
+      ],
+      "sous_questions": [
+        "Quelles informations détaillées concernant les requêtes de traces sont disponibles dans la documentation MLflow ?",
+        "Quels sont les pièges courants mentionnés dans la documentation MLflow concernant les requêtes de traces ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 97.7,
+        "unique_avec_traduction_rerank_ms": 638.8,
+        "unique_sans_traduction_recuperation_ms": 52.9,
+        "unique_sans_traduction_rerank_ms": 664.5,
+        "decomposition_recuperation_ms": 95.0,
+        "fusion_rerank_entiere_ms": 765.9,
+        "fusion_rerank_sous_questions_ms": 6429.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c666c63be7": 1
+        },
+        "unique_sans_traduction": {
+          "c666c63be7": 1
+        },
+        "fusion_rerank_entiere": {
+          "c666c63be7": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c666c63be7": 2
+        }
+      }
+    },
+    {
+      "id": "G-036",
+      "gold": [
+        "f653d1f934"
+      ],
+      "sous_questions": [
+        "What type of specialized agent can be added as a tool to a GenAI application?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1514.1,
+        "unique_avec_traduction_rerank_ms": 2770.3,
+        "unique_sans_traduction_recuperation_ms": 986.7,
+        "unique_sans_traduction_rerank_ms": 3090.5,
+        "decomposition_recuperation_ms": 986.7,
+        "fusion_rerank_entiere_ms": 3090.5,
+        "fusion_rerank_sous_questions_ms": 3090.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f653d1f934": 1
+        },
+        "unique_sans_traduction": {
+          "f653d1f934": 1
+        },
+        "fusion_rerank_entiere": {
+          "f653d1f934": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "f653d1f934": 1
+        }
+      }
+    },
+    {
+      "id": "G-037",
+      "gold": [
+        "8b34daa337"
+      ],
+      "sous_questions": [
+        "Quel fichier spécifie toutes les dépendances d'un projet Python ?",
+        "Quel fichier spécifie les configurations des outils pour chaque projet Python ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1277.0,
+        "unique_avec_traduction_rerank_ms": 1732.2,
+        "unique_sans_traduction_recuperation_ms": 82.6,
+        "unique_sans_traduction_rerank_ms": 966.4,
+        "decomposition_recuperation_ms": 944.3,
+        "fusion_rerank_entiere_ms": 2922.8,
+        "fusion_rerank_sous_questions_ms": 3854.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "8b34daa337": 1
+        },
+        "unique_sans_traduction": {
+          "8b34daa337": 1
+        },
+        "fusion_rerank_entiere": {
+          "8b34daa337": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "8b34daa337": 4
+        }
+      }
+    },
+    {
+      "id": "G-038",
+      "gold": [
+        "43641415bc"
+      ],
+      "sous_questions": [
+        "Quels éléments sont intégrés dans le même système que suit l'évaluation dans MLflow 3.x ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 405.1,
+        "unique_avec_traduction_rerank_ms": 1201.9,
+        "unique_sans_traduction_recuperation_ms": 97.2,
+        "unique_sans_traduction_rerank_ms": 1434.1,
+        "decomposition_recuperation_ms": 97.2,
+        "fusion_rerank_entiere_ms": 1434.1,
+        "fusion_rerank_sous_questions_ms": 1434.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "43641415bc": 1
+        },
+        "unique_sans_traduction": {
+          "43641415bc": 1
+        },
+        "fusion_rerank_entiere": {
+          "43641415bc": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "43641415bc": 1
+        }
+      }
+    },
+    {
+      "id": "G-039",
+      "gold": [
+        "3dc484f55c"
+      ],
+      "sous_questions": [
+        "Quel est le rôle de Delta Lake en tant que couche de stockage open source ?",
+        "Comment Delta Lake utilise-t-il Apache Parquet ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1235.6,
+        "unique_avec_traduction_rerank_ms": 3028.3,
+        "unique_sans_traduction_recuperation_ms": 793.3,
+        "unique_sans_traduction_rerank_ms": 1697.1,
+        "decomposition_recuperation_ms": 1191.7,
+        "fusion_rerank_entiere_ms": 1270.1,
+        "fusion_rerank_sous_questions_ms": 2710.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3dc484f55c": 1
+        },
+        "unique_sans_traduction": {
+          "3dc484f55c": 1
+        },
+        "fusion_rerank_entiere": {
+          "3dc484f55c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3dc484f55c": 1
+        }
+      }
+    },
+    {
+      "id": "G-040",
+      "gold": [
+        "0c04ac19cf"
+      ],
+      "sous_questions": [
+        "What specific elements must full execution paths trace for effective agent behavior debugging?",
+        "What are the key components that need tracing in full execution paths to debug agent behavior effectively?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1735.3,
+        "unique_avec_traduction_rerank_ms": 3066.0,
+        "unique_sans_traduction_recuperation_ms": 679.0,
+        "unique_sans_traduction_rerank_ms": 3142.4,
+        "decomposition_recuperation_ms": 1006.1,
+        "fusion_rerank_entiere_ms": 1538.1,
+        "fusion_rerank_sous_questions_ms": 4641.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0c04ac19cf": 1
+        },
+        "unique_sans_traduction": {
+          "0c04ac19cf": 1
+        },
+        "fusion_rerank_entiere": {
+          "0c04ac19cf": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "0c04ac19cf": 1
+        }
+      }
+    },
+    {
+      "id": "G-041",
+      "gold": [
+        "a550f0b6ba"
+      ],
+      "sous_questions": [
+        "How does MLflow 3.x handle human feedback?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 116.4,
+        "unique_avec_traduction_rerank_ms": 439.1,
+        "unique_sans_traduction_recuperation_ms": 43.2,
+        "unique_sans_traduction_rerank_ms": 466.0,
+        "decomposition_recuperation_ms": 43.2,
+        "fusion_rerank_entiere_ms": 466.0,
+        "fusion_rerank_sous_questions_ms": 466.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a550f0b6ba": 1
+        },
+        "unique_sans_traduction": {
+          "a550f0b6ba": 1
+        },
+        "fusion_rerank_entiere": {
+          "a550f0b6ba": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a550f0b6ba": 1
+        }
+      }
+    },
+    {
+      "id": "G-042",
+      "gold": [
+        "055db3f32f"
+      ],
+      "sous_questions": [
+        "What capability allows creating a new branch from any point in time within the specified restore window?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 125.0,
+        "unique_avec_traduction_rerank_ms": 606.5,
+        "unique_sans_traduction_recuperation_ms": 61.3,
+        "unique_sans_traduction_rerank_ms": 640.1,
+        "decomposition_recuperation_ms": 61.3,
+        "fusion_rerank_entiere_ms": 640.1,
+        "fusion_rerank_sous_questions_ms": 640.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "055db3f32f": 1
+        },
+        "unique_sans_traduction": {
+          "055db3f32f": 1
+        },
+        "fusion_rerank_entiere": {
+          "055db3f32f": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "055db3f32f": 1
+        }
+      }
+    },
+    {
+      "id": "G-043",
+      "gold": [
+        "61c027785b"
+      ],
+      "sous_questions": [
+        "Quels sont les éléments fondamentaux pour l'observabilité des applications GenAI en production ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 87.2,
+        "unique_avec_traduction_rerank_ms": 2822.6,
+        "unique_sans_traduction_recuperation_ms": 758.8,
+        "unique_sans_traduction_rerank_ms": 1736.2,
+        "decomposition_recuperation_ms": 758.8,
+        "fusion_rerank_entiere_ms": 1736.2,
+        "fusion_rerank_sous_questions_ms": 1736.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "61c027785b": 1
+        },
+        "unique_sans_traduction": {
+          "61c027785b": 1
+        },
+        "fusion_rerank_entiere": {
+          "61c027785b": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "61c027785b": 1
+        }
+      }
+    },
+    {
+      "id": "G-044",
+      "gold": [
+        "e0509dba44"
+      ],
+      "sous_questions": [
+        "What obligations must providers of high-risk AI systems establish under the EU AI Act beyond meeting technical standards?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 132.6,
+        "unique_avec_traduction_rerank_ms": 639.3,
+        "unique_sans_traduction_recuperation_ms": 52.4,
+        "unique_sans_traduction_rerank_ms": 766.4,
+        "decomposition_recuperation_ms": 52.4,
+        "fusion_rerank_entiere_ms": 766.4,
+        "fusion_rerank_sous_questions_ms": 766.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e0509dba44": 1
+        },
+        "unique_sans_traduction": {
+          "e0509dba44": 1
+        },
+        "fusion_rerank_entiere": {
+          "e0509dba44": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "e0509dba44": 1
+        }
+      }
+    },
+    {
+      "id": "G-045",
+      "gold": [
+        "b5d44dc12c"
+      ],
+      "sous_questions": [
+        "Quelles sont les fonctionnalités de MLflow en tant que solution open source ?",
+        "Qu'apporte l'intégration de MLflow avec Databricks par rapport à la version open source ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 146.7,
+        "unique_avec_traduction_rerank_ms": 534.0,
+        "unique_sans_traduction_recuperation_ms": 50.8,
+        "unique_sans_traduction_rerank_ms": 2059.9,
+        "decomposition_recuperation_ms": 117.0,
+        "fusion_rerank_entiere_ms": 692.7,
+        "fusion_rerank_sous_questions_ms": 5754.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b5d44dc12c": 1
+        },
+        "unique_sans_traduction": {
+          "b5d44dc12c": 1
+        },
+        "fusion_rerank_entiere": {
+          "b5d44dc12c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b5d44dc12c": 2
+        }
+      }
+    },
+    {
+      "id": "G-046",
+      "gold": [
+        "fd2f38d949"
+      ],
+      "sous_questions": [
+        "Quel type de validation est nécessaire pour les systèmes d'apprentissage automatique (ML) en présence d'étiquettes différées ?",
+        "Comment gérer le déplacement progressif des distributions de prédiction dans les systèmes d'apprentissage automatique (ML) lors de la validation ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1461.6,
+        "unique_avec_traduction_rerank_ms": 685.6,
+        "unique_sans_traduction_recuperation_ms": 55.8,
+        "unique_sans_traduction_rerank_ms": 1435.5,
+        "decomposition_recuperation_ms": 156.7,
+        "fusion_rerank_entiere_ms": 685.0,
+        "fusion_rerank_sous_questions_ms": 1503.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "fd2f38d949": 1
+        },
+        "unique_sans_traduction": {
+          "fd2f38d949": 1
+        },
+        "fusion_rerank_entiere": {
+          "fd2f38d949": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "fd2f38d949": 1
+        }
+      }
+    },
+    {
+      "id": "G-047",
+      "gold": [
+        "2bee51bc08"
+      ],
+      "sous_questions": [
+        "What specific types of subcomponents can MLflow 3.x provide enhanced end-to-end tracing for in complex GenAI applications?",
+        "What are the capabilities of MLflow 3.x regarding end-to-end tracing in GenAI applications?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 132.9,
+        "unique_avec_traduction_rerank_ms": 574.9,
+        "unique_sans_traduction_recuperation_ms": 50.4,
+        "unique_sans_traduction_rerank_ms": 614.7,
+        "decomposition_recuperation_ms": 288.6,
+        "fusion_rerank_entiere_ms": 588.7,
+        "fusion_rerank_sous_questions_ms": 1389.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2bee51bc08": 1
+        },
+        "unique_sans_traduction": {
+          "2bee51bc08": 1
+        },
+        "fusion_rerank_entiere": {
+          "2bee51bc08": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "2bee51bc08": 1
+        }
+      }
+    },
+    {
+      "id": "G-048",
+      "gold": [
+        "882a832bb1"
+      ],
+      "sous_questions": [
+        "What is the required user notification for 'limited-risk' AI systems?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 84.0,
+        "unique_avec_traduction_rerank_ms": 566.3,
+        "unique_sans_traduction_recuperation_ms": 53.6,
+        "unique_sans_traduction_rerank_ms": 552.8,
+        "decomposition_recuperation_ms": 53.6,
+        "fusion_rerank_entiere_ms": 552.8,
+        "fusion_rerank_sous_questions_ms": 552.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "882a832bb1": 1
+        },
+        "unique_sans_traduction": {
+          "882a832bb1": 1
+        },
+        "fusion_rerank_entiere": {
+          "882a832bb1": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "882a832bb1": 1
+        }
+      }
+    },
+    {
+      "id": "G-049",
+      "gold": [
+        "b0cfcc1f1a"
+      ],
+      "sous_questions": [
+        "What are the causes of failures concentrating in missing or wrong context?",
+        "What strategies can be employed to address failures caused by missing context?",
+        "How can the accuracy of context be improved to prevent failures?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 120.8,
+        "unique_avec_traduction_rerank_ms": 533.8,
+        "unique_sans_traduction_recuperation_ms": 49.9,
+        "unique_sans_traduction_rerank_ms": 572.0,
+        "decomposition_recuperation_ms": 130.2,
+        "fusion_rerank_entiere_ms": 596.0,
+        "fusion_rerank_sous_questions_ms": 4897.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b0cfcc1f1a": 1
+        },
+        "unique_sans_traduction": {
+          "b0cfcc1f1a": 1
+        },
+        "fusion_rerank_entiere": {
+          "b0cfcc1f1a": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b0cfcc1f1a": 2
+        }
+      }
+    },
+    {
+      "id": "G-050",
+      "gold": [
+        "e82fb421fd"
+      ],
+      "sous_questions": [
+        "What is the relationship highlighted regarding the organization of multiple workspaces?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 93.7,
+        "unique_avec_traduction_rerank_ms": 519.7,
+        "unique_sans_traduction_recuperation_ms": 52.0,
+        "unique_sans_traduction_rerank_ms": 763.1,
+        "decomposition_recuperation_ms": 52.0,
+        "fusion_rerank_entiere_ms": 763.1,
+        "fusion_rerank_sous_questions_ms": 763.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e82fb421fd": 1
+        },
+        "unique_sans_traduction": {
+          "e82fb421fd": 1
+        },
+        "fusion_rerank_entiere": {
+          "e82fb421fd": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "e82fb421fd": 1
+        }
+      }
+    },
+    {
+      "id": "G-051",
+      "gold": [
+        "7ea03c8e25"
+      ],
+      "sous_questions": [
+        "What are the three main problems AI and machine learning development teams repeatedly encounter?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 156.4,
+        "unique_avec_traduction_rerank_ms": 561.4,
+        "unique_sans_traduction_recuperation_ms": 48.6,
+        "unique_sans_traduction_rerank_ms": 740.8,
+        "decomposition_recuperation_ms": 48.6,
+        "fusion_rerank_entiere_ms": 740.8,
+        "fusion_rerank_sous_questions_ms": 740.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7ea03c8e25": 1
+        },
+        "unique_sans_traduction": {
+          "7ea03c8e25": 1
+        },
+        "fusion_rerank_entiere": {
+          "7ea03c8e25": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "7ea03c8e25": 1
+        }
+      }
+    },
+    {
+      "id": "G-052",
+      "gold": [
+        "d53c88744f"
+      ],
+      "sous_questions": [
+        "What does the MLflow logo symbolize regarding the platform's function?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 86.8,
+        "unique_avec_traduction_rerank_ms": 570.7,
+        "unique_sans_traduction_recuperation_ms": 51.3,
+        "unique_sans_traduction_rerank_ms": 700.8,
+        "decomposition_recuperation_ms": 51.3,
+        "fusion_rerank_entiere_ms": 700.8,
+        "fusion_rerank_sous_questions_ms": 700.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d53c88744f": 1
+        },
+        "unique_sans_traduction": {
+          "d53c88744f": 1
+        },
+        "fusion_rerank_entiere": {
+          "d53c88744f": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d53c88744f": 1
+        }
+      }
+    },
+    {
+      "id": "G-053",
+      "gold": [
+        "1823a4cd0d"
+      ],
+      "sous_questions": [
+        "Quelles sont les circonstances recommandant l'utilisation des Client APIs par rapport aux Fluent APIs ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 92.6,
+        "unique_avec_traduction_rerank_ms": 1649.5,
+        "unique_sans_traduction_recuperation_ms": 217.0,
+        "unique_sans_traduction_rerank_ms": 589.9,
+        "decomposition_recuperation_ms": 217.0,
+        "fusion_rerank_entiere_ms": 589.9,
+        "fusion_rerank_sous_questions_ms": 589.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "1823a4cd0d": 2
+        },
+        "unique_sans_traduction": {
+          "1823a4cd0d": 2
+        },
+        "fusion_rerank_entiere": {
+          "1823a4cd0d": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "1823a4cd0d": 2
+        }
+      }
+    },
+    {
+      "id": "G-054",
+      "gold": [
+        "acf4f69a80"
+      ],
+      "sous_questions": [
+        "Quels composants d'une application GenAI peuvent produire des signaux utiles ?",
+        "Quels composants d'une application GenAI présentent une communication incohérente ?",
+        "Comment l'incohérence de la communication dans les composants GenAI rend-elle difficile l'investigation des échecs et la vérification des améliorations ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 103.4,
+        "unique_avec_traduction_rerank_ms": 2762.6,
+        "unique_sans_traduction_recuperation_ms": 849.2,
+        "unique_sans_traduction_rerank_ms": 2933.9,
+        "decomposition_recuperation_ms": 917.5,
+        "fusion_rerank_entiere_ms": 1408.8,
+        "fusion_rerank_sous_questions_ms": 2257.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "acf4f69a80": 1
+        },
+        "unique_sans_traduction": {
+          "acf4f69a80": 1
+        },
+        "fusion_rerank_entiere": {
+          "acf4f69a80": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "acf4f69a80": 1
+        }
+      }
+    },
+    {
+      "id": "G-055",
+      "gold": [
+        "7b29190883"
+      ],
+      "sous_questions": [
+        "Quelles sont les conditions de déclenchement du pipeline d'intégration continue (CI) pour la partie MLOps ?",
+        "Quels types de requêtes déclenchent le pipeline CI MLOps ?",
+        "Quels chemins de fichiers modifiés déclenchent le pipeline CI MLOps ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 123.1,
+        "unique_avec_traduction_rerank_ms": 964.7,
+        "unique_sans_traduction_recuperation_ms": 55.9,
+        "unique_sans_traduction_rerank_ms": 740.2,
+        "decomposition_recuperation_ms": 161.2,
+        "fusion_rerank_entiere_ms": 853.5,
+        "fusion_rerank_sous_questions_ms": 1906.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7b29190883": 1
+        },
+        "unique_sans_traduction": {
+          "7b29190883": 1
+        },
+        "fusion_rerank_entiere": {
+          "7b29190883": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "7b29190883": 1
+        }
+      }
+    },
+    {
+      "id": "G-056",
+      "gold": [
+        "0a2cc6c821"
+      ],
+      "sous_questions": [
+        "What is the advantage of using a context manager for capturing traces?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 87.1,
+        "unique_avec_traduction_rerank_ms": 574.9,
+        "unique_sans_traduction_recuperation_ms": 69.5,
+        "unique_sans_traduction_rerank_ms": 548.5,
+        "decomposition_recuperation_ms": 69.5,
+        "fusion_rerank_entiere_ms": 548.5,
+        "fusion_rerank_sous_questions_ms": 548.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0a2cc6c821": 1
+        },
+        "unique_sans_traduction": {
+          "0a2cc6c821": 1
+        },
+        "fusion_rerank_entiere": {
+          "0a2cc6c821": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "0a2cc6c821": 1
+        }
+      }
+    },
+    {
+      "id": "G-057",
+      "gold": [
+        "58b204edca"
+      ],
+      "sous_questions": [
+        "What is the ultimate goal of monitoring across models?",
+        "What is the ultimate goal of monitoring across data?",
+        "What is the ultimate goal of monitoring across infrastructure?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 98.7,
+        "unique_avec_traduction_rerank_ms": 523.7,
+        "unique_sans_traduction_recuperation_ms": 49.4,
+        "unique_sans_traduction_rerank_ms": 544.4,
+        "decomposition_recuperation_ms": 112.5,
+        "fusion_rerank_entiere_ms": 1018.0,
+        "fusion_rerank_sous_questions_ms": 7327.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "58b204edca": 1
+        },
+        "unique_sans_traduction": {
+          "58b204edca": 1
+        },
+        "fusion_rerank_entiere": {
+          "58b204edca": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "58b204edca": 2
+        }
+      }
+    },
+    {
+      "id": "G-058",
+      "gold": [
+        "4952d540d6"
+      ],
+      "sous_questions": [
+        "What libraries can MLflow natively integrate with besides LangChain?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 167.9,
+        "unique_avec_traduction_rerank_ms": 567.5,
+        "unique_sans_traduction_recuperation_ms": 43.7,
+        "unique_sans_traduction_rerank_ms": 1508.5,
+        "decomposition_recuperation_ms": 43.7,
+        "fusion_rerank_entiere_ms": 1508.5,
+        "fusion_rerank_sous_questions_ms": 1508.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4952d540d6": 1
+        },
+        "unique_sans_traduction": {
+          "4952d540d6": 1
+        },
+        "fusion_rerank_entiere": {
+          "4952d540d6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4952d540d6": 1
+        }
+      }
+    },
+    {
+      "id": "G-059",
+      "gold": [
+        "3d77cfd060"
+      ],
+      "sous_questions": [
+        "Quels sont les trois domaines de compromis considérés par les stratégies abordées dans les sections suivantes ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1771.0,
+        "unique_avec_traduction_rerank_ms": 3279.9,
+        "unique_sans_traduction_recuperation_ms": 753.4,
+        "unique_sans_traduction_rerank_ms": 2367.3,
+        "decomposition_recuperation_ms": 753.4,
+        "fusion_rerank_entiere_ms": 2367.3,
+        "fusion_rerank_sous_questions_ms": 2367.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3d77cfd060": 1
+        },
+        "unique_sans_traduction": {
+          "3d77cfd060": 1
+        },
+        "fusion_rerank_entiere": {
+          "3d77cfd060": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3d77cfd060": 1
+        }
+      }
+    },
+    {
+      "id": "G-060",
+      "gold": [
+        "876bf0a3fe"
+      ],
+      "sous_questions": [
+        "What is the DTAP pattern?",
+        "What specific technologies did the DTAP pattern predate?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 152.9,
+        "unique_avec_traduction_rerank_ms": 1105.7,
+        "unique_sans_traduction_recuperation_ms": 42.0,
+        "unique_sans_traduction_rerank_ms": 2106.4,
+        "decomposition_recuperation_ms": 1468.9,
+        "fusion_rerank_entiere_ms": 465.5,
+        "fusion_rerank_sous_questions_ms": 1063.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "876bf0a3fe": 1
+        },
+        "unique_sans_traduction": {
+          "876bf0a3fe": 1
+        },
+        "fusion_rerank_entiere": {
+          "876bf0a3fe": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "876bf0a3fe": 1
+        }
+      }
+    },
+    {
+      "id": "G-061",
+      "gold": [
+        "803d324732"
+      ],
+      "sous_questions": [
+        "What does MLflow provide a structured way to track?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 121.9,
+        "unique_avec_traduction_rerank_ms": 593.7,
+        "unique_sans_traduction_recuperation_ms": 104.3,
+        "unique_sans_traduction_rerank_ms": 566.9,
+        "decomposition_recuperation_ms": 104.3,
+        "fusion_rerank_entiere_ms": 566.9,
+        "fusion_rerank_sous_questions_ms": 566.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "803d324732": 1
+        },
+        "unique_sans_traduction": {
+          "803d324732": 1
+        },
+        "fusion_rerank_entiere": {
+          "803d324732": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "803d324732": 1
+        }
+      }
+    },
+    {
+      "id": "G-062",
+      "gold": [
+        "5fdcd150d3"
+      ],
+      "sous_questions": [
+        "What makes the scores produced by an LLM-as-a-judge non-absolute?",
+        "What factors contribute to the lack of perfect reliability in LLM-as-a-judge scoring?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 104.2,
+        "unique_avec_traduction_rerank_ms": 593.6,
+        "unique_sans_traduction_recuperation_ms": 51.1,
+        "unique_sans_traduction_rerank_ms": 620.8,
+        "decomposition_recuperation_ms": 102.6,
+        "fusion_rerank_entiere_ms": 642.2,
+        "fusion_rerank_sous_questions_ms": 1199.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5fdcd150d3": 1
+        },
+        "unique_sans_traduction": {
+          "5fdcd150d3": 1
+        },
+        "fusion_rerank_entiere": {
+          "5fdcd150d3": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "5fdcd150d3": 1
+        }
+      }
+    },
+    {
+      "id": "G-063",
+      "gold": [
+        "3437c94f29"
+      ],
+      "sous_questions": [
+        "Quels types de *scorers* nécessitent un accès aux traces pour inspecter l'utilisation des outils ?",
+        "Quels types de *scorers* nécessitent un accès aux traces pour inspecter les paramètres ?",
+        "Quels types de *scorers* nécessitent un accès aux traces pour inspecter l'ordre d'exécution ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 97.8,
+        "unique_avec_traduction_rerank_ms": 1523.0,
+        "unique_sans_traduction_recuperation_ms": 755.3,
+        "unique_sans_traduction_rerank_ms": 1795.8,
+        "decomposition_recuperation_ms": 138.7,
+        "fusion_rerank_entiere_ms": 678.5,
+        "fusion_rerank_sous_questions_ms": 1931.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3437c94f29": 1
+        },
+        "unique_sans_traduction": {
+          "3437c94f29": 1
+        },
+        "fusion_rerank_entiere": {
+          "3437c94f29": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3437c94f29": 1
+        }
+      }
+    },
+    {
+      "id": "G-064",
+      "gold": [
+        "6b52bccda7"
+      ],
+      "sous_questions": [
+        "What is the definition of a randomization unit in research?",
+        "What is the definition of an analysis unit in research?",
+        "What is the difference between the randomization unit and the analysis unit?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 83.9,
+        "unique_avec_traduction_rerank_ms": 614.6,
+        "unique_sans_traduction_recuperation_ms": 83.4,
+        "unique_sans_traduction_rerank_ms": 739.5,
+        "decomposition_recuperation_ms": 180.7,
+        "fusion_rerank_entiere_ms": 567.4,
+        "fusion_rerank_sous_questions_ms": 2025.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6b52bccda7": 1
+        },
+        "unique_sans_traduction": {
+          "6b52bccda7": 1
+        },
+        "fusion_rerank_entiere": {
+          "6b52bccda7": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "6b52bccda7": 1
+        }
+      }
+    },
+    {
+      "id": "G-065",
+      "gold": [
+        "9ae6923bc5"
+      ],
+      "sous_questions": [
+        "What is the pragmatic definition of an agent inspired by the OpenAI Agent SDK?",
+        "What are the three core components that constitute an agent according to the pragmatic definition inspired by the OpenAI Agent SDK?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 92.9,
+        "unique_avec_traduction_rerank_ms": 582.6,
+        "unique_sans_traduction_recuperation_ms": 52.9,
+        "unique_sans_traduction_rerank_ms": 1835.1,
+        "decomposition_recuperation_ms": 1519.4,
+        "fusion_rerank_entiere_ms": 2067.5,
+        "fusion_rerank_sous_questions_ms": 1301.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9ae6923bc5": 1
+        },
+        "unique_sans_traduction": {
+          "9ae6923bc5": 1
+        },
+        "fusion_rerank_entiere": {
+          "9ae6923bc5": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "9ae6923bc5": 1
+        }
+      }
+    },
+    {
+      "id": "G-066",
+      "gold": [
+        "a97a2fdd92"
+      ],
+      "sous_questions": [
+        "Quels types de fonctionnalités sont généralement suffisants pour la majorité des systèmes de production d'applications IA ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 134.5,
+        "unique_avec_traduction_rerank_ms": 1063.1,
+        "unique_sans_traduction_recuperation_ms": 544.7,
+        "unique_sans_traduction_rerank_ms": 2816.6,
+        "decomposition_recuperation_ms": 544.7,
+        "fusion_rerank_entiere_ms": 2816.6,
+        "fusion_rerank_sous_questions_ms": 2816.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a97a2fdd92": 1
+        },
+        "unique_sans_traduction": {
+          "a97a2fdd92": 1
+        },
+        "fusion_rerank_entiere": {
+          "a97a2fdd92": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a97a2fdd92": 1
+        }
+      }
+    },
+    {
+      "id": "G-067",
+      "gold": [
+        "4ceb238b09"
+      ],
+      "sous_questions": [
+        "What specific features of MLflow will not be covered when focusing on the Databricks-managed version of MLflow?",
+        "What is the difference in coverage regarding the MLflow AI Gateway when focusing on the Databricks-managed version of MLflow?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 949.7,
+        "unique_avec_traduction_rerank_ms": 783.8,
+        "unique_sans_traduction_recuperation_ms": 63.5,
+        "unique_sans_traduction_rerank_ms": 739.4,
+        "decomposition_recuperation_ms": 99.3,
+        "fusion_rerank_entiere_ms": 621.7,
+        "fusion_rerank_sous_questions_ms": 1203.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4ceb238b09": 1
+        },
+        "unique_sans_traduction": {
+          "4ceb238b09": 1
+        },
+        "fusion_rerank_entiere": {
+          "4ceb238b09": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4ceb238b09": 1
+        }
+      }
+    },
+    {
+      "id": "G-068",
+      "gold": [
+        "98d70d32c5"
+      ],
+      "sous_questions": [
+        "What is the consequence of not setting a proper retention period on a delta table after executing the VACUUM command?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 118.2,
+        "unique_avec_traduction_rerank_ms": 742.3,
+        "unique_sans_traduction_recuperation_ms": 53.9,
+        "unique_sans_traduction_rerank_ms": 654.8,
+        "decomposition_recuperation_ms": 53.9,
+        "fusion_rerank_entiere_ms": 654.8,
+        "fusion_rerank_sous_questions_ms": 654.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "98d70d32c5": 1
+        },
+        "unique_sans_traduction": {
+          "98d70d32c5": 1
+        },
+        "fusion_rerank_entiere": {
+          "98d70d32c5": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "98d70d32c5": 1
+        }
+      }
+    },
+    {
+      "id": "G-069",
+      "gold": [
+        "259756f229"
+      ],
+      "sous_questions": [
+        "Quelle est l'expression cron utilisée pour planifier la tâche de pipeline 'arxiv-data' ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 95.5,
+        "unique_avec_traduction_rerank_ms": 641.7,
+        "unique_sans_traduction_recuperation_ms": 53.9,
+        "unique_sans_traduction_rerank_ms": 865.3,
+        "decomposition_recuperation_ms": 53.9,
+        "fusion_rerank_entiere_ms": 865.3,
+        "fusion_rerank_sous_questions_ms": 865.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "259756f229": 1
+        },
+        "unique_sans_traduction": {
+          "259756f229": 1
+        },
+        "fusion_rerank_entiere": {
+          "259756f229": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "259756f229": 1
+        }
+      }
+    },
+    {
+      "id": "G-070",
+      "gold": [
+        "f0f9cb7af9"
+      ],
+      "sous_questions": [
+        "What method allows for direct tagging of usage attributed to a specific project?",
+        "How can usage be directly tagged to a specific project when an endpoint serves only that single project?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1304.1,
+        "unique_avec_traduction_rerank_ms": 2163.3,
+        "unique_sans_traduction_recuperation_ms": 71.7,
+        "unique_sans_traduction_rerank_ms": 617.9,
+        "decomposition_recuperation_ms": 106.4,
+        "fusion_rerank_entiere_ms": 644.4,
+        "fusion_rerank_sous_questions_ms": 1184.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f0f9cb7af9": 1
+        },
+        "unique_sans_traduction": {
+          "f0f9cb7af9": 1
+        },
+        "fusion_rerank_entiere": {
+          "f0f9cb7af9": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "f0f9cb7af9": 1
+        }
+      }
+    },
+    {
+      "id": "G-071",
+      "gold": [
+        "ea5948edd8"
+      ],
+      "sous_questions": [
+        "What types of tasks are these models particularly well-suited for?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 142.5,
+        "unique_avec_traduction_rerank_ms": 545.6,
+        "unique_sans_traduction_recuperation_ms": 46.9,
+        "unique_sans_traduction_rerank_ms": 764.0,
+        "decomposition_recuperation_ms": 46.9,
+        "fusion_rerank_entiere_ms": 764.0,
+        "fusion_rerank_sous_questions_ms": 764.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ea5948edd8": 1
+        },
+        "unique_sans_traduction": {
+          "ea5948edd8": 1
+        },
+        "fusion_rerank_entiere": {
+          "ea5948edd8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "ea5948edd8": 1
+        }
+      }
+    },
+    {
+      "id": "G-072",
+      "gold": [
+        "5df3694b2c"
+      ],
+      "sous_questions": [
+        "Quel outil est recommandé pour gérer des LLMs ou des modèles IA en production sur Databricks ?",
+        "Comment assurer la meilleure évolutivité, sécurité et intégration lors de la gestion de LLMs ou de modèles IA en production sur Databricks ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 110.6,
+        "unique_avec_traduction_rerank_ms": 817.9,
+        "unique_sans_traduction_recuperation_ms": 161.4,
+        "unique_sans_traduction_rerank_ms": 851.4,
+        "decomposition_recuperation_ms": 124.0,
+        "fusion_rerank_entiere_ms": 819.7,
+        "fusion_rerank_sous_questions_ms": 4291.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5df3694b2c": 1
+        },
+        "unique_sans_traduction": {
+          "5df3694b2c": 1
+        },
+        "fusion_rerank_entiere": {
+          "5df3694b2c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "5df3694b2c": 1
+        }
+      }
+    },
+    {
+      "id": "G-073",
+      "gold": [
+        "43ba0e34c7"
+      ],
+      "sous_questions": [
+        "À quel niveau de l'agentif workflow les scénarios d'utilisation des guardrails sont-ils abordés en premier lieu ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 90.2,
+        "unique_avec_traduction_rerank_ms": 680.6,
+        "unique_sans_traduction_recuperation_ms": 50.6,
+        "unique_sans_traduction_rerank_ms": 652.1,
+        "decomposition_recuperation_ms": 50.6,
+        "fusion_rerank_entiere_ms": 652.1,
+        "fusion_rerank_sous_questions_ms": 652.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "43ba0e34c7": 1
+        },
+        "unique_sans_traduction": {
+          "43ba0e34c7": 1
+        },
+        "fusion_rerank_entiere": {
+          "43ba0e34c7": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "43ba0e34c7": 1
+        }
+      }
+    },
+    {
+      "id": "G-074",
+      "gold": [
+        "48fdca7a34"
+      ],
+      "sous_questions": [
+        "How can Databricks AI Search be made available to an agent?",
+        "How can Genie be made available to an agent?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 84.5,
+        "unique_avec_traduction_rerank_ms": 643.6,
+        "unique_sans_traduction_recuperation_ms": 47.2,
+        "unique_sans_traduction_rerank_ms": 595.7,
+        "decomposition_recuperation_ms": 104.0,
+        "fusion_rerank_entiere_ms": 549.5,
+        "fusion_rerank_sous_questions_ms": 1936.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "48fdca7a34": 2
+        },
+        "unique_sans_traduction": {
+          "48fdca7a34": 2
+        },
+        "fusion_rerank_entiere": {
+          "48fdca7a34": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "48fdca7a34": 2
+        }
+      }
+    },
+    {
+      "id": "G-075",
+      "gold": [
+        "4bfc8482d4"
+      ],
+      "sous_questions": [
+        "What specific types of documents can question answering systems assist with besides general user queries?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 91.7,
+        "unique_avec_traduction_rerank_ms": 519.8,
+        "unique_sans_traduction_recuperation_ms": 55.3,
+        "unique_sans_traduction_rerank_ms": 620.1,
+        "decomposition_recuperation_ms": 55.3,
+        "fusion_rerank_entiere_ms": 620.1,
+        "fusion_rerank_sous_questions_ms": 620.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4bfc8482d4": 1
+        },
+        "unique_sans_traduction": {
+          "4bfc8482d4": 1
+        },
+        "fusion_rerank_entiere": {
+          "4bfc8482d4": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4bfc8482d4": 1
+        }
+      }
+    },
+    {
+      "id": "G-076",
+      "gold": [
+        "42f964fec0"
+      ],
+      "sous_questions": [
+        "What are the core capabilities across the platform that Unity Catalog underpins?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 100.3,
+        "unique_avec_traduction_rerank_ms": 557.9,
+        "unique_sans_traduction_recuperation_ms": 52.5,
+        "unique_sans_traduction_rerank_ms": 720.5,
+        "decomposition_recuperation_ms": 52.5,
+        "fusion_rerank_entiere_ms": 720.5,
+        "fusion_rerank_sous_questions_ms": 720.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "42f964fec0": 1
+        },
+        "unique_sans_traduction": {
+          "42f964fec0": 1
+        },
+        "fusion_rerank_entiere": {
+          "42f964fec0": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "42f964fec0": 1
+        }
+      }
+    },
+    {
+      "id": "G-077",
+      "gold": [
+        "9c70d4632d"
+      ],
+      "sous_questions": [
+        "What methods are used by practitioners to analyze the impact of a deployed GenAI application beyond technological tool capture?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 123.7,
+        "unique_avec_traduction_rerank_ms": 630.4,
+        "unique_sans_traduction_recuperation_ms": 55.7,
+        "unique_sans_traduction_rerank_ms": 899.0,
+        "decomposition_recuperation_ms": 55.7,
+        "fusion_rerank_entiere_ms": 899.0,
+        "fusion_rerank_sous_questions_ms": 899.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9c70d4632d": 1
+        },
+        "unique_sans_traduction": {
+          "9c70d4632d": 1
+        },
+        "fusion_rerank_entiere": {
+          "9c70d4632d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "9c70d4632d": 1
+        }
+      }
+    },
+    {
+      "id": "G-078",
+      "gold": [
+        "2071097a4d"
+      ],
+      "sous_questions": [
+        "Quels types de contraintes un prompt engineering doit-il permettre aux instructions de survivre lors du contact avec des utilisateurs réels ?",
+        "Quelles sont les contraintes que le prompt engineering doit gérer pour assurer la robustesse des instructions face à l'interaction avec des utilisateurs réels ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 146.8,
+        "unique_avec_traduction_rerank_ms": 548.6,
+        "unique_sans_traduction_recuperation_ms": 50.7,
+        "unique_sans_traduction_rerank_ms": 684.9,
+        "decomposition_recuperation_ms": 102.3,
+        "fusion_rerank_entiere_ms": 600.1,
+        "fusion_rerank_sous_questions_ms": 1320.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2071097a4d": 1
+        },
+        "unique_sans_traduction": {
+          "2071097a4d": 1
+        },
+        "fusion_rerank_entiere": {
+          "2071097a4d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "2071097a4d": 1
+        }
+      }
+    },
+    {
+      "id": "G-079",
+      "gold": [
+        "a73e066592"
+      ],
+      "sous_questions": [
+        "What are the advantages of turnkey RAG solutions for companies?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 97.5,
+        "unique_avec_traduction_rerank_ms": 591.2,
+        "unique_sans_traduction_recuperation_ms": 47.3,
+        "unique_sans_traduction_rerank_ms": 589.2,
+        "decomposition_recuperation_ms": 47.3,
+        "fusion_rerank_entiere_ms": 589.2,
+        "fusion_rerank_sous_questions_ms": 589.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a73e066592": 1
+        },
+        "unique_sans_traduction": {
+          "a73e066592": 1
+        },
+        "fusion_rerank_entiere": {
+          "a73e066592": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a73e066592": 1
+        }
+      }
+    },
+    {
+      "id": "G-080",
+      "gold": [
+        "10bbafb5fc"
+      ],
+      "sous_questions": [
+        "What specific types of customer assistance functions will the chatbot handle for Unity Airways?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 121.2,
+        "unique_avec_traduction_rerank_ms": 2618.1,
+        "unique_sans_traduction_recuperation_ms": 827.2,
+        "unique_sans_traduction_rerank_ms": 1102.9,
+        "decomposition_recuperation_ms": 827.2,
+        "fusion_rerank_entiere_ms": 1102.9,
+        "fusion_rerank_sous_questions_ms": 1102.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "10bbafb5fc": 1
+        },
+        "unique_sans_traduction": {
+          "10bbafb5fc": 1
+        },
+        "fusion_rerank_entiere": {
+          "10bbafb5fc": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "10bbafb5fc": 1
+        }
+      }
+    },
+    {
+      "id": "G-081",
+      "gold": [
+        "0a4ccd7676"
+      ],
+      "sous_questions": [
+        "What oversight measures are suggested for higher-volume operational systems?",
+        "What specific oversight measures are recommended for predictive maintenance systems?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 135.3,
+        "unique_avec_traduction_rerank_ms": 607.2,
+        "unique_sans_traduction_recuperation_ms": 52.8,
+        "unique_sans_traduction_rerank_ms": 540.3,
+        "decomposition_recuperation_ms": 97.1,
+        "fusion_rerank_entiere_ms": 661.5,
+        "fusion_rerank_sous_questions_ms": 1254.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0a4ccd7676": 1
+        },
+        "unique_sans_traduction": {
+          "0a4ccd7676": 1
+        },
+        "fusion_rerank_entiere": {
+          "0a4ccd7676": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "0a4ccd7676": 1
+        }
+      }
+    },
+    {
+      "id": "G-082",
+      "gold": [
+        "42694757a4"
+      ],
+      "sous_questions": [
+        "What defines the operational environment for a deployed application?",
+        "What characteristics define an application's state after production launch?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 161.5,
+        "unique_avec_traduction_rerank_ms": 778.9,
+        "unique_sans_traduction_recuperation_ms": 49.1,
+        "unique_sans_traduction_rerank_ms": 857.4,
+        "decomposition_recuperation_ms": 111.8,
+        "fusion_rerank_entiere_ms": 699.7,
+        "fusion_rerank_sous_questions_ms": 5358.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "42694757a4": 1
+        },
+        "unique_sans_traduction": {
+          "42694757a4": 1
+        },
+        "fusion_rerank_entiere": {
+          "42694757a4": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "42694757a4": 2
+        }
+      }
+    },
+    {
+      "id": "G-083",
+      "gold": [
+        "3b4471a740"
+      ],
+      "sous_questions": [
+        "Quel système doit être utilisé comme source de vérité pour les invites (prompts) ?",
+        "Comment les invites (prompts) doivent-elles être gérées ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 1613.1,
+        "unique_avec_traduction_rerank_ms": 1308.0,
+        "unique_sans_traduction_recuperation_ms": 65.2,
+        "unique_sans_traduction_rerank_ms": 1129.2,
+        "decomposition_recuperation_ms": 112.5,
+        "fusion_rerank_entiere_ms": 674.6,
+        "fusion_rerank_sous_questions_ms": 1654.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3b4471a740": 1
+        },
+        "unique_sans_traduction": {
+          "3b4471a740": 1
+        },
+        "fusion_rerank_entiere": {
+          "3b4471a740": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3b4471a740": 1
+        }
+      }
+    },
+    {
+      "id": "G-084",
+      "gold": [
+        "620bc6d80d"
+      ],
+      "sous_questions": [
+        "What is the overall pass rate when comparing two trace responses against guideline criteria?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 146.5,
+        "unique_avec_traduction_rerank_ms": 703.2,
+        "unique_sans_traduction_recuperation_ms": 62.0,
+        "unique_sans_traduction_rerank_ms": 1332.2,
+        "decomposition_recuperation_ms": 62.0,
+        "fusion_rerank_entiere_ms": 1332.2,
+        "fusion_rerank_sous_questions_ms": 1332.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "620bc6d80d": 1
+        },
+        "unique_sans_traduction": {
+          "620bc6d80d": 1
+        },
+        "fusion_rerank_entiere": {
+          "620bc6d80d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "620bc6d80d": 1
+        }
+      }
+    },
+    {
+      "id": "G-085",
+      "gold": [
+        "857c4597d6"
+      ],
+      "sous_questions": [
+        "What specific type of company embeds AI into its physical products?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 160.0,
+        "unique_avec_traduction_rerank_ms": 631.7,
+        "unique_sans_traduction_recuperation_ms": 45.4,
+        "unique_sans_traduction_rerank_ms": 565.2,
+        "decomposition_recuperation_ms": 45.4,
+        "fusion_rerank_entiere_ms": 565.2,
+        "fusion_rerank_sous_questions_ms": 565.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "857c4597d6": 1
+        },
+        "unique_sans_traduction": {
+          "857c4597d6": 1
+        },
+        "fusion_rerank_entiere": {
+          "857c4597d6": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "857c4597d6": 1
+        }
+      }
+    },
+    {
+      "id": "G-086",
+      "gold": [
+        "7843ebb88c"
+      ],
+      "sous_questions": [
+        "What are the three factors used to judge a GenAI application in production?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 83.7,
+        "unique_avec_traduction_rerank_ms": 588.0,
+        "unique_sans_traduction_recuperation_ms": 67.1,
+        "unique_sans_traduction_rerank_ms": 591.5,
+        "decomposition_recuperation_ms": 67.1,
+        "fusion_rerank_entiere_ms": 591.5,
+        "fusion_rerank_sous_questions_ms": 591.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7843ebb88c": 1
+        },
+        "unique_sans_traduction": {
+          "7843ebb88c": 1
+        },
+        "fusion_rerank_entiere": {
+          "7843ebb88c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "7843ebb88c": 1
+        }
+      }
+    },
+    {
+      "id": "G-087",
+      "gold": [
+        "baafff0066"
+      ],
+      "sous_questions": [
+        "What is the input contract when logging a model using the feature-engineering client?",
+        "What is the context for logging a model using the feature-engineering client after creating a training set?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 112.7,
+        "unique_avec_traduction_rerank_ms": 608.4,
+        "unique_sans_traduction_recuperation_ms": 77.0,
+        "unique_sans_traduction_rerank_ms": 577.9,
+        "decomposition_recuperation_ms": 111.5,
+        "fusion_rerank_entiere_ms": 643.0,
+        "fusion_rerank_sous_questions_ms": 3427.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "baafff0066": 1
+        },
+        "unique_sans_traduction": {
+          "baafff0066": 1
+        },
+        "fusion_rerank_entiere": {
+          "baafff0066": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "baafff0066": 1
+        }
+      }
+    },
+    {
+      "id": "G-088",
+      "gold": [
+        "6fb99bae05"
+      ],
+      "sous_questions": [
+        "What are the concerns of AI and ML architects regarding the sharing of prompts?",
+        "What aspects of model management are important to AI and ML architects?",
+        "What do AI and ML architects need to consider when enforcing access control and proving compliance?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 786.5,
+        "unique_avec_traduction_rerank_ms": 620.3,
+        "unique_sans_traduction_recuperation_ms": 57.1,
+        "unique_sans_traduction_rerank_ms": 625.5,
+        "decomposition_recuperation_ms": 190.2,
+        "fusion_rerank_entiere_ms": 772.8,
+        "fusion_rerank_sous_questions_ms": 2001.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6fb99bae05": 1
+        },
+        "unique_sans_traduction": {
+          "6fb99bae05": 1
+        },
+        "fusion_rerank_entiere": {
+          "6fb99bae05": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "6fb99bae05": 1
+        }
+      }
+    },
+    {
+      "id": "G-089",
+      "gold": [
+        "b84094db9a"
+      ],
+      "sous_questions": [
+        "Quelles sont les étapes nécessaires pour élaborer un plan complet de construction d'une application GenAI de niveau production ?",
+        "Quelles étapes sont requises pour la mesure et le déploiement d'une application GenAI en production ?",
+        "Comment mettre en place un processus d'amélioration continue pour une application GenAI en production ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 116.5,
+        "unique_avec_traduction_rerank_ms": 1295.7,
+        "unique_sans_traduction_recuperation_ms": 53.2,
+        "unique_sans_traduction_rerank_ms": 1982.8,
+        "decomposition_recuperation_ms": 2239.9,
+        "fusion_rerank_entiere_ms": 2143.2,
+        "fusion_rerank_sous_questions_ms": 2022.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b84094db9a": 1
+        },
+        "unique_sans_traduction": {
+          "b84094db9a": 1
+        },
+        "fusion_rerank_entiere": {
+          "b84094db9a": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b84094db9a": 1
+        }
+      }
+    },
+    {
+      "id": "G-090",
+      "gold": [
+        "00e06ad54d"
+      ],
+      "sous_questions": [
+        "What is the function of storing vector embeddings in a vector database?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 95.1,
+        "unique_avec_traduction_rerank_ms": 727.6,
+        "unique_sans_traduction_recuperation_ms": 43.5,
+        "unique_sans_traduction_rerank_ms": 797.4,
+        "decomposition_recuperation_ms": 43.5,
+        "fusion_rerank_entiere_ms": 797.4,
+        "fusion_rerank_sous_questions_ms": 797.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "00e06ad54d": 1
+        },
+        "unique_sans_traduction": {
+          "00e06ad54d": 1
+        },
+        "fusion_rerank_entiere": {
+          "00e06ad54d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "00e06ad54d": 1
+        }
+      }
+    },
+    {
+      "id": "G-091",
+      "gold": [
+        "0b6bc1d50c"
+      ],
+      "sous_questions": [
+        "What specific components must be provided when incorporating Databricks Vector Search?",
+        "What are the required parameters alongside the foundation model endpoint name and LLM query parameters when using Databricks Vector Search?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 136.9,
+        "unique_avec_traduction_rerank_ms": 845.6,
+        "unique_sans_traduction_recuperation_ms": 53.7,
+        "unique_sans_traduction_rerank_ms": 717.5,
+        "decomposition_recuperation_ms": 98.3,
+        "fusion_rerank_entiere_ms": 677.7,
+        "fusion_rerank_sous_questions_ms": 1434.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0b6bc1d50c": 1
+        },
+        "unique_sans_traduction": {
+          "0b6bc1d50c": 1
+        },
+        "fusion_rerank_entiere": {
+          "0b6bc1d50c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "0b6bc1d50c": 1
+        }
+      }
+    },
+    {
+      "id": "G-092",
+      "gold": [
+        "d4471813f5"
+      ],
+      "sous_questions": [
+        "What specific columns are displayed when viewing a logged trace in the MLflow Experiment UI?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 183.8,
+        "unique_avec_traduction_rerank_ms": 1115.2,
+        "unique_sans_traduction_recuperation_ms": 47.3,
+        "unique_sans_traduction_rerank_ms": 494.9,
+        "decomposition_recuperation_ms": 47.3,
+        "fusion_rerank_entiere_ms": 494.9,
+        "fusion_rerank_sous_questions_ms": 494.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d4471813f5": 1
+        },
+        "unique_sans_traduction": {
+          "d4471813f5": 1
+        },
+        "fusion_rerank_entiere": {
+          "d4471813f5": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d4471813f5": 1
+        }
+      }
+    },
+    {
+      "id": "G-093",
+      "gold": [
+        "d5cf85446b"
+      ],
+      "sous_questions": [
+        "What is the recommended quantity of high-quality examples when creating them?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 86.6,
+        "unique_avec_traduction_rerank_ms": 584.3,
+        "unique_sans_traduction_recuperation_ms": 48.9,
+        "unique_sans_traduction_rerank_ms": 688.1,
+        "decomposition_recuperation_ms": 48.9,
+        "fusion_rerank_entiere_ms": 688.1,
+        "fusion_rerank_sous_questions_ms": 688.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d5cf85446b": 1
+        },
+        "unique_sans_traduction": {
+          "d5cf85446b": 1
+        },
+        "fusion_rerank_entiere": {
+          "d5cf85446b": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d5cf85446b": 1
+        }
+      }
+    },
+    {
+      "id": "G-094",
+      "gold": [
+        "fd1743efca"
+      ],
+      "sous_questions": [
+        "Qu'est-ce qui fait ressortir Databricks lorsque le défi passe de la construction de démos d'IA à l'opération des systèmes d'IA en production ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 104.6,
+        "unique_avec_traduction_rerank_ms": 663.3,
+        "unique_sans_traduction_recuperation_ms": 64.4,
+        "unique_sans_traduction_rerank_ms": 796.7,
+        "decomposition_recuperation_ms": 64.4,
+        "fusion_rerank_entiere_ms": 796.7,
+        "fusion_rerank_sous_questions_ms": 796.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "fd1743efca": 1
+        },
+        "unique_sans_traduction": {
+          "fd1743efca": 1
+        },
+        "fusion_rerank_entiere": {
+          "fd1743efca": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "fd1743efca": 1
+        }
+      }
+    },
+    {
+      "id": "G-095",
+      "gold": [
+        "7a672144ba"
+      ],
+      "sous_questions": [
+        "What are the three characteristics that the goal of integration aims to achieve regarding behavior changes?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 110.7,
+        "unique_avec_traduction_rerank_ms": 684.5,
+        "unique_sans_traduction_recuperation_ms": 50.2,
+        "unique_sans_traduction_rerank_ms": 525.1,
+        "decomposition_recuperation_ms": 50.2,
+        "fusion_rerank_entiere_ms": 525.1,
+        "fusion_rerank_sous_questions_ms": 525.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7a672144ba": 1
+        },
+        "unique_sans_traduction": {
+          "7a672144ba": 1
+        },
+        "fusion_rerank_entiere": {
+          "7a672144ba": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "7a672144ba": 1
+        }
+      }
+    },
+    {
+      "id": "G-096",
+      "gold": [
+        "421d528e6c"
+      ],
+      "sous_questions": [
+        "What is the overall transition described regarding model deployment?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 112.6,
+        "unique_avec_traduction_rerank_ms": 534.0,
+        "unique_sans_traduction_recuperation_ms": 59.7,
+        "unique_sans_traduction_rerank_ms": 559.9,
+        "decomposition_recuperation_ms": 59.7,
+        "fusion_rerank_entiere_ms": 559.9,
+        "fusion_rerank_sous_questions_ms": 559.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "421d528e6c": null
+        },
+        "unique_sans_traduction": {
+          "421d528e6c": null
+        },
+        "fusion_rerank_entiere": {
+          "421d528e6c": null
+        },
+        "fusion_rerank_sous_questions": {
+          "421d528e6c": null
+        }
+      }
+    },
+    {
+      "id": "G-097",
+      "gold": [
+        "54ec58051b"
+      ],
+      "sous_questions": [
+        "What are the expectations for data scientists regarding model delivery?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 229.4,
+        "unique_avec_traduction_rerank_ms": 507.6,
+        "unique_sans_traduction_recuperation_ms": 45.1,
+        "unique_sans_traduction_rerank_ms": 646.7,
+        "decomposition_recuperation_ms": 45.1,
+        "fusion_rerank_entiere_ms": 646.7,
+        "fusion_rerank_sous_questions_ms": 646.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "54ec58051b": 1
+        },
+        "unique_sans_traduction": {
+          "54ec58051b": null
+        },
+        "fusion_rerank_entiere": {
+          "54ec58051b": null
+        },
+        "fusion_rerank_sous_questions": {
+          "54ec58051b": null
+        }
+      }
+    },
+    {
+      "id": "G-098",
+      "gold": [
+        "ab9d5af8e4"
+      ],
+      "sous_questions": [
+        "Which mlflow function is used to search for logged models?",
+        "How does searching for logged models in mlflow compare to searching for experiment runs?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 91.8,
+        "unique_avec_traduction_rerank_ms": 536.9,
+        "unique_sans_traduction_recuperation_ms": 51.1,
+        "unique_sans_traduction_rerank_ms": 628.1,
+        "decomposition_recuperation_ms": 94.2,
+        "fusion_rerank_entiere_ms": 664.6,
+        "fusion_rerank_sous_questions_ms": 1275.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ab9d5af8e4": 1
+        },
+        "unique_sans_traduction": {
+          "ab9d5af8e4": 1
+        },
+        "fusion_rerank_entiere": {
+          "ab9d5af8e4": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "ab9d5af8e4": 2
+        }
+      }
+    },
+    {
+      "id": "G-099",
+      "gold": [
+        "694407ab24"
+      ],
+      "sous_questions": [
+        "Quelles sont les deux catégories d'APIs que MLflow fournit pour instrumenter manuellement des tracings ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 595.1,
+        "unique_avec_traduction_rerank_ms": 627.9,
+        "unique_sans_traduction_recuperation_ms": 59.1,
+        "unique_sans_traduction_rerank_ms": 611.4,
+        "decomposition_recuperation_ms": 59.1,
+        "fusion_rerank_entiere_ms": 611.4,
+        "fusion_rerank_sous_questions_ms": 611.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "694407ab24": 1
+        },
+        "unique_sans_traduction": {
+          "694407ab24": 1
+        },
+        "fusion_rerank_entiere": {
+          "694407ab24": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "694407ab24": 1
+        }
+      }
+    },
+    {
+      "id": "G-100",
+      "gold": [
+        "00cba32b59"
+      ],
+      "sous_questions": [
+        "Quels sont les facteurs qui augmentent significativement le coût de l'évaluation d'un agent IA ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 125.4,
+        "unique_avec_traduction_rerank_ms": 538.8,
+        "unique_sans_traduction_recuperation_ms": 43.4,
+        "unique_sans_traduction_rerank_ms": 643.9,
+        "decomposition_recuperation_ms": 43.4,
+        "fusion_rerank_entiere_ms": 643.9,
+        "fusion_rerank_sous_questions_ms": 643.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "00cba32b59": 1
+        },
+        "unique_sans_traduction": {
+          "00cba32b59": 1
+        },
+        "fusion_rerank_entiere": {
+          "00cba32b59": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "00cba32b59": 1
+        }
+      }
+    },
+    {
+      "id": "G-101",
+      "gold": [
+        "e6809c60a5"
+      ],
+      "sous_questions": [
+        "What specific type of sensitive information is automatically removed from a user's input when pasting it into the chat?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 485.0,
+        "unique_avec_traduction_rerank_ms": 581.4,
+        "unique_sans_traduction_recuperation_ms": 71.3,
+        "unique_sans_traduction_rerank_ms": 515.0,
+        "decomposition_recuperation_ms": 71.3,
+        "fusion_rerank_entiere_ms": 515.0,
+        "fusion_rerank_sous_questions_ms": 515.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e6809c60a5": null
+        },
+        "unique_sans_traduction": {
+          "e6809c60a5": null
+        },
+        "fusion_rerank_entiere": {
+          "e6809c60a5": null
+        },
+        "fusion_rerank_sous_questions": {
+          "e6809c60a5": null
+        }
+      }
+    },
+    {
+      "id": "G-102",
+      "gold": [
+        "3106f26bb8"
+      ],
+      "sous_questions": [
+        "What are common challenges teams face when trying to answer basic questions after adopting a registry?",
+        "What types of fundamental questions do teams struggle with following the implementation of a registry?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 94.2,
+        "unique_avec_traduction_rerank_ms": 636.8,
+        "unique_sans_traduction_recuperation_ms": 50.0,
+        "unique_sans_traduction_rerank_ms": 1538.9,
+        "decomposition_recuperation_ms": 95.6,
+        "fusion_rerank_entiere_ms": 508.4,
+        "fusion_rerank_sous_questions_ms": 1875.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3106f26bb8": 1
+        },
+        "unique_sans_traduction": {
+          "3106f26bb8": 1
+        },
+        "fusion_rerank_entiere": {
+          "3106f26bb8": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "3106f26bb8": 1
+        }
+      }
+    },
+    {
+      "id": "G-103",
+      "gold": [
+        "ce1a44fd37"
+      ],
+      "sous_questions": [
+        "What is the specific version of the operating system provided by serverless environment version 4?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 82.5,
+        "unique_avec_traduction_rerank_ms": 518.9,
+        "unique_sans_traduction_recuperation_ms": 43.8,
+        "unique_sans_traduction_rerank_ms": 614.3,
+        "decomposition_recuperation_ms": 43.8,
+        "fusion_rerank_entiere_ms": 614.3,
+        "fusion_rerank_sous_questions_ms": 614.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ce1a44fd37": 1
+        },
+        "unique_sans_traduction": {
+          "ce1a44fd37": 1
+        },
+        "fusion_rerank_entiere": {
+          "ce1a44fd37": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "ce1a44fd37": 1
+        }
+      }
+    },
+    {
+      "id": "G-104",
+      "gold": [
+        "eda4f1e10c"
+      ],
+      "sous_questions": [
+        "Quelle approche utiliser pour calculer des prédictions à la demande ?",
+        "Comment intégrer la récupération de fonctionnalités depuis un magasin en ligne pendant l'inférence ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 100.6,
+        "unique_avec_traduction_rerank_ms": 699.8,
+        "unique_sans_traduction_recuperation_ms": 67.1,
+        "unique_sans_traduction_rerank_ms": 550.5,
+        "decomposition_recuperation_ms": 95.4,
+        "fusion_rerank_entiere_ms": 664.7,
+        "fusion_rerank_sous_questions_ms": 2720.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "eda4f1e10c": 1
+        },
+        "unique_sans_traduction": {
+          "eda4f1e10c": 1
+        },
+        "fusion_rerank_entiere": {
+          "eda4f1e10c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "eda4f1e10c": 1
+        }
+      }
+    },
+    {
+      "id": "G-105",
+      "gold": [
+        "cdf9b43dee"
+      ],
+      "sous_questions": [
+        "What specific types of assets can Unity Catalog provide centralized access control for?",
+        "What specific types of assets can Unity Catalog provide lineage tracking for?",
+        "What specific types of assets can Unity Catalog provide auditing and discoverability for?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 177.0,
+        "unique_avec_traduction_rerank_ms": 679.0,
+        "unique_sans_traduction_recuperation_ms": 72.8,
+        "unique_sans_traduction_rerank_ms": 574.2,
+        "decomposition_recuperation_ms": 155.1,
+        "fusion_rerank_entiere_ms": 1554.4,
+        "fusion_rerank_sous_questions_ms": 1612.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "cdf9b43dee": 1
+        },
+        "unique_sans_traduction": {
+          "cdf9b43dee": 1
+        },
+        "fusion_rerank_entiere": {
+          "cdf9b43dee": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "cdf9b43dee": 1
+        }
+      }
+    },
+    {
+      "id": "G-106",
+      "gold": [
+        "a5db6f9537"
+      ],
+      "sous_questions": [
+        "What characteristic of a design pattern makes it less effective with ambiguous or unexpected inputs?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 96.0,
+        "unique_avec_traduction_rerank_ms": 543.0,
+        "unique_sans_traduction_recuperation_ms": 48.4,
+        "unique_sans_traduction_rerank_ms": 556.0,
+        "decomposition_recuperation_ms": 48.4,
+        "fusion_rerank_entiere_ms": 556.0,
+        "fusion_rerank_sous_questions_ms": 556.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "a5db6f9537": 1
+        },
+        "unique_sans_traduction": {
+          "a5db6f9537": 1
+        },
+        "fusion_rerank_entiere": {
+          "a5db6f9537": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "a5db6f9537": 1
+        }
+      }
+    },
+    {
+      "id": "G-107",
+      "gold": [
+        "4f328014d9"
+      ],
+      "sous_questions": [
+        "Does reproducing a significant portion of code from a book require permission from the publisher?",
+        "What are the copyright implications of reproducing code from a book?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 96.6,
+        "unique_avec_traduction_rerank_ms": 534.1,
+        "unique_sans_traduction_recuperation_ms": 49.9,
+        "unique_sans_traduction_rerank_ms": 660.8,
+        "decomposition_recuperation_ms": 97.0,
+        "fusion_rerank_entiere_ms": 563.4,
+        "fusion_rerank_sous_questions_ms": 1136.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4f328014d9": 1
+        },
+        "unique_sans_traduction": {
+          "4f328014d9": 1
+        },
+        "fusion_rerank_entiere": {
+          "4f328014d9": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "4f328014d9": 1
+        }
+      }
+    },
+    {
+      "id": "G-108",
+      "gold": [
+        "45c71f7dd8"
+      ],
+      "sous_questions": [
+        "What action causes the creation of a new version when using the same prompt name?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 97.2,
+        "unique_avec_traduction_rerank_ms": 573.1,
+        "unique_sans_traduction_recuperation_ms": 55.3,
+        "unique_sans_traduction_rerank_ms": 459.8,
+        "decomposition_recuperation_ms": 55.3,
+        "fusion_rerank_entiere_ms": 459.8,
+        "fusion_rerank_sous_questions_ms": 459.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "45c71f7dd8": 2
+        },
+        "unique_sans_traduction": {
+          "45c71f7dd8": 2
+        },
+        "fusion_rerank_entiere": {
+          "45c71f7dd8": 2
+        },
+        "fusion_rerank_sous_questions": {
+          "45c71f7dd8": 2
+        }
+      }
+    },
+    {
+      "id": "G-109",
+      "gold": [
+        "09a92a8e14"
+      ],
+      "sous_questions": [
+        "What specific metrics are visualized in a dashboard designed for the ArXiv Agent?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 126.6,
+        "unique_avec_traduction_rerank_ms": 555.7,
+        "unique_sans_traduction_recuperation_ms": 44.9,
+        "unique_sans_traduction_rerank_ms": 507.1,
+        "decomposition_recuperation_ms": 44.9,
+        "fusion_rerank_entiere_ms": 507.1,
+        "fusion_rerank_sous_questions_ms": 507.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "09a92a8e14": 1
+        },
+        "unique_sans_traduction": {
+          "09a92a8e14": 1
+        },
+        "fusion_rerank_entiere": {
+          "09a92a8e14": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "09a92a8e14": 1
+        }
+      }
+    },
+    {
+      "id": "G-110",
+      "gold": [
+        "7a72e9bacd"
+      ],
+      "sous_questions": [
+        "Quel outil doit être attaché à l'enveloppe externe ?",
+        "Quand cet outil doit-il être attaché ?",
+        "Quel est le critère pour que l'application réponde de manière cohérente ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 99.7,
+        "unique_avec_traduction_rerank_ms": 634.8,
+        "unique_sans_traduction_recuperation_ms": 51.4,
+        "unique_sans_traduction_rerank_ms": 628.3,
+        "decomposition_recuperation_ms": 115.8,
+        "fusion_rerank_entiere_ms": 589.1,
+        "fusion_rerank_sous_questions_ms": 1646.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "7a72e9bacd": 1
+        },
+        "unique_sans_traduction": {
+          "7a72e9bacd": 1
+        },
+        "fusion_rerank_entiere": {
+          "7a72e9bacd": null
+        },
+        "fusion_rerank_sous_questions": {
+          "7a72e9bacd": null
+        }
+      }
+    },
+    {
+      "id": "G-111",
+      "gold": [
+        "b232ada84a"
+      ],
+      "sous_questions": [
+        "What two sources of data should be combined to obtain a complete view of infrastructure spend?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 98.0,
+        "unique_avec_traduction_rerank_ms": 490.0,
+        "unique_sans_traduction_recuperation_ms": 47.7,
+        "unique_sans_traduction_rerank_ms": 540.3,
+        "decomposition_recuperation_ms": 47.7,
+        "fusion_rerank_entiere_ms": 540.3,
+        "fusion_rerank_sous_questions_ms": 540.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "b232ada84a": 1
+        },
+        "unique_sans_traduction": {
+          "b232ada84a": 1
+        },
+        "fusion_rerank_entiere": {
+          "b232ada84a": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "b232ada84a": 1
+        }
+      }
+    },
+    {
+      "id": "G-112",
+      "gold": [
+        "1adfce548d"
+      ],
+      "sous_questions": [
+        "What component is selected when building foundation models?",
+        "What component is hosted when building foundation models?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 80.9,
+        "unique_avec_traduction_rerank_ms": 427.9,
+        "unique_sans_traduction_recuperation_ms": 43.5,
+        "unique_sans_traduction_rerank_ms": 1030.6,
+        "decomposition_recuperation_ms": 111.3,
+        "fusion_rerank_entiere_ms": 654.0,
+        "fusion_rerank_sous_questions_ms": 2876.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "1adfce548d": 1
+        },
+        "unique_sans_traduction": {
+          "1adfce548d": 1
+        },
+        "fusion_rerank_entiere": {
+          "1adfce548d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "1adfce548d": 2
+        }
+      }
+    },
+    {
+      "id": "G-113",
+      "gold": [
+        "f3a92b0597"
+      ],
+      "sous_questions": [
+        "Quels sont les éléments essentiels à inclure dans un jeu de données de validation pour évaluer la performance d'un LLM utilisant des outils ?",
+        "Quels types de données sont nécessaires pour tester une requête spécifique comme \"What is the flight schedule for 6 September 2024 in Singapore?\" dans le cadre de l'évaluation des outils d'un LLM ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 515.5,
+        "unique_avec_traduction_rerank_ms": 1311.2,
+        "unique_sans_traduction_recuperation_ms": 64.7,
+        "unique_sans_traduction_rerank_ms": 2430.3,
+        "decomposition_recuperation_ms": 207.9,
+        "fusion_rerank_entiere_ms": 662.2,
+        "fusion_rerank_sous_questions_ms": 1734.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f3a92b0597": 1
+        },
+        "unique_sans_traduction": {
+          "f3a92b0597": 1
+        },
+        "fusion_rerank_entiere": {
+          "f3a92b0597": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "f3a92b0597": 1
+        }
+      }
+    },
+    {
+      "id": "G-114",
+      "gold": [
+        "d4385a3fa7"
+      ],
+      "sous_questions": [
+        "How is the package version determined when setuptools is the build backend in pyproject.toml?",
+        "What mechanism determines the package version when using setuptools as the build backend in pyproject.toml?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 126.9,
+        "unique_avec_traduction_rerank_ms": 622.0,
+        "unique_sans_traduction_recuperation_ms": 52.4,
+        "unique_sans_traduction_rerank_ms": 705.4,
+        "decomposition_recuperation_ms": 98.6,
+        "fusion_rerank_entiere_ms": 602.2,
+        "fusion_rerank_sous_questions_ms": 1203.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d4385a3fa7": 1
+        },
+        "unique_sans_traduction": {
+          "d4385a3fa7": 1
+        },
+        "fusion_rerank_entiere": {
+          "d4385a3fa7": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d4385a3fa7": 1
+        }
+      }
+    },
+    {
+      "id": "G-115",
+      "gold": [
+        "d1c473e01c"
+      ],
+      "sous_questions": [
+        "What capability allows teams to analyze traces from different parts of the stack?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 100.2,
+        "unique_avec_traduction_rerank_ms": 1174.1,
+        "unique_sans_traduction_recuperation_ms": 59.5,
+        "unique_sans_traduction_rerank_ms": 516.2,
+        "decomposition_recuperation_ms": 59.5,
+        "fusion_rerank_entiere_ms": 516.2,
+        "fusion_rerank_sous_questions_ms": 516.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d1c473e01c": 1
+        },
+        "unique_sans_traduction": {
+          "d1c473e01c": 1
+        },
+        "fusion_rerank_entiere": {
+          "d1c473e01c": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d1c473e01c": 1
+        }
+      }
+    },
+    {
+      "id": "G-116",
+      "gold": [
+        "fd9f8fa574"
+      ],
+      "sous_questions": [
+        "Quel est l'avantage du mode journalisation (log mode) pour un garde-fou (guardrail) ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 85.6,
+        "unique_avec_traduction_rerank_ms": 514.0,
+        "unique_sans_traduction_recuperation_ms": 44.4,
+        "unique_sans_traduction_rerank_ms": 629.6,
+        "decomposition_recuperation_ms": 44.4,
+        "fusion_rerank_entiere_ms": 629.6,
+        "fusion_rerank_sous_questions_ms": 629.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "fd9f8fa574": 1
+        },
+        "unique_sans_traduction": {
+          "fd9f8fa574": 1
+        },
+        "fusion_rerank_entiere": {
+          "fd9f8fa574": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "fd9f8fa574": 1
+        }
+      }
+    },
+    {
+      "id": "G-117",
+      "gold": [
+        "251336aaa0"
+      ],
+      "sous_questions": [
+        "What type of variables are required for the Kolmogorov-Smirnov test?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 88.3,
+        "unique_avec_traduction_rerank_ms": 570.4,
+        "unique_sans_traduction_recuperation_ms": 46.0,
+        "unique_sans_traduction_rerank_ms": 541.9,
+        "decomposition_recuperation_ms": 46.0,
+        "fusion_rerank_entiere_ms": 541.9,
+        "fusion_rerank_sous_questions_ms": 541.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "251336aaa0": 1
+        },
+        "unique_sans_traduction": {
+          "251336aaa0": 1
+        },
+        "fusion_rerank_entiere": {
+          "251336aaa0": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "251336aaa0": 1
+        }
+      }
+    },
+    {
+      "id": "G-118",
+      "gold": [
+        "6a85a1a5c1"
+      ],
+      "sous_questions": [
+        "What is the foundation of MLOps regarding building ML systems?",
+        "What does MLOps provide for deploying ML systems?",
+        "What does MLOps provide for maintaining ML systems?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 109.4,
+        "unique_avec_traduction_rerank_ms": 517.6,
+        "unique_sans_traduction_recuperation_ms": 45.1,
+        "unique_sans_traduction_rerank_ms": 568.1,
+        "decomposition_recuperation_ms": 124.0,
+        "fusion_rerank_entiere_ms": 566.6,
+        "fusion_rerank_sous_questions_ms": 1612.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6a85a1a5c1": 1
+        },
+        "unique_sans_traduction": {
+          "6a85a1a5c1": 1
+        },
+        "fusion_rerank_entiere": {
+          "6a85a1a5c1": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "6a85a1a5c1": 1
+        }
+      }
+    },
+    {
+      "id": "G-119",
+      "gold": [
+        "40f85d8e89"
+      ],
+      "sous_questions": [
+        "Quels sont les défis spécifiques liés au passage d'un environnement contrôlé à la production pour une application d'IA ?",
+        "Quelles sont les préoccupations des utilisateurs concernant la fiabilité et la performance d'une IA en production ?",
+        "Quelles informations les utilisateurs recherchent-ils sur les processus de déploiement et de mise à l'échelle des applications d'IA ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 167.2,
+        "unique_avec_traduction_rerank_ms": 578.5,
+        "unique_sans_traduction_recuperation_ms": 47.4,
+        "unique_sans_traduction_rerank_ms": 636.7,
+        "decomposition_recuperation_ms": 140.0,
+        "fusion_rerank_entiere_ms": 542.0,
+        "fusion_rerank_sous_questions_ms": 1784.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "40f85d8e89": 2
+        },
+        "unique_sans_traduction": {
+          "40f85d8e89": null
+        },
+        "fusion_rerank_entiere": {
+          "40f85d8e89": null
+        },
+        "fusion_rerank_sous_questions": {
+          "40f85d8e89": null
+        }
+      }
+    },
+    {
+      "id": "G-120",
+      "gold": [
+        "c3f1894a26"
+      ],
+      "sous_questions": [
+        "What is the purpose of incorporating human judgment into a mature evaluation workflow?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 122.4,
+        "unique_avec_traduction_rerank_ms": 449.3,
+        "unique_sans_traduction_recuperation_ms": 55.0,
+        "unique_sans_traduction_rerank_ms": 481.6,
+        "decomposition_recuperation_ms": 55.0,
+        "fusion_rerank_entiere_ms": 481.6,
+        "fusion_rerank_sous_questions_ms": 481.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c3f1894a26": 1
+        },
+        "unique_sans_traduction": {
+          "c3f1894a26": 1
+        },
+        "fusion_rerank_entiere": {
+          "c3f1894a26": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c3f1894a26": 1
+        }
+      }
+    },
+    {
+      "id": "G-121",
+      "gold": [
+        "842a8884da"
+      ],
+      "sous_questions": [
+        "What is the specific purpose of unit tests regarding individual components?",
+        "What do unit tests verify about individual functions?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 109.1,
+        "unique_avec_traduction_rerank_ms": 578.7,
+        "unique_sans_traduction_recuperation_ms": 44.7,
+        "unique_sans_traduction_rerank_ms": 480.7,
+        "decomposition_recuperation_ms": 199.8,
+        "fusion_rerank_entiere_ms": 519.9,
+        "fusion_rerank_sous_questions_ms": 1596.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "842a8884da": 1
+        },
+        "unique_sans_traduction": {
+          "842a8884da": 1
+        },
+        "fusion_rerank_entiere": {
+          "842a8884da": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "842a8884da": 1
+        }
+      }
+    },
+    {
+      "id": "G-122",
+      "gold": [
+        "786c1d0a51"
+      ],
+      "sous_questions": [
+        "What qualities can model-based graders assess besides code assessment?",
+        "What capabilities do model-based graders have beyond evaluating code?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 86.5,
+        "unique_avec_traduction_rerank_ms": 615.7,
+        "unique_sans_traduction_recuperation_ms": 46.3,
+        "unique_sans_traduction_rerank_ms": 1658.8,
+        "decomposition_recuperation_ms": 1047.3,
+        "fusion_rerank_entiere_ms": 1236.9,
+        "fusion_rerank_sous_questions_ms": 1330.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "786c1d0a51": 1
+        },
+        "unique_sans_traduction": {
+          "786c1d0a51": 1
+        },
+        "fusion_rerank_entiere": {
+          "786c1d0a51": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "786c1d0a51": 1
+        }
+      }
+    },
+    {
+      "id": "G-123",
+      "gold": [
+        "6166d65f5a"
+      ],
+      "sous_questions": [
+        "What two authentication modes does this class support for connecting to Lakebase?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 89.4,
+        "unique_avec_traduction_rerank_ms": 695.5,
+        "unique_sans_traduction_recuperation_ms": 49.6,
+        "unique_sans_traduction_rerank_ms": 470.0,
+        "decomposition_recuperation_ms": 49.6,
+        "fusion_rerank_entiere_ms": 470.0,
+        "fusion_rerank_sous_questions_ms": 470.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6166d65f5a": 1
+        },
+        "unique_sans_traduction": {
+          "6166d65f5a": 1
+        },
+        "fusion_rerank_entiere": {
+          "6166d65f5a": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "6166d65f5a": 1
+        }
+      }
+    },
+    {
+      "id": "G-124",
+      "gold": [
+        "9497e2ec81"
+      ],
+      "sous_questions": [
+        "Quelles sont les limites de taille des requêtes ?",
+        "Quelles sont les limites de taille des réponses qui ne sont pas capturées dans les tables d'inférence ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 115.0,
+        "unique_avec_traduction_rerank_ms": 685.1,
+        "unique_sans_traduction_recuperation_ms": 57.1,
+        "unique_sans_traduction_rerank_ms": 1149.5,
+        "decomposition_recuperation_ms": 98.5,
+        "fusion_rerank_entiere_ms": 2467.7,
+        "fusion_rerank_sous_questions_ms": 3346.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "9497e2ec81": 1
+        },
+        "unique_sans_traduction": {
+          "9497e2ec81": 1
+        },
+        "fusion_rerank_entiere": {
+          "9497e2ec81": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "9497e2ec81": 1
+        }
+      }
+    },
+    {
+      "id": "G-125",
+      "gold": [
+        "58203d876d"
+      ],
+      "sous_questions": [
+        "What is the potential issue when the granularity setting for metrics aggregation is set too small for drift detection?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 109.9,
+        "unique_avec_traduction_rerank_ms": 1121.8,
+        "unique_sans_traduction_recuperation_ms": 53.6,
+        "unique_sans_traduction_rerank_ms": 657.9,
+        "decomposition_recuperation_ms": 53.6,
+        "fusion_rerank_entiere_ms": 657.9,
+        "fusion_rerank_sous_questions_ms": 657.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "58203d876d": 1
+        },
+        "unique_sans_traduction": {
+          "58203d876d": 1
+        },
+        "fusion_rerank_entiere": {
+          "58203d876d": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "58203d876d": 1
+        }
+      }
+    },
+    {
+      "id": "G-126",
+      "gold": [
+        "c5db0ee7f0"
+      ],
+      "sous_questions": [
+        "What requirements ensure the governance of a feature function during training and inference?",
+        "What requirements ensure the reusability of a feature function during training and inference?",
+        "What requirements ensure the accessibility of a feature function during training and inference?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 123.9,
+        "unique_avec_traduction_rerank_ms": 560.3,
+        "unique_sans_traduction_recuperation_ms": 52.0,
+        "unique_sans_traduction_rerank_ms": 704.3,
+        "decomposition_recuperation_ms": 255.4,
+        "fusion_rerank_entiere_ms": 625.9,
+        "fusion_rerank_sous_questions_ms": 4400.7
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150
+      },
+      "n_par_sous_question": [
+        50,
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c5db0ee7f0": 1
+        },
+        "unique_sans_traduction": {
+          "c5db0ee7f0": 1
+        },
+        "fusion_rerank_entiere": {
+          "c5db0ee7f0": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "c5db0ee7f0": 1
+        }
+      }
+    },
+    {
+      "id": "G-127",
+      "gold": [
+        "cfbbe99901"
+      ],
+      "sous_questions": [
+        "Quel est le problème de support des serveurs MLflow MCP concernant les traces stockées dans Unity Catalog ?"
+      ],
+      "nature": "une_seule",
+      "repli": true,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 102.6,
+        "unique_avec_traduction_rerank_ms": 587.4,
+        "unique_sans_traduction_recuperation_ms": 57.4,
+        "unique_sans_traduction_rerank_ms": 601.2,
+        "decomposition_recuperation_ms": 57.4,
+        "fusion_rerank_entiere_ms": 601.2,
+        "fusion_rerank_sous_questions_ms": 601.2
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50
+      },
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "cfbbe99901": 1
+        },
+        "unique_sans_traduction": {
+          "cfbbe99901": 1
+        },
+        "fusion_rerank_entiere": {
+          "cfbbe99901": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "cfbbe99901": 1
+        }
+      }
+    },
+    {
+      "id": "G-128",
+      "gold": [
+        "f19c6cb618"
+      ],
+      "sous_questions": [
+        "What is the typical sequence of technologies a single user request traverses in modern Generative AI systems?",
+        "What are the different technological stages involved in processing a user prompt in GenAI?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 146.7,
+        "unique_avec_traduction_rerank_ms": 540.8,
+        "unique_sans_traduction_recuperation_ms": 46.4,
+        "unique_sans_traduction_rerank_ms": 612.0,
+        "decomposition_recuperation_ms": 161.4,
+        "fusion_rerank_entiere_ms": 711.5,
+        "fusion_rerank_sous_questions_ms": 1322.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "f19c6cb618": 1
+        },
+        "unique_sans_traduction": {
+          "f19c6cb618": 1
+        },
+        "fusion_rerank_entiere": {
+          "f19c6cb618": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "f19c6cb618": 1
+        }
+      }
+    },
+    {
+      "id": "G-129",
+      "gold": [
+        "d59fa23f7b"
+      ],
+      "sous_questions": [
+        "What types of systems are included under the 'This category' description?",
+        "Which systems fall under the 'This category' description following the 'Limited risk' heading?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 264.5,
+        "unique_avec_traduction_rerank_ms": 904.3,
+        "unique_sans_traduction_recuperation_ms": 53.0,
+        "unique_sans_traduction_rerank_ms": 800.5,
+        "decomposition_recuperation_ms": 118.9,
+        "fusion_rerank_entiere_ms": 761.6,
+        "fusion_rerank_sous_questions_ms": 5408.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d59fa23f7b": 1
+        },
+        "unique_sans_traduction": {
+          "d59fa23f7b": 1
+        },
+        "fusion_rerank_entiere": {
+          "d59fa23f7b": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "d59fa23f7b": 1
+        }
+      }
+    },
+    {
+      "id": "G-130",
+      "gold": [
+        "ec7912c508"
+      ],
+      "sous_questions": [
+        "Quelles étapes sont nécessaires pour traiter les mouvements d'alias comme des actions de publication formelles ?",
+        "Comment traiter les mouvements d'alias comme des actions de publication formelles même si le code sous-jacent n'a pas changé ?"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 141.3,
+        "unique_avec_traduction_rerank_ms": 2261.0,
+        "unique_sans_traduction_recuperation_ms": 153.5,
+        "unique_sans_traduction_rerank_ms": 724.1,
+        "decomposition_recuperation_ms": 92.4,
+        "fusion_rerank_entiere_ms": 630.3,
+        "fusion_rerank_sous_questions_ms": 1283.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100
+      },
+      "n_par_sous_question": [
+        50,
+        50
+      ],
+      "n_fusionnes": 50,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ec7912c508": 1
+        },
+        "unique_sans_traduction": {
+          "ec7912c508": 1
+        },
+        "fusion_rerank_entiere": {
+          "ec7912c508": 1
+        },
+        "fusion_rerank_sous_questions": {
+          "ec7912c508": 1
+        }
+      }
+    }
+  ]
+}

@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1193 tests, aucune dépendance
+## Unitaire — 1224 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,44 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 24 septembre 2026 à 21:30 UTC par LOT-37 : **1193** tests sur **59** fichiers,
+> `mesuré` le 25 septembre 2026 à 03:53 UTC par LOT-38 : **1224** tests sur **60** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TRENTE-TROIS, ET `src/` N'EST PAS TOUCHÉ.**
+> **CE COMPTE MONTE DE TRENTE ET UN, ET `src/` N’EST PAS TOUCHÉ.**
+> *(LOT-37 relevait **1193** sur **59** fichiers le 24 septembre à 21:30 UTC ; les **31** de plus
+> sont **31** dans le fichier neuf `test_fusion_des_sous_questions.py`, et rien
+> d'autre. Ils gardent le banc qui mesure ce que rend une VRAIE fusion des
+> sous-requêtes, là où le §4.77 n'avait qu'un oracle d'affectation : que la
+> règle du « rien à décomposer » nomme ses **quatre** natures — `decomposee`,
+> `vide`, `une_seule`, `quasi_identique` — et qu'aucune ne soit fondue dans sa
+> voisine, une panne du producteur ne se lisant pas comme une question simple ;
+> que le seuil de quasi-identité soit exigé de **toutes** les sous-questions et
+> non d'une seule ; que la fusion fasse **remonter** le candidat que deux
+> sous-questions portent au-dessus de celui qu'une seule met en tête — un témoin
+> sur lequel une simple concaténation est rouge ; qu'elle reste bornée au `top_k`
+> de production, sans quoi le gain mêlerait la décomposition à un élargissement
+> de profondeur ; que le reranking par sous-question garde le **maximum** et non
+> la moyenne, un témoin opposant le passage précis sur un besoin au passage tiède
+> sur les deux ; que le seuil du haut accepte **10** et refuse **11** ; qu'une
+> question sans ancrage mesurable ne soit **pas** déclarée complète, `all({})`
+> étant vrai ; que la non-régression publie les questions perdues et gagnées par
+> leurs **identifiants** et non un solde net, le témoin étant construit pour
+> qu'un solde nul cache deux pertes ; et que le contrôle positif soit une
+> **intersection** — le témoin qui compte le plus fait ACCORDER les deux comptes
+> du §4.77 et DIVERGER un rang, cas sur lequel un contrôle par comptes seuls est
+> vert. Le REPLI est gardé lui aussi, et il est la moitié de la
+> non-régression : quand il n'y a rien à décomposer, les variantes recopient
+> la requête unique **sans** traduction — la base appariée — et **pas** celle
+> avec, sans quoi elles hériteraient d'un gain translingue que le §4.77
+> mesure à deux signes, et sans relancer ni la récupération ni le reranking,
+> ce qu'un compteur de paires assertit. Le prompt de décomposition est gardé
+> lui aussi : la question en **tête**,
+> pour que le cache de préfixe de `vllm-central` ne serve pas une latence, et
+> **aucune** mention du nombre de besoins, que l'oracle du §4.77 affirmait et
+> qu'un décomposeur réel ne connaît pas. Les mesures sont au §4.78 du registre.)*
+>
+> **LE RELEVÉ ANTÉRIEUR.**
 > *(LOT-36 relevait **1160** sur **58** fichiers le 24 septembre à 19:20 UTC ; les **33** de plus
 > sont **33** dans le fichier neuf `test_plafond_de_recuperation.py`, et rien
 > d'autre. Ils gardent le banc qui cherche POURQUOI 67 ancrages sur 120
@@ -45,7 +78,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > de `runs/`, **sans `skipif`** : un garde qui s'efface quand son fichier manque
 > ne garde rien. Les mesures sont au §4.77 du registre.)*
 >
-> **LE RELEVÉ ANTÉRIEUR.**
+> **LE RELEVÉ ENCORE ANTÉRIEUR.**
 > *(LOT-35 relevait **1128** sur **57** fichiers le 24 septembre à 16:35 UTC ; les **32** de plus
 > sont **32** dans le fichier neuf `test_jeu_ancrages_disperses.py`, et
 > rien d'autre. Ils gardent le jeu à ancrages multiples et dispersés et le banc

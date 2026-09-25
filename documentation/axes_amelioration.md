@@ -12325,3 +12325,368 @@ l'oracle `preuve` les y met **tous les 52**. Ce n'est pas une incapacité à
 scorer. Ce qu'il faudrait mesurer : ce que rendrait un reranking **par
 sous-question** plutôt que sur la question entière — ce qui est la même
 intervention que la question ouverte 1, vue du quatrième étage.
+
+### 4.78 → LOT-38 : la décomposition RÉELLE, et elle rend les deux tiers de sa borne pour une question simple perdue
+
+`mesuré` le **25 septembre 2026 de 03:26 à 04:15 UTC**, base `origin/main` =
+**`97bba20`**, dans un arbre de travail détaché monté par le protocole du §2.2.
+**`src/` n'est pas touché** — `git diff origin/main HEAD -- src/` rend vide — et
+**aucun réglage par défaut n'est changé** : les profondeurs de production
+passent par l'environnement du lancement, `FETCH_K=50`, `RETRIEVAL_TOP_K=50`,
+`RERANK_TOP_K=10`, et le banc **écrit dans son bilan** les valeurs que
+`settings.py` a réellement lues, `rrf_k` compris. Instrument neuf :
+`scripts/mesurer_fusion_sous_questions.py` (sha256 `b5721f95a9fd59b3…`), gardé
+par `tests/unit/test_fusion_des_sous_questions.py` (`f1d6e32730287c47…`).
+Recettes `make fusion-decomposition`, `fusion-disperse`, `fusion-reglage` et
+`fusion-controle`. Bilans versionnés :
+`runs/2026-09-25-fusion-{disperse,reglage,controle}.json`,
+`runs/2026-09-25-fusion-decomposition-{disperse,reglage,controle}.json` et les
+trois caches `runs/.decomposition-*.json`.
+
+**AUCUNE RÉPONSE N'EST GÉNÉRÉE PAR LA MESURE.** Le banc rejoue `retrieve`,
+`fuse` et `rerank` **tels quels**, et relève un RANG. Le modèle n'entre que dans
+la **fabrication** du cache de décompositions, qui est un producteur distinct,
+et le banc **exige** ce cache sans jamais le fabriquer.
+
+#### CE QUE CE LOT FERME, ET C'ÉTAIT LA RÉSERVE ÉCRITE DU §4.77
+
+Le §4.77 a publié un oracle de décomposition à **86 ancrages** et **28
+questions complètes sur 60**, et il a écrit sa propre réserve au site :
+*l'affectation sous-question → ancrage est prise au mieux des deux permutations,
+une décomposition réelle n'aurait pas ce choix, elle fusionnerait, et ce que
+cette fusion rendrait n'est pas mesuré*. **Ce lot mesure cette fusion.** Il ne
+propose aucun réglage, et il ne recommande pas d'implémenter la décomposition.
+
+#### LES QUATRE VARIANTES, ET POURQUOI IL EN FAUT QUATRE
+
+1. **`unique_avec_traduction`** — LA PRODUCTION, mot pour mot. C'est elle, et
+   elle seule, que le contrôle positif confronte à la référence.
+2. **`unique_sans_traduction`** — **LA BASE APPARIÉE**. Les sous-questions n'ont
+   pas de traduction en cache et le banc n'en fabrique pas ; comparer une fusion
+   sans traduction à une requête unique **avec** mêlerait deux changements en
+   un. Les deux lectures de la non-régression sont donc publiées, et elles
+   diffèrent.
+3. **`fusion_rerank_entiere`** — chaque sous-question passe par la récupération
+   de production, les classements sont fondus, le reranker score contre la
+   **question entière**.
+4. **`fusion_rerank_sous_questions`** — même fusion, le reranker score contre
+   **chaque sous-question** et chaque candidat garde son **meilleur** score.
+
+**LA FUSION EST `fuse` DE `src/`, ET CE N'EST PAS UNE COMMODITÉ.** `retrieve`
+fond déjà jusqu'à **quatre** classements par cette fonction — dense et lexical,
+pour la question et pour sa traduction — au même `settings.rrf_k` = **60**.
+Fondre les sous-requêtes autrement mesurerait une fusion que la production ne
+sait pas faire ; fondre par celle-ci mesure **le geste implémentable**, sans
+écrire une ligne dans `src/`. **Les poids sont égaux**, et c'est un choix
+déclaré : la production donne un poids moindre à la traduction parce qu'elle
+sait laquelle mérite moins de confiance, et ici rien ne le dit. La liste fondue
+est coupée au `retrieval_top_k` de production — **50 candidats, médiane 50** —
+sans quoi le gain mêlerait la décomposition à un élargissement de profondeur,
+que le §4.77 a justement mesuré à part.
+
+**LE RERANKING PAR SOUS-QUESTION GARDE LE MAXIMUM, ET NON LA MOYENNE.** Un
+passage qui répond parfaitement à **un** des deux besoins doit sortir : c'est la
+définition d'une question dispersée. Moyenner le punirait d'être précis, et le
+banc mesurerait une préférence pour les passages tièdes sur les deux besoins —
+exactement le défaut que la décomposition est censée réparer. Une scène oppose
+les deux lectures et une seule peut être verte.
+
+#### LA RÈGLE DU « RIEN À DÉCOMPOSER », ET ELLE EST ÉCRITE
+
+Le prompt **ne dit jamais combien de besoins la question porte** — c'est ce qui
+le sépare de l'oracle du §4.77, dont le prompt AFFIRMAIT qu'il y en avait deux.
+Un décomposeur réel ne le sait pas, et le lui dire couperait en deux toute
+question à besoin unique, rendant la non-régression illisible. Le maximum est
+**trois**. Quatre natures, et chacune a sa phrase parce qu'elles ne se lisent
+pas pareil :
+
+| nature | ce qu'elle dit | dispersé (60) | réglage (130) | contrôle (26) |
+|---|---|---|---|---|
+| `decomposee` | plusieurs besoins distincts | **56** | **60** | **21** |
+| `une_seule` | le modèle rend la question seule | **4** | **69** | **5** |
+| `quasi_identique` | plusieurs copies de la question | 0 | **1** | 0 |
+| `vide` | **panne du producteur** | **0** | **0** | **0** |
+
+Dans les trois derniers cas la variante **retombe exactement sur la requête
+unique sans traduction** — mêmes rangs, même coût — et le bilan le dit par
+`repli`. C'est le seul repli qu'un décomposeur réel pourrait tenir, et c'est ce
+qui rend la non-régression **mesurable** au lieu d'être supposée. Sur le jeu
+dispersé, les quatre questions en repli sont `D-011`, `D-027`, `D-035` et
+`D-054`, et **aucune** n'est complète sous aucune variante : le repli ne porte
+donc aucun des gains publiés plus bas.
+
+#### LE CONTRÔLE POSITIF, ET IL EST ANTÉRIEUR À TOUTE PUBLICATION
+
+Le banc **refuse de publier la moindre variante** si sa requête unique ne
+retrouve pas la base. Et le contrôle est une **INTERSECTION, pas un accord de
+comptes** — la leçon du §4.77 : deux bancs mesurant deux jeux peuvent rendre 53
+et 7 sans qu'un seul rang ne coïncide.
+
+- **53 ancrages** dans le top-10 du reranker et **7 questions complètes sur
+  60** : les deux chiffres du §4.77, **à l'unité**.
+- **Les 120 clés `(question, ancrage)` sont les mêmes**, et les **120 rangs sont
+  identiques UN À UN** à `runs/2026-09-24-recuperation-p50.json`. `120/120`,
+  **0 désaccord**.
+- `unique_sans_traduction` rend **57** ancrages et **6** questions : le second
+  couple du §4.77, lui aussi à l'unité.
+
+**ET CE CONTRÔLE A PASSÉ APRÈS UNE PURGE ET UNE RÉINGESTION COMPLÈTES**, ce qui
+n'était pas acquis. Le pipeline voisin a purgé puis réingéré **pendant ce lot**
+— le compte de chunks a été vu à **4127** à 03:48 UTC puis **4290** à 03:50 —
+et les 120 rangs sont revenus **identiques**. C'est la première fois que ce
+dépôt mesure que la réingestion reproduit le corpus **jusqu'à l'ordre du
+classement**, et non seulement jusqu'aux identifiants.
+
+#### LA MESURE : LE JEU DISPERSÉ, 60 QUESTIONS, 120 ANCRAGES
+
+| requête | ancrages au top-10 / 120 | **QUESTIONS complètes / 60** |
+|---|---|---|
+| requête unique **avec** traduction *(production)* | 53 | **7** |
+| requête unique **sans** traduction *(base appariée)* | 57 | **6** |
+| **fusion, reranking sur la question entière** | **60** | **8** |
+| **fusion, reranking par sous-question** | **72** | **19** |
+| *oracle `decomposition` du §4.77 (borne haute)* | *86* | *28* |
+
+**LE RERANKING EST L'ÉTAGE QUI DÉCIDE, ET L'ÉCART EST MASSIF.** La même liste
+fusionnée rend **8** questions quand le reranker score contre la question
+entière et **19** quand il score contre chaque sous-question : **+11 questions
+pour un changement qui ne touche ni la récupération ni la fusion**. La question
+ouverte 3 du §4.77 — *le reranker face à une question à deux besoins* — est donc
+répondue : ce n'est pas la fusion qui manquait, c'est **ce contre quoi le
+cross-encoder score**.
+
+**L'ÉCART AU PLAFOND DE L'ORACLE, EN QUESTIONS, ET IL EST DE NEUF.** La
+meilleure variante réelle rend **19** questions là où l'oracle du §4.77 en
+annonçait **28** : **−9 questions sur 60**, soit **68 %** de la borne. En
+ancrages : **72** contre **86**, **−14 sur 120**, soit **84 %** de la borne.
+**L'oracle d'affectation valait donc bien quelque chose, et ce quelque chose est
+chiffré.** Rapporté à la production, le gain réel est de **+12 questions**
+(7 → 19) et **+19 ancrages** (53 → 72), contre **+21** et **+33** pour la borne.
+
+**AU GRAIN DE L'ANCRAGE, ET LE SIGNE EST DOUBLE.** Contre la base appariée, la
+meilleure variante fait entrer **21** ancrages dans le top-10 et en fait sortir
+**6**. Le solde `+15` est vrai et il cache un mouvement deux fois plus grand.
+
+#### LA NON-RÉGRESSION, ET ELLE COMPTE AUTANT QUE LE GAIN
+
+Les deux jeux à besoin **unique** sont joués sous les **mêmes** variantes. Les
+questions perdues sont nommées **une par une** : un solde net les cacherait.
+
+| jeu | base appariée | reranking entière | reranking par sous-question | perdues |
+|---|---|---|---|---|
+| **réglage** (130 q, 130 ancrages) | **125** | **124** | **124** | `G-110` |
+| **contrôle** (26 q, 47 ancrages) | **14** | **14** | **14** | `q18` *(et `q05` gagnée)* |
+| **dispersé** (60 q, 120 ancrages) | **6** | **8** | **19** | `D-003` |
+
+**LA PERTE EST D'UNE QUESTION PAR JEU, ET ELLE EST NOMMÉE.**
+
+- Jeu de réglage : **`G-110`**, perdue par les **deux** variantes de fusion,
+  **0 gagnée**. 125 → **124**, soit **−1 sur 130**.
+- Jeu de contrôle : **`q18`** perdue, **`q05`** gagnée, par la seule variante
+  `fusion_rerank_sous_questions`. Le total ne bouge pas — **14 → 14** — et **ce
+  14 immobile cache deux mouvements**, ce que seules les listes nommées disent.
+  La variante `fusion_rerank_entiere` ne perd ni ne gagne rien sur ce jeu.
+- Jeu dispersé : **`D-003`** perdue par les deux variantes de fusion.
+
+**LA LECTURE CONTRE LA PRODUCTION EST PLUS SÉVÈRE, ET ELLE EST PUBLIÉE AUSSI.**
+Contre `unique_avec_traduction`, le jeu de réglage perd **trois** questions —
+`G-097`, `G-110`, `G-119` — dont **deux** ne sont pas imputables à la
+décomposition : `G-097` et `G-119` sont déjà perdues par la requête unique
+**sans** traduction, donc par le retrait de la recherche translingue. C'est
+précisément pourquoi la base appariée existe, et pourquoi les deux tableaux sont
+versionnés côte à côte.
+
+**LE BILAN EN QUESTIONS, SUR LES 216 QUESTIONS DES TROIS JEUX**, meilleure
+variante contre base appariée : **+14 dispersées, −1 dispersée, −1 de réglage,
++1 −1 de contrôle**. La décomposition gagne **13 questions nettes** et en perd
+**2** hors du jeu qu'elle vise. **Ce lot ne dit pas que c'est un bon échange** :
+il le chiffre.
+
+#### LES COÛTS, ET AUCUN N'ÉTAIT MESURÉ AVANT CE LOT
+
+**L'APPEL DE DÉCOMPOSITION**, `google/gemma-4-E4B-it-qat-w4a16-ct` servi par
+`vllm-central` sur le **8100** publié :
+
+| jeu | générations | médiane | p95 | min–max | jetons générés | médiane |
+|---|---|---|---|---|---|---|
+| dispersé | 60 | **1004 ms** | **1648 ms** | 623–1847 | **2799** | 43 |
+| réglage | 130 | **721 ms** | **1712 ms** | 382–3235 | **4696** | 30,5 |
+| contrôle | 26 | **686 ms** | **1541 ms** | 374–2097 | **972** | 35,5 |
+
+**`finish_reason: stop` sur les 216 générations, 0 panne, 0 décomposition
+vide.** Les prompts sont **distincts par construction** — 60, 130 et 26 prompts
+distincts pour 60, 130 et 26 questions.
+
+**LA LATENCE MESURÉE SUR UN PROMPT DÉJÀ SERVI EST FAUSSE, ET VOICI COMMENT ELLE
+EST ÉVITÉE.** `vllm-central` sert un préfixe commun depuis son cache de
+préfixe : une instruction placée **en tête** serait partagée par les soixante
+appels, dont le premier seul paierait l'encodage, et les cinquante-neuf suivants
+mesureraient un cache. **La question est donc en tête du prompt**, ce qui rend
+les préfixes distincts **dès le premier jeton** — un garde l'assertit en
+comparant deux prompts caractère par caractère. Un **appel de chauffe** sur un
+prompt qui n'est aucune question du jeu est joué d'abord et **exclu des
+statistiques** (374 à 458 ms selon la campagne). `thinking=False` passe par
+`chat_template_kwargs` **par requête** : rien n'est posé côté serveur.
+
+**LA RÉCUPÉRATION ET LE RERANKING, EN `cpu` ET C'EST DÉCLARÉ** — le conteneur
+servi est en `cuda`, et l'écart est tenu **délibérément identique** à celui des
+§4.76 et §4.77 pour que les chiffres se comparent. Un **passage de chauffe** par
+campagne, exclu lui aussi (4,6 à 5,9 s : c'est le chargement des deux modèles).
+
+| étage, jeu dispersé | médiane | p95 |
+|---|---|---|
+| récupération, requête unique avec traduction | 130 ms | 1631 ms |
+| récupération, requête unique sans traduction | **62 ms** | 809 ms |
+| récupération des sous-questions **+ fusion RRF** | **120 ms** | 1721 ms |
+| reranking sur la question entière | 828 ms | 3209 ms |
+| **reranking par sous-question** | **1519 ms** | **8483 ms** |
+
+**LE PRIX EST AU QUATRIÈME ÉTAGE, ET IL EST EN PAIRES SCORÉES.** La récupération
+des sous-questions ne coûte **rien** de plus que la requête unique de production
+— **120 ms contre 130 ms en médiane** —, la fusion RRF comprise : deux requêtes
+sans traduction valent une requête avec. Le reranking, lui, double :
+
+| jeu | paires scorées, requête unique | paires, reranking par sous-question | facteur |
+|---|---|---|---|
+| dispersé (60 q) | **3000** | **6100** | **×2,03** |
+| réglage (130 q) | **6500** | **10 400** | ×1,60 |
+| contrôle (26 q) | **1300** | **2500** | ×1,92 |
+
+Le facteur est **en dessous du nombre de sous-questions** parce que les
+questions en repli ne paient qu'une passe : c'est le jeu de réglage, avec ses
+**69** questions à besoin unique sur 130, qui le montre le mieux.
+
+#### L'ÉTAT DES STORES, RELEVÉ AUX DEUX BOUTS DE CHAQUE CAMPAGNE
+
+| campagne | début UTC | fin UTC | chunks | `/health` |
+|---|---|---|---|---|
+| dispersé | 03:54:39 | 04:01:46 | **4367 → 4367** | `ok`, quatre services `true` |
+| contrôle | 04:02:01 | 04:03:51 | **4367 → 4367** | `ok`, quatre services `true` |
+| réglage | 04:04:03 | 04:12:35 | **4367 → 4367** | `ok`, quatre services `true` |
+
+`code_servi` = **`97bba20`** sur les six relevés, **égal à `origin/main`**. Le
+relevé n'est pas une note, c'est un **refus** : une campagne qui verrait deux
+états écrit un bilan partiel et sort en **1**.
+
+**LES TROIS CONDITIONS DE CALENDRIER, ET L'UNE D'ELLES A ÉTÉ ROMPUE PUIS
+RÉTABLIE — C'EST ÉCRIT PARCE QUE ÇA S'EST PASSÉ.** À **03:26:58 UTC** les trois
+étaient vraies : `/health` rendait `chromadb` et `nebulagraph` à `true`, le
+compte valait **4367**, et `make verifier-les-ancrages` rendait `rc=0`,
+**0 désaccord**. À **03:43** `/health` est passé `degraded`, `chromadb: false` ;
+à **03:48** le compte valait **4127**, à **03:50** **4290** : le pipeline voisin
+purgeait et réingérait. **Aucune campagne de mesure n'a été lancée dans cette
+fenêtre** — seul le producteur de décompositions y a tourné, qui n'ouvre aucun
+store et n'appelle que le modèle. À **03:53:33** le compte était revenu à
+**4367** et les quatre services à `true` ; `make verifier-les-ancrages` a été
+**rejoué** et rend `rc=0`, **0 désaccord**, **130/130**, **44/44** et
+**109/109**. Les trois campagnes sont postérieures à ce second relevé.
+
+#### COMMENT CET INSTRUMENT A ÉTÉ PROUVÉ COMME INSTRUMENT
+
+**VINGT MUTATIONS DU PRODUCTEUR, VINGT ROUGES, ZÉRO SURVIVANTE, ZÉRO MUTATION
+VIDE.** Site relevé **par motif** et **unicité assertée avant d'écrire** — les
+vingt motifs rendent **exactement une** occurrence —, SHA-256 asserté **changé**
+à chaque fois, `py_compile` **vert** aux vingt, et fichier restauré
+**identique au SHA-256** (`b5721f95a9fd59b3…`). Chaque ligne porte **son compte
+de passés** — 30 ou 29 sur 31 — et non `0` : la leçon du §4.77, où `-q` s'ajoutait
+au `-q` des `addopts` et où `-qq` supprimait la ligne de résumé.
+
+La règle du repli : quasi-identité exigée d'**une seule** sous-question au lieu
+de toutes → 1 rouge ; une seule sous-question acceptée comme décomposition → 2 ;
+`jaccard` du vide déclaré identique → 1. La fusion : `fuse` remplacée par le
+premier classement → 1 ; fusion non bornée au `top_k` → 1. Le reranking : la
+moyenne au lieu du maximum → 1 ; une seule sous-question scorée → 1. Le seuil :
+`<` au lieu de `<=` → 1. Le dépouillement : `all` → `any` → 1 ; question sans
+ancrage déclarée complète → 1. La non-régression : les perdues réduites au solde
+→ 1 ; la base comparée à elle-même → 1. **Le contrôle positif, muté DANS SES
+TROIS TERMES** : aveugle aux rangs → 1, aveugle aux clés → 1, aveugle aux comptes
+→ 1. Le prompt : instruction remise en tête → 1 ; prompt affirmant deux besoins
+→ 1. Le cache : nom unique au lieu d'un nom par jeu → 1. Le repli : recopiant la
+requête **avec** traduction → 1 ; refacturant le reranker → 1.
+
+**LE CONTRÔLE POSITIF DU CONTRÔLE POSITIF EST ÉCRIT**, et sans lui les trois
+témoins de refus seraient verts sur un contrôle qui refuserait **tout** : une
+scène fait coïncider les rangs et les comptes et exige `accord: True`.
+
+**ET LE TÉMOIN QUI COMPTE LE PLUS FAIT ACCORDER LES COMPTES ET DIVERGER UN
+RANG** — deux ancrages dans le haut, une question complète, et pourtant un rang
+3 là où la référence dit 2. Un contrôle qui ne compare que des comptes y est
+**vert** ; celui-ci est rouge.
+
+**TÉMOIN INERTE** de treize lignes de commentaire dans
+`scripts/mesurer_fusion_sous_questions.py` → `rc_test(make)=0`, **1224** passés,
+le compte de la porte ; SHA-256 revenu à l'intact, **restauration confrontée**.
+
+**AUCUN `skip`, AUCUN `xfail`, AUCUN `skipif`** dans le fichier de gardes, et
+aucune règle de linter relâchée : `rc_lint(make)=0`, `rc_test(make)=0`.
+
+#### L'ENVIRONNEMENT, ET CE QUI LE SÉPARE DU CONTENEUR SERVI
+
+Arbre détaché monté par `git worktree add` (arbre vérifié présent), `.venv` du
+§2.2 — `uv venv --python 3.12`, torch **CPU**, les deux `requirements`,
+`.venv/bin` en tête du `PATH`, recettes en `--no-sync` —, **aucun `.env`** : il
+vit dans le clone principal et rien n'en a été recopié. Les stores sont joints
+par des adresses **découvertes** par `docker inspect` sur `rag_network`
+(`172.20.0.4:8000` pour ChromaDB, `172.20.0.12:9669` pour NebulaGraph, relevées
+à cette campagne et **non figées**), et le LLM sur le **8100** publié par
+`vllm-central` — jamais le 8080 de l'hôte, tenu par
+`data-analyst-agent-proxy-1`, étranger à ce projet. **Les poids des deux modèles
+ont été sortis du conteneur servi** par `docker cp` du volume `rag_hf_cache`,
+puis `HF_HUB_OFFLINE=1` : le cache HuggingFace du poste appartient à `root` et
+ne porte aucun des deux. Rien n'a été écrit dans les stores ni dans le
+conteneur, aucune réingestion n'a été déclenchée, `docker compose` n'a pas été
+appelé.
+
+#### CE QUE CETTE MESURE NE DIT PAS
+
+1. **AUCUNE RÉPONSE N'EST JUGÉE.** Un ancrage au top-10 n'est pas une bonne
+   réponse, et rien ici ne dit ce que le modèle fait du passage qui arrive.
+2. **LES VARIANTES N'ONT PAS DE TRADUCTION, ET LA PRODUCTION EN A UNE.** Les
+   sous-questions ne sont pas traduites et le banc n'en fabrique pas. Ce que
+   rendrait une décomposition **plus** une recherche translingue sur chaque
+   sous-question **n'est pas mesuré** — ce serait un second changement, et un
+   second lot. La base appariée existe pour que ce manque ne soit pas compté
+   comme un effet de la décomposition, et les deux lectures sont publiées.
+3. **LES SOUS-QUESTIONS SONT ÉCRITES PAR LE MODÈLE QUI A ÉCRIT LES QUESTIONS**,
+   sur un jeu dont il a écrit les questions **pour** leurs passages. La
+   circularité des §4.76 et §4.77 est encore là, d'un cran plus loin.
+4. **LE SEUIL DE QUASI-IDENTITÉ À 0,9 N'EST PAS MESURÉ, IL EST POSÉ.** Il n'a
+   mordu qu'**une fois sur 216 questions**, donc il ne porte presque rien de ce
+   qui est publié ; mais son réglage n'est justifié par aucune campagne.
+5. **LE MAXIMUM CONTRE LA MOYENNE EST ARGUMENTÉ, PAS MESURÉ.** La variante
+   « moyenne » n'a pas été jouée sur les stores : le banc la refuse par
+   construction, et un test l'épingle. Ce qu'elle rendrait est **inconnu**.
+6. **LE COÛT EST EN `cpu`.** Les latences de récupération et de reranking ne
+   sont pas celles du service, qui tourne en `cuda` ; seules les latences de
+   l'appel de décomposition sont mesurées sur le serveur **réellement en
+   production**. Le §4.47 donne l'ordre de grandeur GPU du reranking, 58 ms p50
+   pour 50 paires, et ce lot dit **combien de paires** la décomposition ajoute —
+   il ne dit pas ce qu'elles coûteraient sur GPU.
+7. **60 QUESTIONS NE TRANCHENT PAS UN RÉGLAGE**, et 130 non relues ne valent pas
+   mieux. `reviewed: false` sur les trois jeux.
+8. **CE JEU DÉCRIT L'ÉTAT DES STORES DU 25 SEPTEMBRE 2026, 4367 chunks**, après
+   la réingestion du pipeline.
+
+**LA QUESTION OUVERTE 1 DU §4.77 EST FERMÉE EN CHIFFRES, ET ELLE N'EST PAS
+TRANCHÉE EN DÉCISION.** Une fusion réelle rend **19 questions sur 60** là où la
+borne en annonçait 28 et la production 7, pour **+1 appel LLM de médiane
+1004 ms**, **0 ms de récupération supplémentaire** et **×2 de paires scorées par
+le reranker** — et elle coûte **une question sur le jeu de réglage** et **un
+échange nul sur le jeu de contrôle**. **Ce lot ne propose pas de l'implémenter.**
+
+**QUESTION OUVERTE A — LE RERANKING PAR SOUS-QUESTION EST LE LEVIER, ET IL EST
+SÉPARABLE.** +11 questions sur 60 par rapport au reranking sur la question
+entière, **à liste fusionnée identique**. Rien n'oblige à décomposer pour
+rescorer : ce qu'un reranking par sous-question rendrait **sans** fusionner,
+c'est-à-dire sur la liste de production, **n'est pas mesuré**.
+
+**QUESTION OUVERTE B — LES 9 QUESTIONS D'ÉCART À LA BORNE.** L'oracle en met 28,
+la fusion réelle 19. Savoir si les 9 se perdent à la fusion (l'ancrage n'entre
+pas dans les 50 fondus) ou au reranking (il y entre et n'en ressort pas)
+demanderait de relever le rang **de fusion** ancrage par ancrage sous les
+variantes, ce que ce banc versionne pour la seule variante de production.
+
+**QUESTION OUVERTE C — `G-110`, `q18` ET `D-003`, LES TROIS PERDUES.** Aucune
+n'est diagnostiquée. Ce sont trois questions, pas trois catégories, et les
+compter sans les lire serait la même faute que le §4.67 a commise sur `G-112` et
+`G-121`, dont le **marqueur** était perdu et non la question.

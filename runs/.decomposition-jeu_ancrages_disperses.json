@@ -1,0 +1,244 @@
+{
+  "D-001": [
+    "What strategies can be used to introduce new, potentially superior AI models into a live production environment?",
+    "How can the stability of an existing production system be maintained while testing new AI models?",
+    "What methods ensure that the deployment of new AI models does not compromise system stability?"
+  ],
+  "D-002": [
+    "How can custom validation logic implemented at the AI Gateway level be utilized?",
+    "How can advanced agent capabilities be leveraged to enhance complex application workflows?",
+    "What is the synergy between custom AI Gateway validation and advanced agent capabilities for complex workflows?"
+  ],
+  "D-003": [
+    "What type of professional is tasked with deploying functional GenAI applications?",
+    "For what professional would integrating a specialized agent, such as one designed to suggest alternative flight dates, be beneficial?"
+  ],
+  "D-004": [
+    "What methods are recommended for gathering feedback from end-users in a live environment?",
+    "How can gathered end-user feedback examples be organized for consistent testing?"
+  ],
+  "D-005": [
+    "What capabilities allow modern large language models to handle both text and images from a single PDF?",
+    "Which specific tool is recommended for retrieving semantically similar document chunks based on meaning?"
+  ],
+  "D-006": [
+    "What is the maximum model size allowed for Databricks serverless optimized deployments?",
+    "How does the maximum model size for Databricks serverless optimized deployments compare to the size limit when environment packaging is not employed?",
+    "Does the method of handling agent initialization and configuration via a specific YAML file affect the maximum model size limit for Databricks serverless optimized deployments?"
+  ],
+  "D-007": [
+    "What is the specific limitation regarding the maximum model size when utilizing the serverless optimized deployment feature?",
+    "What practice is recommended to ensure that the exact development conditions can be recreated for reproducibility?"
+  ],
+  "D-008": [
+    "What is the necessary prerequisite step for creating a tool-calling agent for Unity Airways FAQs?",
+    "What common serialization issue arises when dealing with LangChain agents?"
+  ],
+  "D-009": [
+    "What mechanism allows a system to document the reasoning behind a generated response?",
+    "What broader industry standard necessitates detailed tracking of reasoning for model reliability?"
+  ],
+  "D-010": [
+    "What is the standard procedure for preparing a high-performing model for future deployment?",
+    "What specific use case benefits from pre-calculating and storing predictions in a database?"
+  ],
+  "D-011": [
+    "What specific capability of MLflow Tracing allows developers to see how sensitive data is handled during the execution of a complete Retrieval-Augmented Generation (RAG) pipeline?"
+  ],
+  "D-012": [
+    "How can insights from tracing application behavior be used to improve intent categorization in a visualization tool?",
+    "What are the specific applications of application behavior tracing data when developing intent categorization visualizations?",
+    "How does tracing application behavior inform the design of a visualization tool for intent categorization?"
+  ],
+  "D-013": [
+    "How does the Photon engine affect the process of visualizing question intent categorization?",
+    "What is the role of the Photon engine in visualizing question intent categorization when using a specific dataset?"
+  ],
+  "D-014": [
+    "What authentication steps are required when setting up a compute environment for a single-node configuration?",
+    "How should authentication be handled for non-distributed Python tasks during compute environment setup?"
+  ],
+  "D-015": [
+    "How is foundation model usage attributed to a specific project when using external or dedicated serving endpoints?",
+    "What specific identifiers are tracked for monitoring purposes to facilitate the attribution of foundation model usage to a specific project?"
+  ],
+  "D-016": [
+    "What kind of necessary coordination is required between different technical roles when deploying Lakeflow jobs without Declarative Automation Bundles to ensure reliable system operation?",
+    "What specific configuration file might be needed if a Python script is being executed when deploying Lakeflow jobs without Declarative Automation Bundles?"
+  ],
+  "D-017": [
+    "What security risks are addressed by preventing data leakage in applications using specialized data storage systems?",
+    "What security risks are addressed by preventing parameter leakage in applications using specialized data storage systems?"
+  ],
+  "D-018": [
+    "How can model deployment stability be managed in Databricks?",
+    "How can the identity executing downstream operations when using agents deployed with Databricks be properly controlled?"
+  ],
+  "D-019": [
+    "What is the recommended practice for defining a tool's utility?",
+    "How does defining a tool's utility relate to improving user interaction with an agent?"
+  ],
+  "D-020": [
+    "What is the primary reason for shifting the capacity measurement from requests per second to a token-based metric?",
+    "What role do human evaluators play in ensuring the system meets real-world business needs?"
+  ],
+  "D-021": [
+    "How does making small, reversible changes help manage the complexities introduced by larger models?",
+    "What is the benefit of using small, reversible changes when integrating additional tools with larger models?"
+  ],
+  "D-022": [
+    "What is the nature of the application deployment process?",
+    "What specific integration capability does LangChain offer for application development?"
+  ],
+  "D-023": [
+    "What characteristic of the MLflow span object allows it to be easily integrated with OpenTelemetry standards?",
+    "What specific type of measurement does the Total Variation Distance provide regarding distribution differences?"
+  ],
+  "D-024": [
+    "What specific components, beyond application metadata, must be bundled with an application for ensuring reproducibility in complex AI systems?",
+    "What are the necessary components to bundle with an AI application to ensure reproducibility, considering integrated parts?"
+  ],
+  "D-025": [
+    "How does the choice of metric aggregation granularity affect the detection of meaningful changes in data distribution?",
+    "How does the choice of metric aggregation granularity affect the detection of meaningful changes in model performance?",
+    "How does metric aggregation granularity impact the assessment of broader system reliability?"
+  ],
+  "D-026": [
+    "What challenge arises when the retrieved context is incomplete?",
+    "What specific aspects of the Proof of Concept evaluation need to address the issue of incomplete retrieved context?"
+  ],
+  "D-027": [
+    "How does the flexibility of feature retrieval in a complex model serving scenario relate to maintaining high response accuracy in AI applications?"
+  ],
+  "D-028": [
+    "What specific actions must be taken regarding infrastructure configuration when implementing a continuous deployment pipeline using AWS for Databricks?",
+    "What foundational knowledge is necessary to manage ML workflows in a production setting?"
+  ],
+  "D-029": [
+    "What are the limitations of standard visualization tools when analyzing trace data?",
+    "How can human-provided feedback be integrated into trace data managed by a serving endpoint?",
+    "What methods can mitigate the limitations of standard visualization tools when incorporating human feedback into trace data?"
+  ],
+  "D-030": [
+    "What approach is advised for managing package dependencies when developing reusable software components?",
+    "What specific configuration files must be evaluated for authentication when running commands from a bundle working directory?"
+  ],
+  "D-031": [
+    "What is the recommended modern method for model registration within the Databricks environment?",
+    "How does model registration within Databricks relate to the functional role of certain platform elements?"
+  ],
+  "D-032": [
+    "What specific documentation requirements must be met during the data structuring phase to ensure a technically sound transition to production?",
+    "What documentation is required during the data structuring phase to ensure compliance with governance standards during a system transition to production?"
+  ],
+  "D-033": [
+    "What specific functional aspect of agent capabilities can be enhanced by integrating them as tools within complex applications?",
+    "What is the primary purpose of the book regarding the overall understanding of Databricks components?"
+  ],
+  "D-034": [
+    "What is the current challenge regarding the lack of a universal execution environment for agents?",
+    "How does the lack of a universal execution environment for agents relate to the specific responsibilities of MLflow within the Databricks ecosystem?"
+  ],
+  "D-035": [
+    "How does tailoring agent interactions to specific user needs relate to the limitations of current coding assistants?"
+  ],
+  "D-036": [
+    "What specific configuration steps are necessary when setting up a SQL warehouse for a Genie agent?",
+    "What is a related challenge in managing prompt behavior in MLflow?"
+  ],
+  "D-037": [
+    "What specific capabilities of the MLflow UI are available when viewing an evaluation run generated by a model designed for RAG and agent systems?",
+    "How does the MLflow UI handle traces containing multiple types of assessments within a RAG/agent model evaluation run?"
+  ],
+  "D-038": [
+    "What specific components are necessary for an evaluation process to function?",
+    "How do the capabilities of a system that manages and tracks datasets influence the necessary components of an evaluation process?"
+  ],
+  "D-039": [
+    "What is a common pitfall in development that can lead to impractical solutions?",
+    "What percentage of ML projects currently lack the necessary oversight to identify such issues?"
+  ],
+  "D-040": [
+    "What specific capabilities does MLflow offer for managing AI agents?",
+    "What kind of metrics can be observed when evaluating the performance of AI agents using MLflow?"
+  ],
+  "D-041": [
+    "What critical business need drives the requirement for automated evaluation processes when moving an LLM from development to a live environment?",
+    "How does a Retrieval-Augmented Generation (RAG) system specifically contribute to meeting this need in a sales context?"
+  ],
+  "D-042": [
+    "How is the concept of a 'model' defined when building a GenAI application using MLflow for structured model iteration?",
+    "What specific components might be involved in the operation of a 'model' within the context of MLflow for GenAI applications?"
+  ],
+  "D-043": [
+    "What specific components, like models or parameters, can be found within the artifacts section of an MLflow run?",
+    "How does MLflow facilitate the development process for GenAI applications?"
+  ],
+  "D-044": [
+    "What happens to a Retrieval-Augmented Generation system when the necessary documentation for a specific product is missing?",
+    "How can one view the aggregated performance data for a machine learning experiment?"
+  ],
+  "D-045": [
+    "What is the operational scope and resource requirement of a unit test?",
+    "How does integrating MLflow within the Databricks platform provide governance capabilities?"
+  ],
+  "D-046": [
+    "What aspect of the model's interaction with consumers requires validation via end-to-end tests?",
+    "Why is end-to-end testing crucial for ensuring the overall system functions correctly when data engineers build reliable data products?"
+  ],
+  "D-047": [
+    "What is the trade-off between using high-level Fluent APIs versus low-level MLflow Client APIs when manually instrumenting tracings?",
+    "What specific limitation exists when querying traces instrumented using these APIs?"
+  ],
+  "D-048": [
+    "What is the primary benefit of using the same machine learning scorers in both development and production environments?",
+    "How does using the same machine learning scorers in both development and production relate to the function of certain platform elements?"
+  ],
+  "D-049": [
+    "What must be done regarding alerts when setting up monitoring for AI agents?",
+    "How does the requirement for alerts in AI agent monitoring relate to the nature of the application's deployment?"
+  ],
+  "D-050": [
+    "What is the consequence of a misalignment between two identical identifiers when they are present in different files?",
+    "What formatting convention is used to denote program elements like variable names within paragraphs?"
+  ],
+  "D-051": [
+    "What is the recommended modern approach for managing model features?",
+    "What specific type of checks are guardrails designed to perform within the operational flow?"
+  ],
+  "D-052": [
+    "What is the physical location of O'Reilly Media, Inc.?",
+    "What specific topic within the book is dedicated to demonstrating how established principles apply to modern AI systems?"
+  ],
+  "D-053": [
+    "What is the primary challenge when moving a successful challenger agent into a live production environment?",
+    "What specific technical issue arises when various components of a GenAI application do not communicate uniformly?"
+  ],
+  "D-054": [
+    "What is the effect on the system's state after a specific agent, integrated as a tool, finishes its function?"
+  ],
+  "D-055": [
+    "What two related practices should be considered when selecting prompts for a minimal, frequently runnable dataset for evaluation?",
+    "What two related practices should be considered regarding the definition of scoring mechanisms when creating a minimal, frequently runnable dataset for evaluation?"
+  ],
+  "D-056": [
+    "What critical aspect of system reliability is often overlooked during the development phase?",
+    "How does the introduction of structured, repeatable procedures address the overlooked aspect of system reliability?"
+  ],
+  "D-057": [
+    "What specific components are recorded for each input instance when performing evaluation for stateless tasks like summarization?",
+    "What is the recommended evaluation approach for stateless tasks like summarization?"
+  ],
+  "D-058": [
+    "What is the recommended method for managing parameters when implementing a tool-calling agent?",
+    "What specific scenario is the 'answer sheet' mode designed for in AI application assessment?"
+  ],
+  "D-059": [
+    "What mechanism is recommended for managing database connections in a production agent system to avoid performance bottlenecks when handling multiple simultaneous requests?",
+    "What prerequisite must be established before deploying a production agent system that uses a recommended database connection management mechanism?"
+  ],
+  "D-060": [
+    "How does human judgment contribute to refining the analysis of execution paths for performance errors?",
+    "How does human judgment contribute to refining the analysis of execution paths for logical errors?"
+  ]
+}
