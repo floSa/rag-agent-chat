@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1160 tests, aucune dépendance
+## Unitaire — 1193 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,32 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 24 septembre 2026 à 19:20 UTC par LOT-36 : **1160** tests sur **58** fichiers,
+> `mesuré` le 24 septembre 2026 à 21:30 UTC par LOT-37 : **1193** tests sur **59** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TRENTE-DEUX, ET `src/` N'EST PAS TOUCHÉ.**
+> **CE COMPTE MONTE DE TRENTE-TROIS, ET `src/` N'EST PAS TOUCHÉ.**
+> *(LOT-36 relevait **1160** sur **58** fichiers le 24 septembre à 19:20 UTC ; les **33** de plus
+> sont **33** dans le fichier neuf `test_plafond_de_recuperation.py`, et rien
+> d'autre. Ils gardent le banc qui cherche POURQUOI 67 ancrages sur 120
+> n'atteignent pas le top-10 du reranker : que **chacune** des huit causes ait
+> un témoin que le classeur sait rendre — sans quoi une cause comptée à `0` ne
+> dirait pas si elle est absente ou si le détecteur est aveugle —, que l'arbre
+> soit EXCLUSIF dans l'ordre où il est écrit, que « dans le haut du classement »
+> reste **le top-10 aux trois profondeurs** et ne devienne pas « rendu par la
+> liste » quand `RERANK_TOP_K` vaut 1000 — la faute a été commise et ce test
+> l'attrape —, que la ligne « non expliqué » existe et attrape l'oracle qu'on
+> n'a pas joué, que la requête oracle soit la `preuve` et **pas** le titre de
+> section, qui vient du graphe et non du chunk, que l'affectation des
+> sous-questions retienne la meilleure des deux permutations **et** départage à
+> égalité, que deux comptes de chunks différents ou un service rouge soient un
+> **refus** et non une note, et que le contrôle positif du §4.76 refuse une
+> autre **profondeur** avant de comparer trois comptes qui porteraient alors le
+> même nom et un autre sens. Les deux derniers relisent les bilans versionnés
+> de `runs/`, **sans `skipif`** : un garde qui s'efface quand son fichier manque
+> ne garde rien. Les mesures sont au §4.77 du registre.)*
+>
+> **LE RELEVÉ ANTÉRIEUR.**
 > *(LOT-35 relevait **1128** sur **57** fichiers le 24 septembre à 16:35 UTC ; les **32** de plus
 > sont **32** dans le fichier neuf `test_jeu_ancrages_disperses.py`, et
 > rien d'autre. Ils gardent le jeu à ancrages multiples et dispersés et le banc

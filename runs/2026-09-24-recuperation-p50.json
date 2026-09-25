@@ -1,0 +1,1605 @@
+{
+  "etape": "profondeurs",
+  "profondeurs": {
+    "fetch_k": 50,
+    "retrieval_top_k": 50,
+    "rerank_top_k": 10,
+    "hybrid_search": true,
+    "torch_device": "cpu"
+  },
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-24T20:15:51+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-24T20:17:50+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "13acdb19f9743162bc5774f67227e7a4f293cc63"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "lignes": [
+    {
+      "id": "D-001",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "6e460fc900",
+        "f3bc57cfd2"
+      ],
+      "rangs": {
+        "6e460fc900": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f3bc57cfd2": {
+          "dense": null,
+          "lexical": 6,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-002",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "0f4741eda9",
+        "ad7852e761"
+      ],
+      "rangs": {
+        "0f4741eda9": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 12,
+          "rerank": 1
+        },
+        "ad7852e761": {
+          "dense": null,
+          "lexical": 49,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-003",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "f653d1f934",
+        "54ec58051b"
+      ],
+      "rangs": {
+        "f653d1f934": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "54ec58051b": {
+          "dense": 31,
+          "lexical": 28,
+          "fusion": 37,
+          "rerank": 6
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-004",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "749abf1dde",
+        "80c7ee54db"
+      ],
+      "rangs": {
+        "749abf1dde": {
+          "dense": 31,
+          "lexical": 1,
+          "fusion": 5,
+          "rerank": 4
+        },
+        "80c7ee54db": {
+          "dense": 12,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-005",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "e8ffbae08d",
+        "6af75f2503"
+      ],
+      "rangs": {
+        "e8ffbae08d": {
+          "dense": 19,
+          "lexical": 1,
+          "fusion": 3,
+          "rerank": 4
+        },
+        "6af75f2503": {
+          "dense": 8,
+          "lexical": 6,
+          "fusion": 5,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-006",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "9279ceed24",
+        "932d79806d"
+      ],
+      "rangs": {
+        "9279ceed24": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-007",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "932d79806d",
+        "1e2a87fc78"
+      ],
+      "rangs": {
+        "932d79806d": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "1e2a87fc78": {
+          "dense": null,
+          "lexical": 2,
+          "fusion": 15,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-008",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "6e431fec81",
+        "72853b7eed"
+      ],
+      "rangs": {
+        "6e431fec81": {
+          "dense": 13,
+          "lexical": 1,
+          "fusion": 8,
+          "rerank": 1
+        },
+        "72853b7eed": {
+          "dense": null,
+          "lexical": 46,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-009",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "536d459c09",
+        "9112c67fa0"
+      ],
+      "rangs": {
+        "536d459c09": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9112c67fa0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-010",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "61e84a5266",
+        "ed1a2abcaa"
+      ],
+      "rangs": {
+        "61e84a5266": {
+          "dense": 6,
+          "lexical": 4,
+          "fusion": 2,
+          "rerank": 2
+        },
+        "ed1a2abcaa": {
+          "dense": 47,
+          "lexical": 3,
+          "fusion": 8,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-011",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "dfb078e932",
+        "c6d376218b"
+      ],
+      "rangs": {
+        "dfb078e932": {
+          "dense": 17,
+          "lexical": null,
+          "fusion": 25,
+          "rerank": 9
+        },
+        "c6d376218b": {
+          "dense": null,
+          "lexical": 8,
+          "fusion": 19,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-012",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "c66abf9bb9",
+        "4e5d60c770"
+      ],
+      "rangs": {
+        "c66abf9bb9": {
+          "dense": null,
+          "lexical": 29,
+          "fusion": null,
+          "rerank": null
+        },
+        "4e5d60c770": {
+          "dense": 18,
+          "lexical": 2,
+          "fusion": 9,
+          "rerank": 2
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-013",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "4e5d60c770",
+        "3b8a048acb"
+      ],
+      "rangs": {
+        "4e5d60c770": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 6,
+          "rerank": 1
+        },
+        "3b8a048acb": {
+          "dense": 5,
+          "lexical": 3,
+          "fusion": 1,
+          "rerank": 3
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-014",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "e653eb481c",
+        "c06829515c"
+      ],
+      "rangs": {
+        "e653eb481c": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 36,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 39,
+          "rerank": 3
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-015",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "d2f7b67beb",
+        "f0f9cb7af9"
+      ],
+      "rangs": {
+        "d2f7b67beb": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f0f9cb7af9": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-016",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "a8caa27e46",
+        "175ce6903d"
+      ],
+      "rangs": {
+        "a8caa27e46": {
+          "dense": null,
+          "lexical": 30,
+          "fusion": null,
+          "rerank": null
+        },
+        "175ce6903d": {
+          "dense": 1,
+          "lexical": 4,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-017",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "84aac199a3",
+        "343cfcd5c1"
+      ],
+      "rangs": {
+        "84aac199a3": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "343cfcd5c1": {
+          "dense": 35,
+          "lexical": 13,
+          "fusion": 9,
+          "rerank": 2
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-018",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "cefb8ed19b",
+        "bae642fe8e"
+      ],
+      "rangs": {
+        "cefb8ed19b": {
+          "dense": 38,
+          "lexical": 2,
+          "fusion": 1,
+          "rerank": 3
+        },
+        "bae642fe8e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-019",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "c52db7bfaf",
+        "684bcfccd0"
+      ],
+      "rangs": {
+        "c52db7bfaf": {
+          "dense": null,
+          "lexical": 19,
+          "fusion": null,
+          "rerank": null
+        },
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": 15,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-020",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "1a9bc53bde",
+        "4b959587f0"
+      ],
+      "rangs": {
+        "1a9bc53bde": {
+          "dense": 4,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "4b959587f0": {
+          "dense": 25,
+          "lexical": 2,
+          "fusion": 5,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-021",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "7453eeb62b",
+        "18087fe034"
+      ],
+      "rangs": {
+        "7453eeb62b": {
+          "dense": 30,
+          "lexical": null,
+          "fusion": 27,
+          "rerank": 4
+        },
+        "18087fe034": {
+          "dense": null,
+          "lexical": 28,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-022",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "e6440165bb",
+        "613070ecd8"
+      ],
+      "rangs": {
+        "e6440165bb": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "613070ecd8": {
+          "dense": 2,
+          "lexical": 21,
+          "fusion": 4,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-023",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "e576f2c83b",
+        "dcb37d50b8"
+      ],
+      "rangs": {
+        "e576f2c83b": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "dcb37d50b8": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": 9,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-024",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "6a0db29f36",
+        "bef3e20e36"
+      ],
+      "rangs": {
+        "6a0db29f36": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "bef3e20e36": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-025",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "b927ff5d4d",
+        "58203d876d"
+      ],
+      "rangs": {
+        "b927ff5d4d": {
+          "dense": 34,
+          "lexical": null,
+          "fusion": 28,
+          "rerank": null
+        },
+        "58203d876d": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-026",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "0f66b973ed",
+        "28c4bafad0"
+      ],
+      "rangs": {
+        "0f66b973ed": {
+          "dense": null,
+          "lexical": 34,
+          "fusion": null,
+          "rerank": null
+        },
+        "28c4bafad0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-027",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "a0d2c369cc",
+        "b4b0461854"
+      ],
+      "rangs": {
+        "a0d2c369cc": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "b4b0461854": {
+          "dense": 8,
+          "lexical": 3,
+          "fusion": 7,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-028",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "a9748a6b45",
+        "149721fd2e"
+      ],
+      "rangs": {
+        "a9748a6b45": {
+          "dense": 39,
+          "lexical": null,
+          "fusion": 37,
+          "rerank": null
+        },
+        "149721fd2e": {
+          "dense": 5,
+          "lexical": null,
+          "fusion": 8,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-029",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "633d13730b",
+        "db98d74f05"
+      ],
+      "rangs": {
+        "633d13730b": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "db98d74f05": {
+          "dense": 4,
+          "lexical": 48,
+          "fusion": 5,
+          "rerank": 3
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-030",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "0023419387",
+        "c06829515c"
+      ],
+      "rangs": {
+        "0023419387": {
+          "dense": 2,
+          "lexical": 8,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c06829515c": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 9,
+          "rerank": 10
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-031",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "a2357ed171",
+        "cdf017ab37"
+      ],
+      "rangs": {
+        "a2357ed171": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "cdf017ab37": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-032",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "c43739d3d0",
+        "5ede2adb49"
+      ],
+      "rangs": {
+        "c43739d3d0": {
+          "dense": 37,
+          "lexical": 26,
+          "fusion": 38,
+          "rerank": 3
+        },
+        "5ede2adb49": {
+          "dense": 1,
+          "lexical": 18,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-033",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "e4d37ffbb9",
+        "ad7852e761"
+      ],
+      "rangs": {
+        "e4d37ffbb9": {
+          "dense": 49,
+          "lexical": null,
+          "fusion": 32,
+          "rerank": null
+        },
+        "ad7852e761": {
+          "dense": 2,
+          "lexical": 13,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-034",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "d038dc7350",
+        "f2c2c70bb4"
+      ],
+      "rangs": {
+        "d038dc7350": {
+          "dense": 6,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 2
+        },
+        "f2c2c70bb4": {
+          "dense": 50,
+          "lexical": null,
+          "fusion": 7,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-035",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "684bcfccd0",
+        "9bbfa011a5"
+      ],
+      "rangs": {
+        "684bcfccd0": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9bbfa011a5": {
+          "dense": null,
+          "lexical": 10,
+          "fusion": 3,
+          "rerank": 2
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-036",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "384cc03027",
+        "ef5b8bee12"
+      ],
+      "rangs": {
+        "384cc03027": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "ef5b8bee12": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-037",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "32604c8f24",
+        "cb237ecf93"
+      ],
+      "rangs": {
+        "32604c8f24": {
+          "dense": 29,
+          "lexical": 2,
+          "fusion": 21,
+          "rerank": 3
+        },
+        "cb237ecf93": {
+          "dense": null,
+          "lexical": 7,
+          "fusion": 26,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-038",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "e2b3d4f293",
+        "87c2d10179"
+      ],
+      "rangs": {
+        "e2b3d4f293": {
+          "dense": 34,
+          "lexical": null,
+          "fusion": 37,
+          "rerank": null
+        },
+        "87c2d10179": {
+          "dense": null,
+          "lexical": 13,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-039",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "dfaa35986e",
+        "f6f5f4fedc"
+      ],
+      "rangs": {
+        "dfaa35986e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "f6f5f4fedc": {
+          "dense": 23,
+          "lexical": null,
+          "fusion": 16,
+          "rerank": 3
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-040",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "857a947021",
+        "d3ad1729f6"
+      ],
+      "rangs": {
+        "857a947021": {
+          "dense": 45,
+          "lexical": 31,
+          "fusion": 8,
+          "rerank": null
+        },
+        "d3ad1729f6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-041",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "9889dcd22c",
+        "4bfc8482d4"
+      ],
+      "rangs": {
+        "9889dcd22c": {
+          "dense": 6,
+          "lexical": null,
+          "fusion": 19,
+          "rerank": 3
+        },
+        "4bfc8482d4": {
+          "dense": null,
+          "lexical": 3,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-042",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "4952d540d6",
+        "43406c2554"
+      ],
+      "rangs": {
+        "4952d540d6": {
+          "dense": 9,
+          "lexical": null,
+          "fusion": 23,
+          "rerank": 1
+        },
+        "43406c2554": {
+          "dense": 40,
+          "lexical": 22,
+          "fusion": 2,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-043",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "4952d540d6",
+        "d548a9c3a8"
+      ],
+      "rangs": {
+        "4952d540d6": {
+          "dense": 33,
+          "lexical": null,
+          "fusion": 41,
+          "rerank": null
+        },
+        "d548a9c3a8": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-044",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "4d3c5e0aa4",
+        "d4e6bb871e"
+      ],
+      "rangs": {
+        "4d3c5e0aa4": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "d4e6bb871e": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-045",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "f114828c3f",
+        "110fb64e55"
+      ],
+      "rangs": {
+        "f114828c3f": {
+          "dense": 2,
+          "lexical": 9,
+          "fusion": 2,
+          "rerank": 1
+        },
+        "110fb64e55": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-046",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "2c5e2f5e88",
+        "e8818a13ba"
+      ],
+      "rangs": {
+        "2c5e2f5e88": {
+          "dense": null,
+          "lexical": 29,
+          "fusion": 15,
+          "rerank": null
+        },
+        "e8818a13ba": {
+          "dense": 37,
+          "lexical": 1,
+          "fusion": 22,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-047",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "694407ab24",
+        "c666c63be7"
+      ],
+      "rangs": {
+        "694407ab24": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "c666c63be7": {
+          "dense": 22,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-048",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "e4b8502ac1",
+        "cdf017ab37"
+      ],
+      "rangs": {
+        "e4b8502ac1": {
+          "dense": 2,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        },
+        "cdf017ab37": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-049",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "c68d9c51b3",
+        "4bdb649899"
+      ],
+      "rangs": {
+        "c68d9c51b3": {
+          "dense": 40,
+          "lexical": null,
+          "fusion": 50,
+          "rerank": null
+        },
+        "4bdb649899": {
+          "dense": 1,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-050",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "8987d38458",
+        "5b143bd4f5"
+      ],
+      "rangs": {
+        "8987d38458": {
+          "dense": null,
+          "lexical": 47,
+          "fusion": null,
+          "rerank": null
+        },
+        "5b143bd4f5": {
+          "dense": 3,
+          "lexical": 1,
+          "fusion": 1,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-051",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "2ba2785617",
+        "72e888aff6"
+      ],
+      "rangs": {
+        "2ba2785617": {
+          "dense": 25,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "72e888aff6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-052",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "f25fb8d8a3",
+        "091bd5a2a6"
+      ],
+      "rangs": {
+        "f25fb8d8a3": {
+          "dense": 1,
+          "lexical": 3,
+          "fusion": 3,
+          "rerank": null
+        },
+        "091bd5a2a6": {
+          "dense": null,
+          "lexical": null,
+          "fusion": 48,
+          "rerank": 2
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-053",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "87bc5420e8",
+        "acf4f69a80"
+      ],
+      "rangs": {
+        "87bc5420e8": {
+          "dense": 35,
+          "lexical": null,
+          "fusion": 27,
+          "rerank": null
+        },
+        "acf4f69a80": {
+          "dense": 4,
+          "lexical": 42,
+          "fusion": 3,
+          "rerank": 6
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-054",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "45f2322ea0",
+        "f653d1f934"
+      ],
+      "rangs": {
+        "45f2322ea0": {
+          "dense": 23,
+          "lexical": 3,
+          "fusion": 3,
+          "rerank": 2
+        },
+        "f653d1f934": {
+          "dense": null,
+          "lexical": 15,
+          "fusion": 33,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-055",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "2ea3c02205",
+        "d736dea0f8"
+      ],
+      "rangs": {
+        "2ea3c02205": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "d736dea0f8": {
+          "dense": 2,
+          "lexical": 3,
+          "fusion": 2,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-056",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "9bbfa011a5",
+        "9889dcd22c"
+      ],
+      "rangs": {
+        "9bbfa011a5": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "9889dcd22c": {
+          "dense": null,
+          "lexical": 25,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-057",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "c805421ba8",
+        "ba60d07ffd"
+      ],
+      "rangs": {
+        "c805421ba8": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "ba60d07ffd": {
+          "dense": null,
+          "lexical": 1,
+          "fusion": 11,
+          "rerank": 1
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-058",
+      "type": "deux-sections-inter_chapitres",
+      "gold": [
+        "ea7d4cf6c0",
+        "b68e36e0ab"
+      ],
+      "rangs": {
+        "ea7d4cf6c0": {
+          "dense": null,
+          "lexical": 2,
+          "fusion": 8,
+          "rerank": 1
+        },
+        "b68e36e0ab": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-059",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "ef5b8bee12",
+        "5b3fd95b19"
+      ],
+      "rangs": {
+        "ef5b8bee12": {
+          "dense": 35,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "5b3fd95b19": {
+          "dense": null,
+          "lexical": 23,
+          "fusion": null,
+          "rerank": null
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    },
+    {
+      "id": "D-060",
+      "type": "deux-sections-intra_chapitre",
+      "gold": [
+        "47cfec4695",
+        "5755f87642"
+      ],
+      "rangs": {
+        "47cfec4695": {
+          "dense": null,
+          "lexical": null,
+          "fusion": null,
+          "rerank": null
+        },
+        "5755f87642": {
+          "dense": 5,
+          "lexical": 16,
+          "fusion": 4,
+          "rerank": 3
+        }
+      },
+      "n_dense": 50,
+      "n_lexical": 50,
+      "n_fusion": 50,
+      "n_rerank": 10
+    }
+  ],
+  "secondes": 118.4
+}

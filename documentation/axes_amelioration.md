@@ -12005,3 +12005,323 @@ reranker.** Ce n'est pas un défaut de sélection, c'est un plafond de
 Savoir si ces 67 sont hors d'atteinte du corpus ou seulement du classement
 demanderait de rejouer les étages amont sous d'autres réglages — `FETCH_K`,
 `RETRIEVAL_TOP_K`, le poids de la traduction. **Non mesuré.**
+
+### 4.77 → LOT-37 : le plafond de récupération, et il n'est ni l'index, ni la profondeur, ni le reranker
+
+`mesuré` le **24 septembre 2026 de 20:15 à 21:22 UTC**, base `origin/main` =
+**`3fc92df`**, dans un arbre de travail détaché monté par le protocole du §2.2.
+**`src/` n'est pas touché** — `git diff HEAD -- src/` rend vide — et **aucun
+réglage par défaut n'est changé** : les profondeurs passent par
+l'**environnement du lancement**, `FETCH_K`, `RETRIEVAL_TOP_K` et `RERANK_TOP_K`
+étant des alias de `settings.py`. Instrument neuf :
+`scripts/mesurer_recuperation.py` (sha256 `b725823af657…`), gardé par
+`tests/unit/test_plafond_de_recuperation.py` (`e1d1ac02662e…`). Recettes
+`make recuperation-profondeurs`, `recuperation-sous-questions`,
+`recuperation-oracle`, `recuperation-textes` et `recuperation-causes`. Bilans
+versionnés : `runs/2026-09-24-recuperation-{p50,p200,p1000,oracle,textes,sous-questions,causes}.json`
+et le cache `runs/.sous-questions-disperse.json`.
+
+**AUCUNE RÉPONSE N'EST GÉNÉRÉE PAR LA MESURE.** Le banc rejoue `_dense_search`,
+`_lexical_search`, `retrieve` et `rerank`, et relève un RANG. Le modèle n'entre
+que dans la **fabrication** du cache de sous-questions, qui est un producteur
+distinct, et le banc **exige** ce cache sans jamais le fabriquer.
+
+#### LE CONTRÔLE POSITIF, ET IL EST ANTÉRIEUR À TOUT ÉLARGISSEMENT
+
+Le §4.76 a laissé une question ouverte nommée : *67 ancrages sur 120 n'entrent
+pas dans le top-10 du reranker, et personne ne sait pourquoi*. Avant d'élargir
+quoi que ce soit, ce banc devait retrouver la base.
+
+À profondeur de production — `FETCH_K=50`, `RETRIEVAL_TOP_K=50`,
+`RERANK_TOP_K=10` — il rend **56** ancrages absents du dense, **46** de la
+fusion et **67** du top-10 du reranker : **les trois chiffres du §4.76, à
+l'unité près**.
+
+**ET LE RECOUPEMENT EST PLUS FORT QUE DEMANDÉ : il est une INTERSECTION, pas un
+accord de comptes.** Les **120** clés `(question, ancrage)` de ce bilan et celles
+de `runs/2026-09-24-dispersion.json` sont les mêmes, et les **120** triplets de
+rangs `(dense, fusion, rerank)` sont **identiques un à un** — un banc qui
+mesurerait un autre jeu, ou le même jeu autrement, pourrait rendre 56/46/67 sans
+qu'aucun rang ne coïncide. La recette `recuperation-causes` **refuse de tourner**
+si ce contrôle ne passe pas.
+
+#### LES RANGS PAR ÉTAGE ET PAR PROFONDEUR — ancrages absents sur 120
+
+Le lexical est relevé **à part**, ce que le banc du §4.76 ne faisait pas.
+
+| profondeur | dense | lexical | fusion | rerank | `RERANK_TOP_K` |
+|---|---|---|---|---|---|
+| **50** *(production)* | **56** | 47 | **46** | **67** | 10 |
+| 200 | 25 | 19 | **17** | 17 | 200 |
+| 1000 | 10 | **2** | **2** | 2 | 1000 |
+
+**H2 EST VRAIE, ET ELLE EST MASSIVE.** Des **46** ancrages absents de la fusion
+à 50 : **29** sont dans la fusion à 200, **44** à 1000, et **2 seulement** en
+sont absents même à 1000. Côté dense, **46** des 56 absents à 50 reviennent à
+1000. *Le corpus les contient et la recherche les atteint ; c'est la coupe à 50
+qui les perdait.*
+
+**MAIS ÉLARGIR NE LES AMÈNE PAS AU HAUT DU CLASSEMENT, ET C'EST LE FAIT QUI
+RENVERSE LA LECTURE.** À seuil constant — **le top-10 du reranker, aux trois
+profondeurs** —, le nombre d'ancrages qui y entrent vaut :
+
+| profondeur | ancrages au **top-10 du reranker** / 120 |
+|---|---|
+| 50 *(production)* | **53** |
+| 200 | **64** |
+| 1000 | **62** |
+
+De 50 à 200 : **+11**. De 200 à 1000 : **−2**. Donner mille candidats au
+cross-encoder ne fait pas mieux que lui en donner deux cents, et fait un peu
+moins bien.
+
+**UN PIÈGE ÉVITÉ, ET IL EST ÉCRIT PARCE QUE J'Y SUIS TOMBÉ.** À
+`RERANK_TOP_K=10`, « rendu par `rerank` » et « dans le top-10 » coïncident ; à
+`RERANK_TOP_K=1000`, non. Ma première table classait « la profondeur l'a
+récupéré » un ancrage rendu au rang **812**. Le seuil est désormais explicite —
+`dans_le_haut`, dix aux trois profondeurs — et un test l'épingle dans les deux
+sens.
+
+#### L'ORACLE CONTRE LA REQUÊTE UNIQUE — et il tranche tout
+
+**DEUX ORACLES, PARCE QU'UN SEUL NE SÉPARE RIEN**, et la méthode est elle-même
+un biais qu'il faut écrire.
+
+1. **L'oracle `preuve`**, déterministe, construit **depuis le passage** : la
+   requête est la phrase de `preuve` de l'ancrage, **mot pour mot**. Ce n'est pas
+   une question qu'un humain poserait — c'est du texte recopié du chunk indexé,
+   donc la requête la plus favorable qui existe. Elle **borne par le haut** ce
+   que le passage peut rendre. Le titre de section n'y entre pas : il vient du
+   graphe, pas du chunk.
+2. **L'oracle `decomposition`**, écrit par le modèle **depuis la seule
+   question**, sans jamais voir les passages — c'est tout ce qu'un décomposeur
+   de requête dans `src/` aurait. Le modèle rend deux sous-questions autonomes ;
+   **l'affectation sous-question → ancrage est prise au mieux des deux
+   permutations**, et c'est un **oracle d'affectation déclaré** : une
+   décomposition réelle n'aurait pas ce choix. Le chiffre est donc une **borne
+   supérieure** de ce que la décomposition gagnerait, jamais une prévision.
+
+Les requêtes oracles n'ont pas de traduction en cache et le banc n'en fabrique
+pas : la base de comparaison est donc la **requête unique SANS traduction**,
+sans quoi deux changements se mêleraient en un. La production, avec traduction,
+est donnée à côté.
+
+| requête | ancrages au top-10 / 120 | **QUESTIONS complètes / 60** |
+|---|---|---|
+| requête unique **avec** traduction *(production)* | 53 | **7** |
+| requête unique **sans** traduction *(base de l'oracle)* | 57 | **6** |
+| oracle **`decomposition`** | **86** | **28** |
+| oracle **`preuve`** | **120** | **60** |
+
+**L'ORACLE `preuve` RAMÈNE LES 120 ANCRAGES SUR 120, ET LES 60 QUESTIONS SUR
+60.** Pas un seul ancrage du jeu n'est hors d'atteinte du classement à
+profondeur de **production**. Le plafond de récupération n'est donc **ni
+l'index, ni la profondeur, ni une incapacité du reranker** : c'est **la
+requête**.
+
+**ET LA DÉCOMPOSITION, QUI ELLE EST IMPLÉMENTABLE, EN RÉCUPÈRE LA MOITIÉ** :
+**+29 ancrages** (57 → 86) et **+22 questions complètes** (6 → 28) — à
+profondeur de production, sans toucher un réglage.
+
+**LA TRADUCTION COÛTE ICI, ET LE SIGNE EST DOUBLE.** Sur ce jeu **monolingue
+anglais**, la recherche translingue fait **perdre 4 ancrages** (57 → 53) et
+**gagner 1 question** (6 → 7). C'est cohérent avec la dilution que `settings.py`
+documente ; ce n'est pas généralisable, le jeu n'ayant aucun axe translinguistique.
+
+**CETTE GRANDEUR N'EST PAS CELLE DU §4.76, ET L'ÉCART S'EXPLIQUE.** Le §4.76
+compte les ancrages qui atteignent le **prompt** (58 sur 120 à k=10) ; celle-ci
+compte ceux qui entrent dans le **top-10 du reranker** (53). La fenêtre de
+`reconstruct_section` ramène la section **et ses voisines**, donc un ancrage non
+classé peut arriver par la reconstruction d'un autre. Les deux chiffres mesurent
+deux étages, et le plus petit est en amont.
+
+#### H3 — CE QUE CHROMADB PORTE RÉELLEMENT, ET LES TROIS ZÉROS SONT DOUBLÉS
+
+Sur les **109** ancrages distincts : **0** absent de ChromaDB, **0** émietté
+(plancher 200 caractères ; longueur réelle **min 312**, médiane **453**, max
+1225), et **109/109** portent leur `preuve` à **≥ 80 %** des jetons — **médiane
+1,0**. **H3 est réfutée.**
+
+**TROIS ZÉROS SE LISENT « CAUSE ABSENTE » OU « DÉTECTEUR AVEUGLE », ET RIEN NE
+LES DISTINGUE** — sauf un contrôle positif. Les trois sont donc **joués sur les
+mêmes stores**, dans le bilan :
+
+| détecteur | témoin | vu |
+|---|---|---|
+| hors de ChromaDB | identifiant **fabriqué** `0000000000`, de la bonne forme | **oui** |
+| preuve non portée | preuve de `091bd5a2a6` confrontée au texte de `0023419387` → part **0,0** | **oui** |
+| chunk émietté | corps de **199** caractères contre un plancher de 200 | **oui** |
+
+#### H4 — CE QUE LE RERANKER ÉCARTE ALORS QU'IL L'AVAIT
+
+**21 ancrages** sont dans la fusion de production et **pas** dans le top-10 du
+reranker. Leurs rangs de fusion : **min 1, médiane 15, max 50** — et **9 d'entre
+eux étaient déjà dans les dix premiers de la fusion**.
+
+| rang de fusion | 1 | 2 | 3 | ≤ 5 | ≤ 10 | ≤ 20 | ≤ 50 |
+|---|---|---|---|---|---|---|---|
+| ancrages | 1 | 1 | 1 | 2 | 4 | 3 | 9 |
+
+**ET LEUR ÉLARGIR LE VIVIER NE LES SAUVE PAS** : à profondeur 200, le reranker
+en place **0 sur 21** dans son top-10. Ce n'est pas une question de candidats.
+
+#### LE TABLEAU DE CAUSES — il somme à 120, et il porte sa ligne « non expliqué »
+
+Les causes sont définies par **l'ordre où elles sont essayées**, ce qui les rend
+exclusives par construction. Chacune a un **témoin** que le classeur doit rendre.
+
+| cause | ancrages | ce qu'elle dit |
+|---|---|---|
+| `arrive` | **53** | dans le top-10 du reranker de production : rien à expliquer |
+| `hors_chromadb` | **0** | aucun texte dans l'index vectoriel |
+| `ecarte_par_le_reranker` | **21** | la fusion à 50 l'avait, le reranker ne le rend pas — **H4** |
+| `profondeur_recupere` | **13** | absent à 50, et élargir l'amène au top-10 — **H2** |
+| `profondeur_insuffisante` | **31** | absent à 50, retrouvé à 1000, mais jamais au top-10 |
+| `requete_unique` | **2** | introuvable à toute profondeur, l'oracle le ramène — **H1** |
+| `texte_indexe` | **0** | même l'oracle ne le ramène pas — **H3** |
+| `non_explique` | **0** | tout le reste, et il est **nommé** |
+| **SOMME** | **120** | |
+
+**CE TABLEAU NOMME L'ÉTAGE QUI PERD L'ANCRAGE. IL NE DIT PAS QUE CET ÉTAGE EN
+EST LA CAUSE**, et c'est le croisement avec l'oracle qui le dit :
+
+| cause | ancrages | oracle `preuve` au top-10 | oracle `decomposition` au top-10 |
+|---|---|---|---|
+| `arrive` | 53 | **53** | 45 |
+| `ecarte_par_le_reranker` | 21 | **21** | 17 |
+| `profondeur_recupere` | 13 | **13** | 8 |
+| `profondeur_insuffisante` | 31 | **31** | 16 |
+| `requete_unique` | 2 | **2** | 0 |
+| **total** | **120** | **120** | **86** |
+
+**LES 52 ANCRAGES QUE LE RERANKER REFUSE — 21 + 31 — SONT TOUS AU TOP-10 SOUS
+L'ORACLE `preuve`.** Le cross-encoder sait donc les scorer ; ce qu'il fait, face
+à une question qui porte **deux** besoins, c'est préférer d'autres passages. La
+cause est en amont de lui.
+
+#### L'ÉTAT DES STORES, AUX DEUX BOUTS DE CHAQUE CAMPAGNE
+
+| campagne | début UTC | fin UTC | chunks | `/health` |
+|---|---|---|---|---|
+| p50 *(contrôle)* | 20:15:51 | 20:17:50 | **4367 → 4367** | `ok`, quatre services `true` |
+| p200 | 20:18:15 | 20:23:30 | **4367 → 4367** | `ok`, quatre services `true` |
+| textes | 20:23:35 | 20:23:35 | **4367 → 4367** | `ok`, quatre services `true` |
+| p1000 | 20:23:36 | 21:22:22 | **4367 → 4367** | `ok`, quatre services `true` |
+| oracle | 20:24:03 | 21:08:38 | **4367 → 4367** | `ok`, quatre services `true` |
+
+`code_servi` = **`13acdb1`** sur les dix relevés. Le compte n'a pas bougé et
+aucun service n'est passé au rouge : **tous les tableaux décrivent un seul état
+des stores**. Le relevé n'est pas une note, c'est un **refus** : une campagne qui
+verrait deux états écrit un bilan partiel et sort en **1**.
+
+**LES SOUS-QUESTIONS** : **60 générations, `finish_reason: stop` 60 fois, 0
+panne**, prompts distincts par construction — une question différente à chaque
+appel. `thinking=False` passe par `chat_template_kwargs` **par requête** : rien
+n'est posé côté serveur, `vllm-central` appartenant à l'équipe voisine.
+
+#### COMMENT CET INSTRUMENT A ÉTÉ PROUVÉ COMME INSTRUMENT
+
+**QUATORZE MUTATIONS, QUATORZE ROUGES, TOUTES COMPILANT**, SHA-256 asserté
+**changé** à chaque fois et fichiers restaurés **identiques au SHA-256**.
+
+**Onze du producteur** : `arrive` cède le pas à `hors_chromadb` → 1 rouge ; la
+profondeur insuffisante fondue dans celle qui récupère → 4 ; l'oracle non joué
+fondu dans l'oracle muet → 3 ; une preuve sans jeton rendant `0.0` au lieu de
+`None` → 2 ; la requête oracle empruntant le titre de section → 2 ;
+l'affectation prenant toujours l'identité → 2 ; l'affectation perdant son second
+critère → 1 ; les stores cessant de comparer le compte de chunks → 1 ; le
+contrôle positif cessant de lire la profondeur → 1 ; le contrôle positif tolérant
+un ancrage d'écart → 1 ; un service rouge cessant d'être un refus → 1.
+
+**Trois des BILANS VERSIONNÉS**, parce qu'un garde qui lit un fichier de `runs/`
+peut être vert faute de le lire : le bilan de production rendant un ancrage de
+plus (67 → 66) → 1 rouge ; la table des causes ne sommant plus à 120 → 1 ; la
+table niant son propre contrôle positif → 1.
+
+**DEUX FAUX RÉSULTATS TROUVÉS PAR LE LOT CONTRE LUI-MÊME, ET LA TABLE DES
+MUTATIONS EST CE QUI LES A VUS.**
+
+1. **Deux mutations n'ont pas muté.** Leur motif était devenu introuvable après
+   l'introduction de `dans_le_haut`, et la table l'a dit au lieu de compter deux
+   verts. *Une mutation dont le motif ne mord pas rend un vert vide.*
+2. **Une mutation a survécu, et elle ne mutait rien non plus.** « Le contrôle
+   positif tolère un ancrage d'écart » **ajoutait** une clé `tolere` sans toucher
+   `accord` : le verdict ne bougeait pas. Réécrite sur la ligne d'`accord`, elle
+   rougit.
+3. **Et le compte de passes valait `0` sur les onze lignes, rouges comprises.**
+   `-q` s'ajoutait au `-q` des `addopts` : `-qq` supprime la ligne de résumé. Un
+   témoin qui ne porte pas son compte ne prouve pas qu'il a mesuré le bon arbre.
+
+**TÉMOIN INERTE** de treize lignes de commentaire dans
+`scripts/mesurer_recuperation.py` → `rc_test(make)=0`, **1193** passés, le compte
+de la porte ; SHA-256 revenu à l'intact — **et `git checkout --` n'a pas pu le
+restaurer**, le fichier n'étant pas encore suivi : le retrait a été fait par
+motif et le SHA confronté à la main.
+
+**AUCUN `skipif`, AUCUN `xfail`, AUCUN `skip`** dans le fichier de gardes, et
+c'est délibéré sur les deux tests qui relisent `runs/` : un garde qui s'efface
+quand son fichier manque ne garde rien.
+
+#### L'ENVIRONNEMENT, ET CE QUI LE SÉPARE DU CONTENEUR SERVI
+
+Arbre détaché monté par `git worktree add` (`rc=0`, arbre vérifié présent),
+`.venv` du §2.2, **aucun `.env`** : il vit dans le clone principal et rien n'en a
+été recopié. Les stores sont joints par des adresses **découvertes** par
+`docker inspect` sur `rag_network`, jamais figées, et le LLM sur le **8100**
+publié par `vllm-central`. **Les poids des deux modèles ont été sortis du
+conteneur servi** par `docker cp` du volume `rag_hf_cache`, puis
+`HF_HUB_OFFLINE=1` : le cache HuggingFace du poste appartient à `root`. Rien n'a
+été écrit dans les stores ni dans le conteneur.
+
+**L'ÉCART QUI RESTE EST LE MÊME QU'AUX §4.67 ET §4.76 : ce banc tourne en `cpu`,
+le conteneur servi en `cuda`.** Les poids sont les mêmes ; ce qu'un écart
+d'arrondi flottant déplacerait dans l'ordre du reranking **n'est pas mesuré
+ici**. L'écart est tenu **délibérément identique** à celui du §4.76 pour que les
+chiffres se comparent.
+
+#### CE QUE CETTE MESURE NE DIT PAS
+
+1. **L'ORACLE `preuve` N'EST PAS UNE REQUÊTE.** Il est fait des mots du passage
+   indexé. Qu'il ramène 120/120 prouve que le passage est **atteignable**, pas
+   qu'une question le ramènerait.
+2. **L'AFFECTATION DE L'ORACLE `decomposition` EST PRISE AU MIEUX DES DEUX
+   PERMUTATIONS.** Les 86 et les 28 sont donc des **bornes supérieures**. Une
+   décomposition réelle lancerait les deux sous-questions et **fusionnerait** :
+   ce que cette fusion rendrait **n'est pas mesuré**.
+3. **LES SOUS-QUESTIONS SONT ÉCRITES PAR LE MODÈLE QUI A ÉCRIT LES QUESTIONS**,
+   et sur un jeu dont il a écrit les questions **pour** leurs passages. La
+   circularité du §4.76 est donc encore là, d'un cran plus loin.
+4. **AUCUN COÛT N'EST MESURÉ.** Ni la latence d'un appel de décomposition, ni
+   celle d'un reranker à 200 candidats au lieu de 50.
+5. **AUCUNE RÉPONSE N'EST JUGÉE.** Un ancrage au top-10 n'est pas une bonne
+   réponse.
+6. **CE JEU DÉCRIT L'ÉTAT DES STORES DU 24 SEPTEMBRE 2026, 4367 chunks.** Il ne
+   survit pas à une réingestion, et `reviewed: false` sur les 60.
+
+**LA QUESTION OUVERTE 3 DU §4.76 EST FERMÉE.** Elle demandait si les 67 sont
+hors d'atteinte du corpus ou seulement du classement : **ils sont hors
+d'atteinte du classement seul**, et 120/120 sous l'oracle le prouve.
+
+**QUESTION OUVERTE 1 — LA DÉCOMPOSITION DE REQUÊTE, et c'est le plus gros levier
+mesuré de ce chantier.** `+29 ancrages` et `+22 questions complètes sur 60`, à
+profondeur de production, sans toucher un réglage. **Ce lot ne propose pas de
+l'implémenter.** Ce qu'il faudrait mesurer pour trancher : (a) ce que rend une
+**fusion** des deux sous-questions, sans l'oracle d'affectation, qui est le seul
+geste implémentable ; (b) le coût — un appel LLM de plus par question, dont
+`translation_ms` et `rewrite_ms` donnent déjà l'ordre de grandeur ; (c) ce que
+la décomposition **coûte** aux questions à besoin unique, que les deux autres
+jeux portent et que celui-ci ne porte pas.
+
+**QUESTION OUVERTE 2 — `FETCH_K` et `RETRIEVAL_TOP_K` de 50 à 200.** `+11
+ancrages` au top-10 du reranker, et **−2** en passant à 1000 : le gain est réel
+et **borné**. Ce qu'il faudrait mesurer : le prix, puisque le cross-encoder
+scorerait **200** paires par requête au lieu de 50 et qu'il est déjà l'étage qui
+coûte (§4.47, `rerank_ms` p50 58 ms sur GPU pour 50 paires) ; et si le +11
+survit sur les deux autres jeux, dont le plateau est ailleurs.
+
+**QUESTION OUVERTE 3 — LE RERANKER FACE À UNE QUESTION À DEUX BESOINS.** **52**
+ancrages sont dans la fusion et n'atteignent jamais son top-10, alors que
+l'oracle `preuve` les y met **tous les 52**. Ce n'est pas une incapacité à
+scorer. Ce qu'il faudrait mesurer : ce que rendrait un reranking **par
+sous-question** plutôt que sur la question entière — ce qui est la même
+intervention que la question ouverte 1, vue du quatrième étage.
