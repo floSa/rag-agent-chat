@@ -13264,3 +13264,54 @@ sont perdues par la décomposition. Trois sous-questions françaises tirées d'u
 question française ne retrouvent pas un passage anglais que la question entière
 trouvait au rang 1. **Deux cas ne font pas une mesure**, et le jeu de réglage ne
 porte pas assez de questions françaises pour trancher.
+
+### 4.80 → Après une purge du pipeline, le proxy `/media` du service rend 404 sur TOUTES les images, et `/health` reste vert
+
+**`mesuré` le 25 septembre 2026 à 08:59 UTC**, sur le conteneur servi (`97bba20`,
+démarré le 25 septembre à 00:35:55 UTC, donc AVANT les deux purges du pipeline de
+03:42 et d'environ 08:00 UTC). Trouvé par le pilote en relevant les octets d'un
+média avant la bascule SeaweedFS.
+
+**CE QUI SE PASSE.** `GET /media/images/Hands-On_RAG_for_Production_ER_-_Ofer_Mendelevitch/086f1173cb_picture.png`
+→ **HTTP 404** `{"detail":"Objet introuvable."}`. Le journal du conteneur dit
+pourquoi :
+
+    nGQL échoué : MATCH (n:Picture) WHERE n.Picture.minio_url != "" … — SemanticError: `Picture': Unknown tag
+    nGQL échoué : MATCH (n:Table) WHERE n.Table.minio_url != "" … — SemanticError: `Table': Unknown tag
+    Proxy média : 0 objets autorisés.
+    Objet MinIO non référencé par le graphe : images/…/086f1173cb_picture.png
+
+La liste blanche du proxy (`media_object_names()`, `src/agent/graph_context.py`)
+se lit par `MATCH` sur les tags `Picture` et `Table`. **La session NebulaGraph que
+le processus garde depuis son démarrage ne connaît plus ces tags** : le pipeline
+a purgé le graphe et recréé son schéma. La liste blanche vaut donc **0**, et
+`is_allowed` refuse tous les objets. **La même requête, dans un processus NEUF**
+(`docker exec rag-agent-api python -c …`), rend les **212** clés au même
+instant : c'est la session longue qui est périmée, pas le graphe.
+
+**POURQUOI PERSONNE NE L'A VU.** `/health` publie `nebulagraph: true` : la sonde
+ne fait pas de `MATCH` sur un tag. Et TOUTES nos vérifications d'après la
+campagne du matin (journal, 06:17 UTC), comme les bancs des lots 38 et 39, ont
+tourné dans des processus NEUFS, donc sur des sessions fraîches. **Un contrôle
+lancé à côté du service ne mesure pas le service.**
+
+**CE QUE CELA A COÛTÉ, ET CE QUI N'EST PAS MESURÉ.** Le journal du conteneur
+portait **4** lignes `Unknown tag` sur 6 375, toutes dues à la requête du pilote
+de 08:59. Aucun autre appel `/media` n'a eu lieu dans la fenêtre. **Les autres
+requêtes du graphe (`GO`, `FETCH`) n'ont pas été éprouvées sous la session
+périmée**, et le journal de l'ancien conteneur est perdu depuis sa recréation de
+09:00. Ce qu'une conversation aurait reçu entre 03:42 et 09:00 n'est donc pas
+mesuré.
+
+**CE QUI L'A FERMÉ, POUR CETTE FOIS.** La recréation du conteneur à 09:00 UTC,
+pour la bascule SeaweedFS, a ouvert une session neuve : `Proxy média : 212
+objets autorisés.`, puis le même `GET /media/…` → **HTTP 200**, **9 986 octets**,
+SHA-256 `9cc9c4ed283e3c9a…`, identique aux octets lus avant la bascule dans
+l'ancien MinIO. **Le défaut reviendra à la prochaine purge du pipeline**, tant
+que le code ne réagit pas à un `SemanticError` en rouvrant sa session.
+
+**QUESTION OUVERTE, À TRANCHER PAR UN LOT DE `src/`** : sur un `SemanticError`
+`Unknown tag`, rouvrir le pool (`reset_connection`) et rejouer UNE fois, comme le
+fait déjà la reprise sur un graphd injoignable ; et ne jamais mettre en cache une
+liste blanche VIDE. Et une sonde de `/health` qui fasse un `MATCH` sur un tag,
+pour que ce défaut ne soit plus invisible.
