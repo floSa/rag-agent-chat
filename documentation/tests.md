@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1262 tests, aucune dépendance
+## Unitaire — 1263 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,13 +20,13 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 25 septembre 2026 à 07:14 UTC par LOT-39 : **1262** tests sur **61** fichiers,
+> `mesuré` le 25 septembre 2026 à 07:47 UTC par LOT-39 : **1263** tests sur **61** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TRENTE-HUIT, ET `src/` N’EST PAS TOUCHÉ.**
-> *(LOT-38 relevait **1224** sur **60** fichiers le 25 septembre à 03:53 UTC ; les **38** de plus
-> sont **38** dans le fichier neuf `test_decomposition_traduite.py`, et rien
+> **CE COMPTE MONTE DE TRENTE-NEUF, ET `src/` N’EST PAS TOUCHÉ.**
+> *(LOT-38 relevait **1224** sur **60** fichiers le 25 septembre à 03:53 UTC ; les **39** de plus
+> sont **39** dans le fichier neuf `test_decomposition_traduite.py`, et rien
 > d'autre. Ils gardent le banc qui mesure ce que rend une décomposition **avec**
 > recherche translingue, là où le §4.78 comparait une variante qui ne traduit
 > pas à une production qui traduit — et imputait au retrait de la traduction

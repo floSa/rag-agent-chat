@@ -114,7 +114,18 @@ _CORPS = [
     # un post-traitement qui rendrait TOUJOURS `None` serait vert sur les autres.
     ("Quelle stratégie limite le rayon d'impact ?", "Which strategy limits blast radius?"),
     # LA PREMIÈRE LIGNE SEULE. Le modèle ajoute parfois une explication.
-    ("Which strategy limits blast radius?\nNote: technical terms kept.", "Which…?"),
+    #
+    # LA QUESTION EST LONGUE, ET CE N'EST PAS UN DÉTAIL : sur une question
+    # courte, le corps entier dépasserait trois fois sa longueur et le SEUIL le
+    # refuserait AVANT que la règle de la première ligne n'ait à décider. Les
+    # deux chemins rendraient alors `None` pour deux raisons différentes, et la
+    # scène serait verte même si le banc gardait toutes les lignes — mesuré : la
+    # mutation « garde toutes les lignes » a SURVÉCU à la première version de
+    # cette table, et c'est ce qui a fait écrire ce cas.
+    (
+        "Which strategy limits blast radius?\nNote: technical terms kept.",
+        "Quelle stratégie de déploiement limite le rayon d'impact d'une mise en production ratée ?",
+    ),
     # LES GUILLEMETS ENCADRANTS, que le gabarit interdit et que le modèle met.
     ('"Which strategy limits blast radius?"', "Quelle…?"),
     # LA TRADUCTION VIDE — refus de la production, recherche MONOLINGUE.
@@ -522,6 +533,24 @@ def test_la_repartition_par_etage_somme_au_jeu_qu_elle_decrit(banc):
     }
     assert table["somme_questions"] == 2
     assert table["somme_juste"] is True
+
+
+def test_une_repartition_qui_ne_somme_pas_le_dit(banc):
+    """ET LE VERDICT DOIT SAVOIR DIRE « FAUX », SANS QUOI IL NE DIT RIEN.
+
+    La scène précédente vérifie qu'une table juste se déclare juste — et une
+    table qui se déclarerait TOUJOURS juste y serait verte. `mesuré` : la
+    mutation « la répartition déclare toujours sa somme juste » a SURVÉCU à la
+    première version de ce garde, et c'est ce qui a fait écrire cette scène.
+
+    Le témoin donne une question dont `gold` annonce DEUX ancrages là où la
+    variante n'en porte qu'un — la forme exacte d'un banc qui aurait perdu un
+    ancrage en route —, et `somme_juste` doit valoir `False`.
+    """
+    boiteuse = _ligne("Q-1", ["a", "b"], {"unique_avec_traduction": {"a": _r([1], 1, 1)}})
+    table = banc.repartir_par_etage([boiteuse])["unique_avec_traduction"]
+    assert table["somme_ancrages"] == 1, "un seul ancrage a été classé"
+    assert table["somme_juste"] is False, "et la question en annonçait deux"
 
 
 # ─── 6. L'ÉCART À LA BORNE EST UNE DIFFÉRENCE D'ENSEMBLES ───────────────────
