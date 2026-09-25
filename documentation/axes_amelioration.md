@@ -13315,3 +13315,146 @@ que le code ne réagit pas à un `SemanticError` en rouvrant sa session.
 fait déjà la reprise sur un graphd injoignable ; et ne jamais mettre en cache une
 liste blanche VIDE. Et une sonde de `/health` qui fasse un `MATCH` sur un tag,
 pour que ce défaut ne soit plus invisible.
+### 4.81 → `SemanticError` sur une session périmée : le pool se rouvre, la liste blanche ne retient plus le vide, et `/health` lit un tag
+
+**Ce qu'a fait LOT-41.** Il tranche la question ouverte du §4.80 ci-dessus.
+Base : `origin/main` `98d76101972949419c587cfd2622be115fb6bb09`. Le graphe
+partagé **n'a jamais été purgé** : la forme de l'erreur est relevée en LECTURE
+SEULE, en interrogeant un élément de schéma que le space ne connaît pas — ce
+qu'une session périmée croit du schéma recréé.
+
+**LA FORME EXACTE DE L'ERREUR, ET LA CHARNIÈRE.** `mesuré` le 25 septembre 2026
+à **09:47:03 UTC**, contre le graphd de ce poste (`vesoft/nebula-graphd:v3.6.0`,
+client `nebula3-python` **3.8.3**), depuis le conteneur `rag-agent-api` :
+
+```bash
+docker exec -i rag-agent-api python - <<'FIN'
+from nebula3.Config import SessionPoolConfig
+from nebula3.gclient.net.SessionPool import SessionPool
+from src.agent.settings import settings
+pool = SessionPool(settings.nebula_user, settings.nebula_password, settings.nebula_space,
+                   [(settings.nebula_host, settings.nebula_port)])
+cfg = SessionPoolConfig(); cfg.timeout = settings.nebula_timeout_ms
+pool.init(cfg)
+for q in ['MATCH (n:TagInconnu) RETURN n LIMIT 1;',
+          'GO 1 STEPS FROM "0000000000" OVER ARETE_INCONNUE YIELD dst(edge);',
+          'FETCH PROP ON * "0000000000" YIELD vertex AS node;',
+          'LOOKUP ON TagInconnu YIELD id(vertex);',
+          'YIELD 1 AS ok;',
+          'MATCH (n:Document) RETURN id(n) AS id LIMIT 1;']:
+    r = pool.execute(q)
+    print(q, r.is_succeeded(), r.error_code(), repr(r.error_msg()))
+FIN
+```
+
+| Requête | `is_succeeded()` | `error_code()` | `error_msg()` | étiquette |
+|---|---|---|---|---|
+| `MATCH (n:TagInconnu) …` | **False** | **-1009** (`E_SEMANTIC_ERROR`) | ``SemanticError: `TagInconnu': Unknown tag`` | `mesuré` |
+| `GO … OVER ARETE_INCONNUE …` | **False** | **-1009** | `SemanticError: ARETE_INCONNUE not found in space [rag_space].` | `mesuré` |
+| `FETCH PROP ON * "<vid>"` | **True** | 0 | `''` | `mesuré` |
+| `LOOKUP ON TagInconnu …` | **False** | **-1005** (`E_EXECUTION_ERROR`) | `Schema not exist: TagInconnu` | `mesuré` |
+| `YIELD 1 AS ok;` | **True** | 0 | `''` | `mesuré` |
+| `MATCH (n:Document) … LIMIT 1;` | **True** | 0 | `''` | `mesuré` |
+
+**CE N'EST PAS UNE EXCEPTION**, et c'est toute l'explication du §4.80.
+`nebula3` rend un **`ResultSet` EN ÉCHEC**. La reprise que `_execute_raw`
+portait déjà — celle du graphd injoignable — est posée dans un `except` : elle
+ne voyait **rien** de ce défaut, et le pool n'était donc jamais rouvert. La
+sonde `nebulagraph` de `/health`, elle, n'interrogeait que `YIELD 1 AS ok`,
+**insensible au schéma** d'après la table ci-dessus : elle restait vraie.
+
+**CE QUE LA SESSION PÉRIMÉE FAIT AUX AUTRES REQUÊTES DU CHEMIN DE RÉPONSE.**
+`GO … OVER PARENT_OF` — la remontée au parent, la section voisine et les enfants
+— échoue de la **même** façon (`-1009`), donc `reconstruct_section` rendait un
+contexte vide sans que rien ne le dise. `FETCH PROP ON *` **survit** : il ne
+nomme aucun élément de schéma. `LOOKUP` échoue sous un **autre** code (`-1005`)
+— le module ne s'en sert pas, la mesure est consignée pour le prochain lot.
+
+**CE QUI RESTE `supposé`, ET IL FAUT LE LIRE.** Ces six lignes sont mesurées sur
+un élément de schéma qui **n'existe pas**, pas sur une session réellement
+périmée. Le journal du conteneur du 25/09 prouve la forme pour `MATCH` — `Picture`
+et `Table` existaient bien dans le schéma recréé, et la session rendait pourtant
+`Unknown tag`. Pour `GO`, `FETCH` et `LOOKUP`, **rien n'a été éprouvé sous une
+vraie session périmée** : reproduire exigerait de purger le graphe partagé, ce
+que ce lot s'interdit, et le journal de l'ancien conteneur est perdu depuis sa
+recréation de 09:00.
+
+**LES TROIS RÉPARATIONS, au plus petit, dans les sites qui portaient déjà la
+reprise.**
+
+1. `_execute_raw` (`src/agent/graph_context.py`) rouvre le pool et rejoue **UNE**
+   fois sur un `E_SEMANTIC_ERROR` dont le message nomme un tag ou une arête
+   inconnus, et sur **rien d'autre**. `_schema_perime` porte au site la mesure
+   et la justification de cette étroitesse : un `SemanticError` d'une autre
+   nature est une faute de requête, que rouvrir une session ne soigne pas, et
+   rejouer doublerait la charge sans aucune chance d'aboutir.
+2. `_allowed_objects` (`src/agent/minio_client.py`) **ne met plus en cache une
+   liste blanche VIDE** — un vide est un symptôme, jamais un fait établi. Une
+   liste pleine reste mise en cache : le proxy est sur le chemin de **chaque**
+   image affichée.
+3. `ping()` **lit un tag**, borné à `LIMIT 1` : `MATCH (n:Document) RETURN id(n)
+   AS id LIMIT 1;`. `Document` et non `Picture` : un corpus sans illustration est
+   légitime. Elle passe par `_execute_raw` et non `_execute`, sans quoi un graphe
+   sain mais sans nœud du tag sondé serait déclaré en panne.
+
+**LES GARDES, ROUGES SUR LA BASE PUIS VERTS.** `mesuré` le 25 septembre 2026 à
+**09:46:48 UTC**, sur un arbre détaché à `98d7610` où seul le fichier de tests
+neuf a été ajouté :
+
+```bash
+pytest tests/unit/test_session_perimee_apres_purge.py -p no:randomly
+```
+
+→ `rc=1`, **8 rouges, 7 verts**. Les 7 verts sont les contrôles positifs et les
+revers, et ils sont verts **par construction** : ils mesurent ce que la base fait
+déjà bien. Les 8 rouges portent les trois gardes demandés, la borne de la reprise
+et la remontée au parent. Sur l'arbre réparé : **15 verts**.
+
+**LA TABLE DES MUTATIONS DU PRODUCTEUR.** `mesuré` le 25 septembre 2026 entre
+**09:36** et **09:47 UTC** (horodatages du banc et de son relevé). Chaque site est relevé par motif, son unicité est
+assertée **avant** l'écriture, le SHA-256 est asserté **changé**, `py_compile`
+est vert, la restauration est confrontée au SHA-256 d'avant, et le banc tourne
+`pytest tests/unit/` en entier :
+
+```bash
+.venv/bin/python /tmp/claude-1000/mut/banc.py
+```
+
+| Mutation | Fichier | SHA-256 avant → après | Rouges | Ce qui a rougi |
+|---|---|---|---|---|
+| **M1** la réouverture **retirée** (`return False and bool(…)`) | `graph_context.py` | `fa4cb539610ed148…` → `86bd0381db8081b2…` | **5** | `test_session_perimee_apres_purge.py` |
+| **M2** la réouverture **élargie** à toute erreur (`return True or bool(…)`) | `graph_context.py` | `fa4cb539610ed148…` → `4f550f9ac70a8828…` | **1** | idem |
+| **M3** le **cache du vide** rétabli (`if noms:` retiré) | `minio_client.py` | `f119c983f1378e18…` → `4ff2be7eb038e98d…` | **1** | idem |
+| **M4** la **sonde de tag** retirée (`return True`) | `graph_context.py` | `fa4cb539610ed148…` → `c1239fcad4464d76…` | **2** | idem |
+| **T** **témoin inerte** : 13 lignes vides en tête | `graph_context.py` | `fa4cb539610ed148…` → `10616cae676566eb…` | **0** | — |
+
+Le témoin porte le **COMPTE ATTENDU** : `rc=0`, **1278 passés**, et c'est ce qui
+prouve que le banc a mesuré l'arbre réparé et non un autre. **M2 ne tue qu'UN
+test, et c'est le résultat le plus utile de la table** : ce test est le garde de
+l'étroitesse, celui qui exige qu'un `SemanticError` ne nommant aucun élément de
+schéma ne déclenche **pas** de réouverture. Sans lui, une reprise élargie serait
+passée verte.
+
+**LA PORTE.** `mesuré` le 25 septembre 2026, environnement monté par le
+protocole du §2.2 de `documentation/pilotage_du_chantier.md` :
+
+```bash
+make lint && make test
+```
+
+| Relevé | `rc` (`make`) | Compte | Étiquette |
+|---|---|---|---|
+| Base `98d7610`, avant le lot | `rc_lint=0`, `rc_test=0` | **1263** passés | `mesuré` vers 09:20 UTC |
+| Arbre du lot | `rc_lint=0`, `rc_test=0` | **1278** passés | `mesuré` 09:47:55 → 09:50:07 UTC |
+
+Le compte monte de **15**, tous dans le fichier neuf
+`tests/unit/test_session_perimee_apres_purge.py`. `documentation/tests.md` est
+remis à jour avec les deux comptes de sa recette, qui concordent : **1278** sur
+**62** fichiers.
+
+**CE QUE CE LOT NE PROUVE PAS.** Que le correctif referme le défaut **sur le
+service** : le vérifier exigerait une purge du graphe partagé. Ce qui est prouvé
+est que le code réagit désormais à la forme d'erreur **relevée sur le graphd
+réel**, là où il ne la voyait pas du tout. Et le service du port 8011 tourne
+encore sur l'image d'avant ce lot : **la prochaine purge le trouvera inchangé
+tant que le conteneur n'est pas reconstruit**.
