@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1278 tests, aucune dépendance
+## Unitaire — 1304 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,30 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 25 septembre 2026 à 09:31 UTC par LOT-41 : **1278** tests sur **62** fichiers,
+> `mesuré` le 25 septembre 2026 à 12:54 UTC par LOT-42 : **1304** tests sur **63** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE QUINZE, ET `src/` EST TOUCHÉ.**
+> **CE COMPTE MONTE DE VINGT-SIX, ET `src/` EST TOUCHÉ.**
+> *(LOT-41 relevait **1278** sur **62** fichiers le 25 septembre à 09:31 UTC ; les **26** de plus
+> sont **21** dans le fichier neuf `test_media_url_avec_repli.py`, et **5** de plus
+> dans `test_bascule_du_nom_de_champ_media.py`, qui passe de 11 à 16. Rien n'est
+> retiré. Le fichier neuf garde l'étape 1 de la sortie de MinIO — §4.82 du
+> registre : le pipeline voisin renomme `minio_url` en `media_url` et publie
+> `object_key`, et notre code traverse DEUX états des stores pendant la
+> réingestion, `minio_url` seul avant, `media_url` et `object_key` seuls après.
+> Chaque état est rejoué aux cinq sites qui lisent le store, jusqu'à l'image
+> servie par `/media`, la liste blanche non vide et la citation avec son image,
+> plus le cas où aucun champ média n'est porté. Le double du graphe RÉPOND à la
+> requête écrite par le vrai code, avec la sémantique `mesurée` sur le graphd
+> installé : une propriété absente du schéma d'un tag rend `__NULL__` et ne fait
+> pas échouer la requête. Les **5** de plus du second fichier sont ses contrôles
+> positifs, étendus à CHACUN des noms du contrat au lieu du seul `minio_url` —
+> la garde du lot 29 a été retournée comme elle l'annonçait, non contournée. **Le
+> garde de cette note ne vérifie par collecte que la part du fichier neuf** ; la
+> part de 5 est annoncée ici sans être gardée, et le total de 1304 la majore.)*
+>
+> **UN RELEVÉ PRÉCÉDENT : CE COMPTE MONTAIT DE QUINZE, ET `src/` ÉTAIT TOUCHÉ.**
 > *(LOT-39 relevait **1263** sur **61** fichiers le 25 septembre à 07:47 UTC ; les **15** de plus
 > sont **15** dans le fichier neuf `test_session_perimee_apres_purge.py`, et rien
 > d'autre. Ils gardent ce qu'une purge du pipeline voisin fait à la session
