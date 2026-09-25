@@ -1,5 +1,37 @@
 # Stratégie d'évaluation
 
+> **PÉRIMÉ SUR UN POINT DEPUIS LE LOT 36 (24 septembre 2026) — bandeau ajouté le
+> 25 septembre 2026, rien n'est retiré ci-dessous.**
+>
+> Ce document dit « les DEUX jeux ». **Relevé PAR MOTIF, jamais par numéro de
+> ligne** : `git grep -ci 'deux jeux' e1324e4 -- documentation/rag_evaluation_strategy.md`
+> rend **4** lignes, dont le titre du § « Les deux jeux — et aucun ne remplace
+> l'autre ».
+> **Il y en a trois depuis le lot 36** : `tests/fixtures/jeu_ancrages_disperses.yaml`,
+> **60 questions, 120 ancrages** dans deux sections distinctes, **109 ancrages
+> distincts**. Il a été ajouté parce que les deux jeux décrits ici sont
+> **aveugles au quatrième étage** de la chaîne — la sélection : sur le jeu de
+> réglage, 120 ancrages sur 130 arrivent déjà au prompt à `k=1`, et plus aucun
+> de `k=3` à `k=20`.
+>
+> **Et il n'est nommé nulle part ici**, ce qui se relève contre le SHA de base
+> pour que le relevé reste vrai après ce bandeau :
+> `git grep -ci dispers e1324e4 -- documentation/rag_evaluation_strategy.md`
+> rend **0 ligne** (`mesuré` le 25 septembre 2026 à 08:32 UTC). **Contrôle
+> positif, parce qu'un zéro non doublé ne dit rien** : le même motif sur
+> `documentation/tests.md` au même SHA rend **2** lignes. Le troisième jeu y est
+> en effet décrit, et gardé par `tests/unit/test_jeu_ancrages_disperses.py`.
+>
+> Sites canoniques du troisième jeu : [axes_amelioration.md](axes_amelioration.md)
+> §4.76, et la ligne **88** du journal des conversations de
+> [pilotage_du_chantier.md](pilotage_du_chantier.md). Ce qu'il a mesuré depuis,
+> aux §4.77 à §4.79, est résumé dans [etat_du_projet.md](etat_du_projet.md).
+>
+> **Tout le reste de ce document tient**, y compris le motif de la coexistence
+> des jeux — *le régénéré règle, les trente contrôlent* — auquel s'ajoute
+> désormais *et le dispersé voit la sélection*.
+
+
 ## Le principe
 
 Évaluer un RAG, ce n'est pas produire un score : c'est pouvoir répondre à
