@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse recuperation-profondeurs recuperation-sous-questions recuperation-oracle recuperation-textes recuperation-causes
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse recuperation-profondeurs recuperation-sous-questions recuperation-oracle recuperation-textes recuperation-causes fusion-decomposition fusion-disperse fusion-reglage fusion-controle
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -291,6 +291,54 @@ recuperation-causes:
 		--oracle  runs/$(shell date +%Y-%m-%d)-recuperation-oracle.json \
 		--textes  runs/$(shell date +%Y-%m-%d)-recuperation-textes.json \
 		--sortie  runs/$(shell date +%Y-%m-%d)-recuperation-causes.json
+
+# LA DECOMPOSITION REELLE, ET LE §4.77 N'AVAIT QU'UN ORACLE. Son affectation
+# sous-question -> ancrage etait prise au mieux des deux permutations : 86
+# ancrages et 28 questions completes sont donc une BORNE HAUTE. Ces cibles
+# mesurent la liste que rend une VRAIE fusion des sous-requetes.
+#
+# LE PRODUCTEUR EST SEPARE, ET IL APPELLE LE MODELE. Le rejouer produirait
+# d'autres sous-questions ; le banc EXIGE le cache sans jamais le fabriquer,
+# meme discipline que les caches de traductions et de sous-questions. Un cache
+# PAR JEU : les identifiants de question sont locaux a leur fichier.
+fusion-decomposition:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape decomposition --jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-decomposition-disperse.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape decomposition --jeu tests/fixtures/golden_qa_generated.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-decomposition-reglage.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape decomposition --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-decomposition-controle.json
+
+# LE CONTROLE POSITIF EST UN ANTECEDENT, PAS UN RAPPORT. Le banc REFUSE de
+# publier la moindre variante si sa requete unique ne retrouve pas, a l'unite
+# pres, les 53 ancrages et les 7 questions du §4.77 ET les 120 rangs de
+# `runs/2026-09-24-recuperation-p50.json`, UN A UN. Deux bancs mesurant deux
+# jeux peuvent rendre 53 et 7 sans qu'un seul rang ne coincide.
+fusion-disperse:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape fusion --jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--reference runs/2026-09-24-recuperation-p50.json \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-disperse.json
+
+# LA NON-REGRESSION, ET ELLE COMPTE AUTANT QUE LE GAIN. Une decomposition qui
+# gagne quinze questions dispersees et en perd dix simples n'est pas un gain.
+# Les deux jeux a besoin UNIQUE sont donc joues sous les memes variantes, et le
+# bilan nomme les questions perdues une par une.
+fusion-reglage:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape fusion --jeu tests/fixtures/golden_qa_generated.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-reglage.json
+
+fusion-controle:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
+		--etape fusion --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-fusion-controle.json
 
 generer-jeu-disperse:
 	$(_ENV_SELECTION) uv run --no-sync python scripts/generer_jeu_disperse.py \
