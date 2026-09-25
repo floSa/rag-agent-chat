@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1263 tests, aucune dépendance
+## Unitaire — 1278 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,39 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 25 septembre 2026 à 07:47 UTC par LOT-39 : **1263** tests sur **61** fichiers,
+> `mesuré` le 25 septembre 2026 à 09:31 UTC par LOT-41 : **1278** tests sur **62** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TRENTE-NEUF, ET `src/` N’EST PAS TOUCHÉ.**
+> **CE COMPTE MONTE DE QUINZE, ET `src/` EST TOUCHÉ.**
+> *(LOT-39 relevait **1263** sur **61** fichiers le 25 septembre à 07:47 UTC ; les **15** de plus
+> sont **15** dans le fichier neuf `test_session_perimee_apres_purge.py`, et rien
+> d'autre. Ils gardent ce qu'une purge du pipeline voisin fait à la session
+> NebulaGraph que le processus de l'agent garde depuis son démarrage : elle ne
+> connaît plus les tags, `media_object_names()` rend 0 clé, la liste blanche du
+> proxy `/media` vaut 0, et TOUS les `GET /media/<clé>` rendent 404 pendant que
+> `/health` publie `nebulagraph: true` — §4.80 du registre, `mesuré` le
+> 25 septembre à 08:59 UTC sur le conteneur servi.
+>
+> La charnière que ces gardes tiennent est que **ce n'est pas une exception** :
+> `nebula3` rend un `ResultSet` EN ÉCHEC (`error_code()` = `-1009`,
+> `E_SEMANTIC_ERROR`, message ``SemanticError: `Picture': Unknown tag``), que la
+> reprise existante de `_execute_raw` — posée dans un `except` — ne voyait pas.
+> La forme est `mesuré`e contre le graphd RÉEL de ce poste
+> (`vesoft/nebula-graphd:v3.6.0`, `nebula3-python` 3.8.3) en **lecture seule**,
+> en interrogeant un élément de schéma que le space ne connaît pas : rien n'est
+> écrit, et le graphe partagé n'est jamais purgé.
+>
+> Trois gardes portent le défaut, et six autres tests portent leurs revers et
+> leurs contrôles positifs — dont celui qui exige que le double puisse
+> réellement échouer sur les trois natures de requête du chemin de réponse, sans
+> quoi un vert ne prouverait rien. Les six derniers mesurent ce que la session
+> périmée fait aux AUTRES requêtes : `GO … OVER PARENT_OF` échoue de la même
+> façon, `FETCH PROP ON *` RÉUSSIT (il ne nomme aucun élément de schéma), et
+> `YIELD 1 AS ok` — la sonde d'alors — aussi, ce qui est exactement pourquoi
+> `/health` restait vert.)*
+>
+> **LE RELEVÉ PRÉCÉDENT, GARDÉ POUR SA TRAÇABILITÉ.**
 > *(LOT-38 relevait **1224** sur **60** fichiers le 25 septembre à 03:53 UTC ; les **39** de plus
 > sont **39** dans le fichier neuf `test_decomposition_traduite.py`, et rien
 > d'autre. Ils gardent le banc qui mesure ce que rend une décomposition **avec**

@@ -3,6 +3,7 @@ import re
 from functools import lru_cache
 from typing import Any, NamedTuple
 
+from nebula3.common.ttypes import ErrorCode
 from nebula3.Config import SessionPoolConfig
 from nebula3.gclient.net.SessionPool import SessionPool
 
@@ -142,6 +143,38 @@ def _to_primitive(val: Any) -> Any:
     return str(val)
 
 
+# Ce qu'un `SemanticError` dit quand la SESSION, et non la requête, est en
+# faute. `mesuré` le 25 septembre 2026 contre le graphd de ce poste
+# (`vesoft/nebula-graphd:v3.6.0`, client `nebula3-python` 3.8.3), en lecture
+# seule, en interrogeant un élément de schéma que le space ne connaît pas :
+#
+#     MATCH (n:<tag>) …    error_code()=-1009
+#                          "SemanticError: `<tag>': Unknown tag"
+#     GO … OVER <arête> …  error_code()=-1009
+#                          "SemanticError: <arête> not found in space [rag_space]."
+#
+# Les deux formes sont TEXTUELLES : `nebula3` ne distingue pas ces cas du reste
+# des erreurs sémantiques, toutes rangées sous le même `E_SEMANTIC_ERROR`. Le
+# code seul ne suffit donc pas, et c'est pourquoi le message est lu.
+_SCHEMA_INCONNU = re.compile(r"Unknown tag|Unknown edge type|not found in space")
+
+
+def _schema_perime(result: Any) -> bool:
+    """Le graphd dit-il que la session ne connaît plus un élément du schéma ?
+
+    Vrai UNIQUEMENT sur un `E_SEMANTIC_ERROR` dont le message nomme un tag ou
+    une arête inconnus. Un `SemanticError` d'une autre nature — une expression
+    mal typée, par exemple — est une faute de requête : rouvrir le pool n'y
+    changerait rien, et rejouer doublerait la charge sans aucune chance
+    d'aboutir. C'est la seule raison pour laquelle ce garde lit le message et
+    ne se contente pas du code.
+    """
+    return bool(
+        result.error_code() == ErrorCode.E_SEMANTIC_ERROR
+        and _SCHEMA_INCONNU.search(result.error_msg() or "")
+    )
+
+
 def _execute_raw(nql: str) -> Any | None:
     """Exécute une requête nGQL et rend le ResultSet NON converti, None en échec.
 
@@ -172,6 +205,34 @@ def _execute_raw(nql: str) -> Any | None:
         result = _get_pool().execute(nql)
     except Exception:
         logger.warning("NebulaGraph injoignable, réouverture du pool et nouvel essai.")
+        reset_connection()
+        result = _get_pool().execute(nql)
+    if not result.is_succeeded() and _schema_perime(result):
+        # LA SECONDE REPRISE, et elle n'a RIEN à voir avec la première : ici le
+        # transport va bien. C'est la SESSION qui est périmée — le pipeline
+        # voisin a purgé le graphe et RECRÉÉ son schéma, et la session que ce
+        # processus garde depuis son démarrage ne connaît plus les tags. Le
+        # graphd ne lève pas : il rend un ResultSet EN ÉCHEC, que l'`except`
+        # ci-dessus ne voit donc jamais. Le 25 septembre 2026 à 08:59 UTC, la
+        # liste blanche du proxy /media est tombée à 0 et TOUS les GET
+        # /media/<clé> ont rendu 404, pendant que /health publiait
+        # `nebulagraph: true` — §4.80 de `documentation/axes_amelioration.md`.
+        #
+        # CE QUI EST RATTRAPÉ : un `E_SEMANTIC_ERROR` dont le message nomme un
+        # tag ou une arête inconnus, et rien d'autre — `_schema_perime` porte
+        # la mesure et la justification de cette étroitesse. CE QUI NE L'EST
+        # PAS, délibérément : tout autre échec du ResultSet. Une requête
+        # syntaxiquement fausse, un droit refusé, un timeout du storaged ne se
+        # soignent pas en rouvrant une session, et les rejouer masquerait la
+        # panne derrière une latence doublée.
+        #
+        # UNE fois. Si la session rouverte échoue encore de la même façon, le
+        # schéma est réellement absent du space, et c'est l'appelant qui décide
+        # — le `logger.error` ci-dessous garde la trace des deux essais.
+        logger.warning(
+            "Session NebulaGraph périmée (%s) : réouverture du pool et nouvel essai.",
+            result.error_msg(),
+        )
         reset_connection()
         result = _get_pool().execute(nql)
     if not result.is_succeeded():
@@ -616,16 +677,40 @@ def media_object_names() -> set[str]:
     return noms
 
 
+# Tag lu par la sonde de /health. `Document` est la racine de l'arbre : toute
+# ingestion en crée, et il survit à une purge suivie d'une recréation du schéma.
+# Le choix porte sur un tag STRUCTUREL et non sur `Picture` : un corpus sans
+# illustration est légitime, une purge qui n'aurait pas recréé `Document` ne
+# l'est pas.
+_TAG_DE_SONDE = "Document"
+
+
 def ping() -> bool:
-    """Vérifie que NebulaGraph répond (utilisé par /health).
+    """Vérifie que NebulaGraph répond ET que la session connaît le schéma.
+
+    DEUX requêtes, et la seconde est celle qui manquait. `YIELD 1 AS ok` est
+    INSENSIBLE au schéma : `mesuré` le 25 septembre 2026 contre le graphd réel,
+    il réussit sur une session qui ne connaît plus aucun tag. C'est pourquoi
+    /health publiait `nebulagraph: true` pendant que le proxy /media rendait 404
+    sur les 212 objets du graphe — §4.80.
+
+    La seconde requête LIT UN TAG, et elle est bornée à `LIMIT 1` : une sonde
+    tourne toutes les 20 s sous le healthcheck, elle ne doit rien parcourir.
+
+    Elle passe par `_execute_raw` et non par `_execute`, et c'est la charnière :
+    `_execute` rend `[]` aussi bien sur un échec que sur un graphe qui répond
+    parfaitement sans porter aucun `Document`. `_execute_raw` rend `None` sur le
+    seul échec, donc zéro ligne sur une requête RÉUSSIE reste un graphe sain.
 
     Absorption LARGE et assumée : une sonde ne doit jamais lever, sans quoi
     /health tomberait au lieu de rapporter. Elle n'est pas muette pour autant —
-    `_execute` a déjà journalisé la panne en WARNING avant de la laisser passer,
-    et le faux rendu ici est publié par /health.
+    `_execute_raw` a déjà journalisé la panne avant de la laisser passer, et le
+    faux rendu ici est publié par /health.
     """
     try:
-        return bool(_execute("YIELD 1 AS ok;"))
+        if not _execute("YIELD 1 AS ok;"):
+            return False
+        return _execute_raw(f"MATCH (n:{_TAG_DE_SONDE}) RETURN id(n) AS id LIMIT 1;") is not None
     except Exception:
         return False
 

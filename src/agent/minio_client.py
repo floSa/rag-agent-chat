@@ -56,14 +56,48 @@ def to_media_path(minio_url: str) -> str:
     return f"/media/{object_name}"
 
 
-@lru_cache(maxsize=1)
-def _allowed_objects() -> frozenset[str]:
-    """Objets que le proxy accepte de servir, lus dans le graphe."""
-    from src.agent.graph_context import media_object_names
+class _ObjetsAutorises:
+    """Le cache de la liste blanche du proxy — qui NE RETIENT JAMAIS UN VIDE.
 
-    noms = frozenset(media_object_names())
-    logger.info("Proxy média : %d objets autorisés.", len(noms))
-    return noms
+    Un `lru_cache` mémorise ce qu'on lui rend, y compris `frozenset()`. Le
+    25 septembre 2026 à 08:59 UTC, la session NebulaGraph du processus était
+    périmée par une purge du pipeline, `media_object_names()` a rendu 0 clé, et
+    ce 0 est devenu la vérité du proxy : TOUS les `GET /media/<clé>` ont rendu
+    404 — §4.80 de `documentation/axes_amelioration.md`. Le graphe, lui, portait
+    ses 212 objets ; un processus NEUF les rendait au même instant.
+
+    Une liste blanche vide est donc traitée comme un SYMPTÔME et non comme un
+    fait : elle est rendue à l'appelant — qui refusera, et c'est correct tant
+    que le graphe ne dit rien — mais elle n'est pas retenue, si bien que l'appel
+    suivant repart au graphe. Une liste NON vide reste mise en cache : le proxy
+    est sur le chemin de CHAQUE image affichée, et la relire à chaque octet
+    servi coûterait une requête nGQL par image.
+
+    Cette classe remplace un `lru_cache` et en garde la surface exacte —
+    `_allowed_objects()` et `_allowed_objects.cache_clear()` — parce que c'est
+    la seule chose qu'un `lru_cache` ne sait pas faire : décider, au vu de la
+    valeur, si elle mérite d'être retenue.
+    """
+
+    def __init__(self) -> None:
+        self._noms: frozenset[str] | None = None
+
+    def __call__(self) -> frozenset[str]:
+        if self._noms is not None:
+            return self._noms
+        from src.agent.graph_context import media_object_names
+
+        noms = frozenset(media_object_names())
+        logger.info("Proxy média : %d objets autorisés.", len(noms))
+        if noms:
+            self._noms = noms
+        return noms
+
+    def cache_clear(self) -> None:
+        self._noms = None
+
+
+_allowed_objects = _ObjetsAutorises()
 
 
 def is_allowed(object_name: str) -> bool:
