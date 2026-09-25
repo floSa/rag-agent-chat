@@ -1,0 +1,140 @@
+{
+  "etape": "decomposition",
+  "jeu": "jeu_de_questions_pipeline.yaml",
+  "modele": "google/gemma-4-E4B-it-qat-w4a16-ct",
+  "max_sous_questions": 3,
+  "seuil_quasi_identique": 0.9,
+  "appel_de_chauffe": {
+    "ms": 458.1,
+    "raison_de_fin": "stop",
+    "exclu_des_statistiques": true
+  },
+  "generations": 26,
+  "raisons_de_fin": {
+    "stop": 26
+  },
+  "prompts_distincts": 26,
+  "latence_ms": {
+    "n": 26,
+    "mediane": 686.0,
+    "p95": 1540.6,
+    "min": 374.3,
+    "max": 2096.6
+  },
+  "jetons_generes": {
+    "total": 972,
+    "mediane": 35.5,
+    "max": 59
+  },
+  "natures": {
+    "decomposee": 21,
+    "vide": 0,
+    "une_seule": 5,
+    "quasi_identique": 0
+  },
+  "pannes": [],
+  "cache": {
+    "q01": [
+      "Why is endpoint-level traffic splitting an inappropriate mechanism for an experiment where the unit of analysis is the booking?",
+      "Where should the assignment decision for an experiment with a booking as the unit move instead of using endpoint-level traffic splitting?"
+    ],
+    "q02": [
+      "What rule governs the choice of randomization unit?",
+      "When is customer-level assignment preferable to request-level assignment?"
+    ],
+    "q03": [
+      "Which three serving scenarios does the model serving chapter cover?",
+      "Which serving scenario is right when predictions are precomputed?"
+    ],
+    "q04": [
+      "Which authentication method is ruled out by route optimization on a serving endpoint?",
+      "What does the book recommend using instead of the ruled-out authentication method?",
+      "Why does the book recommend the alternative authentication method?"
+    ],
+    "q05": [
+      "What factors bound the chunk size that can be chosen?",
+      "Why is counting characters an insufficient method to determine if a chunk fits?"
+    ],
+    "q06": [
+      "Why does a retrieval pipeline built on plain vector search degrade as a corpus grows?",
+      "What two mechanisms are recommended to recover quality in a degrading vector search retrieval pipeline?"
+    ],
+    "q07": [
+      "Which nearest-neighbour algorithm does Databricks AI Search use?",
+      "What distance metric does Databricks AI Search use for nearest-neighbour search?",
+      "What is the operational limit placed on Databricks AI Search's built-in reranker?"
+    ],
+    "q08": [
+      "What are the two MLflow evaluation modes?",
+      "Which MLflow evaluation mode suits promotion decisions made from curated production traces?"
+    ],
+    "q09": [
+      "When should a code-based scorer be preferred over an LLM judge?",
+      "What properties make a code-based scorer a good one?"
+    ],
+    "q10": [
+      "What is the minimum size required for an evaluation dataset to yield meaningful insights?",
+      "What characteristics should an evaluation dataset maintain over time?"
+    ],
+    "q11": [
+      "What are guardrails for?",
+      "At which two points can the gateway's built-in guardrails act?",
+      "What does a custom guardrail add?"
+    ],
+    "q12": [
+      "What distinguishes a champion agent from a challenger agent?",
+      "How does blue-green deployment introduce the challenger without risking the production traffic?"
+    ],
+    "q13": [
+      "What is the default memory allocation per worker for a CPU model serving endpoint?"
+    ],
+    "q14": [
+      "What capacity options can be chosen for a Databricks Online Feature Store?",
+      "How much RAM does one capacity unit represent in a Databricks Online Feature Store?"
+    ],
+    "q15": [
+      "Why is loading a model with mlflow.pyfunc.load_model() an unreliable way to debug a serving problem?",
+      "What should be used instead of mlflow.pyfunc.load_model() for debugging a serving problem?"
+    ],
+    "q16": [
+      "What is the embedding window of the Databricks GTE model?",
+      "What is the embedding window of Databricks BGE Large?"
+    ],
+    "q17": [
+      "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of capacity?",
+      "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of indexing speed?"
+    ],
+    "q18": [
+      "Which foundation model endpoint is hosted on Databricks?",
+      "Which foundation model endpoint generates embeddings for the arXiv index?"
+    ],
+    "q19": [
+      "What is a 'spectrum of factuality' in the context of detecting hallucinations in a RAG answer?"
+    ],
+    "q20": [
+      "What is the expected response time for users interacting with a production RAG system?",
+      "Why does the transition from a proof of concept to a production environment typically result in increased latency for a RAG system?"
+    ],
+    "q25": [
+      "Which of the three needs requires an extra identifier in the request payload?"
+    ],
+    "q26": [
+      "What is the cost associated with that fix?"
+    ],
+    "q27": [
+      "What is the definition of a domain expert in the context of writing without code?",
+      "What types of writing can a domain expert produce without writing any code?"
+    ],
+    "q28": [
+      "Which item is about the prompt?",
+      "What single instruction does the book give as its example?"
+    ],
+    "q29": [
+      "How to prevent an assistant from deviating from the intended topic when presented with unexpected questions?",
+      "Techniques for keeping an AI assistant focused on a specific subject despite off-topic queries."
+    ],
+    "q30": [
+      "Quel est le lien entre une recette de cuisine et la capacité d'un agent à changer d'infrastructure sans être réécrit ?"
+    ]
+  }
+}

@@ -499,3 +499,76 @@ def test_le_cache_de_decomposition_porte_le_nom_de_son_jeu(banc):
     assert disperse != reglage
     assert disperse.name == ".decomposition-jeu_ancrages_disperses.json"
     assert reglage.name == ".decomposition-golden_qa_generated.json"
+
+
+# ─── 10. LE REPLI, ET IL DOIT ÊTRE EXACTEMENT LA REQUÊTE UNIQUE ─────────────
+
+
+def test_le_repli_recopie_la_requete_unique_sans_traduction_et_pas_celle_avec(banc, monkeypatch):
+    """LE REPLI EST LA MOITIÉ DE LA NON-RÉGRESSION, ET IL A UN SENS.
+
+    Quand il n'y a rien à décomposer, les deux variantes retombent sur la requête
+    unique **sans traduction** — la base appariée —, jamais sur celle **avec**.
+    Recopier la variante de production ferait hériter les variantes d'un gain ou
+    d'une perte de la recherche translingue, et le §4.77 a mesuré que ce gain
+    existe et qu'il a deux signes : sur le jeu dispersé la traduction fait perdre
+    quatre ancrages et gagner une question. Un repli qui recopierait la mauvaise
+    base rendrait donc une non-régression fausse SANS qu'aucune ligne ne soit
+    absurde.
+
+    Les deux doubles rendent des classements DIFFÉRENTS selon qu'une traduction
+    est passée, pour que la confusion soit visible ; et le reranker est compté,
+    pour qu'un repli qui relancerait la chaîne soit rouge lui aussi.
+    """
+    avec, sans = _chunk("c-avec", "aaaaaaaaaa"), _chunk("c-sans", "ssssssssss")
+    appels: list[str] = []
+
+    def _retrieve_double(question, translation=None, **_):
+        appels.append(f"retrieve:{'avec' if translation else 'sans'}")
+        return [avec] if translation else [sans]
+
+    def _rerank_double(question, chunks):
+        appels.append("rerank")
+        return list(chunks)
+
+    import src.agent.retriever as retriever
+
+    monkeypatch.setattr(retriever, "retrieve", _retrieve_double)
+    monkeypatch.setattr(retriever, "rerank", _rerank_double)
+
+    mesure = banc.jouer_les_variantes(
+        "Which deployment strategy limits blast radius?",
+        "Quelle stratégie de déploiement limite le rayon d'impact ?",
+        ["aaaaaaaaaa", "ssssssssss"],
+        ["Which deployment strategy limits blast radius?"],
+        utilisable=False,
+    )
+    variantes = mesure["variantes"]
+    assert variantes["unique_avec_traduction"] == {"aaaaaaaaaa": 1, "ssssssssss": None}
+    assert variantes["unique_sans_traduction"] == {"aaaaaaaaaa": None, "ssssssssss": 1}
+    assert variantes["fusion_rerank_entiere"] == variantes["unique_sans_traduction"]
+    assert variantes["fusion_rerank_sous_questions"] == variantes["unique_sans_traduction"]
+    assert appels == ["retrieve:avec", "rerank", "retrieve:sans", "rerank"], (
+        "le repli ne doit RELANCER aucune récupération ni aucun reranking"
+    )
+
+
+def test_le_repli_ne_facture_pas_deux_fois_le_reranker(banc, monkeypatch):
+    """Le coût du repli est celui de la requête unique, et pas un centime de plus.
+
+    Un repli qui recopierait les rangs mais laisserait les compteurs à zéro —
+    ou qui les doublerait — ferait mentir la table des coûts dans le sens qui
+    arrange : la décomposition paraîtrait gratuite sur les questions simples,
+    qui sont justement les plus nombreuses des deux jeux de non-régression.
+    """
+    un = _chunk("c-1", "1111111111")
+
+    import src.agent.retriever as retriever
+
+    monkeypatch.setattr(retriever, "retrieve", lambda q, translation=None, **_: [un])
+    monkeypatch.setattr(retriever, "rerank", lambda q, chunks: list(chunks))
+
+    mesure = banc.jouer_les_variantes("q", None, ["1111111111"], ["q"], utilisable=False)
+    paires = mesure["paires_rerankees"]
+    assert paires["fusion_rerank_entiere"] == paires["unique_sans_traduction"] == 1
+    assert paires["fusion_rerank_sous_questions"] == 1
