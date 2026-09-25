@@ -59,25 +59,31 @@ _E_SEMANTIC_ERROR = -1009
 
 _TAG_DU_MATCH = re.compile(r"\(n:(\w+)\)")
 _ARETE_DU_GO = re.compile(r"\bOVER\s+(\w+)")
+# Les colonnes d'un `RETURN n.<tag>.<propriété> AS <alias>` : le double rend
+# les colonnes que la requête NOMME, et non une forme figée — LOT-42 a changé
+# l'alias `url` en trois colonnes nommées, et le double ne doit pas en décider.
+_COLONNE_DU_RETURN = re.compile(r"n\.\w+\.(\w+) AS (\w+)")
 
 
 class _Valeur:
     """Le strict nécessaire d'un `ValueWrapper` pour `_to_primitive`."""
 
-    def __init__(self, brut: str) -> None:
+    def __init__(self, brut: str | None) -> None:
         self._brut = brut
 
     def is_string(self) -> bool:
-        return True
+        return self._brut is not None
 
     def as_string(self) -> str:
+        assert self._brut is not None
         return self._brut
 
     def is_int(self) -> bool:
         return False
 
     def is_null(self) -> bool:
-        return False
+        # Une propriété absente du schéma du tag : `__NULL__`, mesuré au §4.82.
+        return self._brut is None
 
 
 class _ResultatEnEchec:
@@ -100,7 +106,7 @@ class _ResultatEnEchec:
 
 
 class _ResultatOk:
-    def __init__(self, colonnes: list[str], lignes: list[list[str]]) -> None:
+    def __init__(self, colonnes: list[str], lignes: list[list[str | None]]) -> None:
         self._colonnes = colonnes
         self._lignes = lignes
 
@@ -156,8 +162,14 @@ class _SessionPerimee:
             if arete is not None:
                 return _ResultatEnEchec(_MESSAGE_ARETE_INCONNUE.format(nom=arete.group(1)))
         if tag is not None and "minio_url" in nql:
+            # Le graphe d'AUJOURD'HUI : seul `minio_url` est porté, toute autre
+            # propriété nommée rend NULL.
             urls = self.urls_par_tag.get(tag.group(1), [])
-            return _ResultatOk(["url"], [[u] for u in urls])
+            colonnes = _COLONNE_DU_RETURN.findall(nql)
+            return _ResultatOk(
+                [alias for _prop, alias in colonnes],
+                [[u if prop == "minio_url" else None for prop, _alias in colonnes] for u in urls],
+            )
         if arete is not None:
             return _ResultatOk(["parent_id", "seq"], [["ffa6bda17d", "7"]])
         return _ResultatOk(["ok"], [["1"]])

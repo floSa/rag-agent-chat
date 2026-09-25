@@ -74,6 +74,10 @@ class ChunkResult(BaseModel):
     page_no: int
     label: str                        # paragraph, section_header, table, picture…
     minio_url: str | None = None
+    # La clé nue de l'objet, publiée par la source depuis la bascule de son
+    # stockage — §4.82. INTERNE : exclue de la sérialisation, la forme de notre
+    # réponse ne change pas dans ce lot.
+    object_key: str | None = Field(default=None, exclude=True)
     page_position: int = 0
     ref_position: int = 0
     distance: float                   # distance cosine ChromaDB
@@ -155,6 +159,7 @@ class SectionElement(BaseModel):
     label: str
     text: str
     minio_url: str | None = None
+    object_key: str | None = Field(default=None, exclude=True)  # §4.82, interne
     sequence: int
     page_no: int = 0
     # Légende rattachée à une image ou un tableau, via l'arête DESCRIBES du

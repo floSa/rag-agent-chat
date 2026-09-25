@@ -1569,7 +1569,9 @@ def _dense_search(question: str, k: int) -> list[ChunkResult]:
                 depth=int(meta.get("depth") or 0),
                 page_no=int(meta.get("page_no", 0)),
                 label=meta.get("label", ""),
-                minio_url=meta.get("minio_url") or None,
+                # `media_url`, et `minio_url` à défaut — §4.82.
+                minio_url=meta.get("media_url") or meta.get("minio_url") or None,
+                object_key=meta.get("object_key") or None,
                 page_position=int(meta.get("page_position", 0)),
                 ref_position=int(meta.get("ref_position", 0)),
                 distance=float(dist),

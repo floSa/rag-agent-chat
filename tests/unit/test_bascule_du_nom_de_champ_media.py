@@ -13,13 +13,20 @@ pourquoi : NebulaGraph ne lève pas sur une propriété inconnue — un `RETURN`
 `minio_url` avant ce lot le POSAIENT toutes elles-mêmes dans des doubles :
 aucune ne lisait une source, et la suite serait restée intégralement verte.
 
-CE QUE CES SCÈNES VAUDRONT LE JOUR DE LA BASCULE. Elles rougiront — et c'est
-exactement ce qu'on leur demande. Une scène qui affirme « le champ renommé
-produit zéro image » devient fausse le jour où le code lit le nouveau nom. Ce
-rouge-là n'est pas une régression : c'est l'accusé de réception de la bascule.
-On changera alors `CONTRAT_DES_SOURCES` dans `test_contrat_champs_externes.py`
-— un seul endroit — et on retournera ces scènes : l'ANCIEN nom deviendra celui
-qui ne produit plus d'image, et le contrôle positif changera de côté avec lui.
+CE QUE CES SCÈNES SONT DEVENUES À LA BASCULE — LOT-42, §4.82 du registre. Le
+code lit désormais `media_url`, `minio_url` à défaut, et `object_key`. Les
+scènes ont été RETOURNÉES comme elles l'annonçaient, et non contournées :
+
+- le nom qui ne produit aucune image n'est plus `media_url` — que nous lisons —
+  mais un nom que le contrat ne porte PAS, `NOM_INCONNU`. Le constat reste le
+  même, et il vaut pour la prochaine bascule : un nom renommé sans nous rend
+  une réponse complète, sans image, sans un mot ;
+- le contrôle positif porte sur CHACUN des noms du contrat, et non plus sur un
+  seul : `media_url`, le repli `minio_url`, et `object_key` pour la liste
+  blanche. Chacun de ces cas était ROUGE sur la base `b70ac8c`, qui ne lisait
+  que `minio_url` ;
+- `CONTRAT_DES_SOURCES`, dans `test_contrat_champs_externes.py`, reste le seul
+  endroit où les noms sont écrits.
 
 LE PRODUCTEUR EST DOUBLÉ, JAMAIS LE CONSOMMATEUR. Chaque scène remplace la
 frontière — `_execute` pour le graphe, la collection pour ChromaDB — et laisse
@@ -41,34 +48,38 @@ import pytest
 from src.agent import graph as graph_module
 from src.agent import graph_context, lexical, retriever
 from src.api.schemas import SectionContext
-from tests.unit.test_contrat_champs_externes import CONTRAT_DES_SOURCES
+from tests.unit.test_contrat_champs_externes import (
+    CHAMP_CLE,
+    CHAMP_URL,
+    CHAMP_URL_DE_REPLI,
+    CONTRAT_DES_SOURCES,
+)
 
-# Le nom que le pipeline s'est engagé à publier après la bascule (§4.62). Il
-# n'est utilisé ici que comme nom de champ INCONNU de notre code : la scène
-# resterait valable avec n'importe quel autre nom, et le prendre au mot rend
-# simplement la scène lisible le jour venu.
-NOM_APRES_BASCULE = "media_url"
+# Un nom de champ INCONNU de notre code : ce que serait une prochaine bascule
+# faite sans nous. La scène resterait valable avec n'importe quel autre nom
+# absent du contrat — la garde d'hygiène ci-dessous y veille.
+NOM_INCONNU = "s3_url"
 
-# Le nom au contrat aujourd'hui, LU depuis le site canonique et jamais recopié :
-# si quelqu'un change le contrat sans toucher ces scènes, elles suivent.
-NOM_GRAPHE = CONTRAT_DES_SOURCES["graphe"]
-NOM_CHROMADB = CONTRAT_DES_SOURCES["chromadb"]
+# Les noms d'URL au contrat, LUS depuis le site canonique et jamais recopiés :
+# le nom d'après la bascule, puis son repli.
+NOMS_URL = (CHAMP_URL, CHAMP_URL_DE_REPLI)
+assert all(nom in CONTRAT_DES_SOURCES["graphe"] for nom in NOMS_URL)
+assert all(nom in CONTRAT_DES_SOURCES["chromadb"] for nom in NOMS_URL)
 
 _URL = "http://stockage-objet:9000/documents/images/rapport/aaaaaaaa01_picture.png"
 _OBJET = "images/rapport/aaaaaaaa01_picture.png"
 
 
-def test_le_nom_dapres_bascule_est_bien_inconnu_du_contrat() -> None:
+def test_le_nom_inconnu_est_bien_inconnu_du_contrat() -> None:
     """Garde d'hygiène : sans elle, ces scènes pourraient se vider d'elles-mêmes.
 
-    Si la bascule a lieu et que `CONTRAT_DES_SOURCES` est mis à jour sans que
-    ces scènes le soient, `NOM_APRES_BASCULE` deviendrait le nom ATTENDU et
-    chaque « zéro image » ci-dessous mesurerait le contraire de son intention —
-    en restant vert. Cette garde-ci rougit d'abord.
+    Si le contrat se met à porter `NOM_INCONNU`, chaque « zéro image »
+    ci-dessous mesurerait le contraire de son intention — en restant vert.
+    Cette garde-ci rougit d'abord.
     """
-    assert NOM_APRES_BASCULE not in set(CONTRAT_DES_SOURCES.values()), (
-        "Le nom d'après-bascule est devenu le nom au contrat : ces scènes "
-        "doivent être retournées, l'ANCIEN nom prenant la place du nouveau."
+    noms = {nom for noms_source in CONTRAT_DES_SOURCES.values() for nom in noms_source}
+    assert NOM_INCONNU not in noms, (
+        "Le nom « inconnu » est devenu un nom du contrat : choisissez-en un autre."
     )
 
 
@@ -105,7 +116,7 @@ def test_b1_le_champ_renomme_vide_lautorisation_du_proxy(
     ARRIVENT, et l'ensemble est vide quand même — parce que `media_object_names`
     lit l'alias `url` d'une propriété que la requête ne sait plus nommer.
     """
-    _double_execute([{NOM_APRES_BASCULE: _URL}], monkeypatch)
+    _double_execute([{NOM_INCONNU: _URL}], monkeypatch)
     with caplog.at_level(logging.DEBUG):
         noms = graph_context.media_object_names()
 
@@ -136,23 +147,30 @@ def test_b1_bis_la_forme_reelle_du_where_donne_le_meme_vide(
     assert requetes, "le double n'a été traversé par aucune requête : montage faux"
 
 
-def test_b1_controle_positif_le_champ_au_contrat_peuple_lautorisation(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    "ligne",
+    [{CHAMP_URL: _URL}, {CHAMP_URL_DE_REPLI: _URL}, {CHAMP_CLE: _OBJET}],
+    ids=[CHAMP_URL, CHAMP_URL_DE_REPLI, CHAMP_CLE],
+)
+def test_b1_controle_positif_chaque_champ_au_contrat_peuple_lautorisation(
+    ligne: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """CONTRÔLE POSITIF — sans lui, les deux vides ci-dessus ne valent rien.
 
-    Le même montage, avec la requête telle qu'elle est écrite aujourd'hui : le
-    graphe rend l'alias `url` et l'objet ressort. Si CETTE scène rougit, ce
-    n'est pas `src/` qui est en cause, c'est le montage des scènes B1.
+    Le même montage, un nom du contrat à la fois : le graphe rend la colonne
+    de ce nom, et l'objet ressort. Les trois cas étaient ROUGES sur la base
+    `b70ac8c` — qui lisait un alias `url` — et c'est l'accusé de réception de
+    la bascule (§4.82).
     """
-    requetes = _double_execute([{"url": _URL}], monkeypatch)
+    requetes = _double_execute([ligne], monkeypatch)
     noms = graph_context.media_object_names()
 
     assert noms == {_OBJET}, f"le montage B1 ne produit plus d'objet : {sorted(noms)}"
-    assert any(f".{NOM_GRAPHE}" in nql for nql in requetes), (
-        f"la requête envoyée au graphe ne nomme plus « {NOM_GRAPHE} » : les "
-        "scènes B1 ne mesurent plus le champ qu'elles croient."
-    )
+    for nom in CONTRAT_DES_SOURCES["graphe"]:
+        assert all(f".{nom}" in nql for nql in requetes), (
+            f"une requête envoyée au graphe ne nomme pas « {nom} » : les "
+            "scènes B1 ne mesurent plus le champ qu'elles croient."
+        )
 
 
 # ─── B2 — le chemin des images d'une réponse, du graphe à l'ImageRef ──────────
@@ -236,7 +254,7 @@ def test_b2_le_champ_renomme_ne_produit_aucune_image_et_ne_dit_rien(
     signale que les illustrations ont disparu. C'est la démonstration que rien
     ne rougit aujourd'hui, et c'est pour cela que cette scène existe.
     """
-    contexte = _section_reconstruite(NOM_APRES_BASCULE, monkeypatch)
+    contexte = _section_reconstruite(NOM_INCONNU, monkeypatch)
 
     with caplog.at_level(logging.DEBUG):
         citations, images = graph_module.resolve_citations(_REPONSE, [contexte], [])
@@ -266,20 +284,22 @@ def test_b2_bis_le_marqueur_image_disparait_aussi_du_texte_soumis(
     proposée au modèle. Cloué ici parce que c'est ce qui rend la voie 1 — le
     `[img:]` émis par le modèle — inatteignable elle aussi.
     """
-    renomme = _section_reconstruite(NOM_APRES_BASCULE, monkeypatch)
+    renomme = _section_reconstruite(NOM_INCONNU, monkeypatch)
     assert "[img:" not in renomme.markdown
     assert f"[src:{_ID_TABLEAU}]" in renomme.markdown, "le montage ne soumet plus rien"
 
 
-def test_b2_controle_positif_le_champ_au_contrat_produit_les_images(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize("nom", NOMS_URL)
+def test_b2_controle_positif_chaque_nom_d_url_au_contrat_produit_les_images(
+    nom: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """CONTRÔLE POSITIF — le même chemin, le nom d'aujourd'hui, des images.
+    """CONTRÔLE POSITIF — le même chemin, chaque nom du contrat, des images.
 
-    Il borne les trois constats à zéro ci-dessus : sans lui, un `SectionContext`
+    Il borne les constats à zéro ci-dessus : sans lui, un `SectionContext`
     mal monté ou une citation non résolue les rendrait verts sans rien mesurer.
+    Le cas `media_url` était ROUGE sur la base `b70ac8c` (§4.82).
     """
-    contexte = _section_reconstruite(NOM_GRAPHE, monkeypatch)
+    contexte = _section_reconstruite(nom, monkeypatch)
     assert "[img:" in contexte.markdown, "le montage B2 ne soumet plus d'illustration"
 
     _citations, images = graph_module.resolve_citations(_REPONSE, [contexte], [])
@@ -316,8 +336,8 @@ def _metadonnees(champ_media: str) -> dict[str, Any]:
 
 @pytest.mark.parametrize(
     ("champ", "attendu"),
-    [(NOM_APRES_BASCULE, None), (NOM_CHROMADB, _URL)],
-    ids=["apres-bascule", "controle-positif"],
+    [(NOM_INCONNU, None), (CHAMP_URL, _URL), (CHAMP_URL_DE_REPLI, _URL)],
+    ids=["nom-inconnu", f"controle-positif-{CHAMP_URL}", f"controle-positif-{CHAMP_URL_DE_REPLI}"],
 )
 def test_b3_lexical_le_champ_renomme_donne_none_sans_lever(
     champ: str, attendu: str | None, caplog: pytest.LogCaptureFixture
@@ -340,8 +360,8 @@ def test_b3_lexical_le_champ_renomme_donne_none_sans_lever(
 
 @pytest.mark.parametrize(
     ("champ", "attendu"),
-    [(NOM_APRES_BASCULE, None), (NOM_CHROMADB, _URL)],
-    ids=["apres-bascule", "controle-positif"],
+    [(NOM_INCONNU, None), (CHAMP_URL, _URL), (CHAMP_URL_DE_REPLI, _URL)],
+    ids=["nom-inconnu", f"controle-positif-{CHAMP_URL}", f"controle-positif-{CHAMP_URL_DE_REPLI}"],
 )
 def test_b3_dense_le_champ_renomme_donne_none_sans_lever(
     champ: str,

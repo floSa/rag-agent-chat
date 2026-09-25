@@ -43,14 +43,32 @@ def object_name_from_url(minio_url: str) -> str | None:
     return path_parts[1]
 
 
-def to_media_path(minio_url: str) -> str:
+def cle_objet(object_key: str | None, url: str | None) -> str | None:
+    """La clé d'un objet du bucket : `object_key` s'il est publié, sinon déduite de l'URL.
+
+    `object_key` est la propriété que le pipeline publie depuis la bascule de
+    son stockage objet — §4.82 de `documentation/axes_amelioration.md`. Elle
+    porte la clé NUE, et nous affranchit du décodage positionnel de l'URL, que
+    le §4.62 a mesuré faux sur une URL en virtual-host style. Tant que les
+    stores servis n'ont pas été réingérés, elle manque : la clé est alors
+    déduite de l'URL, par la même règle qu'avant.
+    """
+    if object_key:
+        return object_key
+    if url:
+        return object_name_from_url(url)
+    return None
+
+
+def to_media_path(minio_url: str, object_key: str | None = None) -> str:
     """Convertit une URL MinIO interne en chemin proxy /media servi par l'API.
 
     Les URLs (même pré-signées) construites sur l'endpoint interne seaweedfs:8333
     sont inaccessibles depuis le navigateur de l'utilisateur : c'est l'API
-    FastAPI qui sert les objets via GET /media/{object_name}.
+    FastAPI qui sert les objets via GET /media/{object_name}. La clé est
+    `object_key` quand la source l'a publié — `cle_objet`.
     """
-    object_name = object_name_from_url(minio_url)
+    object_name = cle_objet(object_key, minio_url)
     if object_name is None:
         return minio_url  # URL non reconnue, retournée telle quelle
     return f"/media/{object_name}"

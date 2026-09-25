@@ -249,7 +249,10 @@ def chunk_from_record(chunk_id: str, document: str, meta: dict[str, Any]) -> Chu
         depth=int(meta.get("depth") or 0),
         page_no=int(meta.get("page_no") or 0),
         label=meta.get("label", ""),
-        minio_url=meta.get("minio_url") or None,
+        # `media_url`, et `minio_url` à défaut, tant que la collection n'est
+        # pas réingérée — §4.82.
+        minio_url=meta.get("media_url") or meta.get("minio_url") or None,
+        object_key=meta.get("object_key") or None,
         page_position=int(meta.get("page_position") or 0),
         ref_position=int(meta.get("ref_position") or 0),
         distance=1.0,

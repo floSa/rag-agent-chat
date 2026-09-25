@@ -433,7 +433,7 @@ def resolve_citations(
             # perdre parce que la coupe a emporté ce marqueur retirerait au
             # lecteur une figure qui appartient réellement à la section citée.
             if elem.minio_url:
-                media_map.setdefault(elem.node_id, elem.minio_url)
+                media_map.setdefault(elem.node_id, to_media_path(elem.minio_url, elem.object_key))
             if elem.node_id not in soumis:
                 continue
             elements_map.setdefault(
@@ -449,7 +449,9 @@ def resolve_citations(
             )
     for reranked in chunks:
         if reranked.minio_url:
-            media_map.setdefault(reranked.element_id, reranked.minio_url)
+            media_map.setdefault(
+                reranked.element_id, to_media_path(reranked.minio_url, reranked.object_key)
+            )
 
     # Citations résolues d'abord depuis les chunks (document et page fiables),
     # sinon depuis les éléments des sections reconstruites.
@@ -497,10 +499,12 @@ def resolve_citations(
     vus: set[str] = set()
 
     def ajouter(eid: str) -> None:
-        minio_url = media_map.get(eid)
-        if minio_url and eid not in vus:
+        # `media_map` porte déjà le chemin `/media` : la clé d'objet y a été
+        # choisie au moment où l'élément la portait encore.
+        chemin = media_map.get(eid)
+        if chemin and eid not in vus:
             vus.add(eid)
-            images.append(ImageRef(element_id=eid, minio_url=to_media_path(minio_url)))
+            images.append(ImageRef(element_id=eid, minio_url=chemin))
 
     # Voie 1 : le marqueur explicite du modèle. Filtrée comme une citation —
     # c'est le modèle qui affirme avoir vu cette illustration, et publier une
