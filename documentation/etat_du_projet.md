@@ -38,7 +38,7 @@ construite par `make image` — [identite_du_code_servi.md](identite_du_code_ser
 détaché sur `e1324e4`, environnement monté par le protocole du §2.2 du journal,
 **les cinq fichiers de ce lot suivis par git** — sans quoi les gardes qui lisent
 `git ls-files` ne les verraient pas. `rc` de **`make`**, relevés dans des
-variables : `rc_lint = 0`, `rc_test = 0`, **1263 passés** en 124 s. Les trois
+variables : `rc_lint = 0`, `rc_test = 0`, **1263 passés** (124 s au relevé du lot 40, 128,9 s à celui de la VÉRIF-40). Les trois
 relevés sont identiques. C'est le compte que [tests.md](tests.md) annonce — 1263 tests sur 61
 fichiers, `mesuré` le 25 septembre à 07:47 UTC — et le même que la ligne **91**
 du journal publie pour LOT-39.
@@ -241,13 +241,17 @@ mesuré** (§4.79).
 
 Conséquence directe sur les coûts : le §4.79 dit **combien de paires** chaque
 variante ajoute ; il ne dit pas ce qu'elles coûteraient sur GPU. Le §4.78 relève
-un p95 de **8,5 s en `cpu`** pour le reranking par sous-question, et écrit que
+un p95 de **8 483 ms en `cpu`** pour le reranking par sous-question, et écrit que
 le `cuda` du service n'est pas mesuré.
 
 ### 2.4 Les jeux ne sont pas relus, et le dispersé est monolingue
 
-- **`reviewed: false` sur les trois jeux** (§4.79, réserve 8). Aucune des
-  questions n'a été relue par un humain.
+- **190 questions sur 228 ne sont pas relues** (`reviewed: false`) : 130 des 138
+  du jeu de réglage et les 60 du jeu dispersé. Les **30** questions du jeu de
+  contrôle sont écrites à la main et portent `reviewed: true`, ainsi que **8** du
+  jeu de réglage (`mesuré` par `yaml.safe_load` le 25 septembre 2026, VÉRIF-40,
+  recompté par le pilote). La réserve 8 du §4.79 disait « les trois jeux » : elle
+  est corrigée au site.
 - **Le jeu dispersé est monolingue anglais, et ce n'était pas voulu** (§4.76) :
   le générateur tirait **30 %** de questions françaises, le jeu en porte **0 sur
   60**. La cause est mesurée et elle est au site — le garde de vocabulaire

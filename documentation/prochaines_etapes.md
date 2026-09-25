@@ -59,8 +59,10 @@ change entièrement.
 
 **Registre : §4.67, §4.76 ; §4.79 réserve 8.**
 
-**Les chiffres.** **`reviewed: false` sur les trois jeux** (§4.79, réserve 8),
-soit 138 + 30 + 60 questions. Sur le jeu dispersé, **30 ancrages sur 120
+**Les chiffres.** **190 questions sur 228 portent `reviewed: false`** : 130 des
+138 du jeu de réglage et les 60 du jeu dispersé ; les 30 du jeu de contrôle et 8
+du jeu de réglage sont relues (`mesuré` le 25 septembre 2026, VÉRIF-40 ; la
+réserve 8 du §4.79 est corrigée au site). Sur le jeu dispersé, **30 ancrages sur 120
 sortent au rang 1 du reranker** et *le juge de non-suffisance est le modèle qui
 a écrit la question* (§4.76). **4** paires rejetées par la condition de
 reconstruction sur 139 examinées, **8** par la non-suffisance, **67** par les
@@ -162,8 +164,8 @@ entière en `cpu`.
 
 **Pourquoi l'échec coûte cher ici.** Tous les arbitrages de coût du chantier
 sont posés sur des latences `cpu`. Un facteur dix mal placé peut **inverser** une
-décision : le §4.78 refuse le reranking par sous-question sur un p95 de **8,5 s
-en `cpu`** qui, sur GPU, ne serait peut-être pas un obstacle. Et l'écart touche
+décision : le §4.78 ne recommande pas le reranking par sous-question, qui coûte un p95 de
+**8 483 ms en `cpu`** qui, sur GPU, ne serait peut-être pas un obstacle. Et l'écart touche
 aussi la **justesse** : *ce qu'un écart d'arrondi flottant déplacerait dans
 l'ordre du reranking n'est pas mesuré* (§4.79).
 

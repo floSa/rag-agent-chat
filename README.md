@@ -254,7 +254,7 @@ rend `1`) :
 | | commande | rc | rendu |
 |---|---|---|---|
 | lint | `make lint` (`rc_lint`) | **0** | `mypy` : 22 fichiers, aucun problème ; `ruff` : tout passe |
-| tests | `make test` (`rc_test`) | **0** | **1263 passés** en 124 s |
+| tests | `make test` (`rc_test`) | **0** | **1263 passés** (124 s au relevé du lot 40, 128,9 s à celui de la VÉRIF-40) |
 
 Le compte **1263** est celui que [tests.md](documentation/tests.md) annonce
 (61 fichiers, relevé du 25 septembre 2026 à 07:47 UTC), et un garde du dépôt le
@@ -262,10 +262,18 @@ tient.
 
 **L'environnement se monte, il ne se suppose pas.** `ruff`, `mypy` et `pytest`
 ne sont pas au `PATH` de ce poste : un `make lint` depuis un arbre neuf échoue
-sur `ruff: command not found`, et non sur une faute de code. Sur un arbre neuf :
+(`rc=2`, sur `mypy: No such file or directory`, relevé par la VÉRIF-40 depuis un
+clone neuf le 25 septembre 2026), et non sur une faute de code. Sur un arbre neuf :
 
 ```bash
 uv venv --python 3.12 && uv pip install torch --index-url https://download.pytorch.org/whl/cpu && uv pip install -r requirements.txt -r requirements-dev.txt
+```
+
+PUIS ACTIVER LE `.venv`, sans quoi la porte échoue encore (`rc=2`) : les outils
+sont dans `.venv/bin`, que rien ne met au `PATH`.
+
+```bash
+. .venv/bin/activate && make lint && make test
 ```
 
 *Exécutée le 25 septembre 2026 à 08:10-08:11 UTC, `rc=0`.* **Ne jamais mesurer la
@@ -279,7 +287,7 @@ n'aura pas. Le protocole complet est au §2.2 de
 | Cible | Ce qu'elle fait | Exécutée ici ? |
 |---|---|---|
 | `make lint` | `mypy src/` puis `ruff check` | **oui**, `rc=0` |
-| `make test` | `pytest tests/unit/` | **oui**, `rc=0`, 1263 passés en 124 s |
+| `make test` | `pytest tests/unit/` | **oui**, `rc=0`, 1263 passés |
 | `make typecheck` | `mypy src/` | **oui, comme dépendance de `make lint`** ; pas appelée séparément |
 | `make format` | `ruff format` + `ruff check --fix` | non — elle **écrit** dans l'arbre, et ce lot ne touche pas au code |
 | `make test-integration` | `pytest tests/integration/` contre l'API | non — exige la pile démarrée et un `.env` ; hors du mandat de ce lot |
