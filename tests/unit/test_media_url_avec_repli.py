@@ -491,6 +491,21 @@ def test_object_key_l_emporte_sur_la_cle_deduite_de_l_url(monkeypatch: pytest.Mo
     for chemin in _CHEMINS:
         chunk = _chunk(chemin, media, monkeypatch)
         assert chunk.object_key == _CLE, chemin
+        # Et c'est la clé PUBLIÉE qui fait le chemin `/media` d'une image venue
+        # d'un chunk : né de la mutation M3j, qui survivait sans cette ligne.
+        reponse = f"La figure [img:{_ID_FIGURE}] [src:{_ID_FIGURE}]."
+        contexte = SectionContext(
+            element_id=_ID_FIGURE,
+            section_id=_ID_SECTION,
+            breadcrumbs=[],
+            elements=[],
+            markdown=f"Figure. [src:{_ID_FIGURE}] [img:{_ID_FIGURE}]",
+            filename="rapport.pdf",
+            collection="Relevés trimestriels",
+            section_title="Résultats",
+        )
+        _c, images_du_chunk = graph_module.resolve_citations(reponse, [contexte], [chunk])
+        assert [i.minio_url for i in images_du_chunk] == [f"/media/{_CLE}"], chemin
 
 
 def test_to_media_path_prefere_la_cle_publiee() -> None:
