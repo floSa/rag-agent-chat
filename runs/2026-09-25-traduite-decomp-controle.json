@@ -1,0 +1,142 @@
+{
+  "etape": "decomposition-de-la-question-traduite",
+  "jeu": "jeu_de_questions_pipeline.yaml",
+  "modele": "google/gemma-4-E4B-it-qat-w4a16-ct",
+  "max_sous_questions": 3,
+  "seuil_quasi_identique": 0.9,
+  "appel_de_chauffe": {
+    "ms": 685.6,
+    "raison_de_fin": "stop",
+    "exclu_des_statistiques": true
+  },
+  "generations": 26,
+  "raisons_de_fin": {
+    "stop": 26
+  },
+  "prompts_distincts": 26,
+  "latence_ms": {
+    "n": 26,
+    "mediane": 946.3,
+    "p95": 1901.2,
+    "min": 334.7,
+    "max": 2084.1
+  },
+  "jetons_generes": {
+    "total": 1186,
+    "mediane": 44.0,
+    "max": 74
+  },
+  "natures": {
+    "decomposee": 22,
+    "vide": 0,
+    "une_seule": 4,
+    "quasi_identique": 0
+  },
+  "pannes": [],
+  "cache": {
+    "q01": [
+      "Pourquoi le traffic splitting au niveau de l'endpoint est-il inapproprié pour une expérience dont l'unité est la réservation ?",
+      "Où la décision d'affectation doit-elle se déplacer lorsque l'unité d'expérience est la réservation ?"
+    ],
+    "q02": [
+      "Quelle règle régit le choix de l'unité de randomisation ?",
+      "Quand l'attribution au niveau client est-elle préférable à l'attribution au niveau de la requête ?"
+    ],
+    "q03": [
+      "Quels sont les trois scénarios de service couverts par le chapitre model serving ?",
+      "Quel scénario est correct lorsque les prédictions sont précalculées dans le contexte du model serving ?"
+    ],
+    "q04": [
+      "Quelle méthode d'authentification est exclue lors de l'optimisation des itinéraires sur un point de terminaison de service ?",
+      "Quelle méthode d'authentification le livre recommande-t-il d'utiliser à la place pour l'optimisation des itinéraires sur un point de terminaison de service et pourquoi ?"
+    ],
+    "q05": [
+      "Qu'est-ce qui limite la taille de chunk que l'on peut choisir ?",
+      "Pourquoi compter les caractères ne suffit-il pas pour déterminer si un chunk rentre ?"
+    ],
+    "q06": [
+      "Pourquoi un pipeline de récupération construit sur une recherche vectorielle simple se dégrade-t-il à mesure qu'un corpus grandit ?",
+      "Quels sont les deux mécanismes recommandés pour améliorer la qualité de la récupération dans ce scénario ?"
+    ],
+    "q07": [
+      "Quel algorithme de plus proche voisin Databricks AI Search utilise ?",
+      "Quelle métrique de distance Databricks AI Search utilise ?",
+      "Quelle limite opérationnelle est imposée au reranker intégré de Databricks AI Search ?"
+    ],
+    "q08": [
+      "Quels sont les deux modes d'évaluation de MLflow ?",
+      "Lequel des deux modes d'évaluation de MLflow convient aux décisions de promotion prises à partir de traces de production curatées ?"
+    ],
+    "q09": [
+      "Quand un code-based scorer doit-il être préféré à un LLM judge ?",
+      "Quelles propriétés font qu'un scorer est bon ?"
+    ],
+    "q10": [
+      "Quelle taille minimale doit avoir un dataset d'évaluation pour être significatif ?",
+      "Quelles caractéristiques un dataset d'évaluation devrait-il conserver au fil du temps ?"
+    ],
+    "q11": [
+      "À quoi servent les guardrails ?",
+      "À quels deux points les siennes intégrées de la gateway peuvent-elles agir ?",
+      "Qu'ajoute un guardrail personnalisé ?"
+    ],
+    "q12": [
+      "Qu'est-ce qui distingue un agent champion d'un agent challenger ?",
+      "Comment le déploiement blue-green introduit le challenger sans risquer le trafic de production ?"
+    ],
+    "q13": [
+      "Quelle quantité de mémoire un modèle de CPU alloue-t-il par worker par défaut ?"
+    ],
+    "q14": [
+      "Quelles options de capacité peuvent être choisies pour un Databricks Online Feature Store ?",
+      "Combien de RAM représente une unité de capacité pour un Databricks Online Feature Store ?"
+    ],
+    "q15": [
+      "Pourquoi charger un modèle avec mlflow.pyfunc.load_model() est-il une manière peu fiable de déboguer un problème de service ?",
+      "Quelle alternative devrait être utilisée à la place de mlflow.pyfunc.load_model() pour le débogage de problèmes de service ?"
+    ],
+    "q16": [
+      "Quelle est la fenêtre d'embedding du modèle Databricks GTE ?",
+      "Quelle est la fenêtre d'embedding du modèle Databricks BGE Large ?"
+    ],
+    "q17": [
+      "Quelles sont les différences entre les endpoints AI Search standard et optimisés pour le stockage ?",
+      "Comment les endpoints AI Search standard et optimisés pour le stockage diffèrent-ils en termes de capacité ?",
+      "Comment les endpoints AI Search standard et optimisés pour le stockage diffèrent-ils en termes de vitesse d'indexation ?"
+    ],
+    "q18": [
+      "Quel endpoint de modèle de fond Databricks hébergé génère les embeddings ?",
+      "Quel est l'index arXiv mentionné dans le contexte de la génération d'embeddings ?"
+    ],
+    "q19": [
+      "Que signifie un « spectrum of factuality » dans le contexte de la détection d'hallucinations ?",
+      "Comment le concept de « spectrum of factuality » est-il appliqué à une réponse générée par un système RAG (Retrieval-Augmented Generation) ?"
+    ],
+    "q20": [
+      "Quel temps de réponse les utilisateurs attendent-ils d'un système RAG en production ?",
+      "Pourquoi le passage du proof of concept à la production dégrade-t-il la latence d'un système RAG ?"
+    ],
+    "q25": [
+      "Quel est l'objet de la question ?",
+      "De quel groupe de trois éléments parle la question ?"
+    ],
+    "q26": [
+      "Quel est le coût fixe ?"
+    ],
+    "q27": [
+      "Quel type d'expert peut écrire sans utiliser de code ?"
+    ],
+    "q28": [
+      "Lequel des éléments mentionnés concerne le prompt ?",
+      "Quelle instruction unique le livre donne-t-il comme exemple ?"
+    ],
+    "q29": [
+      "Comment empêcher un assistant de dériver lorsqu'il reçoit une requête imprévue ?",
+      "Quelles stratégies utiliser pour maintenir la cohérence d'un assistant face à des entrées inattendues ?"
+    ],
+    "q30": [
+      "What is the relationship between a cooking recipe and the concept of changing infrastructure without rewriting code?"
+    ]
+  },
+  "texte_decompose": "la traduction de la question, lue de runs/.traductions.json"
+}

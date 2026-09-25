@@ -1,4 +1,4 @@
-.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse recuperation-profondeurs recuperation-sous-questions recuperation-oracle recuperation-textes recuperation-causes fusion-decomposition fusion-disperse fusion-reglage fusion-controle
+.PHONY: install lint format typecheck test audit up down logs image eval eval-controle verifier-les-ancrages mesurer-selection controle-perimetre-selection generer-jeu-disperse mesurer-dispersion traductions-du-jeu-disperse recuperation-profondeurs recuperation-sous-questions recuperation-oracle recuperation-textes recuperation-causes fusion-decomposition fusion-disperse fusion-reglage fusion-controle traduction-des-sous-questions decomposition-de-la-question-traduite traduite-disperse traduite-reglage traduite-controle
 
 # UN SEUL GESTE arme ce que ce depot sait garder de son historique, et c'est
 # celui-ci. Il installe les outils de la porte qualite, puis arme les hooks git.
@@ -339,6 +339,67 @@ fusion-controle:
 		uv run --no-sync python scripts/mesurer_fusion_sous_questions.py \
 		--etape fusion --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
 		--sortie runs/$(shell date +%Y-%m-%d)-fusion-controle.json
+
+# ─── LOT-39 : LA DECOMPOSITION AVEC TRADUCTION (§4.79) ───────────────────────
+#
+# LE §4.78 A COMPARE UNE VARIANTE QUI NE TRADUIT PAS A UNE PRODUCTION QUI
+# TRADUIT, et il l'a ecrit : deux des trois questions perdues sur le jeu de
+# reglage lui sont imputees SANS qu'aucune variante ne le mesure. Ces cibles
+# mesurent la variante manquante, dans ses DEUX ordres — chaque sous-question
+# traduite, ou la question traduite puis decomposee.
+#
+# LES DEUX PRODUCTEURS SONT SEPARES, ET ILS APPELLENT LE MODELE. Les
+# DECOMPOSITIONS DU §4.78 NE SONT PAS REFABRIQUEES : le banc les lit de
+# `runs/.decomposition-<jeu>.json`, pour que la SEULE difference entre
+# `fusion_rerank_*` et `fusion_traduite_rerank_*` soit la traduction.
+traduction-des-sous-questions:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape traduction-sous-questions --jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-sousq-disperse.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape traduction-sous-questions --jeu tests/fixtures/golden_qa_generated.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-sousq-reglage.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape traduction-sous-questions --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-sousq-controle.json
+
+decomposition-de-la-question-traduite:
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape decomposition-traduite --jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-decomp-disperse.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape decomposition-traduite --jeu tests/fixtures/golden_qa_generated.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-decomp-reglage.json
+	$(_ENV_SELECTION) uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape decomposition-traduite --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-decomp-controle.json
+
+# LE CONTROLE POSITIF A TROIS TERMES, ET IL REFUSE DE PUBLIER SANS LES TROIS :
+# les DOUZE couples du §4.78 a l'unite, les rangs de ses QUATRE variantes UN A
+# UN, et les 120 rangs du §4.77 pour la variante de production. Un banc qui ne
+# confronterait que des comptes serait vert en mesurant un autre jeu.
+traduite-disperse:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape fusion --jeu tests/fixtures/jeu_ancrages_disperses.yaml \
+		--lot38 runs/2026-09-25-fusion-disperse.json \
+		--reference runs/2026-09-24-recuperation-p50.json \
+		--oracle runs/2026-09-24-recuperation-oracle.json \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-disperse.json
+
+traduite-reglage:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape fusion --jeu tests/fixtures/golden_qa_generated.yaml \
+		--lot38 runs/2026-09-25-fusion-reglage.json \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-reglage.json
+
+traduite-controle:
+	FETCH_K=50 RETRIEVAL_TOP_K=50 RERANK_TOP_K=10 $(_ENV_SELECTION) \
+		uv run --no-sync python scripts/mesurer_decomposition_traduite.py \
+		--etape fusion --jeu tests/fixtures/jeu_de_questions_pipeline.yaml \
+		--lot38 runs/2026-09-25-fusion-controle.json \
+		--sortie runs/$(shell date +%Y-%m-%d)-traduite-controle.json
 
 generer-jeu-disperse:
 	$(_ENV_SELECTION) uv run --no-sync python scripts/generer_jeu_disperse.py \
