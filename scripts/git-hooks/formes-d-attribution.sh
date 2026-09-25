@@ -57,7 +57,8 @@
 # deux fois dit que la propriete « chaque alternative porte sa borne » doit etre
 # GARDEE, pas relue — `test_les_quatre_alternatives_portent_leur_borne`.
 #
-# La quatrieme alternative, l'emoji, n'est deliberement PAS ancree : il ne se
+# La quatrieme alternative, l'emoji de robot (ecrit par ses octets UTF-8 pour
+# qu'aucun emoji n'entre dans le depot), n'est deliberement PAS ancree : il ne se
 # rencontre dans aucune prose de ce depot, et les outils qui l'apposent le
 # posent en fin de ligne de signature.
 #
@@ -66,4 +67,4 @@
 # l'ADRESSE — le seul axe qui decide vraiment — porte le sien dans
 # `scripts/git-hooks/pre-commit` et dans `pre-push`. Ce fichier ne connait que
 # le MESSAGE.
-FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|^[[:space:]]*generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|🤖'
+FORMES_D_ATTRIBUTION='^[[:space:]]*co-authored-by:|^[[:space:]]*generated (with|by) \[|^[[:space:]]*(co-)?authored-by:.*\[bot\]|'"$(printf '\360\237\244\226')"

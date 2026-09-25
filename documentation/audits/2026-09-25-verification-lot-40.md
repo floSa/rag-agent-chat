@@ -234,17 +234,17 @@ indisponible.
 
 | Route | `/openapi.json` servi | `src/api/main.py` | README §3 |
 |---|---|---|---|
-| `/health` | `GET` | `:1178` | `GET` ✓ |
-| `/search` | `POST` | `:1390` | `POST` ✓ |
-| `/reindex` | `POST` | `:1399` | `POST` ✓ |
-| `/sources` | `POST` | `:1424` | `POST` ✓ |
-| `/context/{element_id}` | `GET` | `:1435` | `GET` ✓ |
-| `/chat/simple` | `POST` | `:1502` | `POST` ✓ |
-| `/answer` | `POST` | `:1643` | `POST` ✓ |
-| `/chat/start` | `POST` | `:1807` | `POST` ✓ |
-| `/chat/resume` | `POST` | `:1909` | `POST` ✓ |
-| `/feedback` | `POST` | `:2081` | `POST` ✓ |
-| `/media/{object_name}` | `GET` | `:2114` | `GET` ✓ |
+| `/health` | `GET` | `:1178` | `GET` oui |
+| `/search` | `POST` | `:1390` | `POST` oui |
+| `/reindex` | `POST` | `:1399` | `POST` oui |
+| `/sources` | `POST` | `:1424` | `POST` oui |
+| `/context/{element_id}` | `GET` | `:1435` | `GET` oui |
+| `/chat/simple` | `POST` | `:1502` | `POST` oui |
+| `/answer` | `POST` | `:1643` | `POST` oui |
+| `/chat/start` | `POST` | `:1807` | `POST` oui |
+| `/chat/resume` | `POST` | `:1909` | `POST` oui |
+| `/feedback` | `POST` | `:2081` | `POST` oui |
+| `/media/{object_name}` | `GET` | `:2114` | `GET` oui |
 
 **Aucune route en trop, aucune manquante, aucune méthode fausse.** L'ancre
 `main.py:2114` citée par le §1.6 est **juste** (le code écrit

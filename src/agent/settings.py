@@ -313,7 +313,7 @@ class Settings(BaseSettings):
     # encore. Il dit ce qui vaudra quand la condition sera tenue, pas ce qui est
     # permis ce matin.
     #
-    # ⚠ LA FORMULE DU VOISIN MAJORE LE BANC DU PILOTE, et l'écart n'est PAS
+    # ATTENTION LA FORMULE DU VOISIN MAJORE LE BANC DU PILOTE, et l'écart n'est PAS
     # tranché ici. À N=16 elle rend **2 382 Mio** (`calculé`) là où le banc cité
     # plus haut a `mesuré` **1 984 Mio** ; sa pente de 68,0 Mio par unité est
     # plus raide que celle des paliers mesurés (~41,5 Mio de 1 à 16, `calculé`

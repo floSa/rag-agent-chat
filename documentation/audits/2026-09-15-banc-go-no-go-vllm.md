@@ -41,8 +41,8 @@ Commande : `nvidia-smi --query-compute-apps=... --format=csv` et
 |---|---|
 | carte : vLLM 14 264, `llama-server` 3 598, nous 1 550, total 19 431 / 23 034 | **un seul processus sur la carte** : `VLLM::EngineCore`, PID 44752, **14 264 MiB**. Total **14 273 / 23 034**. `llama-server` et notre agent n'y sont plus |
 | `pic_memoire_reservee_mio` **1 268,0**, les deux modèles sur `cuda:0` | `pic_memoire_reservee_mio` **`null`**, `embedding` **`null`**, `rerank` **`null`** — l'agent a redémarré (`Up 8 minutes`) et **n'a chargé aucun modèle** |
-| `/health` 200, `concurrence_max` 4, `hors_d_atteinte` null | ✅ tenu : **200**, **4**, **`null`** |
-| `main` = `origin/main` = `b78857d`, arbre propre, 798 / 45 | ✅ tenu, et **remesuré de mes mains** : `rc=0` / `rc=0`, **798 passés**, **45 fichiers** (§8) |
+| `/health` 200, `concurrence_max` 4, `hors_d_atteinte` null | OK tenu : **200**, **4**, **`null`** |
+| `main` = `origin/main` = `b78857d`, arbre propre, 798 / 45 | OK tenu, et **remesuré de mes mains** : `rc=0` / `rc=0`, **798 passés**, **45 fichiers** (§8) |
 
 **Un chiffre que le lot ne donnait pas et qui commande tout le reste** — les
 drapeaux de lancement du voisin, `mesuré` le 15/09 à 14:15:28 UTC par

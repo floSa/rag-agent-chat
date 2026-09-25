@@ -1124,7 +1124,7 @@ def confronter_les_peripheriques(
         return [f"  périphérique : IDENTIQUE des deux côtés — {a}"]
     if a and p:
         return [
-            "  ⚠ PÉRIPHÉRIQUE DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS CALCULÉ AU MÊME ENDROIT",
+            "  PÉRIPHÉRIQUE DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS CALCULÉ AU MÊME ENDROIT",
             f"      référence : {p}",
             f"      campagne  : {a}",
             "    Le classement du cross-encoder n'est PAS invariant par périphérique :",
@@ -1135,7 +1135,7 @@ def confronter_les_peripheriques(
             "    exactement ce qu'a fait la campagne du 11 septembre 2026.",
         ]
     return [
-        "  ⚠ PÉRIPHÉRIQUE INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
+        "  PÉRIPHÉRIQUE INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
         f"      référence : {p or 'MUETTE (pas de clé `peripherique`)'}",
         f"      campagne  : {a or 'MUETTE (`/health` illisible, ou modèles jamais chargés)'}",
         "    « Muet » n'est PAS « différent » : on ne peut ni affirmer ni exclure une",
@@ -1312,7 +1312,7 @@ def _confronter_les_options(
         ecarts = [f"{cle} : {p.get(cle, '—')} -> {a.get(cle, '—')}"
                   for cle in bougees if a.get(cle) != p.get(cle)]
         return [
-            "    ⚠ OPTIONS D'APPEL DIFFÉRENTES — " + " ; ".join(ecarts),
+            "    OPTIONS D'APPEL DIFFÉRENTES — " + " ; ".join(ecarts),
             "      Elles changent le SENS de la réponse, pas sa vitesse.",
         ]
     return ["    options d'appel : inconnues d'un côté au moins — muet, pas identique"]
@@ -1353,7 +1353,7 @@ def confronter_les_moteurs(
         lignes = [f"  moteur LLM : IDENTIQUE des deux côtés — {a}"]
     elif a and p:
         lignes = [
-            "  ⚠ MOTEUR LLM DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS ÉTÉ GÉNÉRÉES PAR LE MÊME",
+            "  MOTEUR LLM DIFFÉRENT — LES DEUX CAMPAGNES N'ONT PAS ÉTÉ GÉNÉRÉES PAR LE MÊME",
             f"      référence : {p}",
             f"      campagne  : {a}",
             "    Tout ce qui suit mesure DEUX moteurs autant qu'un réglage : la complétude,",
@@ -1364,7 +1364,7 @@ def confronter_les_moteurs(
         ]
     else:
         lignes = [
-            "  ⚠ MOTEUR LLM INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
+            "  MOTEUR LLM INCONNU D'UN CÔTÉ AU MOINS — la comparaison ne peut pas se garantir",
             f"      référence : {p or 'MUETTE (pas de clé `moteur_llm`)'}",
             "      campagne  : " + (
                 a or "MUETTE (`/health` illisible, agent antérieur au lot, "

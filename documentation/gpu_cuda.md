@@ -400,7 +400,7 @@ docker exec rag-agent-api python -c "import torch; print(torch.__version__)"
 docker build -f Dockerfile.agent --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu -t rag-agent-chat-agent-api:latest .
 ```
 
-**Retirer la réservation** — ⚠ **EN DEUX LIGNES, JAMAIS UNE.** Retirer la
+**Retirer la réservation** — ATTENTION **EN DEUX LIGNES, JAMAIS UNE.** Retirer la
 réservation SANS toucher `TORCH_DEVICE` laisse le défaut à `cuda` sur une
 machine où torch ne voit plus de carte : le conteneur démarre, le healthcheck est
 vert, et **chaque recherche rend 500**. `mesuré` le 14 septembre 2026 sur un

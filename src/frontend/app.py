@@ -18,7 +18,6 @@ MAX_HISTORY_MESSAGES = 6
 
 st.set_page_config(
     page_title="RAG Agent Chat",
-    page_icon="🔍",
     layout="wide",
 )
 
@@ -169,15 +168,15 @@ def _toggle_doc(element_ids: list[str], doc_key: str) -> None:
 
 # ─── UI principale ────────────────────────────────────────────────────────────
 
-st.title("🔍 RAG Agent Chat")
+st.title("RAG Agent Chat")
 st.caption(f"Connecté à {API_URL}")
 
 # ── Barre latérale : historique ───────────────────────────────────────────────
 with st.sidebar:
     st.header("Historique")
     for msg in st.session_state.chat_history:
-        role_icon = "👤" if msg["role"] == "user" else "🤖"
-        st.markdown(f"**{role_icon}** {msg['content'][:80]}…")
+        role = "Vous" if msg["role"] == "user" else "Agent"
+        st.markdown(f"**{role} :** {msg['content'][:80]}…")
 
     if st.session_state.chat_history and st.button("Effacer l'historique"):
         st.session_state.chat_history = []
@@ -195,7 +194,7 @@ if st.session_state.phase == "search":
             placeholder="Que voulez-vous savoir sur vos documents ?",
             height=80,
         )
-        submitted = st.form_submit_button("🔍 Rechercher", use_container_width=True)
+        submitted = st.form_submit_button("Rechercher", use_container_width=True)
 
     if submitted and question.strip():
         st.session_state.question = question.strip()
@@ -230,7 +229,7 @@ if st.session_state.phase == "search":
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif st.session_state.phase == "select":
-    st.subheader(f"📋 Sources trouvées pour : *{st.session_state.question}*")
+    st.subheader(f"Sources trouvées pour : *{st.session_state.question}*")
 
     if not st.session_state.groups:
         st.warning("Aucune source trouvée. Essayez une autre question.")
@@ -274,7 +273,7 @@ elif st.session_state.phase == "select":
 
             # Le meilleur document est toujours déplié : replier l'ensemble
             # oblige l'utilisateur à cliquer avant de voir quoi que ce soit.
-            with st.expander(f"📄 **{title}** — {score_badge}", expanded=rang == 0):
+            with st.expander(f"**{title}** — {score_badge}", expanded=rang == 0):
                 # Checkbox document entier : reflète l'état réel des chunks,
                 # le callback propage le clic à tous les chunks du document.
                 doc_key = f"doc_{doc_id}"
@@ -308,7 +307,7 @@ elif st.session_state.phase == "select":
         col1, col2 = st.columns([3, 1])
         with col1:
             if st.button(
-                "✅ Générer la réponse",
+                "Générer la réponse",
                 use_container_width=True,
                 disabled=len(selected) == 0,
             ):
@@ -328,7 +327,7 @@ elif st.session_state.phase == "select":
 # ═══════════════════════════════════════════════════════════════════════════════
 
 elif st.session_state.phase == "answer":
-    st.subheader(f"💬 {st.session_state.question}")
+    st.subheader(f"{st.session_state.question}")
 
     answer_placeholder = st.empty()
 
@@ -348,7 +347,7 @@ elif st.session_state.phase == "answer":
                 if event.get("reset"):
                     # Nouvelle génération (boucle agentique) : on repart de zéro
                     acc = ""
-                    answer_placeholder.markdown("🔄 _Recherche supplémentaire…_")
+                    answer_placeholder.markdown("_Recherche supplémentaire…_")
                 elif "token" in event:
                     acc += event["token"]
                     answer_placeholder.markdown(acc + " ▌")
@@ -379,7 +378,7 @@ elif st.session_state.phase == "answer":
 
     # ── Images ────────────────────────────────────────────────────────────────
     if st.session_state.images:
-        st.subheader("🖼️ Images référencées")
+        st.subheader("Images référencées")
         cols = st.columns(min(len(st.session_state.images), 3))
         for i, img in enumerate(st.session_state.images):
             with cols[i % 3]:
@@ -395,13 +394,13 @@ elif st.session_state.phase == "answer":
                     else:
                         st.image(url, caption=caption)
                 except httpx.HTTPError:
-                    st.caption(f"⚠️ Image indisponible : {caption}")
+                    st.caption(f"Image indisponible : {caption}")
 
     # ── Citations ─────────────────────────────────────────────────────────────
     if st.session_state.citations:
         # Dépliée : c'est le livrable, pas une annexe.
         with st.expander(
-            f"📚 Sources utilisées ({len(st.session_state.citations)})", expanded=True
+            f"Sources utilisées ({len(st.session_state.citations)})", expanded=True
         ):
             for numero, citation in enumerate(st.session_state.citations, start=1):
                 book = citation.get("collection") or ""
@@ -418,7 +417,7 @@ elif st.session_state.phase == "answer":
                 )
 
     if st.session_state.search_count > 1:
-        st.caption(f"🔄 {st.session_state.search_count} recherche(s) effectuée(s)")
+        st.caption(f"{st.session_state.search_count} recherche(s) effectuée(s)")
 
     # ── Appréciation ──────────────────────────────────────────────────────────
     # Deux boutons, pas une échelle : personne ne remplit une échelle. C'est la
@@ -426,7 +425,7 @@ elif st.session_state.phase == "answer":
     # les décochages, eux, ne parlent que des sources.
     st.divider()
     if st.session_state.feedback_sent:
-        st.caption("✅ Merci, votre retour est enregistré.")
+        st.caption("Merci, votre retour est enregistré.")
     else:
         st.markdown("**Cette réponse vous a-t-elle servi ?**")
         commentaire = st.text_input(
@@ -436,18 +435,18 @@ elif st.session_state.phase == "answer":
         )
         col_utile, col_inutile, _ = st.columns([1, 1, 3])
         with col_utile:
-            if st.button("👍 Utile", use_container_width=True):
+            if st.button("Utile", use_container_width=True):
                 _envoyer_appreciation("utile", commentaire)
                 st.rerun()
         with col_inutile:
-            if st.button("👎 Inutile", use_container_width=True):
+            if st.button("Inutile", use_container_width=True):
                 _envoyer_appreciation("inutile", commentaire)
                 st.rerun()
 
     st.divider()
     col1, col2 = st.columns([2, 1])
     with col1:
-        if st.button("🔄 Nouvelle question", use_container_width=True):
+        if st.button("Nouvelle question", use_container_width=True):
             # Réinitialiser pour une nouvelle question
             st.session_state.phase = "search"
             st.session_state.answer = ""

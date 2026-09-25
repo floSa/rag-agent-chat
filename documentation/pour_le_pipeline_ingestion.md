@@ -93,7 +93,7 @@ Constaté, pas supposé :
   redémarrage ;
 - `rag_hf_cache` et `rag_models_cache` existent : les modèles d'embedding et de
   reranking n'auront pas à être retéléchargés ;
-- **⚠ CECI A CHANGÉ LE 11 SEPTEMBRE 2026, ET C'EST CE QUE NOUS VOUS RENDONS.**
+- **ATTENTION CECI A CHANGÉ LE 11 SEPTEMBRE 2026, ET C'EST CE QUE NOUS VOUS RENDONS.**
   Ce document déclarait : *« aucun GPU n'est requis. L'image de l'agent embarque
   Torch CPU-only et le projet est conçu pour tourner sur processeur. »* La
   première phrase est **devenue fausse**, la deuxième aussi, la troisième reste
@@ -120,7 +120,7 @@ Constaté, pas supposé :
   æquo. Rien de ce que vous produisez n'a besoin d'être différent, et **vous
   n'avez pas besoin d'un GPU pour le pipeline**.
 
-  **Le geste, si votre machine n'a pas de carte — ⚠ IL EST EN DEUX LIGNES, ET
+  **Le geste, si votre machine n'a pas de carte — ATTENTION IL EST EN DEUX LIGNES, ET
   LA PREMIÈRE MANQUAIT.** Ce document ne donnait que la seconde, et nous vous la
   rendons corrigée : *ce dépôt ne change pas une déclaration faite à une autre
   équipe en silence*, et le corriger relève de la même règle.
@@ -489,7 +489,7 @@ avec les commandes, est au §4.16 de
 
 ### 8.1 Votre `etat_des_lieux.md` est périmé sur l'exigence 5 — la seule que vous donniez ouverte
 
-Votre page dit, au 3 septembre : *« ⚠️ non éprouvée — l'appel part, mais l'agent
+Votre page dit, au 3 septembre : *« ATTENTION non éprouvée — l'appel part, mais l'agent
 ne tourne pas sur ce poste »*, et votre §8 range « prouver l'exigence 5 » au
 **rang 2** de ce qui reste.
 

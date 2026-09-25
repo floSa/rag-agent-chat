@@ -39,10 +39,10 @@ grep -E '^(EMBEDDING_MODEL_NAME|RERANK_MODEL)=' /home/ubuntu/RAG/rag-agent-chat/
 |---|---|
 | estampille de `rag_documents` | `paraphrase-multilingual-MiniLM-L12-v2`, 4 367 chunks |
 | `EMBEDDING_MODEL_NAME` du `.env` du clone principal — celui que la nouvelle image lit | `paraphrase-multilingual-MiniLM-L12-v2` |
-| **concordance 1** | ✅ identiques : le garde ne produira pas de 503 |
+| **concordance 1** | OK identiques : le garde ne produira pas de 503 |
 | `RERANK_MODEL` du `.env` | `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` |
 | `_RERANKERS_MESURES` de `main` (`retriever.py`, identique à `main` dans l'arbre) | ce seul nom |
-| **concordance 2** | ✅ au registre : `verdict_langue_du_reranker` rend `None`, aucun bruit neuf |
+| **concordance 2** | OK au registre : `verdict_langue_du_reranker` rend `None`, aucun bruit neuf |
 
 Les deux concordances du prompt du pilote sont **confirmées**, comme ses cinq
 mesures sur le conteneur (§2).
@@ -58,12 +58,12 @@ git log --format=%h main -- <fichier> | … sha256sum   # pour dater le code emb
 
 | | `mesuré` | le pilote disait |
 |---|---|---|
-| image | `946dc14c631a…`, construite le **3 septembre 2026 à 09:57:02 UTC** | idem ✅ |
-| `graph_context.py` du conteneur | `a9457963…` = celui du commit **`8bc0485`** du 26 août 2026 (`calculé` : premier commit de `main` dont le fichier porte cette empreinte) | `a9457963…` ✅ |
-| `retriever.py` du conteneur | `58ecbe7a…` = commit **`e2fcac2`** du 26 août 2026 | `58ecbe7a…` ✅ |
-| `verifier_modele_embedding` dans le conteneur | **0** occurrence dans tout `src/` | 0 ✅ |
-| `verdict_langue_du_reranker` | **0** | 0 ✅ |
-| `/health` | HTTP 200, `status: ok`, quatre services `true`, `index_lexical: true`, 789 interactions | idem ✅ |
+| image | `946dc14c631a…`, construite le **3 septembre 2026 à 09:57:02 UTC** | idem OK |
+| `graph_context.py` du conteneur | `a9457963…` = celui du commit **`8bc0485`** du 26 août 2026 (`calculé` : premier commit de `main` dont le fichier porte cette empreinte) | `a9457963…` OK |
+| `retriever.py` du conteneur | `58ecbe7a…` = commit **`e2fcac2`** du 26 août 2026 | `58ecbe7a…` OK |
+| `verifier_modele_embedding` dans le conteneur | **0** occurrence dans tout `src/` | 0 OK |
+| `verdict_langue_du_reranker` | **0** | 0 OK |
+| `/health` | HTTP 200, `status: ok`, quatre services `true`, `index_lexical: true`, 789 interactions | idem OK |
 | conteneur | `Up 4 hours`, démarré à **09:20:10 UTC** ce jour, quand les autres conteneurs de l'hôte sont à `Up 5 hours` — un redémarrage propre à l'agent, cohérent avec la restauration du conteneur par le lot 4 consignée au §4.42 | — |
 
 ## 3. (a) L'ancien lecteur rejoue les deux références À L'UNITÉ

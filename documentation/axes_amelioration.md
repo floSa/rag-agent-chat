@@ -2074,7 +2074,7 @@ l'a pas éprouvée.*
 
 #### DEUX RÉSERVES, et la première est un manquement du pilote
 
-1. ~~**Ces chiffres n'ont PAS de site rejouable.**~~ ✅ **FERMÉE par le lot 4
+1. ~~**Ces chiffres n'ont PAS de site rejouable.**~~ OK **FERMÉE par le lot 4
    le 9 septembre 2026.** La mesure vit dans `scripts/mesurer_le_graphe.py`,
    section « Section voisine : (A), (B), (C) confrontées », et elle rejoue tout
    ce que cette entrée affirme : les trois définitions en en-têtes servis **et**
@@ -2505,7 +2505,7 @@ corrige, l'état des capteurs cesse d'être sans conséquence*, et son propre §
 dit. Ce dépôt n'y touche pas.
 
 **b — son `etat_des_lieux.md` est périmé sur l'exigence 5, et c'est la seule
-qu'il donnait comme non tenue.** Sa page dit, au 3 septembre : *« ⚠️ non
+qu'il donnait comme non tenue.** Sa page dit, au 3 septembre : *« ATTENTION non
 éprouvée — l'appel part, mais l'agent ne tourne pas sur ce poste »*, et son §8
 range « prouver l'exigence 5 » au rang 2 de ce qui reste. **C'est fait.** Le
 lot 1 de ce dépôt l'a prouvée en marche, son audit indépendant l'a reproduite
@@ -4679,14 +4679,14 @@ n'est pas une preuve d'atteinte.*
 
 | | Ce que c'est | Suite |
 |---|---|---|
-| **N1** | `rc=1` au lieu de `2` quand NebulaGraph est injoignable, contrat écrit à quatre sites, **aucun test sur ce chemin** | ✅ **FERMÉE par LOT-DETTE** (§4.29) — `rc=2`, avec preuve d'atteinte live, et six tests là où il n'y en avait aucun. Deux trouvailles adjacentes par mutation : `lire_chroma` et `pool.execute` |
-| **N2** | le réchauffement de l'index BM25 est **raconté, ni fait ni gardé** : aucune chauffe dans `evaluate.py`, aucune dans le `Makefile`, aucun test. `make eval` sur une pile fraîche fera passer la question 1 par un index froid — *la trappe même que le lot a identifiée reste ouverte pour la campagne suivante* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — **chauffer PUIS refuser**, dans `evaluate.py` et non dans le `Makefile`, motifs au site. Le chemin froid est éprouvé hors réseau, pas en vrai |
-| **N3** | une mutation du tableau est **attribuée au mauvais garde** : elle est bien attrapée, mais par le voisin. Le tableau nomme un garde décoratif *pour cette mutation-là* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — attribution corrigée, et mesurée : le garde attribué **passe** sous cette mutation, le voisin rougit seul |
-| **N4** | `documentation/tests.md` **affirme une chose fausse** : un `set.add` légitime fait rougir **deux** assertions, alors que la page écrit le contraire. Et la recherche de sous-chaîne que le lot qualifie de « première forme fausse » est **revenue** comme troisième assertion. *Un successeur qui croit la page posera un `set.add`, verra un rouge inexplicable, et sera tenté d'affaiblir le garde* | ✅ **FERMÉE par LOT-DETTE** (§4.29) — tranché : l'assertion de sous-chaîne s'en va, mesurée strictement redondante. Il reste **un** rouge, et la page le dit |
-| **N5** | le lot pose un `pragma: allowlist secret` sur `source_sha256` là où sa **propre** technique — préfixer `sha256:` — l'évitait. Deux hachages, deux traitements | ✅ **FERMÉE par LOT-DETTE** (§4.29) — `sha256:` préfixé, `rc=0` sans pragma. Trois pièces supprimées ; les 44 ancrages identiques bit pour bit |
-| **N6** | le **15 196** est publié sans sa commande, seul chiffre du compte rendu dans ce cas. L'auditeur l'a reconstruit et il est exact, mais un lecteur ne peut pas le rejouer | ✅ **FERMÉE par LOT-DETTE** (§4.29) — la route publiée, remesurée, **avec ses deux réserves** dont une mesurée |
-| **N7** | la reproductibilité des ancrages **n'est pas ce que la documentation laisse entendre** : la graine fixe le tirage, mais l'ensemble retenu dépend du motif d'acceptation du LLM. **Reproductible en pratique, pas par construction** — et le texte des questions ne l'est pas du tout, `temperature: 0.4` sans `seed` | ✅ **FERMÉE par LOT-DETTE** (§4.29) — graine transmise (mesurée déterminante), et trois réserves écrites, dont : le jeu versionné n'est PAS reproductible par cette route |
-| **N8** | deux inexactitudes chiffrées : `golden_qa.json` est décrit « 15 questions à réponse », c'est **13 sur 15** ; et `README.md` garde un « 50 → 0,962 » hérité du corpus remplacé | ✅ **FERMÉE par LOT-DETTE** (§4.29) — 13/15 sur six sites ; et le balayage daté au **3 août 2026**, son site canonique portant enfin sa date |
+| **N1** | `rc=1` au lieu de `2` quand NebulaGraph est injoignable, contrat écrit à quatre sites, **aucun test sur ce chemin** | OK **FERMÉE par LOT-DETTE** (§4.29) — `rc=2`, avec preuve d'atteinte live, et six tests là où il n'y en avait aucun. Deux trouvailles adjacentes par mutation : `lire_chroma` et `pool.execute` |
+| **N2** | le réchauffement de l'index BM25 est **raconté, ni fait ni gardé** : aucune chauffe dans `evaluate.py`, aucune dans le `Makefile`, aucun test. `make eval` sur une pile fraîche fera passer la question 1 par un index froid — *la trappe même que le lot a identifiée reste ouverte pour la campagne suivante* | OK **FERMÉE par LOT-DETTE** (§4.29) — **chauffer PUIS refuser**, dans `evaluate.py` et non dans le `Makefile`, motifs au site. Le chemin froid est éprouvé hors réseau, pas en vrai |
+| **N3** | une mutation du tableau est **attribuée au mauvais garde** : elle est bien attrapée, mais par le voisin. Le tableau nomme un garde décoratif *pour cette mutation-là* | OK **FERMÉE par LOT-DETTE** (§4.29) — attribution corrigée, et mesurée : le garde attribué **passe** sous cette mutation, le voisin rougit seul |
+| **N4** | `documentation/tests.md` **affirme une chose fausse** : un `set.add` légitime fait rougir **deux** assertions, alors que la page écrit le contraire. Et la recherche de sous-chaîne que le lot qualifie de « première forme fausse » est **revenue** comme troisième assertion. *Un successeur qui croit la page posera un `set.add`, verra un rouge inexplicable, et sera tenté d'affaiblir le garde* | OK **FERMÉE par LOT-DETTE** (§4.29) — tranché : l'assertion de sous-chaîne s'en va, mesurée strictement redondante. Il reste **un** rouge, et la page le dit |
+| **N5** | le lot pose un `pragma: allowlist secret` sur `source_sha256` là où sa **propre** technique — préfixer `sha256:` — l'évitait. Deux hachages, deux traitements | OK **FERMÉE par LOT-DETTE** (§4.29) — `sha256:` préfixé, `rc=0` sans pragma. Trois pièces supprimées ; les 44 ancrages identiques bit pour bit |
+| **N6** | le **15 196** est publié sans sa commande, seul chiffre du compte rendu dans ce cas. L'auditeur l'a reconstruit et il est exact, mais un lecteur ne peut pas le rejouer | OK **FERMÉE par LOT-DETTE** (§4.29) — la route publiée, remesurée, **avec ses deux réserves** dont une mesurée |
+| **N7** | la reproductibilité des ancrages **n'est pas ce que la documentation laisse entendre** : la graine fixe le tirage, mais l'ensemble retenu dépend du motif d'acceptation du LLM. **Reproductible en pratique, pas par construction** — et le texte des questions ne l'est pas du tout, `temperature: 0.4` sans `seed` | OK **FERMÉE par LOT-DETTE** (§4.29) — graine transmise (mesurée déterminante), et trois réserves écrites, dont : le jeu versionné n'est PAS reproductible par cette route |
+| **N8** | deux inexactitudes chiffrées : `golden_qa.json` est décrit « 15 questions à réponse », c'est **13 sur 15** ; et `README.md` garde un « 50 → 0,962 » hérité du corpus remplacé | OK **FERMÉE par LOT-DETTE** (§4.29) — 13/15 sur six sites ; et le balayage daté au **3 août 2026**, son site canonique portant enfin sa date |
 
 #### Trois chiffres de cadrage du pilote, corrigés par l'audit
 
@@ -6533,7 +6533,7 @@ désormais, dont un sur `reconstruct_section` — le point d'entrée réel —, 
 qu'un garde posé sur la seule fonction interne se laisse contourner par une
 réécriture qui déplace le balayage.*
 
-#### ⚠️ LA TROUVAILLE BLOQUANTE, ET ELLE N'EST PAS DANS LE PÉRIMÈTRE DU LOT
+#### ATTENTION LA TROUVAILLE BLOQUANTE, ET ELLE N'EST PAS DANS LE PÉRIMÈTRE DU LOT
 
 **L'agent en service ne fait pas tourner le code de `main`. Il fait tourner celui
 du 3 septembre 2026, et il est CINQ LOTS EN RETARD.**
@@ -6557,7 +6557,7 @@ contre 8, 5, 8, 13, 4 et 5 sur `main` : `verifier_modele_embedding`,
 **Autrement dit : le garde du modèle d'embedding du lot 3 — quatre audits, quatre
 trouvailles bloquantes, §4.27 — et le garde du reranker du lot 6 — §4.31 à §4.35
 — n'ont JAMAIS tourné dans le service déployé.** Le §3 de
-`documentation/pilotage_du_chantier.md` écrit l'exigence 1 « ✅ tenue et gardée
+`documentation/pilotage_du_chantier.md` écrit l'exigence 1 « OK tenue et gardée
 des DEUX côtés » : c'est vrai sur `main`, **faux en production**.
 
 **Confirmation indépendante, sans lire le conteneur** : sur `main`,

@@ -211,7 +211,7 @@ make image
 # (e) Déployer. `--no-build` est une ceinture : il interdit à `up` de
 #     reconstruire par surprise l'image que (d) vient de produire.
 #
-#     ✅ CETTE LIGNE EST ÉPROUVÉE SUR CE POSTE, le 16 septembre 2026 à
+#     OK CETTE LIGNE EST ÉPROUVÉE SUR CE POSTE, le 16 septembre 2026 à
 #     13:40 UTC par le lot 24 : `rc=0`, 3 s, le conteneur est RECRÉÉ, RIEN n'est
 #     reconstruit, `latest` ne bouge pas, `frontend` n'est pas touché, et la
 #     santé revient en 21 s. Le détail est dans l'encadré du §4.
@@ -233,7 +233,7 @@ signifie que le build n'est pas passé par `make image` — **et le déploiement
 
 ### Revenir
 
-> **⚠ DEPUIS LE LOT 28, REVENIR SUR LE MOTEUR PASSE PAR ICI — ET PAR RIEN
+> **ATTENTION DEPUIS LE LOT 28, REVENIR SUR LE MOTEUR PASSE PAR ICI — ET PAR RIEN
 > D'AUTRE.** Jusqu'au 18 septembre 2026, changer de moteur était une ligne de
 > `.env` : le code portait les deux dialectes, et repasser le réglage suffisait,
 > **sans reconstruire ni redéployer**. Le lot 28 a retiré le support du second
@@ -288,7 +288,7 @@ ETIQUETTE="<celle que (b) a affichée, recopiée telle quelle>"
 docker image inspect -f '{{.Id}}' "$ETIQUETTE"
 docker image tag "$ETIQUETTE" "$NOM:latest"
 
-# ⚠ RÉSERVE RÉDUITE, PAS LEVÉE, et c'est plus gênant ici qu'au (e) : c'est la
+# ATTENTION RÉSERVE RÉDUITE, PAS LEVÉE, et c'est plus gênant ici qu'au (e) : c'est la
 #   ligne d'un RETOUR ARRIÈRE, donc celle qu'on joue sous pression. Ce que fait
 #   `up --no-build` est désormais MESURÉ (encadré du §4, 16 septembre 2026) : il
 #   recrée le conteneur sur l'image que `latest` désigne, sans rien
