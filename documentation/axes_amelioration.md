@@ -13465,3 +13465,182 @@ est que le code réagit désormais à la forme d'erreur **relevée sur le graphd
 réel**, là où il ne la voyait pas du tout. Et le service du port 8011 tourne
 encore sur l'image d'avant ce lot : **la prochaine purge le trouvera inchangé
 tant que le conteneur n'est pas reconstruit**.
+
+### 4.82 → LOT-42 : `media_url` et `object_key`, avec repli sur `minio_url` — l'étape 1 de la sortie de MinIO
+
+**LE CONTRAT QUI CHANGE**, décidé avec `rag-ingestion-pipeline` et précisé par
+son message 45. La propriété publiée `minio_url` devient `media_url`, dans le
+graphe NebulaGraph ET dans les métadonnées des chunks ChromaDB, même forme
+path-style. Une propriété nouvelle, `object_key`, porte la clé nue de l'objet.
+Les `element_id` ne bougent pas, le bucket reste `documents`. **Il n'y a que
+DEUX états, jamais les deux champs ensemble :**
+
+- **AVANT** (aujourd'hui) : `Picture` et `Table` portent `minio_url` ;
+  `media_url` et `object_key` **n'existent pas** dans leur schéma ;
+- **APRÈS** : la purge fait `DROP SPACE`, puis `CREATE TAG` sans `ALTER`.
+  `Picture` et `Table` portent `media_url` et `object_key` ; `minio_url`
+  **n'existe plus** dans le schéma, même vide. ChromaDB suit le même mouvement.
+
+Notre version servie traverse les deux : elle doit donc lire l'un **et**
+l'autre, sur un schéma où la propriété nommée est **absente**, dans un sens puis
+dans l'autre.
+
+**LE PIÈGE nGQL, MESURÉ.** Un `MATCH` qui nomme une propriété absente du schéma
+d'un tag pouvait échouer au lieu de rendre vide — ce qui, sous
+`RESTRICT_MEDIA_TO_GRAPH`, aurait vidé la liste blanche du proxy et refusé TOUTES
+les images. `mesuré` le 25 septembre 2026 à **12:43:43**, **12:44:06** et
+**12:49:46 UTC** sur le graphd installé (`vesoft/nebula-graphd:v3.6.0`, client
+`nebula3-python`), **en lecture seule** — `DESCRIBE TAG`, `MATCH`, `GO`, aucune
+écriture, aucun DDL — depuis l'hôte vers l'adresse du conteneur sur
+`rag_network` :
+
+| Requête | Résultat |
+|---|---|
+| `DESCRIBE TAG Picture` / `Table` | 6 champs : `label`, `page_no`, `page_no_end`, `text`, `minio_url`, `depth` — **ni `media_url` ni `object_key`** |
+| `WHERE n.Picture.minio_url != ""` → `count` (contrôle positif) | **209** ; `Table` : **3** |
+| `WHERE n.Picture.<propriété inexistante> != ""` → `count` | `succeeded=True`, **0** |
+| `RETURN n.Picture.<propriété inexistante>` | `succeeded=True`, `__NULL__` |
+| `RETURN n.Picture.media_url, n.Picture.object_key` | `succeeded=True`, `__NULL__`, `__NULL__` |
+| `WHERE …media_url != "" OR …minio_url != "" OR …object_key != ""` (la forme retenue) | `succeeded=True`, **209** ; `Table` : **3** |
+| `WHERE …<inexistante> != "" OR …minio_url != ""`, puis dans l'ordre inverse | **209** et **209** ; `Table` : **3** et **3** |
+| `WHERE …<inexistante> != "" OR …media_url != "" OR …object_key != ""` | **0** — le `OR` n'invente rien |
+| `GO … YIELD properties($$).minio_url` / `.<inexistante>` | `succeeded=True` ; `""` / `__NULL__` |
+
+**Une propriété absente du schéma d'un tag EXISTANT ne fait pas échouer la
+requête** : elle rend `__NULL__`, son `!= ""` n'est pas vrai, et un `OR` est vrai
+dès qu'un membre l'est, où qu'elle soit placée. Les **212** objets d'aujourd'hui
+(209 + 3, le compte du §4.62) sortent de la forme retenue. Seul un tag INCONNU
+fait échouer un `MATCH` (§4.81) — et `Picture` comme `Table` existent dans les
+deux états. **L'état APRÈS n'a pas pu être mesuré tel quel** : il exige un
+`CREATE TAG` sur le graphe partagé, qu'on ne touche pas. Il est rejoué par une
+propriété inexistante d'un tag existant, qui est exactement la situation de
+`minio_url` après la purge.
+
+**LES SITES, RELEVÉS PAR MOTIF.** Par le releveur AST de
+`tests/unit/test_contrat_champs_externes.py`, jamais par numéro de ligne. Base
+`b70ac8c` : **7** lectures de `minio_url`, **0** de `media_url` et d'`object_key`.
+Lot : **7 motifs**, **8** lectures de CHAQUE nom, **24** en tout :
+
+| Motif (fonction, nature) | Fichier | par nom |
+|---|---|---|
+| `_get_node_properties`, `mapping_get` | `graph_context.py` | 1 |
+| `media_object_names`, `ngql_property` (WHERE + RETURN) | `graph_context.py` | 2 |
+| `media_object_names`, `mapping_get` — **motif neuf** : les colonnes sont lues par leur nom, plus par un alias `url` | `graph_context.py` | 1 |
+| `_get_children`, `ngql_property` | `graph_context.py` | 1 |
+| `_to_elements`, `mapping_get` | `graph_context.py` | 1 |
+| `chunk_from_record`, `mapping_get` | `lexical.py` | 1 |
+| `_dense_search`, `mapping_get` | `retriever.py` | 1 |
+
+Le zéro est doublé : `git grep -nE 'media_url|object_key' -- src/ ':!src/agent/'`
+ne rend que les deux déclarations `object_key` de `src/api/schemas.py`, et le
+même motif sur `minio_url` y retrouve bien les 3 + 1 lignes de NOTRE contrat de
+réponse ; `scripts/`, `Makefile` et `docker-compose.yml` ne portent aucun des
+trois noms, pour un motif qui y trouve `chroma` dans trois fichiers.
+
+**LE DIFF DE `src/`.** Chaque site lit `media_url`, puis `minio_url` à défaut,
+et `object_key`. La clé d'objet passe par une fonction unique,
+`minio_client.cle_objet(object_key, url)` : `object_key` s'il est publié, sinon
+`object_name_from_url`. **La liste blanche l'emploie aussi**, et c'est un
+changement de règle : elle décodait l'URL par `split("/", 4)`, le chemin `/media`
+par `urlparse` — les deux décodeurs divergents du §4.62. Il n'en reste qu'un, et
+`object_key` le rend inutile après la réingestion. `ChunkResult` et
+`SectionElement` portent un champ `object_key` **exclu de la sérialisation** :
+notre réponse ne change pas de forme. `resolve_citations` calcule le chemin
+`/media` au moment où l'élément porte encore sa clé. **Rien d'autre n'est
+renommé** : ni les variables `MINIO_*`, ni `minio_client.py`, ni le champ
+`minio_url` de notre API vers le frontend — c'est l'étape 3, après la
+réingestion.
+
+**LA GARDE DU LOT 29, RETOURNÉE ET NON CONTOURNÉE.** Elle est décrite au §4.62
+(et non au §4.64, qui est LOT-30). `CONTRAT_DES_SOURCES` porte désormais trois
+noms par source, et l'inventaire exige chacun à chaque motif ; le compte de 24
+est CALCULÉ. Les scènes de `test_bascule_du_nom_de_champ_media.py` ont été
+retournées comme elles l'annonçaient : le nom qui ne produit aucune image est
+un nom que le contrat ne porte pas (`s3_url`), et les contrôles positifs portent
+sur chaque nom du contrat. Le double de `test_session_perimee_apres_purge.py`
+rend désormais les colonnes que la requête NOMME, et non un alias figé.
+
+**ROUGE D'ABORD.** `mesuré` à **12:50:13 UTC**, `src/` à la base (`git diff
+--quiet -- src/` → 0), les quatre fichiers de gardes du lot :
+`rc(pytest)=1`, **21 rouges, 40 verts**. Les 21 rouges : les trois conséquences
+de l'état APRÈS aux cinq sites (liste blanche, citation avec image, image
+servie, chunk lexical, chunk dense), les propriétés d'un sommet dans les deux
+états et sans champ, les deux chunks sans champ, la priorité d'`object_key`,
+`to_media_path` avec clé, la non-fuite dans l'API, deux gardes du contrat, et
+les six contrôles positifs retournés de la garde du lot 29 — `media_url` à B1,
+B2 et B3 (lexical et dense), `minio_url` et `object_key` à B1 : 13 + 2 + 6. Les verts sont l'état AVANT, que
+la base lisait déjà, et les scènes de `test_session_perimee_apres_purge.py`.
+Sur l'arbre du lot : **61 verts**, `rc(pytest)=0`, à 12:50:56 UTC.
+
+**LA TABLE DES MUTATIONS DU PRODUCTEUR.** `mesuré` le 25 septembre 2026 entre
+**12:58:06** et **13:13:33 UTC**, six arbres détachés — un par job — à `7ddd20f`,
+puis à `bc15241` pour la reprise. Chaque site est relevé par MOTIF, son unicité
+est assertée **avant** l'écriture, le SHA-256 est asserté **changé**, `py_compile`
+est vert, `pytest tests/unit/` tourne EN ENTIER, et la restauration est confrontée
+au SHA-256 d'avant — vraie sur les 27 passes, arbres propres à la fin.
+
+| Mutation | Fichier | SHA-256 avant → après | Rouges | Ce qui a rougi, hors garde d'inventaire |
+|---|---|---|---|---|
+| **M1a** repli `minio_url` retiré — sommet | `graph_context.py` | `7a5e692f54fdd161…` → `296acf1fd68bb0ce…` | 3 | propriétés du sommet, AVANT |
+| **M1b** repli retiré — colonnes de la liste blanche | idem | → `e2e3465aae9e6aa9…` | 9 | liste blanche, image servie, chunks servis (AVANT) ; B1 `minio_url` ; deux gardes de `test_session_perimee_apres_purge.py` |
+| **M1c** repli retiré — `WHERE` de la liste blanche | idem | → `14571d4d086d00d7…` | 6 | liste blanche, image servie, chunks servis (AVANT) |
+| **M1d** repli retiré — `_to_elements` | idem | → `e57a5ce7a82ff0db…` | 5 | citation avec image, image servie (AVANT) ; B2 `minio_url` |
+| **M1e** repli retiré — colonne du `GO` des enfants | idem | → `0a46d0d53ba84ee7…` | 4 | citation avec image, image servie (AVANT) |
+| **M1f** repli retiré — lexical | `lexical.py` | `a8e81dd3442652e7…` → `c7c662df9ccacbe8…` | 4 | chunk lexical servi (AVANT) ; B3 lexical |
+| **M1g** repli retiré — dense | `retriever.py` | `4b1618e031b414e4…` → `d062f83dfd936f07…` | 4 | chunk dense servi (AVANT) ; B3 dense |
+| **M2a** `media_url` retiré — sommet | `graph_context.py` | `7a5e692f54fdd161…` → `7bfd48aa60aca7c1…` | 3 | propriétés du sommet, APRÈS |
+| **M2b** `media_url` retiré — colonnes de la liste blanche | idem | → `82acd7a72df4e0b8…` | 3 | B1 `media_url` |
+| **M2c** `media_url` retiré — `WHERE` de la liste blanche | idem | → `536c809266a9432a…` | 2 | **aucune scène de comportement** — voir ci-dessous |
+| **M2d** `media_url` retiré — `_to_elements` | idem | → `cfe27f191b520191…` | 6 | citation avec image, image servie (APRÈS) ; priorité d'`object_key` ; B2 `media_url` |
+| **M2e** `media_url` retiré — colonne du `GO` | idem | → `d14b8827b01cfc72…` | 5 | citation avec image, image servie (APRÈS) ; priorité d'`object_key` |
+| **M2f** `media_url` retiré — lexical | `lexical.py` | `a8e81dd3442652e7…` → `81533514077cb078…` | 5 | chunk lexical servi (APRÈS) ; B3 lexical ; non-fuite dans l'API |
+| **M2g** `media_url` retiré — dense | `retriever.py` | `4b1618e031b414e4…` → `f5b8ae44891b660b…` | 4 | chunk dense servi (APRÈS) ; B3 dense |
+| **M3a** `object_key` ignoré — `cle_objet` | `minio_client.py` | `b85158e7bcba3854…` → `9dd8b4b4bfefa7d2…` | 3 | priorité d'`object_key` ; `to_media_path` avec clé ; B1 `object_key` |
+| **M3b** `object_key` ignoré — colonnes de la liste blanche | `graph_context.py` | `7a5e692f54fdd161…` → `8440d267f747de8f…` | 4 | priorité d'`object_key` ; B1 `object_key` |
+| **M3c** `object_key` ignoré — `_to_elements` | idem | → `758edc9cd69c289c…` | 3 | priorité d'`object_key` |
+| **M3d** `object_key` ignoré — sommet | idem | → `7175d1524a3dad19…` | 3 | propriétés du sommet, APRÈS |
+| **M3e** `object_key` retiré du `WHERE` | idem | → `94bcddbc2f51b83a…` | 2 | **aucune scène de comportement** — voir ci-dessous |
+| **M3f** `object_key` retiré du `GO` | idem | → `b3ee0168f584740e…` | 3 | priorité d'`object_key` |
+| **M3g** `object_key` ignoré — lexical | `lexical.py` | `a8e81dd3442652e7…` → `0d2a474a9181fe0a…` | 4 | priorité d'`object_key` ; non-fuite dans l'API |
+| **M3h** `object_key` ignoré — dense | `retriever.py` | `4b1618e031b414e4…` → `9876982ec98c3651…` | 3 | priorité d'`object_key` |
+| **M3i** `object_key` ignoré — chemin `/media` d'un élément | `graph.py` | `82e4bd5809f43b33…` → `1ae281892c20958d…` | 1 | priorité d'`object_key` |
+| **M3j** `object_key` ignoré — chemin `/media` d'un chunk | idem | → `9d30d9577ece94c2…` | **0**, puis **1** | **SURVIVANTE à `7ddd20f`**, tuée à `bc15241` |
+| **T** témoin inerte : 13 lignes vides en tête | `graph_context.py` | `7a5e692f54fdd161…` → `de04958a8fc830eb…` | **0** | — |
+
+« Garde d'inventaire » : `test_chaque_site_attendu_lit_le_champ_du_contrat` et
+`test_le_compte_total_est_celui_de_l_inventaire`, qui rougissent sur toute
+mutation d'un site relevé (M1 à M3, sauf M3a, M3i et M3j, dont les sites ne
+sont pas des lectures du store). **Le témoin porte le COMPTE ATTENDU** :
+`rc=0`, **1304 passés**, à `7ddd20f` comme à `bc15241` — c'est ce qui prouve que
+le banc a mesuré l'arbre du lot.
+
+**M3j A SURVÉCU, ET C'EST LE RÉSULTAT LE PLUS UTILE DE LA TABLE.** La scène de
+priorité d'`object_key` vérifiait que le chunk PORTAIT la clé, pas que le chemin
+`/media` d'une image venue d'un chunk l'EMPLOYAIT : `rc(pytest)=0`, 1304 passés,
+sous la mutation. Une ligne ajoutée à la scène la tue, et M3i — le même geste
+sur le chemin des éléments — reste tuée : 1 rouge chacune à `bc15241`.
+
+**M2c ET M3e NE SONT TUÉES QUE PAR LA GARDE D'INVENTAIRE, ET C'EST ÉCRIT PLUTÔT
+QUE TU.** Retirer UN membre du `OR` du `WHERE` ne change rien au comportement
+sous le contrat : dans l'état APRÈS, `media_url` et `object_key` viennent
+TOUJOURS ensemble, et l'autre membre suffit à rendre la ligne. Aucune scène de
+comportement ne peut les distinguer sans poser un état que le pipeline exclut.
+Les retirer TOUS LES DEUX viderait la liste blanche de l'état APRÈS, et M2c
+comme M3e resteraient attrapées par l'inventaire, qui exige chaque nom à chaque
+motif.
+
+**M1a, M2a ET M3d NE SONT TUÉES QUE PAR LA SCÈNE DIRECTE de
+`_get_node_properties`.** Les clés `minio_url` et `object_key` du dictionnaire
+qu'elle rend n'ont **aucun consommateur** dans `src/` : c'est une lecture du
+store, tenue au contrat comme les autres, mais sans conséquence visible pour le
+lecteur aujourd'hui.
+
+**CE QUE CE LOT NE PROUVE PAS.** *(a)* L'état APRÈS sur le graphd RÉEL : il
+exige un `CREATE TAG` sur le graphe partagé, et il est rejoué par une propriété
+inexistante d'un tag existant — la situation exacte de `minio_url` après la
+purge, mais pas la purge elle-même. *(b)* Le service : le conteneur du port 8011
+tourne sur l'image d'avant ce lot, et **la réingestion de ce soir le
+trouverait inchangé** — sans la reconstruction de l'image, la liste blanche de
+l'état APRÈS serait vide et le proxy refuserait toutes les images. *(c)* La
+forme de la métadonnée ChromaDB d'après la réingestion : elle est prise au mot
+du pipeline (message 45), non relevée sur une collection réingérée.

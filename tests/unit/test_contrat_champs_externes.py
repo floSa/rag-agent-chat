@@ -49,16 +49,29 @@ import pytest
 _RACINE = Path(__file__).resolve().parents[2]
 _PERIMETRE = _RACINE / "src" / "agent"
 
-# ─── LE CONTRAT — LE SEUL ENDROIT À CHANGER LE JOUR DE LA BASCULE ─────────────
+# ─── LE CONTRAT — LE SEUL ENDROIT À CHANGER LE JOUR D'UNE BASCULE ─────────────
 #
 # `mesuré` le 22 septembre 2026 contre `main` = 890f4b9, et rendu au pipeline au
 # §4.62 du registre. La bascule accordée est `minio_url` → `media_url`, plus un
-# champ nouveau `object_key`. Elle n'a PAS eu lieu : tant qu'elle n'a pas eu
-# lieu, ce contrat dit `minio_url`, et les scènes de
-# `test_bascule_du_nom_de_champ_media.py` clouent ce que coûterait le silence.
-CONTRAT_DES_SOURCES: dict[str, str] = {
-    "graphe": "minio_url",
-    "chromadb": "minio_url",
+# champ nouveau `object_key`. LOT-42 (§4.82) la TIENT, en transition : les
+# stores servis portent encore `minio_url` seul, la réingestion — `DROP SPACE`
+# puis `CREATE TAG` — leur donnera `media_url` et `object_key` seuls. Jamais
+# les deux ensemble, mais le code servi traverse les deux états : chaque
+# source nous doit donc TROIS noms, lus aux mêmes sites :
+#
+# - `media_url` — le nom d'après la bascule, lu EN PREMIER ;
+# - `minio_url` — le repli, tant que la réingestion n'a pas eu lieu ;
+# - `object_key` — la clé nue, préférée à celle qu'on déduit de l'URL.
+#
+# Le repli sur `minio_url` sortira à l'étape 3, après la réingestion : ce jour-là
+# on le retire d'ICI, et la suite nomme les sites à suivre.
+CHAMP_URL = "media_url"
+CHAMP_URL_DE_REPLI = "minio_url"
+CHAMP_CLE = "object_key"
+
+CONTRAT_DES_SOURCES: dict[str, tuple[str, ...]] = {
+    "graphe": (CHAMP_URL, CHAMP_URL_DE_REPLI, CHAMP_CLE),
+    "chromadb": (CHAMP_URL, CHAMP_URL_DE_REPLI, CHAMP_CLE),
 }
 
 # Fonctions par lesquelles une requête part vers le graphe. Les chaînes nGQL
@@ -92,13 +105,18 @@ class SiteReleve:
 
 @dataclass(frozen=True)
 class SiteAttendu:
-    """Un site du contrat, décrit par motif et par nombre d'occurrences."""
+    """Un site du contrat, décrit par motif et par nombre d'occurrences.
+
+    Les `occurrences` valent pour CHACUN des noms que la source nous doit : un
+    site qui lit `media_url` sans son repli `minio_url`, ou sans `object_key`,
+    est un site où le contrat n'est pas tenu.
+    """
 
     module: str
     fonction: str
     nature: str
     source: str        # clé de CONTRAT_DES_SOURCES
-    occurrences: int   # combien de lectures du champ ce motif porte
+    occurrences: int   # combien de lectures de CHAQUE nom ce motif porte
 
     @property
     def motif(self) -> tuple[str, str, str]:
@@ -108,17 +126,22 @@ class SiteAttendu:
 # ─── L'INVENTAIRE, PAR MOTIF ET JAMAIS PAR NUMÉRO DE LIGNE ────────────────────
 #
 # `mesuré` le 22 septembre 2026 contre `main` = 890f4b9 : six fonctions, trois
-# fichiers, deux sources. La somme des `occurrences` vaut sept, et c'est cette
-# somme — jamais un sept recopié — que les gardes confrontent au relevé.
+# fichiers, deux sources, sept lectures de `minio_url`. LOT-42 (§4.82) ajoute
+# un septième motif — `media_object_names` lit désormais les colonnes de ses
+# lignes par leur nom, et non plus un alias `url` — et porte chaque motif aux
+# trois noms du contrat : huit lectures de chaque nom, vingt-quatre en tout.
+# C'est la somme CALCULÉE qui est confrontée au relevé, jamais un chiffre recopié.
 SITES_ATTENDUS: tuple[SiteAttendu, ...] = (
     # Le graphe, par ses lignes converties en dicts.
     SiteAttendu("src/agent/graph_context.py", "_get_node_properties", "mapping_get", "graphe", 1),
     SiteAttendu("src/agent/graph_context.py", "_to_elements", "mapping_get", "graphe", 1),
-    # Le graphe, par le texte des requêtes. `media_object_names` lit la
-    # propriété DEUX fois — une en WHERE, une en RETURN — et c'est la première
-    # qui fait le plus de dégâts : sur une propriété inconnue, NebulaGraph rend
-    # zéro ligne au lieu de lever.
+    # Le graphe, par le texte des requêtes. `media_object_names` lit chaque
+    # propriété DEUX fois — une en WHERE, une en RETURN. Le WHERE est un `OR`
+    # des trois : `mesuré` le 25 septembre 2026 sur le graphd installé, une
+    # propriété absente du schéma du tag y rend `__NULL__`, n'est jamais vraie
+    # et ne fait pas échouer la requête — §4.82.
     SiteAttendu("src/agent/graph_context.py", "media_object_names", "ngql_property", "graphe", 2),
+    SiteAttendu("src/agent/graph_context.py", "media_object_names", "mapping_get", "graphe", 1),
     SiteAttendu("src/agent/graph_context.py", "_get_children", "ngql_property", "graphe", 1),
     # ChromaDB, par les métadonnées de chunk, sur les deux chemins de recherche.
     SiteAttendu("src/agent/lexical.py", "chunk_from_record", "mapping_get", "chromadb", 1),
@@ -264,7 +287,7 @@ def releves() -> list[SiteReleve]:
 @pytest.fixture(scope="module")
 def sites_du_contrat(releves: list[SiteReleve]) -> list[SiteReleve]:
     """Les seules lectures qui portent un nom de champ du contrat média."""
-    noms = set(CONTRAT_DES_SOURCES.values())
+    noms = {nom for noms_source in CONTRAT_DES_SOURCES.values() for nom in noms_source}
     return [site for site in releves if site.champ in noms]
 
 
@@ -358,14 +381,14 @@ def test_chaque_site_attendu_lit_le_champ_du_contrat(sites_du_contrat: list[Site
 
     ecarts: list[str] = []
     for attendu in SITES_ATTENDUS:
-        champ = CONTRAT_DES_SOURCES[attendu.source]
-        trouves = [s for s in par_motif.get(attendu.motif, []) if s.champ == champ]
-        if len(trouves) != attendu.occurrences:
-            ecarts.append(
-                f"{attendu.module}::{attendu.fonction} ({attendu.nature}, source "
-                f"« {attendu.source} ») : {attendu.occurrences} lecture(s) de "
-                f"« {champ} » attendue(s), {len(trouves)} relevée(s)"
-            )
+        for champ in CONTRAT_DES_SOURCES[attendu.source]:
+            trouves = [s for s in par_motif.get(attendu.motif, []) if s.champ == champ]
+            if len(trouves) != attendu.occurrences:
+                ecarts.append(
+                    f"{attendu.module}::{attendu.fonction} ({attendu.nature}, source "
+                    f"« {attendu.source} ») : {attendu.occurrences} lecture(s) de "
+                    f"« {champ} » attendue(s), {len(trouves)} relevée(s)"
+                )
 
     assert not ecarts, (
         "Le contrat de champs externes n'est plus tenu aux sites suivants :\n  "
@@ -398,12 +421,15 @@ def test_aucune_lecture_du_champ_hors_de_l_inventaire(sites_du_contrat: list[Sit
 def test_le_compte_total_est_celui_de_l_inventaire(sites_du_contrat: list[SiteReleve]) -> None:
     """Le compte est une PROPRIÉTÉ, pas un nombre recopié.
 
-    Il vaut sept au 22 septembre 2026 (`mesuré`, `main` = 890f4b9), mais aucun
-    sept n'est écrit ici : le total attendu est CALCULÉ depuis l'inventaire. Un
+    Il valait sept au 22 septembre 2026 (`mesuré`, `main` = 890f4b9) et vaut
+    vingt-quatre depuis LOT-42, mais aucun de ces nombres n'est écrit ici : le
+    total attendu est CALCULÉ depuis l'inventaire et le contrat. Un
     site ajouté à l'inventaire sans son équivalent dans `src/` rougit, et
     l'inverse aussi.
     """
-    attendu = sum(site.occurrences for site in SITES_ATTENDUS)
+    attendu = sum(
+        site.occurrences * len(CONTRAT_DES_SOURCES[site.source]) for site in SITES_ATTENDUS
+    )
     releve = len(sites_du_contrat)
     assert releve == attendu, (
         f"{attendu} lecture(s) du champ média décrite(s) par l'inventaire, "
