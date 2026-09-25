@@ -12690,3 +12690,577 @@ variantes, ce que ce banc versionne pour la seule variante de production.
 n'est diagnostiquée. Ce sont trois questions, pas trois catégories, et les
 compter sans les lire serait la même faute que le §4.67 a commise sur `G-112` et
 `G-121`, dont le **marqueur** était perdu et non la question.
+
+### 4.79 → LOT-39 : la décomposition AVEC traduction, et l'écart à la borne se perd d'abord à la FUSION
+
+`mesuré` le **25 septembre 2026 de 06:28 à 07:47 UTC**, base `origin/main` =
+**`30f9836`**, dans un arbre de travail détaché monté par le protocole du §2.2
+(`git worktree add` — `rc=0`, arbre vérifié présent). **`src/` n'est pas
+touché** — `git diff HEAD -- src/` rend vide — et **aucun réglage par défaut
+n'est changé** : les profondeurs de production passent par l'environnement du
+lancement, `FETCH_K=50`, `RETRIEVAL_TOP_K=50`, `RERANK_TOP_K=10`, et le banc
+**écrit dans son bilan** les valeurs que `settings.py` a réellement lues —
+`rrf_k` **60**, `translation_weight` **1,0**, `cross_lingual_search` **true**.
+Instrument neuf : `scripts/mesurer_decomposition_traduite.py` (sha256
+`d00582019b90e686f…`), gardé par `tests/unit/test_decomposition_traduite.py`
+(`719e9403058315f2…`). Recettes `make traduction-des-sous-questions`,
+`decomposition-de-la-question-traduite`, `traduite-disperse`, `traduite-reglage`
+et `traduite-controle`. Bilans versionnés :
+`runs/2026-09-25-traduite-{disperse,reglage,controle}.json`,
+`runs/2026-09-25-traduite-sousq-{…}.json`,
+`runs/2026-09-25-traduite-decomp-{…}.json`, et les six caches
+`runs/.traductions-sous-questions-*.json` et `runs/.decomposition-traduite-*.json`.
+
+**AUCUNE RÉPONSE N'EST GÉNÉRÉE PAR LA MESURE.** Le banc rejoue `retrieve`,
+`fuse` et `rerank` de `src/` tels quels, et relève un RANG. Le modèle n'entre
+que dans la **fabrication** des caches, qui sont des producteurs distincts, et
+le banc **exige** ces caches sans jamais les fabriquer.
+
+**LES DÉCOMPOSITIONS DU §4.78 SONT RELUES, JAMAIS REFABRIQUÉES**, depuis
+`runs/.decomposition-<jeu>.json`. C'est ce qui rend le lot lisible : la **seule**
+différence entre `fusion_rerank_*` et `fusion_traduite_rerank_*` est la
+traduction. Les refabriquer aurait fait varier les sous-questions en même temps
+— le modèle n'est pas déterministe à température 0,2 — et l'écart n'aurait été
+imputable à rien. Un test l'épingle : l'absence du cache est un **refus**, et un
+cache partiel **nomme** ce qui manque.
+
+#### CE QUE CE LOT FERME, ET C'ÉTAIT LA RÉSERVE 2 DU §4.78
+
+Le §4.78 a écrit sa propre réserve au site : *les variantes n'ont pas de
+traduction et la production en a une ; ce que rendrait une décomposition plus
+une recherche translingue n'est pas mesuré — ce serait un second changement, et
+un second lot*. Il a de plus **imputé** au retrait de la traduction **deux** des
+trois questions perdues du jeu de réglage, `G-097` et `G-119`, sur le seul
+constat qu'elles sont **déjà** perdues par la requête unique sans traduction.
+**Ce lot mesure cette imputation au lieu de la déduire, et elle est vraie pour
+l'une et fausse pour l'autre.** Il ne propose aucun réglage.
+
+#### LES TROIS VARIANTES NEUVES, ET POURQUOI IL EN FAUT TROIS
+
+Les **quatre** variantes du §4.78 sont rejouées à l'identique — sans elles le
+contrôle positif n'aurait rien à confronter, et les neuves seraient comparées à
+des chiffres **recopiés d'un document** au lieu de chiffres mesurés sur les
+mêmes stores, le même jour, par le même banc.
+
+5. **`fusion_traduite_rerank_entiere`** — chaque sous-question est traduite et
+   récupérée **comme la production récupère la question** : `retrieve(sous,
+   translation=…)`, soit quatre classements — dense et lexical, pour la
+   sous-question et pour sa traduction — fondus par `fuse` au
+   `translation_weight` du réglage. Le reranker score contre la question entière.
+6. **`fusion_traduite_rerank_sous_questions`** — même fusion, le reranker score
+   contre chaque sous-question et chaque candidat garde son **meilleur** score.
+7. **`fusion_question_traduite_decomposee`** — **L'AUTRE ORDRE** : la question
+   est traduite **puis** décomposée, et les deux familles de sous-questions sont
+   fondues.
+
+**LE CHOIX EST ÉCRIT, ET LA VARIANTE PRINCIPALE EST LA 5-6.** Elle seule est le
+geste implémentable sans écrire une ligne de fusion neuve dans `src/` :
+`retrieve(requête, translation=…)` est exactement l'appel que `graph.py` émet,
+et la seule chose qui change est le texte qu'on lui donne.
+
+**L'AUTRE ORDRE CHANGE DEUX CHOSES À LA FOIS, ET C'EST DIT.** Décomposer la
+question traduite rend des sous-questions **qui ne sont pas les traductions des
+premières** — le modèle recoupe les besoins autrement. **Les apparier par leur
+rang serait un ORACLE D'AFFECTATION**, celui-là même que le §4.77 s'est reproché
+et que le §4.78 a retiré. Elles ne sont donc **pas** appariées : les classements
+d'origine entrent au poids 1,0, les traduits au `translation_weight`, et `fuse`
+fond le tout — la pondération que la production applique à la traduction de la
+question entière.
+
+**ET CE POIDS VAUT 1,0, C'EST-À-DIRE L'ÉGALITÉ.** `mesuré` le 25 septembre 2026
+dans l'environnement du conteneur servi (`docker exec rag-agent-api env` →
+`TRANSLATION_WEIGHT=1.0`), et c'est aussi le défaut de `settings.py`. **La
+docstring de `retrieve` écrit que « la traduction pèse moins » : elle décrit ce
+que le réglage PERMET, pas ce que ce poste APPLIQUE.** Le banc lit
+`settings.translation_weight` et n'écrit aucune valeur en dur ; un témoin
+déplace le réglage à 0,3 et exige que l'ordre du RRF change, sans quoi un banc
+codant 1,0 rendrait aujourd'hui les mêmes chiffres qu'un banc qui lit.
+
+#### LE REPLI EST APPARIÉ À LA VARIANTE, ET C'EST CE QUI SAUVE `G-097`
+
+Quand il n'y a rien à décomposer, les variantes du §4.78 retombent sur la
+requête unique **sans** traduction — elles n'en ont pas. **Les variantes
+traduites retombent sur LA PRODUCTION EXACTE**, et c'est le seul repli
+cohérent : un décomposeur qui traduit ne perd pas la recherche translingue sur
+les questions qu'il renonce à décomposer. Tenir l'autre repli ferait porter aux
+**69** questions à besoin unique du jeu de réglage une perte que
+l'implémentation n'aurait pas. Un témoin oppose les deux replis sur la même
+question et une seule lecture peut être verte.
+
+#### LA TRADUCTION EST CELLE DE LA PRODUCTION, ET ON LE PROUVE EN LA FAISANT TOURNER
+
+Rien n'est recopié : le gabarit vient de `_get_jinja_env()` sur
+`prompts/translate_query.j2`, le lecteur de forme est `_contenu_message`, le
+seuil est `_MAX_TRANSLATION_RATIO` **importé** de `src/agent/llm.py`. Seul le
+post-traitement est réécrit — `translate_question` étant asynchrone et faisant
+son propre appel —, et **un garde le confronte en faisant tourner les deux
+chemins côte à côte sur les mêmes corps**, sept formes : la traduction nominale,
+celle qui porte une explication à la ligne suivante, celle que le modèle entoure
+de guillemets, la vide, celle qui n'est que des espaces, celle qui recopie la
+question à la casse près, celle qui dépasse trois fois sa longueur. Les trois
+dernières sont des **refus de la production**, qui retombe alors en recherche
+monolingue.
+
+**COMPARER DEUX LISTES DE RÈGLES ÉCRITES À LA MAIN AURAIT PROUVÉ QU'ELLES SE
+RESSEMBLENT ; LES FAIRE TOURNER CÔTE À CÔTE PROUVE QU'ELLES DÉCIDENT PAREIL.**
+
+#### LE CONTRÔLE POSITIF, TROIS TERMES, ET IL EST ANTÉRIEUR À TOUTE PUBLICATION
+
+Le banc **refuse de publier la moindre variante** sans les trois. `mesuré` sur
+les trois jeux.
+
+| terme | ce qu'il confronte | dispersé | contrôle | réglage |
+|---|---|---|---|---|
+| **1 — les douze couples du §4.78** | 4 variantes × 3 jeux, **ancrages ET questions**, écrits en dur, recopiés du registre | **accord** | **accord** | **accord** |
+| **2 — les rangs du §4.78, UN À UN** | les **quatre** variantes, pas seulement la production, contre `runs/2026-09-25-fusion-*.json` | **accord** | **accord** | **accord** |
+| **3 — les 120 rangs du §4.77** | la production contre `runs/2026-09-24-recuperation-p50.json` | **accord** | *non applicable* | *non applicable* |
+
+**ET LE TERME 2 EST PLUS FORT QUE CE QUI ÉTAIT DEMANDÉ.** Le §4.78 ne
+confrontait que sa variante de production ; ici les **quatre** sont confrontées
+rang par rang, sur les trois jeux — **297 clés `(question, ancrage)`**, 120 + 47
++ 130, **0 désaccord sur 4 variantes**. Un banc qui aurait bougé sur les seules
+variantes de fusion serait passé au travers du contrôle du lot précédent.
+
+`unique_avec_traduction` rend **53 / 7** sur le dispersé, **33 / 14** sur le
+contrôle, **127 / 127** sur le réglage : les chiffres du §4.78 à l'unité.
+
+#### LA MESURE — LES SEPT VARIANTES SUR LES TROIS JEUX
+
+`mesuré`, base = les bilans versionnés de ce lot. Ancrages dans le top-10 du
+reranker / **QUESTIONS complètes**.
+
+| variante | dispersé (60 q, 120 anc.) | contrôle (26 q, 47 anc.) | réglage (130 q, 130 anc.) |
+|---|---|---|---|
+| `unique_avec_traduction` *(PRODUCTION)* | 53 / **7** | 33 / **14** | 127 / **127** |
+| `unique_sans_traduction` *(base appariée)* | 57 / **6** | 33 / **14** | 125 / **125** |
+| `fusion_rerank_entiere` | 60 / **8** | 33 / **14** | 124 / **124** |
+| `fusion_rerank_sous_questions` *(le meilleur du §4.78)* | **72** / **19** | 33 / **14** | 124 / **124** |
+| **`fusion_traduite_rerank_entiere`** | 59 / **6** | 33 / **14** | **125** / **125** |
+| **`fusion_traduite_rerank_sous_questions`** | **72** / **18** | 33 / **14** | **125** / **125** |
+| **`fusion_question_traduite_decomposee`** | **73** / **19** | 33 / **14** | **127** / **127** |
+| *oracle `decomposition` du §4.77 (borne)* | *86 / **28*** | — | — |
+
+**LA TRADUCTION NE GAGNE RIEN SUR LE JEU QU'ELLE VISE, ET ELLE RÉPARE LA
+NON-RÉGRESSION.** Sur le dispersé — **monolingue anglais** —, traduire les
+sous-questions rend **72 / 18** contre **72 / 19** : une question de moins, zéro
+ancrage de plus. Sur le réglage, elle rend **125** contre **124**. Le signe est
+donc **double**, et c'est cohérent avec le §4.77, qui mesurait déjà que la
+traduction fait perdre 4 ancrages sur ce jeu monolingue.
+
+**L'AUTRE ORDRE EST LE SEUL À NE RIEN PERDRE NULLE PART.** `fusion_question_traduite_decomposee`
+rend **73 / 19** sur le dispersé — le meilleur compte d'ancrages mesuré pour une
+variante réelle —, **14** sur le contrôle **sans le moindre échange**, et
+**127** sur le réglage, **le chiffre de la production**. Ce lot ne dit pas que
+c'est un bon échange ; il le chiffre, et il dit plus bas ce que ce 127 cache.
+
+#### LE BILAN CONTRE LA PRODUCTION, QUESTION PAR QUESTION — et c'est LUI qui déciderait
+
+C'est ce tableau, et non celui contre la base appariée, qui trancherait un jour
+un changement de production. `mesuré`.
+
+| variante | dispersé | contrôle | réglage |
+|---|---|---|---|
+| `unique_sans_traduction` | **−1** : `D-030` | 0 | **−2** : `G-097`, `G-119` |
+| `fusion_rerank_entiere` | **+2 −1** : − `D-003` / + `D-028`, `D-060` | 0 | **−3** : `G-097`, `G-110`, `G-119` |
+| `fusion_rerank_sous_questions` | **+13 −1** : − `D-003` | **+1 −1** : − `q18` / + `q05` | **−3** : `G-097`, `G-110`, `G-119` |
+| **`fusion_traduite_rerank_entiere`** | **+1 −2** : − `D-003`, `D-014` / + `D-002` | 0 | **−2** : `G-110`, `G-119` |
+| **`fusion_traduite_rerank_sous_questions`** | **+13 −2** : − `D-003`, `D-014` | **+1 −1** : − `q18` / + `q05` | **−2** : `G-110`, `G-119` |
+| **`fusion_question_traduite_decomposee`** | **+15 −3** : − `D-003`, `D-014`, `D-032` | **0** | **+1 −1** : − `G-119` / + `G-024` |
+
+Les treize gagnées du dispersé par `fusion_traduite_rerank_sous_questions` :
+`D-002`, `D-004`, `D-005`, `D-007`, `D-008`, `D-020`, `D-023`, `D-028`, `D-040`,
+`D-042`, `D-050`, `D-052`, `D-053`. Les quinze de l'autre ordre : `D-002`,
+`D-005`, `D-007`, `D-008`, `D-020`, `D-023`, `D-028`, `D-034`, `D-041`, `D-042`,
+`D-043`, `D-046`, `D-050`, `D-052`, `D-053`.
+
+**UN TOTAL IMMOBILE CACHE DEUX MOUVEMENTS, ET LE JEU DE RÉGLAGE VIENT DE LE
+MONTRER À SON TOUR.** `fusion_question_traduite_decomposee` rend **127** comme
+la production — et ce 127 est **un échange**, pas une égalité : `G-119` perdue,
+`G-024` gagnée. Le §4.78 avait déjà payé cette leçon sur le jeu de contrôle avec
+`q18` et `q05` ; elle se répète ici sur le jeu de réglage, où personne ne
+l'attendait.
+
+#### LE DIAGNOSTIC DE CHAQUE QUESTION NOMMÉE — la question ouverte C du §4.78
+
+Le §4.78 écrivait : *`G-110`, `q18` et `D-003` — aucune n'est diagnostiquée ; ce
+sont trois questions, pas trois catégories*. Les voici, **avec le rang de chaque
+ancrage à chaque étage**. `mesuré`.
+
+**`G-097` — ET L'IMPUTATION DU §4.78 EST VRAIE, POUR UNE RAISON QU'IL N'AVAIT
+PAS VUE.** Sa nature est **`une_seule`** : le modèle rend la question seule,
+elle est donc **en repli**, et *jamais décomposée*. Son ancrage `54ec58051b`
+n'est trouvé que par le **lexical de la traduction**, au rang 10 — `dense` et
+`lexical` de la question d'origine ne le ramènent pas au-dessus de 33. Elle est
+donc perdue par les variantes du §4.78 **uniquement parce que leur repli
+abandonne la traduction**, et elle revient à `rerank 1` dès que le repli est
+apparié. **Ce n'est pas la décomposition qui la perdait : c'est le repli.**
+
+**`G-119` — ET L'IMPUTATION DU §4.78 EST FAUSSE, OU PLUTÔT INCOMPLÈTE.** La
+question est **en français**, le corpus en anglais : sans traduction son ancrage
+`40f85d8e89` n'est trouvé par **aucun** moteur (`dense` et `lexical` de la
+question rendent `None` et 38). La production le récupère par le **lexical de la
+traduction** au rang 9, fusion 26, rerank **2**. Rendre la traduction aux
+sous-questions le ramène **au rang 49 d'une sous-requête** — et **la fusion le
+coupe**. `G-119` se perd donc à **deux** étages successifs, et la traduction
+n'en répare qu'un : **la décomposition la perd aussi, ce que le §4.78 n'a pas
+mesuré**.
+
+**`G-110` — ET CE N'EST PAS LA TRADUCTION, C'EST LA DÉCOMPOSITION.** Question
+française, ancrage `7a72e9bacd` au rang **1** en production **comme** sans
+traduction : la recherche translingue n'y est pour rien. Découpée en trois
+sous-questions françaises, elle ne le retrouve **dans aucune** — `jamais_recupere`.
+Traduire les sous-questions le ramène au rang 24 d'une sous-requête, que la
+fusion coupe. Seul l'autre ordre le récupère — ranges 15, 32, 46 des
+sous-questions **traduites**, fusion 30, rerank **1**. *Trois sous-questions
+étroites tirées d'une question française perdent le passage que la question
+entière trouvait au rang 1.*
+
+**`q18` — ET ELLE SE PERD AU RERANKING, ALORS QU'ELLE ÉTAIT PREMIÈRE.** Son
+ancrage `347b2e3799` est au rang **1 de la liste fusionnée** sous
+`fusion_rerank_sous_questions`, et le reranking par sous-question **ne le rend
+pas dans ses dix**. Ni la récupération ni la fusion ne sont en cause. L'autre
+ordre le remet à `rerank 4`.
+
+**`D-003` — ET SES DEUX ANCRAGES SE PERDENT À DEUX ÉTAGES DIFFÉRENTS.**
+`f653d1f934` est trouvé au rang 1 par la seconde sous-question, survit à la
+fusion au rang 6, et le reranking l'écarte. `54ec58051b` n'est trouvé qu'au rang
+33 par la première, et **la fusion le coupe**. **Une question perdue n'a pas un
+étage, elle en a autant que d'ancrages** — et c'est pourquoi le tableau plus bas
+classe une question par son ancrage le plus **amont**.
+
+**`D-014` — LA TRADUCTION DILUE LA SOUS-REQUÊTE.** Son ancrage `c06829515c` est
+au rang **15** de la première sous-question sans traduction, et la fusion le
+garde au rang 34. Avec la traduction, la même sous-question ne le rend plus
+qu'au rang **30**, et la fusion le coupe. *Sur un corpus monolingue, ajouter la
+traduction d'une sous-question fait descendre le bon passage dans sa propre
+liste.*
+
+**`D-032` — QUATRE FAMILLES SE MARCHENT DESSUS.** Son ancrage `c43739d3d0`
+survit à la fusion de **deux** familles (rang 26 puis 30) et disparaît de la
+fusion de **quatre** : la coupe à 50 candidats ne suffit plus quand six
+classements y entrent.
+
+**`D-030` — LA TRADUCTION LA SAUVE D'UNE PLACE.** `c06829515c` sort au rang
+**10** avec traduction et hors des dix sans. Les deux variantes de fusion la
+récupèrent au rang 1.
+
+**`G-024` — LE GAIN REPOSE SUR UNE PANNE DU PRODUCTEUR, ET C'EST DIT.** Elle est
+la seule des 216 décompositions de la question traduite à avoir échoué —
+`finish_reason: length`, JSON tronqué à 900 caractères. Sa famille traduite se
+réduit donc à **la traduction entière**, et c'est *elle* qui ramène l'ancrage
+`7540352a91` (rang 10 → fusion 35 → rerank 9). **Le gain est réel et sa cause
+est un repli, pas une décomposition traduite** : compté comme une réussite de la
+variante, il serait surévalué.
+
+#### L'ÉCART À LA BORNE, RÉPARTI PAR ÉTAGE — la question ouverte B du §4.78
+
+Le §4.78 ne versionnait le rang de **fusion** que pour la variante de
+production, et écrivait que répartir les neuf questions d'écart *demanderait de
+relever le rang de fusion ancrage par ancrage sous les variantes*. **Ce banc le
+versionne pour les sept**, et les quatre étages sont **exclusifs par
+construction** — l'ordre où ils sont essayés les rend tels, et les comptes
+**somment**, ce que le banc assertit.
+
+| étage | ce qu'il dit |
+|---|---|
+| `arrive` | dans le top-10 final : rien à expliquer |
+| `perdu_au_reranking` | la liste fusionnée l'avait, le reranker ne le rend pas |
+| `perdu_a_la_fusion` | une sous-requête l'avait, la fusion coupée à 50 ne l'a pas gardé |
+| `jamais_recupere` | aucune sous-requête ne l'a ramené |
+
+**LES 120 ANCRAGES DU JEU DISPERSÉ, ET LES 60 QUESTIONS.** `mesuré`.
+
+| variante | `arrive` | `rerank` | `fusion` | `jamais` | **questions** `arr` / `rrk` / `fus` / `jam` |
+|---|---|---|---|---|---|
+| `unique_avec_traduction` | 53 | 20 | 0 | 47 | **7** / 16 / 0 / 37 |
+| `unique_sans_traduction` | 57 | 16 | 0 | 47 | **6** / 13 / 0 / 41 |
+| `fusion_rerank_entiere` | 60 | 24 | 11 | 25 | **8** / 21 / 10 / 21 |
+| `fusion_rerank_sous_questions` | 72 | 12 | 11 | 25 | **19** / 10 / 10 / 21 |
+| `fusion_traduite_rerank_sous_questions` | 72 | 13 | 8 | 27 | **18** / 11 / 6 / 25 |
+| `fusion_question_traduite_decomposee` | 73 | 9 | 18 | 20 | **19** / 8 / 15 / 18 |
+
+**LES DEUX VARIANTES À REQUÊTE UNIQUE ONT UN `perdu_a_la_fusion` VIDE PAR
+CONSTRUCTION, ET CE N'EST PAS UN RÉSULTAT.** Ce que le banc appelle « par
+requête » y est la sortie de `retrieve`, c'est-à-dire une liste **déjà** fondue
+et **déjà** coupée : leur `jamais_recupere` veut dire « absent des cinquante de
+`retrieve` ». Le §4.77 a publié la séparation dense/lexical pour la production
+sur ce seul jeu ; ce lot l'ajoute comme **sonde de diagnostic** sur les trois,
+et elle n'entre dans aucune variante ni dans aucun coût.
+
+**L'ÉCART À LA BORNE DE L'ORACLE, ET IL EST UNE DIFFÉRENCE D'ENSEMBLES.** La
+borne du §4.77 place **86** ancrages et **28** questions. `mesuré`, sur les clés
+`(question, ancrage)`.
+
+| variante | ancrages de la borne **manqués** | `rerank` | `fusion` | `jamais` | ancrages **hors borne** gagnés |
+|---|---|---|---|---|---|
+| `fusion_rerank_sous_questions` | **27** | 11 | 9 | 7 | **+13** |
+| `fusion_traduite_rerank_sous_questions` | **26** | 12 | 4 | 10 | **+12** |
+| `fusion_question_traduite_decomposee` | **24** | 7 | 11 | 6 | **+11** |
+
+| variante | questions de la borne **manquées** | `rerank` | `fusion` | `jamais` | questions **hors borne** gagnées |
+|---|---|---|---|---|---|
+| `fusion_rerank_sous_questions` | **11** | 4 | **6** | 1 | **+2** |
+| `fusion_traduite_rerank_sous_questions` | **12** | 4 | 3 | 5 | **+2** |
+| `fusion_question_traduite_decomposee` | **11** | 3 | **7** | 1 | **+2** |
+
+**ET LA RÉPONSE EST QUE L'ÉCART SE PERD D'ABORD À LA FUSION, PAS AU
+RERANKING.** Des **11** questions de la borne que la meilleure variante du §4.78
+manque, **6 se perdent à la fusion**, 4 au reranking, 1 n'est jamais récupérée.
+*Le §4.78 avait nommé le reranking comme l'étage qui décide — il l'est pour le
+gain ; il ne l'est pas pour ce qui reste à gagner.*
+
+**ET « 28 − 19 = 9 » N'EST PAS L'ÉCART.** L'écart réel est de **11** questions
+manquées **et 2 gagnées hors de la borne** : la variante place deux questions
+complètes que l'oracle rate. Un lot qui aurait soustrait les comptes aurait
+publié 9 et cherché 9 causes. **L'écart est une différence d'ensembles**, et un
+témoin l'épingle en faisant accorder les comptes et diverger les ensembles.
+
+**LES DEUX AUTRES JEUX.** Sur le réglage, tout se joue à la **récupération** :
+les variantes traduites perdent 2 ancrages à la fusion et 3 ne sont jamais
+récupérés, aucun n'est perdu au reranking. Sur le contrôle, l'inverse — **6 à 9**
+ancrages perdus **au reranking** contre **0 à 3** à la fusion, sur 47.
+
+#### LES NATURES, ET LA PANNE DU PRODUCTEUR EST COMPTÉE À PART
+
+`mesuré`. Décomposition de la question d'origine (relue du §4.78) puis de sa
+traduction (fabriquée ici).
+
+| nature | dispersé 60 | contrôle 26 | réglage 130 | | traduite : dispersé | contrôle | réglage |
+|---|---|---|---|---|---|---|---|
+| `decomposee` | 56 | 21 | 60 | | 59 | 22 | 60 |
+| `une_seule` | 4 | 5 | 69 | | 1 | 4 | 68 |
+| `quasi_identique` | 0 | 0 | 1 | | 0 | 0 | 1 |
+| `vide` *(panne)* | **0** | **0** | **0** | | **0** | **0** | **1** |
+
+**LA SEULE PANNE DES 216 GÉNÉRATIONS EST `G-024`**, `finish_reason: length` et
+JSON tronqué — et elle tombe sur la seule question que la variante du second
+ordre **gagne**. Le hasard est écrit parce qu'il change la lecture du gain.
+
+**LES TRADUCTIONS DE SOUS-QUESTIONS : 301 générations, `finish_reason: stop`
+301 fois, 0 panne, 0 refusée par le post-traitement de la production** — 118
+sur le dispersé, 138 sur le réglage, 45 sur le contrôle, une par sous-question
+**distincte** d'une décomposition utilisable. Les sous-questions des questions
+**en repli** ne sont pas traduites : elles ne sont jamais émises, et les
+traduire gonflerait un coût que l'implémentation ne paierait pas.
+
+#### LES COÛTS, ET LE QUATRIÈME ÉTAGE PAIE ENCORE
+
+**LES APPELS AU MODÈLE**, `google/gemma-4-E4B-it-qat-w4a16-ct` servi par
+`vllm-central` sur le **8100** publié. `mesuré`.
+
+| producteur | jeu | générations | médiane | p95 | min–max |
+|---|---|---|---|---|---|
+| traduction des sous-questions | dispersé | 118 | **587 ms** | 1002 ms | 295–1228 |
+| traduction des sous-questions | réglage | 138 | **429 ms** | 1029 ms | 187–1875 |
+| traduction des sous-questions | contrôle | 45 | **507 ms** | 996 ms | 265–1757 |
+| décomposition de la traduction | dispersé | 60 | **1322 ms** | 2338 ms | 612–2599 |
+| décomposition de la traduction | réglage | 130 | **826 ms** | 1734 ms | 378–9597 |
+| décomposition de la traduction | contrôle | 26 | **946 ms** | 1901 ms | 335–2084 |
+
+Un **appel de chauffe** par campagne, sur un texte qui n'est aucune question du
+jeu, est joué d'abord et **exclu des statistiques**. Les prompts sont **distincts
+par construction** et la **question est en tête**, pour que le cache de préfixe
+de `vllm-central` ne serve pas une latence — la règle du §4.78, reprise par
+import et non par copie.
+
+**LA VARIANTE PRINCIPALE COÛTE UN APPEL DE TRADUCTION PAR SOUS-QUESTION**, soit
+en médiane **+0,4 à +0,6 s par sous-question**, à quoi s'ajoute l'appel de
+décomposition du §4.78. **L'AUTRE ORDRE COÛTE UN APPEL DE DÉCOMPOSITION DE PLUS**
+(médiane 0,8 à 1,3 s), et **la traduction de la question, elle, est déjà payée
+par la production**.
+
+**LA RÉCUPÉRATION ET LE RERANKING, EN `cpu` ET C'EST DÉCLARÉ** — le conteneur
+servi est en `cuda`, et l'écart est tenu **délibérément identique** à celui des
+§4.76 à §4.78 pour que les chiffres se comparent. Un **passage de chauffe** par
+campagne, exclu (4,4 à 5,2 s : le chargement des deux modèles).
+
+| étage, jeu dispersé | médiane | p95 |
+|---|---|---|
+| récupération, requête unique **avec** traduction | 177 ms | 1184 ms |
+| récupération, requête unique **sans** traduction | **63 ms** | 874 ms |
+| récupération des sous-questions + fusion RRF | **102 ms** | 1130 ms |
+| récupération des sous-questions **traduites** + fusion | **290 ms** | 1765 ms |
+| récupération des deux familles (autre ordre) + fusion | 254 ms | 2507 ms |
+| reranking sur la question entière | 704 ms | 2600 ms |
+| reranking par sous-question | 1322 ms | 4105 ms |
+| reranking par sous-question, sous-questions traduites | 1281 ms | 5045 ms |
+| **reranking sur les deux familles (autre ordre)** | **2955 ms** | **11 122 ms** |
+
+**LE PRIX EST EN PAIRES SCORÉES, ET L'AUTRE ORDRE LES QUADRUPLE.** `mesuré`.
+
+| jeu | production | rerank par sous-question | **autre ordre** |
+|---|---|---|---|
+| dispersé (60 q) | **3000** | 6100 *(×2,03)* | **12 100** *(×4,03)* |
+| réglage (130 q) | **6500** | 10 400 *(×1,60)* | **16 300** *(×2,51)* |
+| contrôle (26 q) | **1300** | 2500 *(×1,92)* | **4700** *(×3,62)* |
+
+**LA VARIANTE TRADUITE NE COÛTE PAS UNE PAIRE DE PLUS QUE CELLE DU §4.78** —
+6100 et 6100, 10 400 et 10 400, 2500 et 2500 : la traduction agit sur la
+**récupération**, jamais sur le nombre de candidats à scorer.
+
+#### L'ÉTAT DES STORES, RELEVÉ AUX DEUX BOUTS DE CHAQUE CAMPAGNE
+
+| campagne | début UTC | fin UTC | chunks | `/health` |
+|---|---|---|---|---|
+| dispersé | 06:58:27 | 07:11:42 | **4367 → 4367** | `ok`, quatre services `true` |
+| contrôle | 07:11:48 | 07:15:38 | **4367 → 4367** | `ok`, quatre services `true` |
+| réglage | 07:15:45 | 07:30:12 | **4367 → 4367** | `ok`, quatre services `true` |
+
+`code_servi` = **`97bba20`** sur les six relevés, et **il n'est pas
+`origin/main`**, qui vaut `30f9836` : les deux commits qui les séparent sont
+`docs(journal)`, et `Dockerfile.agent` ne copie que `requirements.txt`,
+`src/agent` et `src/api`. **Le code servi est donc le même code**, et l'écart est
+documentaire. Le relevé n'est pas une note, c'est un **refus** : une campagne qui
+verrait deux états écrit un bilan partiel et sort en **1**.
+
+#### COMMENT CET INSTRUMENT A ÉTÉ PROUVÉ COMME INSTRUMENT
+
+**VINGT MUTATIONS DU PRODUCTEUR, VINGT ROUGES, ZÉRO SURVIVANTE.** Site relevé
+**par motif** et **unicité assertée avant d'écrire**, SHA-256 asserté **changé**
+à chaque fois, `py_compile` **vert**, fichier restauré **identique au SHA-256**
+(`d00582019b90e686f…`). Chaque ligne porte **son compte de
+passés** et non `0` — la leçon du §4.77, où `-qq` supprimait la ligne de
+résumé : **33 à 37 sur 38** pour les dix-sept premières, jouées avant l'ajout de
+la scène qu'une survivante a fait écrire, et **38 sur 39** pour les trois
+rejouées après.
+
+La traduction : le seuil de longueur cesse de refuser → **3 rouges** ; la
+traduction identique à la question acceptée → 1 ; toutes les lignes gardées au
+lieu de la première → 1 ; la température quitte 0,0 → 1 ; le budget de jetons
+change → 1. Les étages : la récupération essayée avant la fusion → **5 rouges** ;
+`arrive` cesse de lire le seuil du haut → 1 ; la question classée par son
+ancrage le plus **aval** → 3. Le repli : les variantes traduites retombent sur
+la requête nue → 1. La pondération : les deux familles à poids égaux → 1 ; `fuse`
+jette ses poids → 2. Le contrôle positif, **muté dans ses trois termes** : les
+douze couples ignorés → 2, seule la production confrontée → 1, un contrôle sans
+aucun terme applicable qui accorde → 1. L'écart : pris comme une soustraction de
+comptes → 1. La répartition : sa somme déclarée toujours juste → 1. Les caches :
+l'absence devient un cache vide → 1 ; le nom cesse de porter son jeu → 1. La
+non-régression réduite au solde → 1. Les sous-questions perdent leur traduction
+→ 1.
+
+**TROIS FAUX RÉSULTATS TROUVÉS PAR LE LOT CONTRE LUI-MÊME, ET LA TABLE DES
+MUTATIONS EST CE QUI LES A VUS.**
+
+1. **UNE MUTATION A SURVÉCU PARCE QUE MON TÉMOIN MOURAIT PAR UN AUTRE CHEMIN.**
+   « Le post-traitement garde toutes les lignes » restait verte : mon corps
+   multiligne était opposé à une question **courte**, si bien que le texte entier
+   dépassait trois fois sa longueur et que **le seuil** le refusait avant que la
+   règle de la première ligne n'ait à décider. Les deux chemins rendaient `None`
+   pour deux raisons différentes. Le cas est réécrit avec une question longue, et
+   la mutation rougit.
+2. **UNE MUTATION A SURVÉCU PARCE QUE MON GARDE N'EXIGEAIT QU'UN VRAI.**
+   « La répartition déclare toujours sa somme juste » restait verte : ma scène
+   vérifiait `somme_juste is True` sur une table **qui l'était**. Une seconde
+   scène donne une question dont `gold` annonce deux ancrages là où la variante
+   n'en porte qu'un, et exige `False`.
+3. **UNE MUTATION N'A PAS MUTÉ.** Son motif avait été reflué par `ruff format`
+   sur une seule ligne : **0 occurrence**, fichier inchangé, et la table l'a dit
+   au lieu de compter un vert. *Une mutation dont le motif ne mord pas rend un
+   vert vide.*
+
+**ET LE TÉMOIN INERTE A ÉTÉ ROUGE AVANT D'ÊTRE VERT, POUR UNE RAISON QUI
+N'ÉTAIT PAS LUI.** Treize lignes de commentaire dans le producteur →
+`rc_test(make)=2`, **3 échecs**. Ce n'était pas le témoin : c'est le garde de
+cohérence du dépôt qui a vu que `documentation/tests.md` annonçait **1262** là
+où `pytest` en collectait **1263**, une scène ayant été ajoutée après la
+rédaction du document — et il a aussi vu que la part du fichier neuf disait 38
+au lieu de 39. Le document corrigé, le témoin rend `rc_test(make)=0`, **1263**
+passés, le compte de la porte ; SHA-256 revenu à l'intact, **restauration
+confrontée**.
+
+**AUCUN `skip`, AUCUN `xfail`, AUCUN `skipif`** dans le fichier de gardes, et
+aucune règle de linter relâchée : `rc_lint(make)=0`, `rc_test(make)=0`. La sonde
+qui l'assertit **assemble ses motifs** au lieu de les écrire en clair — écrits
+en clair, elle se trouverait **elle-même** — et elle porte son **contrôle
+positif** : elle doit voir le motif quand il est là.
+
+#### L'ENVIRONNEMENT, ET CE QUI LE SÉPARE DU CONTENEUR SERVI
+
+Arbre détaché monté par `git worktree add` (`rc=0`, arbre vérifié présent),
+`.venv` du §2.2 — `uv venv --python 3.12`, torch **2.14.0+cpu**, les deux
+`requirements`, `.venv/bin` en tête du `PATH`, recettes en `--no-sync` —,
+**aucun `.env`** : il vit dans le clone principal et rien n'en a été recopié.
+**Les stores sont joints par des adresses découvertes** par `docker inspect` sur
+`rag_network` — `172.20.0.4:8000` pour ChromaDB, `172.20.0.12:9669` pour
+NebulaGraph, relevées à cette campagne et **non figées** —, et le LLM sur le
+**8100** publié par `vllm-central`, jamais le 8080 de l'hôte, tenu par
+`data-analyst-agent-proxy-1`, étranger à ce projet.
+
+**LES POIDS DES DEUX MODÈLES ONT ÉTÉ SORTIS DU CONTENEUR SERVI**, `docker cp` de
+`rag-agent-api:/root/.cache/huggingface` (volume `rag_hf_cache`) vers un
+répertoire de travail, puis `HF_HUB_OFFLINE=1` : le cache HuggingFace du poste
+appartient à `root`. **Et la copie a été confrontée à celle du §4.77** —
+`diff -rq` rend **aucun écart** : les poids de cette campagne sont, octet pour
+octet, ceux des trois lots précédents. Rien n'a été écrit dans les stores ni
+dans le conteneur, aucune réingestion n'a été déclenchée, `docker compose` n'a
+pas été appelé.
+
+**L'ÉCART QUI RESTE EST LE MÊME QU'AUX §4.76 À §4.78 : ce banc tourne en `cpu`,
+le conteneur servi en `cuda`.** Les poids sont les mêmes ; ce qu'un écart
+d'arrondi flottant déplacerait dans l'ordre du reranking **n'est pas mesuré ici**.
+
+#### CE QUE CETTE MESURE NE DIT PAS
+
+1. **AUCUNE RÉPONSE N'EST JUGÉE.** Un ancrage au top-10 n'est pas une bonne
+   réponse, et rien ici ne dit ce que le modèle fait du passage qui arrive.
+2. **LA VARIANTE DU SECOND ORDRE CHANGE DEUX CHOSES À LA FOIS**, et son 127 sur
+   le jeu de réglage repose en partie sur une **panne du producteur** (`G-024`).
+   Ce qu'elle rendrait sans cette panne **n'est pas mesuré**.
+3. **LES SOUS-QUESTIONS SONT ÉCRITES PAR LE MODÈLE QUI A ÉCRIT LES QUESTIONS**,
+   sur des jeux dont il a écrit les questions **pour** leurs passages. La
+   circularité des §4.76 à §4.78 est encore là, d'un cran plus loin.
+4. **LA BORNE DE L'ORACLE N'EXISTE QUE SUR LE JEU DISPERSÉ.** L'écart par étage
+   n'est donc réparti **contre une borne** que là ; sur les deux autres jeux,
+   seule la répartition absolue est publiée.
+5. **L'ÉTAGE `perdu_a_la_fusion` EST VIDE PAR CONSTRUCTION POUR LES DEUX
+   VARIANTES À REQUÊTE UNIQUE**, dont la sortie de `retrieve` est déjà fondue.
+   La sonde dense/lexical ajoutée ici est un **diagnostic**, pas une variante.
+6. **LE POIDS DE LA TRADUCTION VAUT 1,0 SUR CE POSTE.** Ce que rendrait un poids
+   moindre — que `settings.py` permet et que la docstring de `retrieve` décrit —
+   **n'est pas mesuré**.
+7. **LE COÛT EST EN `cpu`** pour la récupération et le reranking ; seules les
+   latences des appels au modèle sont mesurées sur le serveur **réellement en
+   production**. Ce lot dit **combien de paires** chaque variante ajoute ; il ne
+   dit pas ce qu'elles coûteraient sur GPU.
+8. **60, 130 ET 26 QUESTIONS NE TRANCHENT PAS UN RÉGLAGE**, et `reviewed: false`
+   sur les trois jeux.
+9. **CE JEU DÉCRIT L'ÉTAT DES STORES DU 25 SEPTEMBRE 2026, 4367 chunks.**
+
+**CE LOT NE PROPOSE AUCUN RÉGLAGE ET NE RECOMMANDE RIEN.**
+
+**LA RÉSERVE 2 DU §4.78 EST FERMÉE EN CHIFFRES.** La décomposition **plus** la
+recherche translingue est mesurée : elle rend **72 / 18** là où la décomposition
+nue rend 72 / 19 sur le jeu qu'elle vise, et **125** contre 124 sur le jeu de
+réglage. **L'imputation du §4.78 était vraie pour `G-097` — et pour une raison
+qu'il n'avait pas vue, le REPLI — et fausse pour `G-119`, que la décomposition
+perd aussi.**
+
+**LA QUESTION OUVERTE B DU §4.78 EST FERMÉE.** Des 11 questions de la borne que
+la meilleure variante manque, **6 se perdent à la fusion**, 4 au reranking, 1
+n'est jamais récupérée — et l'écart n'est pas 9 mais **11 manquées et 2 gagnées
+hors borne**.
+
+**LA QUESTION OUVERTE C DU §4.78 EST FERMÉE.** `G-110` est une perte de la
+**décomposition** et non de la traduction ; `q18` se perd **au reranking** alors
+qu'elle était **première** de la liste fusionnée ; `D-003` se perd à **deux**
+étages, un par ancrage.
+
+**QUESTION OUVERTE α — LA COUPE DE LA FUSION À 50.** C'est désormais l'étage qui
+porte le plus de ce qui manque, et il est le seul des quatre dont le réglage est
+**un nombre** : `RETRIEVAL_TOP_K`. Le §4.77 a mesuré que l'élargir à 200 gagne
++11 ancrages **à requête unique** ; ce qu'il rendrait **sous une fusion de
+sous-requêtes**, où la coupe mord plus fort parce que plus de classements s'y
+pressent, **n'est pas mesuré**.
+
+**QUESTION OUVERTE β — LE RERANKING PAR SOUS-QUESTION SANS FUSION.** Elle était
+déjà la question ouverte A du §4.78 et elle reste ouverte : `q18` montre qu'un
+ancrage **premier** de la liste fusionnée peut être écarté par le rescoring, ce
+qui se mesurerait sur la liste de production sans rien fusionner.
+
+**QUESTION OUVERTE γ — LA DÉCOMPOSITION D'UNE QUESTION FRANÇAISE.** `G-110` et
+`G-119` sont les deux questions françaises nommées de ce lot, et **toutes deux**
+sont perdues par la décomposition. Trois sous-questions françaises tirées d'une
+question française ne retrouvent pas un passage anglais que la question entière
+trouvait au rang 1. **Deux cas ne font pas une mesure**, et le jeu de réglage ne
+porte pas assez de questions françaises pour trancher.

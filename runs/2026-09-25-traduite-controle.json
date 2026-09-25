@@ -1,0 +1,6041 @@
+{
+  "etape": "fusion",
+  "jeu": "jeu_de_questions_pipeline.yaml",
+  "date_utc": "2026-09-25T07:15:38+00:00",
+  "questions": 26,
+  "ancrages": 47,
+  "seuil_du_haut": 10,
+  "max_sous_questions": 3,
+  "profondeurs": {
+    "fetch_k": 50,
+    "retrieval_top_k": 50,
+    "rerank_top_k": 10,
+    "rrf_k": 60,
+    "hybrid_search": true,
+    "translation_weight": 1.0,
+    "cross_lingual_search": true,
+    "torch_device": "cpu"
+  },
+  "natures_de_decomposition": {
+    "decomposee": 21,
+    "vide": 0,
+    "une_seule": 5,
+    "quasi_identique": 0
+  },
+  "natures_de_decomposition_de_la_traduction": {
+    "decomposee": 22,
+    "vide": 0,
+    "une_seule": 4,
+    "quasi_identique": 0
+  },
+  "sous_questions_sans_traduction": [],
+  "n_sous_questions_sans_traduction": 0,
+  "passage_de_chauffe": {
+    "requete": "corpus warm-up probe, scored and discarded",
+    "ms": 4486.1,
+    "exclu_des_statistiques": true
+  },
+  "stores": {
+    "debut": {
+      "heure_utc": "2026-09-25T07:11:48+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "fin": {
+      "heure_utc": "2026-09-25T07:15:38+00:00",
+      "health": {
+        "status": "ok",
+        "services": {
+          "chromadb": true,
+          "nebulagraph": true,
+          "index_lexical": true,
+          "llm": true
+        },
+        "code_servi": "97bba2095bb82aaeb3d19cce271f31f37fb58937"
+      },
+      "chunks": 4367
+    },
+    "stable": true,
+    "verdict": "4367 chunks aux deux bouts, aucun service rouge"
+  },
+  "resultats": {
+    "unique_avec_traduction": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q18",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "unique_sans_traduction": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q18",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "fusion_rerank_entiere": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q18",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "fusion_rerank_sous_questions": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q05",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "fusion_traduite_rerank_entiere": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q18",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "fusion_traduite_rerank_sous_questions": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q05",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    },
+    "fusion_question_traduite_decomposee": {
+      "ancrages_dans_le_haut": 33,
+      "questions_completes": 14,
+      "questions_completes_ids": [
+        "q02",
+        "q03",
+        "q07",
+        "q12",
+        "q13",
+        "q14",
+        "q15",
+        "q16",
+        "q17",
+        "q18",
+        "q19",
+        "q20",
+        "q26",
+        "q27"
+      ]
+    }
+  },
+  "non_regression_vs_production": {
+    "unique_sans_traduction": {
+      "base": "unique_avec_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_avec_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "q18"
+      ],
+      "gagnees": [
+        "q05"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 1,
+      "solde": 0
+    },
+    "fusion_traduite_rerank_entiere": {
+      "base": "unique_avec_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_traduite_rerank_sous_questions": {
+      "base": "unique_avec_traduction",
+      "perdues": [
+        "q18"
+      ],
+      "gagnees": [
+        "q05"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 1,
+      "solde": 0
+    },
+    "fusion_question_traduite_decomposee": {
+      "base": "unique_avec_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    }
+  },
+  "non_regression_vs_sans_traduction": {
+    "unique_avec_traduction": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_rerank_entiere": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_rerank_sous_questions": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "q18"
+      ],
+      "gagnees": [
+        "q05"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 1,
+      "solde": 0
+    },
+    "fusion_traduite_rerank_entiere": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    },
+    "fusion_traduite_rerank_sous_questions": {
+      "base": "unique_sans_traduction",
+      "perdues": [
+        "q18"
+      ],
+      "gagnees": [
+        "q05"
+      ],
+      "n_perdues": 1,
+      "n_gagnees": 1,
+      "solde": 0
+    },
+    "fusion_question_traduite_decomposee": {
+      "base": "unique_sans_traduction",
+      "perdues": [],
+      "gagnees": [],
+      "n_perdues": 0,
+      "n_gagnees": 0,
+      "solde": 0
+    }
+  },
+  "repartition_par_etage": {
+    "unique_avec_traduction": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 8,
+        "perdu_a_la_fusion": 0,
+        "jamais_recupere": 6
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 7,
+        "perdu_a_la_fusion": 0,
+        "jamais_recupere": 5
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q18",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q05",
+          "q06",
+          "q09",
+          "q10",
+          "q11",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [],
+        "jamais_recupere": [
+          "q04",
+          "q08",
+          "q25",
+          "q28",
+          "q29"
+        ]
+      },
+      "somme_juste": true
+    },
+    "unique_sans_traduction": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 6,
+        "perdu_a_la_fusion": 0,
+        "jamais_recupere": 8
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 5,
+        "perdu_a_la_fusion": 0,
+        "jamais_recupere": 7
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q18",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q05",
+          "q06",
+          "q11",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [],
+        "jamais_recupere": [
+          "q04",
+          "q08",
+          "q09",
+          "q10",
+          "q25",
+          "q28",
+          "q29"
+        ]
+      },
+      "somme_juste": true
+    },
+    "fusion_rerank_entiere": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 9,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 4
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 8,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 3
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q18",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q04",
+          "q05",
+          "q06",
+          "q09",
+          "q11",
+          "q29",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [
+          "q10"
+        ],
+        "jamais_recupere": [
+          "q08",
+          "q25",
+          "q28"
+        ]
+      },
+      "somme_juste": true
+    },
+    "fusion_rerank_sous_questions": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 9,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 4
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 8,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 3
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q05",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q04",
+          "q06",
+          "q09",
+          "q11",
+          "q18",
+          "q29",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [
+          "q10"
+        ],
+        "jamais_recupere": [
+          "q08",
+          "q25",
+          "q28"
+        ]
+      },
+      "somme_juste": true
+    },
+    "fusion_traduite_rerank_entiere": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 8,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 5
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 7,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 4
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q18",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q04",
+          "q05",
+          "q09",
+          "q10",
+          "q11",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [
+          "q06"
+        ],
+        "jamais_recupere": [
+          "q08",
+          "q25",
+          "q28",
+          "q29"
+        ]
+      },
+      "somme_juste": true
+    },
+    "fusion_traduite_rerank_sous_questions": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 8,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 5
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 7,
+        "perdu_a_la_fusion": 1,
+        "jamais_recupere": 4
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q05",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q04",
+          "q09",
+          "q10",
+          "q11",
+          "q18",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [
+          "q06"
+        ],
+        "jamais_recupere": [
+          "q08",
+          "q25",
+          "q28",
+          "q29"
+        ]
+      },
+      "somme_juste": true
+    },
+    "fusion_question_traduite_decomposee": {
+      "ancrages": {
+        "arrive": 33,
+        "perdu_au_reranking": 7,
+        "perdu_a_la_fusion": 3,
+        "jamais_recupere": 4
+      },
+      "somme_ancrages": 47,
+      "questions": {
+        "arrive": 14,
+        "perdu_au_reranking": 6,
+        "perdu_a_la_fusion": 3,
+        "jamais_recupere": 3
+      },
+      "somme_questions": 26,
+      "questions_par_etage": {
+        "arrive": [
+          "q02",
+          "q03",
+          "q07",
+          "q12",
+          "q13",
+          "q14",
+          "q15",
+          "q16",
+          "q17",
+          "q18",
+          "q19",
+          "q20",
+          "q26",
+          "q27"
+        ],
+        "perdu_au_reranking": [
+          "q01",
+          "q05",
+          "q09",
+          "q10",
+          "q11",
+          "q30"
+        ],
+        "perdu_a_la_fusion": [
+          "q04",
+          "q06",
+          "q29"
+        ],
+        "jamais_recupere": [
+          "q08",
+          "q25",
+          "q28"
+        ]
+      },
+      "somme_juste": true
+    }
+  },
+  "ecart_a_la_borne": {
+    "disponible": false,
+    "raison": "oracle absent : None"
+  },
+  "diagnostic": [
+    {
+      "id": "q05",
+      "question": "What bounds the chunk size you may choose, and why does counting characters not tell you whether a chunk fits?",
+      "traduction": "Qu'est-ce qui limite la taille de chunk que vous pouvez choisir, et pourquoi compter les caractères ne vous dit-il pas si un chunk rentre ?",
+      "gold": [
+        "4b1d79b83a",
+        "23d10ed8de",
+        "ce368ff12a"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "sous_questions": [
+        "What factors bound the chunk size that can be chosen?",
+        "Why is counting characters an insufficient method to determine if a chunk fits?"
+      ],
+      "traductions_des_sous_questions": {
+        "What factors bound the chunk size that can be chosen?": "Quels facteurs limitent la taille de bloc qui peut être choisie ?",
+        "Why is counting characters an insufficient method to determine if a chunk fits?": "Pourquoi le comptage des caractères est-il une méthode insuffisante pour déterminer si un chunk rentre ?"
+      },
+      "sous_questions_de_la_question_traduite": [
+        "Qu'est-ce qui limite la taille de chunk que l'on peut choisir ?",
+        "Pourquoi compter les caractères ne suffit-il pas pour déterminer si un chunk rentre ?"
+      ],
+      "sondes_amont": {
+        "4b1d79b83a": {
+          "dense_question": 6,
+          "lexical_question": 2,
+          "dense_traduction": 10,
+          "lexical_traduction": 10
+        },
+        "23d10ed8de": {
+          "dense_question": null,
+          "lexical_question": 6,
+          "dense_traduction": null,
+          "lexical_traduction": 7
+        },
+        "ce368ff12a": {
+          "dense_question": 2,
+          "lexical_question": 11,
+          "dense_traduction": 2,
+          "lexical_traduction": 20
+        }
+      },
+      "etages": {
+        "unique_avec_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              17
+            ],
+            "fusion": 17,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 2,
+            "etage": "arrive"
+          }
+        },
+        "unique_sans_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              11
+            ],
+            "fusion": 11,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": 2,
+            "etage": "arrive"
+          }
+        },
+        "fusion_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7
+            ],
+            "fusion": 3,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null
+            ],
+            "fusion": 25,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6
+            ],
+            "fusion": 8,
+            "rerank": 2,
+            "etage": "arrive"
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7
+            ],
+            "fusion": 3,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null
+            ],
+            "fusion": 25,
+            "rerank": 9,
+            "etage": "arrive"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6
+            ],
+            "fusion": 8,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              28,
+              31
+            ],
+            "fusion": 17,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              16,
+              6
+            ],
+            "fusion": 7,
+            "rerank": 2,
+            "etage": "arrive"
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              28,
+              31
+            ],
+            "fusion": 17,
+            "rerank": 9,
+            "etage": "arrive"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              16,
+              6
+            ],
+            "fusion": 7,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7,
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1,
+            "etage": "arrive"
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null,
+              21,
+              19
+            ],
+            "fusion": 18,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6,
+              3,
+              5
+            ],
+            "fusion": 6,
+            "rerank": 7,
+            "etage": "arrive"
+          }
+        }
+      }
+    },
+    {
+      "id": "q18",
+      "question": "Which Databricks-hosted foundation model endpoint generates the embeddings for the arXiv index?",
+      "traduction": "Quel endpoint de modèle de fond Databricks hébergé génère les embeddings pour l'index arXiv?",
+      "gold": [
+        "347b2e3799"
+      ],
+      "nature": "decomposee",
+      "repli": false,
+      "sous_questions": [
+        "Which foundation model endpoint is hosted on Databricks?",
+        "Which foundation model endpoint generates embeddings for the arXiv index?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which foundation model endpoint is hosted on Databricks?": "Quel endpoint de modèle de fondation est hébergé sur Databricks?",
+        "Which foundation model endpoint generates embeddings for the arXiv index?": "Quel endpoint de modèle de fond génère les embeddings pour l'index arXiv?"
+      },
+      "sous_questions_de_la_question_traduite": [
+        "Quel endpoint de modèle de fond Databricks hébergé génère les embeddings ?",
+        "Quel est l'index arXiv mentionné dans le contexte de la génération d'embeddings ?"
+      ],
+      "sondes_amont": {
+        "347b2e3799": {
+          "dense_question": 1,
+          "lexical_question": 2,
+          "dense_traduction": 1,
+          "lexical_traduction": 41
+        }
+      },
+      "etages": {
+        "unique_avec_traduction": {
+          "347b2e3799": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        },
+        "unique_sans_traduction": {
+          "347b2e3799": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        },
+        "fusion_rerank_entiere": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2
+            ],
+            "fusion": 1,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "347b2e3799": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 17,
+            "rerank": 2,
+            "etage": "arrive"
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "347b2e3799": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 17,
+            "rerank": null,
+            "etage": "perdu_au_reranking"
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2,
+              1,
+              null
+            ],
+            "fusion": 2,
+            "rerank": 4,
+            "etage": "arrive"
+          }
+        }
+      }
+    }
+  ],
+  "couts": {
+    "latences_ms": {
+      "decomposition_recuperation_ms": {
+        "n": 26,
+        "mediane": 102.6,
+        "p95": 236.8
+      },
+      "decomposition_traduite_recuperation_ms": {
+        "n": 26,
+        "mediane": 214.0,
+        "p95": 1442.4
+      },
+      "fusion_question_traduite_decomposee_ms": {
+        "n": 26,
+        "mediane": 2334.1,
+        "p95": 4564.1
+      },
+      "fusion_rerank_entiere_ms": {
+        "n": 26,
+        "mediane": 592.2,
+        "p95": 1002.3
+      },
+      "fusion_rerank_sous_questions_ms": {
+        "n": 26,
+        "mediane": 1153.2,
+        "p95": 3072.3
+      },
+      "fusion_traduite_rerank_entiere_ms": {
+        "n": 26,
+        "mediane": 639.8,
+        "p95": 1933.7
+      },
+      "fusion_traduite_rerank_sous_questions_ms": {
+        "n": 26,
+        "mediane": 1176.8,
+        "p95": 2099.9
+      },
+      "question_traduite_decomposee_recuperation_ms": {
+        "n": 26,
+        "mediane": 212.4,
+        "p95": 800.6
+      },
+      "unique_avec_traduction_recuperation_ms": {
+        "n": 26,
+        "mediane": 122.0,
+        "p95": 295.4
+      },
+      "unique_avec_traduction_rerank_ms": {
+        "n": 26,
+        "mediane": 604.2,
+        "p95": 803.3
+      },
+      "unique_sans_traduction_recuperation_ms": {
+        "n": 26,
+        "mediane": 52.8,
+        "p95": 68.1
+      },
+      "unique_sans_traduction_rerank_ms": {
+        "n": 26,
+        "mediane": 592.1,
+        "p95": 2322.0
+      }
+    },
+    "paires_rerankees_total": {
+      "unique_avec_traduction": 1300,
+      "unique_sans_traduction": 1300,
+      "fusion_rerank_entiere": 1300,
+      "fusion_rerank_sous_questions": 2500,
+      "fusion_traduite_rerank_entiere": 1300,
+      "fusion_traduite_rerank_sous_questions": 2500,
+      "fusion_question_traduite_decomposee": 4700
+    }
+  },
+  "secondes": 225.8,
+  "controle_positif": {
+    "couples_4_78": {
+      "applicable": true,
+      "variantes_confrontees": 4,
+      "desaccords": [],
+      "accord": true
+    },
+    "rangs_du_lot_38": {
+      "applicable": true,
+      "bilan": "2026-09-25-fusion-controle.json",
+      "par_variante": {
+        "unique_avec_traduction": {
+          "cles_attendues": 47,
+          "cles_mesurees": 47,
+          "cles_communes": 47,
+          "rangs_identiques": 47,
+          "n_desaccords": 0,
+          "desaccords": [],
+          "accord": true
+        },
+        "unique_sans_traduction": {
+          "cles_attendues": 47,
+          "cles_mesurees": 47,
+          "cles_communes": 47,
+          "rangs_identiques": 47,
+          "n_desaccords": 0,
+          "desaccords": [],
+          "accord": true
+        },
+        "fusion_rerank_entiere": {
+          "cles_attendues": 47,
+          "cles_mesurees": 47,
+          "cles_communes": 47,
+          "rangs_identiques": 47,
+          "n_desaccords": 0,
+          "desaccords": [],
+          "accord": true
+        },
+        "fusion_rerank_sous_questions": {
+          "cles_attendues": 47,
+          "cles_mesurees": 47,
+          "cles_communes": 47,
+          "rangs_identiques": 47,
+          "n_desaccords": 0,
+          "desaccords": [],
+          "accord": true
+        }
+      },
+      "accord": true
+    },
+    "rangs_du_4_77": {
+      "applicable": false,
+      "raison": "reference absente"
+    },
+    "termes_applicables": 2,
+    "accord": true
+  },
+  "lignes": [
+    {
+      "id": "q01",
+      "question": "Why is endpoint-level traffic splitting the wrong mechanism for an experiment whose unit is the booking, and where must the assignment decision move instead?",
+      "traduction": "Pourquoi le traffic splitting au niveau de l'endpoint est-il le mauvais mécanisme pour une expérience dont l'unité est la réservation, et où la décision d'affectation doit-elle se déplacer à la place ?",
+      "gold": [
+        "3dd0709c4a",
+        "3af1392862",
+        "6b52bccda7"
+      ],
+      "sous_questions": [
+        "Why is endpoint-level traffic splitting an inappropriate mechanism for an experiment where the unit of analysis is the booking?",
+        "Where should the assignment decision for an experiment with a booking as the unit move instead of using endpoint-level traffic splitting?"
+      ],
+      "traductions_des_sous_questions": {
+        "Why is endpoint-level traffic splitting an inappropriate mechanism for an experiment where the unit of analysis is the booking?": "Pourquoi le traffic splitting au niveau de l'endpoint est-il un mécanisme inapproprié pour une expérience où l'unité d'analyse est la réservation ?",
+        "Where should the assignment decision for an experiment with a booking as the unit move instead of using endpoint-level traffic splitting?": "Où devrait se déplacer la décision d'affectation pour une expérience avec une réservation comme unité au lieu d'utiliser le fractionnement de trafic au niveau de l'endpoint ?"
+      },
+      "sous_questions_traduites": [
+        "Pourquoi le traffic splitting au niveau de l'endpoint est-il inapproprié pour une expérience dont l'unité est la réservation ?",
+        "Où la décision d'affectation doit-elle se déplacer lorsque l'unité d'expérience est la réservation ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "3dd0709c4a": {
+          "dense_question": 11,
+          "lexical_question": 38,
+          "dense_traduction": 4,
+          "lexical_traduction": 39
+        },
+        "3af1392862": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 3,
+          "lexical_traduction": 6
+        },
+        "6b52bccda7": {
+          "dense_question": 13,
+          "lexical_question": 4,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 121.2,
+        "unique_avec_traduction_rerank_ms": 587.4,
+        "unique_sans_traduction_recuperation_ms": 52.0,
+        "unique_sans_traduction_rerank_ms": 735.9,
+        "decomposition_recuperation_ms": 924.5,
+        "fusion_rerank_entiere_ms": 1065.7,
+        "fusion_rerank_sous_questions_ms": 1250.4,
+        "decomposition_traduite_recuperation_ms": 206.0,
+        "fusion_traduite_rerank_entiere_ms": 740.0,
+        "fusion_traduite_rerank_sous_questions_ms": 1693.7,
+        "question_traduite_decomposee_recuperation_ms": 238.2,
+        "fusion_question_traduite_decomposee_ms": 3691.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3dd0709c4a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              11
+            ],
+            "fusion": 11,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "3dd0709c4a": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "3dd0709c4a": {
+            "par_requete": [
+              4,
+              6
+            ],
+            "fusion": 5,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              7,
+              3
+            ],
+            "fusion": 4,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "3dd0709c4a": {
+            "par_requete": [
+              4,
+              6
+            ],
+            "fusion": 5,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 2
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              7,
+              3
+            ],
+            "fusion": 4,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "3dd0709c4a": {
+            "par_requete": [
+              3,
+              18
+            ],
+            "fusion": 6,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1,
+              4
+            ],
+            "fusion": 2,
+            "rerank": 1
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              20,
+              7
+            ],
+            "fusion": 9,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "3dd0709c4a": {
+            "par_requete": [
+              3,
+              18
+            ],
+            "fusion": 6,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1,
+              4
+            ],
+            "fusion": 2,
+            "rerank": 2
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              20,
+              7
+            ],
+            "fusion": 9,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "3dd0709c4a": {
+            "par_requete": [
+              4,
+              6,
+              5,
+              null
+            ],
+            "fusion": 5,
+            "rerank": 4
+          },
+          "3af1392862": {
+            "par_requete": [
+              1,
+              2,
+              2,
+              null
+            ],
+            "fusion": 1,
+            "rerank": 2
+          },
+          "6b52bccda7": {
+            "par_requete": [
+              7,
+              3,
+              null,
+              null
+            ],
+            "fusion": 15,
+            "rerank": null
+          }
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "question": "What rule governs the choice of randomization unit, and when is customer-level assignment preferable to request-level assignment?",
+      "traduction": "Quelle règle régit le choix de l'unité de randomisation, et quand l'attribution au niveau client est-elle préférable à l'attribution au niveau de la requête ?",
+      "gold": [
+        "6b52bccda7",
+        "cb77da6c17",
+        "d44caef114"
+      ],
+      "sous_questions": [
+        "What rule governs the choice of randomization unit?",
+        "When is customer-level assignment preferable to request-level assignment?"
+      ],
+      "traductions_des_sous_questions": {
+        "What rule governs the choice of randomization unit?": "Quelle règle régit le choix de l'unité de randomisation?",
+        "When is customer-level assignment preferable to request-level assignment?": "Quand l'affectation au niveau client est-elle préférable à l'affectation au niveau de la demande ?"
+      },
+      "sous_questions_traduites": [
+        "Quelle règle régit le choix de l'unité de randomisation ?",
+        "Quand l'attribution au niveau client est-elle préférable à l'attribution au niveau de la requête ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "6b52bccda7": {
+          "dense_question": 2,
+          "lexical_question": 2,
+          "dense_traduction": 2,
+          "lexical_traduction": null
+        },
+        "cb77da6c17": {
+          "dense_question": 1,
+          "lexical_question": 3,
+          "dense_traduction": 1,
+          "lexical_traduction": null
+        },
+        "d44caef114": {
+          "dense_question": 3,
+          "lexical_question": 6,
+          "dense_traduction": 3,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 128.7,
+        "unique_avec_traduction_rerank_ms": 576.9,
+        "unique_sans_traduction_recuperation_ms": 57.8,
+        "unique_sans_traduction_rerank_ms": 563.5,
+        "decomposition_recuperation_ms": 99.1,
+        "fusion_rerank_entiere_ms": 1002.3,
+        "fusion_rerank_sous_questions_ms": 1177.6,
+        "decomposition_traduite_recuperation_ms": 304.5,
+        "fusion_traduite_rerank_entiere_ms": 824.0,
+        "fusion_traduite_rerank_sous_questions_ms": 1148.2,
+        "question_traduite_decomposee_recuperation_ms": 252.0,
+        "fusion_question_traduite_decomposee_ms": 2263.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "6b52bccda7": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 2
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 5
+          },
+          "d44caef114": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "6b52bccda7": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 2
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 5
+          },
+          "d44caef114": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "6b52bccda7": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 8,
+            "rerank": 2
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              7,
+              6
+            ],
+            "fusion": 3,
+            "rerank": 5
+          },
+          "d44caef114": {
+            "par_requete": [
+              3,
+              4
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "6b52bccda7": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 8,
+            "rerank": 1
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              7,
+              6
+            ],
+            "fusion": 3,
+            "rerank": 2
+          },
+          "d44caef114": {
+            "par_requete": [
+              3,
+              4
+            ],
+            "fusion": 2,
+            "rerank": 3
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "6b52bccda7": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 7,
+            "rerank": 2
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              6,
+              6
+            ],
+            "fusion": 2,
+            "rerank": 5
+          },
+          "d44caef114": {
+            "par_requete": [
+              3,
+              4
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "6b52bccda7": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 7,
+            "rerank": 1
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              6,
+              6
+            ],
+            "fusion": 2,
+            "rerank": 2
+          },
+          "d44caef114": {
+            "par_requete": [
+              3,
+              4
+            ],
+            "fusion": 1,
+            "rerank": 3
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "6b52bccda7": {
+            "par_requete": [
+              1,
+              null,
+              1,
+              null
+            ],
+            "fusion": 8,
+            "rerank": 1
+          },
+          "cb77da6c17": {
+            "par_requete": [
+              7,
+              6,
+              3,
+              null
+            ],
+            "fusion": 3,
+            "rerank": 2
+          },
+          "d44caef114": {
+            "par_requete": [
+              3,
+              4,
+              13,
+              4
+            ],
+            "fusion": 1,
+            "rerank": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "question": "Which three serving scenarios does the model serving chapter cover, and which one is right when predictions are precomputed?",
+      "traduction": "Quels sont les trois scénarios de service couverts par le chapitre model serving, et lequel est correct lorsque les prédictions sont précalculées ?",
+      "gold": [
+        "e74bcf1706",
+        "eda4f1e10c"
+      ],
+      "sous_questions": [
+        "Which three serving scenarios does the model serving chapter cover?",
+        "Which serving scenario is right when predictions are precomputed?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which three serving scenarios does the model serving chapter cover?": "Quels sont les trois scénarios de service que couvre le chapitre sur le model serving ?",
+        "Which serving scenario is right when predictions are precomputed?": "Quel scénario de service est approprié lorsque les prédictions sont précalculées ?"
+      },
+      "sous_questions_traduites": [
+        "Quels sont les trois scénarios de service couverts par le chapitre model serving ?",
+        "Quel scénario est correct lorsque les prédictions sont précalculées dans le contexte du model serving ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "e74bcf1706": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 2
+        },
+        "eda4f1e10c": {
+          "dense_question": 3,
+          "lexical_question": 3,
+          "dense_traduction": 3,
+          "lexical_traduction": 4
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 122.1,
+        "unique_avec_traduction_rerank_ms": 596.4,
+        "unique_sans_traduction_recuperation_ms": 55.4,
+        "unique_sans_traduction_rerank_ms": 889.3,
+        "decomposition_recuperation_ms": 82.4,
+        "fusion_rerank_entiere_ms": 569.8,
+        "fusion_rerank_sous_questions_ms": 979.6,
+        "decomposition_traduite_recuperation_ms": 211.7,
+        "fusion_traduite_rerank_entiere_ms": 689.7,
+        "fusion_traduite_rerank_sous_questions_ms": 981.7,
+        "question_traduite_decomposee_recuperation_ms": 210.1,
+        "fusion_question_traduite_decomposee_ms": 1949.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e74bcf1706": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 2
+          }
+        },
+        "unique_sans_traduction": {
+          "e74bcf1706": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_entiere": {
+          "e74bcf1706": {
+            "par_requete": [
+              2,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 11,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "e74bcf1706": {
+            "par_requete": [
+              2,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 11,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "e74bcf1706": {
+            "par_requete": [
+              2,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              null,
+              2
+            ],
+            "fusion": 11,
+            "rerank": 2
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "e74bcf1706": {
+            "par_requete": [
+              2,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 3
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              null,
+              2
+            ],
+            "fusion": 11,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "e74bcf1706": {
+            "par_requete": [
+              2,
+              2,
+              2,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 4
+          },
+          "eda4f1e10c": {
+            "par_requete": [
+              null,
+              1,
+              null,
+              2
+            ],
+            "fusion": 15,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q04",
+      "question": "Route optimization on a serving endpoint rules out one authentication method: which one, and what does the book recommend using instead and why?",
+      "traduction": "L'optimisation des itinéraires sur un point de terminaison de service exclut une méthode d'authentification : laquelle, et que le livre recommande-t-il d'utiliser à la place et pourquoi ?",
+      "gold": [
+        "d5948cc70d",
+        "05f988efec"
+      ],
+      "sous_questions": [
+        "Which authentication method is ruled out by route optimization on a serving endpoint?",
+        "What does the book recommend using instead of the ruled-out authentication method?",
+        "Why does the book recommend the alternative authentication method?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which authentication method is ruled out by route optimization on a serving endpoint?": "Quelle méthode d'authentification est exclue par l'optimisation de route sur un endpoint de service ?",
+        "What does the book recommend using instead of the ruled-out authentication method?": "Que recommande le livre d'utiliser à la place de la méthode d'authentification écartée ?",
+        "Why does the book recommend the alternative authentication method?": "Pourquoi le livre recommande-t-il la méthode d'authentification alternative ?"
+      },
+      "sous_questions_traduites": [
+        "Quelle méthode d'authentification est exclue lors de l'optimisation des itinéraires sur un point de terminaison de service ?",
+        "Quelle méthode d'authentification le livre recommande-t-il d'utiliser à la place pour l'optimisation des itinéraires sur un point de terminaison de service et pourquoi ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "d5948cc70d": {
+          "dense_question": 1,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        },
+        "05f988efec": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 127.8,
+        "unique_avec_traduction_rerank_ms": 576.1,
+        "unique_sans_traduction_recuperation_ms": 56.9,
+        "unique_sans_traduction_rerank_ms": 615.2,
+        "decomposition_recuperation_ms": 148.8,
+        "fusion_rerank_entiere_ms": 710.5,
+        "fusion_rerank_sous_questions_ms": 3084.6,
+        "decomposition_traduite_recuperation_ms": 346.6,
+        "fusion_traduite_rerank_entiere_ms": 600.5,
+        "fusion_traduite_rerank_sous_questions_ms": 2099.9,
+        "question_traduite_decomposee_recuperation_ms": 2004.1,
+        "fusion_question_traduite_decomposee_ms": 4532.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 150,
+        "fusion_question_traduite_decomposee": 250
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "d5948cc70d": {
+            "par_requete": [
+              19
+            ],
+            "fusion": 19,
+            "rerank": 5
+          },
+          "05f988efec": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "d5948cc70d": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": 7
+          },
+          "05f988efec": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "d5948cc70d": {
+            "par_requete": [
+              9,
+              null,
+              null
+            ],
+            "fusion": 36,
+            "rerank": 6
+          },
+          "05f988efec": {
+            "par_requete": [
+              null,
+              13,
+              9
+            ],
+            "fusion": 13,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "d5948cc70d": {
+            "par_requete": [
+              9,
+              null,
+              null
+            ],
+            "fusion": 36,
+            "rerank": 9
+          },
+          "05f988efec": {
+            "par_requete": [
+              null,
+              13,
+              9
+            ],
+            "fusion": 13,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "d5948cc70d": {
+            "par_requete": [
+              11,
+              null,
+              null
+            ],
+            "fusion": 44,
+            "rerank": 6
+          },
+          "05f988efec": {
+            "par_requete": [
+              null,
+              38,
+              31
+            ],
+            "fusion": 30,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "d5948cc70d": {
+            "par_requete": [
+              11,
+              null,
+              null
+            ],
+            "fusion": 44,
+            "rerank": 9
+          },
+          "05f988efec": {
+            "par_requete": [
+              null,
+              38,
+              31
+            ],
+            "fusion": 30,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "d5948cc70d": {
+            "par_requete": [
+              9,
+              null,
+              null,
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "05f988efec": {
+            "par_requete": [
+              null,
+              13,
+              9,
+              null,
+              null
+            ],
+            "fusion": 24,
+            "rerank": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "q05",
+      "question": "What bounds the chunk size you may choose, and why does counting characters not tell you whether a chunk fits?",
+      "traduction": "Qu'est-ce qui limite la taille de chunk que vous pouvez choisir, et pourquoi compter les caractères ne vous dit-il pas si un chunk rentre ?",
+      "gold": [
+        "4b1d79b83a",
+        "23d10ed8de",
+        "ce368ff12a"
+      ],
+      "sous_questions": [
+        "What factors bound the chunk size that can be chosen?",
+        "Why is counting characters an insufficient method to determine if a chunk fits?"
+      ],
+      "traductions_des_sous_questions": {
+        "What factors bound the chunk size that can be chosen?": "Quels facteurs limitent la taille de bloc qui peut être choisie ?",
+        "Why is counting characters an insufficient method to determine if a chunk fits?": "Pourquoi le comptage des caractères est-il une méthode insuffisante pour déterminer si un chunk rentre ?"
+      },
+      "sous_questions_traduites": [
+        "Qu'est-ce qui limite la taille de chunk que l'on peut choisir ?",
+        "Pourquoi compter les caractères ne suffit-il pas pour déterminer si un chunk rentre ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "4b1d79b83a": {
+          "dense_question": 6,
+          "lexical_question": 2,
+          "dense_traduction": 10,
+          "lexical_traduction": 10
+        },
+        "23d10ed8de": {
+          "dense_question": null,
+          "lexical_question": 6,
+          "dense_traduction": null,
+          "lexical_traduction": 7
+        },
+        "ce368ff12a": {
+          "dense_question": 2,
+          "lexical_question": 11,
+          "dense_traduction": 2,
+          "lexical_traduction": 20
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 117.1,
+        "unique_avec_traduction_rerank_ms": 541.2,
+        "unique_sans_traduction_recuperation_ms": 50.8,
+        "unique_sans_traduction_rerank_ms": 553.9,
+        "decomposition_recuperation_ms": 110.7,
+        "fusion_rerank_entiere_ms": 611.9,
+        "fusion_rerank_sous_questions_ms": 1108.9,
+        "decomposition_traduite_recuperation_ms": 248.4,
+        "fusion_traduite_rerank_entiere_ms": 1933.7,
+        "fusion_traduite_rerank_sous_questions_ms": 1225.8,
+        "question_traduite_decomposee_recuperation_ms": 251.1,
+        "fusion_question_traduite_decomposee_ms": 2523.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              17
+            ],
+            "fusion": 17,
+            "rerank": null
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 2
+          }
+        },
+        "unique_sans_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              11
+            ],
+            "fusion": 11,
+            "rerank": null
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7
+            ],
+            "fusion": 3,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null
+            ],
+            "fusion": 25,
+            "rerank": null
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6
+            ],
+            "fusion": 8,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7
+            ],
+            "fusion": 3,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null
+            ],
+            "fusion": 25,
+            "rerank": 9
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6
+            ],
+            "fusion": 8,
+            "rerank": 4
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              28,
+              31
+            ],
+            "fusion": 17,
+            "rerank": null
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              16,
+              6
+            ],
+            "fusion": 7,
+            "rerank": 2
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              28,
+              31
+            ],
+            "fusion": 17,
+            "rerank": 9
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              16,
+              6
+            ],
+            "fusion": 7,
+            "rerank": 4
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1,
+              7,
+              1,
+              10
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "23d10ed8de": {
+            "par_requete": [
+              12,
+              null,
+              21,
+              19
+            ],
+            "fusion": 18,
+            "rerank": null
+          },
+          "ce368ff12a": {
+            "par_requete": [
+              15,
+              6,
+              3,
+              5
+            ],
+            "fusion": 6,
+            "rerank": 7
+          }
+        }
+      }
+    },
+    {
+      "id": "q06",
+      "question": "As a corpus grows, why does a retrieval pipeline built on plain vector search degrade, and which two mechanisms are recommended to recover quality?",
+      "traduction": "À mesure qu'un corpus grandit, pourquoi un pipeline de récupération construit sur une recherche vectorielle simple se dégrade-t-il, et quels sont les deux mécanismes recommandés pour récupérer la qualité ?",
+      "gold": [
+        "2971064aea",
+        "948ec002eb",
+        "d913ef3b4f"
+      ],
+      "sous_questions": [
+        "Why does a retrieval pipeline built on plain vector search degrade as a corpus grows?",
+        "What two mechanisms are recommended to recover quality in a degrading vector search retrieval pipeline?"
+      ],
+      "traductions_des_sous_questions": {
+        "Why does a retrieval pipeline built on plain vector search degrade as a corpus grows?": "Pourquoi un pipeline de récupération construit sur une recherche vectorielle simple se dégrade-t-il à mesure que le corpus grandit ?",
+        "What two mechanisms are recommended to recover quality in a degrading vector search retrieval pipeline?": "Quels deux mécanismes sont recommandés pour récupérer la qualité dans un pipeline de recherche vectorielle dégradé ?"
+      },
+      "sous_questions_traduites": [
+        "Pourquoi un pipeline de récupération construit sur une recherche vectorielle simple se dégrade-t-il à mesure qu'un corpus grandit ?",
+        "Quels sont les deux mécanismes recommandés pour améliorer la qualité de la récupération dans ce scénario ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "2971064aea": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 6
+        },
+        "948ec002eb": {
+          "dense_question": 4,
+          "lexical_question": 12,
+          "dense_traduction": 35,
+          "lexical_traduction": null
+        },
+        "d913ef3b4f": {
+          "dense_question": 7,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 115.0,
+        "unique_avec_traduction_rerank_ms": 657.0,
+        "unique_sans_traduction_recuperation_ms": 55.9,
+        "unique_sans_traduction_rerank_ms": 598.2,
+        "decomposition_recuperation_ms": 211.3,
+        "fusion_rerank_entiere_ms": 598.4,
+        "fusion_rerank_sous_questions_ms": 1019.7,
+        "decomposition_traduite_recuperation_ms": 181.2,
+        "fusion_traduite_rerank_entiere_ms": 630.7,
+        "fusion_traduite_rerank_sous_questions_ms": 1053.4,
+        "question_traduite_decomposee_recuperation_ms": 181.6,
+        "fusion_question_traduite_decomposee_ms": 2246.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2971064aea": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              6
+            ],
+            "fusion": 6,
+            "rerank": 7
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              42
+            ],
+            "fusion": 42,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "2971064aea": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 7
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              18
+            ],
+            "fusion": 18,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "2971064aea": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              10,
+              4
+            ],
+            "fusion": 7,
+            "rerank": 6
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              null,
+              21
+            ],
+            "fusion": 37,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "2971064aea": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              10,
+              4
+            ],
+            "fusion": 7,
+            "rerank": 2
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              null,
+              21
+            ],
+            "fusion": 37,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "2971064aea": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              20,
+              4
+            ],
+            "fusion": 10,
+            "rerank": 7
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              null,
+              42
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "2971064aea": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              20,
+              4
+            ],
+            "fusion": 10,
+            "rerank": 2
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              null,
+              42
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "2971064aea": {
+            "par_requete": [
+              1,
+              1,
+              1,
+              null
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "948ec002eb": {
+            "par_requete": [
+              10,
+              4,
+              null,
+              null
+            ],
+            "fusion": 13,
+            "rerank": 2
+          },
+          "d913ef3b4f": {
+            "par_requete": [
+              null,
+              21,
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        }
+      }
+    },
+    {
+      "id": "q07",
+      "question": "Which nearest-neighbour algorithm and distance metric does Databricks AI Search use, and what operational limit is placed on its built-in reranker?",
+      "traduction": "Quel algorithme de plus proche voisin et quelle métrique de distance Databricks AI Search utilise, et quelle limite opérationnelle est imposée à son reranker intégré ?",
+      "gold": [
+        "5558e561d7",
+        "269b2e32d8"
+      ],
+      "sous_questions": [
+        "Which nearest-neighbour algorithm does Databricks AI Search use?",
+        "What distance metric does Databricks AI Search use for nearest-neighbour search?",
+        "What is the operational limit placed on Databricks AI Search's built-in reranker?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which nearest-neighbour algorithm does Databricks AI Search use?": "Quel algorithme de nearest-neighbour Databricks AI Search utilise-t-il ?",
+        "What distance metric does Databricks AI Search use for nearest-neighbour search?": "Quelle métrique de distance Databricks AI Search utilise-t-il pour la recherche du plus proche voisin ?",
+        "What is the operational limit placed on Databricks AI Search's built-in reranker?": "Quel est la limite opérationnelle imposée au reranker intégré de Databricks AI Search ?"
+      },
+      "sous_questions_traduites": [
+        "Quel algorithme de plus proche voisin Databricks AI Search utilise ?",
+        "Quelle métrique de distance Databricks AI Search utilise ?",
+        "Quelle limite opérationnelle est imposée au reranker intégré de Databricks AI Search ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "5558e561d7": {
+          "dense_question": 2,
+          "lexical_question": 1,
+          "dense_traduction": 3,
+          "lexical_traduction": 3
+        },
+        "269b2e32d8": {
+          "dense_question": 7,
+          "lexical_question": 25,
+          "dense_traduction": null,
+          "lexical_traduction": 20
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 176.0,
+        "unique_avec_traduction_rerank_ms": 617.7,
+        "unique_sans_traduction_recuperation_ms": 54.4,
+        "unique_sans_traduction_rerank_ms": 2924.3,
+        "decomposition_recuperation_ms": 140.0,
+        "fusion_rerank_entiere_ms": 630.0,
+        "fusion_rerank_sous_questions_ms": 1604.9,
+        "decomposition_traduite_recuperation_ms": 833.0,
+        "fusion_traduite_rerank_entiere_ms": 1371.2,
+        "fusion_traduite_rerank_sous_questions_ms": 3259.2,
+        "question_traduite_decomposee_recuperation_ms": 410.9,
+        "fusion_question_traduite_decomposee_ms": 3365.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 150,
+        "fusion_question_traduite_decomposee": 300
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 3,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5558e561d7": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              11
+            ],
+            "fusion": 11,
+            "rerank": 7
+          }
+        },
+        "unique_sans_traduction": {
+          "5558e561d7": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              6
+            ],
+            "fusion": 6,
+            "rerank": 7
+          }
+        },
+        "fusion_rerank_entiere": {
+          "5558e561d7": {
+            "par_requete": [
+              2,
+              1,
+              13
+            ],
+            "fusion": 3,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              41,
+              null,
+              4
+            ],
+            "fusion": 21,
+            "rerank": 6
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "5558e561d7": {
+            "par_requete": [
+              2,
+              1,
+              13
+            ],
+            "fusion": 3,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              41,
+              null,
+              4
+            ],
+            "fusion": 21,
+            "rerank": 7
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "5558e561d7": {
+            "par_requete": [
+              2,
+              1,
+              11
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              null,
+              null,
+              5
+            ],
+            "fusion": 40,
+            "rerank": 6
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "5558e561d7": {
+            "par_requete": [
+              2,
+              1,
+              11
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              null,
+              null,
+              5
+            ],
+            "fusion": 40,
+            "rerank": 6
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "5558e561d7": {
+            "par_requete": [
+              2,
+              1,
+              13,
+              7,
+              1,
+              12
+            ],
+            "fusion": 4,
+            "rerank": 2
+          },
+          "269b2e32d8": {
+            "par_requete": [
+              41,
+              null,
+              4,
+              null,
+              null,
+              10
+            ],
+            "fusion": 30,
+            "rerank": 8
+          }
+        }
+      }
+    },
+    {
+      "id": "q08",
+      "question": "What are the two MLflow evaluation modes, and which one suits promotion decisions made from curated production traces?",
+      "traduction": "Quels sont les deux modes d'évaluation de MLflow et lequel convient aux décisions de promotion prises à partir de traces de production curatées ?",
+      "gold": [
+        "eacfb832a2",
+        "ea7d4cf6c0",
+        "94f9c56cd0"
+      ],
+      "sous_questions": [
+        "What are the two MLflow evaluation modes?",
+        "Which MLflow evaluation mode suits promotion decisions made from curated production traces?"
+      ],
+      "traductions_des_sous_questions": {
+        "What are the two MLflow evaluation modes?": "Quels sont les deux modes d'évaluation de MLflow ?",
+        "Which MLflow evaluation mode suits promotion decisions made from curated production traces?": "Quel mode d'évaluation MLflow convient aux décisions de promotion prises à partir de traces de production curatées ?"
+      },
+      "sous_questions_traduites": [
+        "Quels sont les deux modes d'évaluation de MLflow ?",
+        "Lequel des deux modes d'évaluation de MLflow convient aux décisions de promotion prises à partir de traces de production curatées ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "eacfb832a2": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        },
+        "ea7d4cf6c0": {
+          "dense_question": null,
+          "lexical_question": 1,
+          "dense_traduction": 40,
+          "lexical_traduction": 1
+        },
+        "94f9c56cd0": {
+          "dense_question": 3,
+          "lexical_question": 2,
+          "dense_traduction": 23,
+          "lexical_traduction": 2
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 435.1,
+        "unique_avec_traduction_rerank_ms": 616.1,
+        "unique_sans_traduction_recuperation_ms": 53.4,
+        "unique_sans_traduction_rerank_ms": 730.8,
+        "decomposition_recuperation_ms": 112.4,
+        "fusion_rerank_entiere_ms": 675.2,
+        "fusion_rerank_sous_questions_ms": 1273.3,
+        "decomposition_traduite_recuperation_ms": 195.6,
+        "fusion_traduite_rerank_entiere_ms": 1827.6,
+        "fusion_traduite_rerank_sous_questions_ms": 1368.6,
+        "question_traduite_decomposee_recuperation_ms": 193.8,
+        "fusion_question_traduite_decomposee_ms": 2405.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "eacfb832a2": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 2
+          }
+        },
+        "unique_sans_traduction": {
+          "eacfb832a2": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": 1
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_entiere": {
+          "eacfb832a2": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              null,
+              2
+            ],
+            "fusion": 15,
+            "rerank": 1
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1,
+              5
+            ],
+            "fusion": 1,
+            "rerank": 2
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "eacfb832a2": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              null,
+              2
+            ],
+            "fusion": 15,
+            "rerank": 2
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1,
+              5
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "eacfb832a2": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 16,
+            "rerank": 1
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 15,
+            "rerank": 2
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "eacfb832a2": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 16,
+            "rerank": 2
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1,
+              null
+            ],
+            "fusion": 15,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "eacfb832a2": {
+            "par_requete": [
+              null,
+              null,
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "ea7d4cf6c0": {
+            "par_requete": [
+              null,
+              2,
+              null,
+              3
+            ],
+            "fusion": 16,
+            "rerank": 2
+          },
+          "94f9c56cd0": {
+            "par_requete": [
+              1,
+              5,
+              1,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q09",
+      "question": "When should a code-based scorer be preferred to an LLM judge, and what properties make a scorer a good one?",
+      "traduction": "Quand un code-based scorer doit-il être préféré à un LLM judge, et quelles propriétés font qu'un scorer est bon ?",
+      "gold": [
+        "5bdad90f29",
+        "e67803db3e",
+        "0d39dea701"
+      ],
+      "sous_questions": [
+        "When should a code-based scorer be preferred over an LLM judge?",
+        "What properties make a code-based scorer a good one?"
+      ],
+      "traductions_des_sous_questions": {
+        "When should a code-based scorer be preferred over an LLM judge?": "Quand un code-based scorer doit-il être préféré à un LLM judge ?",
+        "What properties make a code-based scorer a good one?": "Quelles propriétés font qu'un code-based scorer est un bon ?"
+      },
+      "sous_questions_traduites": [
+        "Quand un code-based scorer doit-il être préféré à un LLM judge ?",
+        "Quelles propriétés font qu'un scorer est bon ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "5bdad90f29": {
+          "dense_question": 24,
+          "lexical_question": 49,
+          "dense_traduction": 41,
+          "lexical_traduction": 22
+        },
+        "e67803db3e": {
+          "dense_question": 35,
+          "lexical_question": null,
+          "dense_traduction": 12,
+          "lexical_traduction": null
+        },
+        "0d39dea701": {
+          "dense_question": 11,
+          "lexical_question": 5,
+          "dense_traduction": 26,
+          "lexical_traduction": 43
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 95.7,
+        "unique_avec_traduction_rerank_ms": 658.4,
+        "unique_sans_traduction_recuperation_ms": 56.1,
+        "unique_sans_traduction_rerank_ms": 635.4,
+        "decomposition_recuperation_ms": 105.7,
+        "fusion_rerank_entiere_ms": 540.1,
+        "fusion_rerank_sous_questions_ms": 979.1,
+        "decomposition_traduite_recuperation_ms": 198.6,
+        "fusion_traduite_rerank_entiere_ms": 587.6,
+        "fusion_traduite_rerank_sous_questions_ms": 1280.3,
+        "question_traduite_decomposee_recuperation_ms": 168.3,
+        "fusion_question_traduite_decomposee_ms": 4111.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "5bdad90f29": {
+            "par_requete": [
+              15
+            ],
+            "fusion": 15,
+            "rerank": 9
+          },
+          "e67803db3e": {
+            "par_requete": [
+              43
+            ],
+            "fusion": 43,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              10
+            ],
+            "fusion": 10,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "5bdad90f29": {
+            "par_requete": [
+              21
+            ],
+            "fusion": 21,
+            "rerank": 10
+          },
+          "e67803db3e": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "5bdad90f29": {
+            "par_requete": [
+              null,
+              4
+            ],
+            "fusion": 23,
+            "rerank": 9
+          },
+          "e67803db3e": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 32,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 20,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "5bdad90f29": {
+            "par_requete": [
+              null,
+              4
+            ],
+            "fusion": 23,
+            "rerank": 1
+          },
+          "e67803db3e": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 32,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              null,
+              1
+            ],
+            "fusion": 20,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "5bdad90f29": {
+            "par_requete": [
+              null,
+              3
+            ],
+            "fusion": 25,
+            "rerank": 9
+          },
+          "e67803db3e": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 33,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 27,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "5bdad90f29": {
+            "par_requete": [
+              null,
+              3
+            ],
+            "fusion": 25,
+            "rerank": 1
+          },
+          "e67803db3e": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 33,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 27,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "5bdad90f29": {
+            "par_requete": [
+              null,
+              4,
+              47,
+              null
+            ],
+            "fusion": 36,
+            "rerank": 1
+          },
+          "e67803db3e": {
+            "par_requete": [
+              16,
+              null,
+              17,
+              null
+            ],
+            "fusion": 34,
+            "rerank": null
+          },
+          "0d39dea701": {
+            "par_requete": [
+              null,
+              1,
+              null,
+              2
+            ],
+            "fusion": 20,
+            "rerank": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "q10",
+      "question": "How large does an evaluation dataset need to be before it tells you something, and what should it keep containing over time?",
+      "traduction": "Quelle taille doit avoir un dataset d'évaluation avant qu'il ne vous dise quelque chose, et qu'est-ce qu'il devrait continuer à contenir au fil du temps ?",
+      "gold": [
+        "e8ba504198",
+        "890c168677"
+      ],
+      "sous_questions": [
+        "What is the minimum size required for an evaluation dataset to yield meaningful insights?",
+        "What characteristics should an evaluation dataset maintain over time?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the minimum size required for an evaluation dataset to yield meaningful insights?": "Quelle est la taille minimale requise pour un dataset d'évaluation afin d'obtenir des informations significatives ?",
+        "What characteristics should an evaluation dataset maintain over time?": "Quelles caractéristiques un dataset d'évaluation doit-il maintenir au fil du temps ?"
+      },
+      "sous_questions_traduites": [
+        "Quelle taille minimale doit avoir un dataset d'évaluation pour être significatif ?",
+        "Quelles caractéristiques un dataset d'évaluation devrait-il conserver au fil du temps ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "e8ba504198": {
+          "dense_question": 48,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": 29
+        },
+        "890c168677": {
+          "dense_question": 34,
+          "lexical_question": 1,
+          "dense_traduction": null,
+          "lexical_traduction": 46
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 127.2,
+        "unique_avec_traduction_rerank_ms": 562.3,
+        "unique_sans_traduction_recuperation_ms": 52.3,
+        "unique_sans_traduction_rerank_ms": 561.8,
+        "decomposition_recuperation_ms": 149.6,
+        "fusion_rerank_entiere_ms": 534.9,
+        "fusion_rerank_sous_questions_ms": 1581.0,
+        "decomposition_traduite_recuperation_ms": 1442.4,
+        "fusion_traduite_rerank_entiere_ms": 2214.3,
+        "fusion_traduite_rerank_sous_questions_ms": 1583.4,
+        "question_traduite_decomposee_recuperation_ms": 276.9,
+        "fusion_question_traduite_decomposee_ms": 2013.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e8ba504198": {
+            "par_requete": [
+              38
+            ],
+            "fusion": 38,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              4
+            ],
+            "fusion": 4,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "e8ba504198": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "e8ba504198": {
+            "par_requete": [
+              null,
+              38
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              45,
+              1
+            ],
+            "fusion": 7,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "e8ba504198": {
+            "par_requete": [
+              null,
+              38
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              45,
+              1
+            ],
+            "fusion": 7,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "e8ba504198": {
+            "par_requete": [
+              11,
+              34
+            ],
+            "fusion": 16,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              43,
+              4
+            ],
+            "fusion": 12,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "e8ba504198": {
+            "par_requete": [
+              11,
+              34
+            ],
+            "fusion": 16,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              43,
+              4
+            ],
+            "fusion": 12,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "e8ba504198": {
+            "par_requete": [
+              null,
+              38,
+              null,
+              4
+            ],
+            "fusion": 29,
+            "rerank": null
+          },
+          "890c168677": {
+            "par_requete": [
+              45,
+              1,
+              null,
+              null
+            ],
+            "fusion": 28,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q11",
+      "question": "What are guardrails for, at which two points can the gateway's built-in ones act, and what does a custom guardrail add?",
+      "traduction": "À quoi servent les guardrails, à quels deux points les siennes intégrées de la gateway peuvent-elles agir, et qu'ajoute un guardrail personnalisé ?",
+      "gold": [
+        "ca2897cadb",
+        "0f4741eda9",
+        "be9026f5ba"
+      ],
+      "sous_questions": [
+        "What are guardrails for?",
+        "At which two points can the gateway's built-in guardrails act?",
+        "What does a custom guardrail add?"
+      ],
+      "traductions_des_sous_questions": {
+        "What are guardrails for?": "À quoi servent les garde-fous ?",
+        "At which two points can the gateway's built-in guardrails act?": "À quels deux points les garde-fous intégrés de la gateway peuvent-ils agir ?",
+        "What does a custom guardrail add?": "Qu'ajoute un custom guardrail ?"
+      },
+      "sous_questions_traduites": [
+        "À quoi servent les guardrails ?",
+        "À quels deux points les siennes intégrées de la gateway peuvent-elles agir ?",
+        "Qu'ajoute un guardrail personnalisé ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "ca2897cadb": {
+          "dense_question": 11,
+          "lexical_question": null,
+          "dense_traduction": 16,
+          "lexical_traduction": 11
+        },
+        "0f4741eda9": {
+          "dense_question": 19,
+          "lexical_question": 5,
+          "dense_traduction": 2,
+          "lexical_traduction": 3
+        },
+        "be9026f5ba": {
+          "dense_question": 5,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": 50
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 123.7,
+        "unique_avec_traduction_rerank_ms": 725.8,
+        "unique_sans_traduction_recuperation_ms": 51.8,
+        "unique_sans_traduction_rerank_ms": 757.8,
+        "decomposition_recuperation_ms": 155.3,
+        "fusion_rerank_entiere_ms": 605.6,
+        "fusion_rerank_sous_questions_ms": 3072.3,
+        "decomposition_traduite_recuperation_ms": 451.2,
+        "fusion_traduite_rerank_entiere_ms": 518.6,
+        "fusion_traduite_rerank_sous_questions_ms": 1441.0,
+        "question_traduite_decomposee_recuperation_ms": 315.1,
+        "fusion_question_traduite_decomposee_ms": 2982.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 150,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 150,
+        "fusion_question_traduite_decomposee": 300
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 3,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ca2897cadb": {
+            "par_requete": [
+              8
+            ],
+            "fusion": 8,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 3
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              28
+            ],
+            "fusion": 28,
+            "rerank": 7
+          }
+        },
+        "unique_sans_traduction": {
+          "ca2897cadb": {
+            "par_requete": [
+              21
+            ],
+            "fusion": 21,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              5
+            ],
+            "fusion": 5,
+            "rerank": 3
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              14
+            ],
+            "fusion": 14,
+            "rerank": 6
+          }
+        },
+        "fusion_rerank_entiere": {
+          "ca2897cadb": {
+            "par_requete": [
+              15,
+              5,
+              23
+            ],
+            "fusion": 8,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              46,
+              6,
+              6
+            ],
+            "fusion": 11,
+            "rerank": 3
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              2,
+              20,
+              13
+            ],
+            "fusion": 4,
+            "rerank": 7
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "ca2897cadb": {
+            "par_requete": [
+              15,
+              5,
+              23
+            ],
+            "fusion": 8,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              46,
+              6,
+              6
+            ],
+            "fusion": 11,
+            "rerank": 10
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              2,
+              20,
+              13
+            ],
+            "fusion": 4,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "ca2897cadb": {
+            "par_requete": [
+              18,
+              7,
+              44
+            ],
+            "fusion": 10,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              null,
+              5,
+              3
+            ],
+            "fusion": 12,
+            "rerank": 3
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              8,
+              null,
+              32
+            ],
+            "fusion": 23,
+            "rerank": 7
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "ca2897cadb": {
+            "par_requete": [
+              18,
+              7,
+              44
+            ],
+            "fusion": 10,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              null,
+              5,
+              3
+            ],
+            "fusion": 12,
+            "rerank": 9
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              8,
+              null,
+              32
+            ],
+            "fusion": 23,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "ca2897cadb": {
+            "par_requete": [
+              15,
+              5,
+              23,
+              25,
+              null,
+              null
+            ],
+            "fusion": 12,
+            "rerank": null
+          },
+          "0f4741eda9": {
+            "par_requete": [
+              46,
+              6,
+              6,
+              null,
+              15,
+              18
+            ],
+            "fusion": 2,
+            "rerank": null
+          },
+          "be9026f5ba": {
+            "par_requete": [
+              2,
+              20,
+              13,
+              30,
+              null,
+              null
+            ],
+            "fusion": 11,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q12",
+      "question": "What distinguishes a champion from a challenger agent, and how does blue-green deployment introduce the challenger without risking the production traffic?",
+      "traduction": "Qu'est-ce qui distingue un agent champion d'un agent challenger, et comment le déploiement blue-green introduit le challenger sans risquer le trafic de production ?",
+      "gold": [
+        "2b3d899ecd",
+        "f60d2898bb"
+      ],
+      "sous_questions": [
+        "What distinguishes a champion agent from a challenger agent?",
+        "How does blue-green deployment introduce the challenger without risking the production traffic?"
+      ],
+      "traductions_des_sous_questions": {
+        "What distinguishes a champion agent from a challenger agent?": "Qu'est-ce qui distingue un champion agent d'un challenger agent ?",
+        "How does blue-green deployment introduce the challenger without risking the production traffic?": "Comment le blue-green deployment introduit le challenger sans risquer le trafic de production ?"
+      },
+      "sous_questions_traduites": [
+        "Qu'est-ce qui distingue un agent champion d'un agent challenger ?",
+        "Comment le déploiement blue-green introduit le challenger sans risquer le trafic de production ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "2b3d899ecd": {
+          "dense_question": 2,
+          "lexical_question": 4,
+          "dense_traduction": 1,
+          "lexical_traduction": 4
+        },
+        "f60d2898bb": {
+          "dense_question": 4,
+          "lexical_question": 1,
+          "dense_traduction": 5,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 148.1,
+        "unique_avec_traduction_rerank_ms": 546.2,
+        "unique_sans_traduction_recuperation_ms": 59.5,
+        "unique_sans_traduction_rerank_ms": 585.9,
+        "decomposition_recuperation_ms": 78.1,
+        "fusion_rerank_entiere_ms": 631.4,
+        "fusion_rerank_sous_questions_ms": 2060.6,
+        "decomposition_traduite_recuperation_ms": 1943.1,
+        "fusion_traduite_rerank_entiere_ms": 510.5,
+        "fusion_traduite_rerank_sous_questions_ms": 1111.9,
+        "question_traduite_decomposee_recuperation_ms": 166.8,
+        "fusion_question_traduite_decomposee_ms": 2197.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "2b3d899ecd": {
+            "par_requete": [
+              2
+            ],
+            "fusion": 2,
+            "rerank": 3
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "2b3d899ecd": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 3
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "2b3d899ecd": {
+            "par_requete": [
+              1,
+              21
+            ],
+            "fusion": 5,
+            "rerank": 3
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              16,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "2b3d899ecd": {
+            "par_requete": [
+              1,
+              21
+            ],
+            "fusion": 5,
+            "rerank": 1
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              16,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 3
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "2b3d899ecd": {
+            "par_requete": [
+              1,
+              17
+            ],
+            "fusion": 4,
+            "rerank": 3
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              15,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "2b3d899ecd": {
+            "par_requete": [
+              1,
+              17
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              15,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 3
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "2b3d899ecd": {
+            "par_requete": [
+              1,
+              21,
+              1,
+              16
+            ],
+            "fusion": 4,
+            "rerank": 1
+          },
+          "f60d2898bb": {
+            "par_requete": [
+              16,
+              1,
+              11,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "q13",
+      "question": "How much memory does a CPU model serving endpoint allocate per worker by default?",
+      "traduction": "Quelle quantité de mémoire un modèle de CPU alloue-t-il par worker par défaut ?",
+      "gold": [
+        "e1ab19bc3b"
+      ],
+      "sous_questions": [
+        "What is the default memory allocation per worker for a CPU model serving endpoint?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the default memory allocation per worker for a CPU model serving endpoint?": null
+      },
+      "sous_questions_traduites": [
+        "Quelle quantité de mémoire un modèle de CPU alloue-t-il par worker par défaut ?"
+      ],
+      "nature": "une_seule",
+      "nature_de_la_question_traduite": "une_seule",
+      "repli": true,
+      "sondes_amont": {
+        "e1ab19bc3b": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 89.7,
+        "unique_avec_traduction_rerank_ms": 591.4,
+        "unique_sans_traduction_recuperation_ms": 44.8,
+        "unique_sans_traduction_rerank_ms": 554.2,
+        "decomposition_recuperation_ms": 44.8,
+        "fusion_rerank_entiere_ms": 554.2,
+        "fusion_rerank_sous_questions_ms": 554.2,
+        "decomposition_traduite_recuperation_ms": 89.7,
+        "fusion_traduite_rerank_entiere_ms": 591.4,
+        "fusion_traduite_rerank_sous_questions_ms": 591.4,
+        "question_traduite_decomposee_recuperation_ms": 89.7,
+        "fusion_question_traduite_decomposee_ms": 591.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 0,
+      "variantes": {
+        "unique_avec_traduction": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "e1ab19bc3b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q14",
+      "question": "What capacity options can be chosen for a Databricks Online Feature Store, and how much RAM does one capacity unit represent?",
+      "traduction": "Quelles options de capacité peuvent être choisies pour un Databricks Online Feature Store et combien de RAM représente une unité de capacité ?",
+      "gold": [
+        "479129f25b"
+      ],
+      "sous_questions": [
+        "What capacity options can be chosen for a Databricks Online Feature Store?",
+        "How much RAM does one capacity unit represent in a Databricks Online Feature Store?"
+      ],
+      "traductions_des_sous_questions": {
+        "What capacity options can be chosen for a Databricks Online Feature Store?": "Quelles options de capacité peuvent être choisies pour un Databricks Online Feature Store?",
+        "How much RAM does one capacity unit represent in a Databricks Online Feature Store?": "Quelle quantité de RAM une unité de capacité représente-t-elle dans un Databricks Online Feature Store ?"
+      },
+      "sous_questions_traduites": [
+        "Quelles options de capacité peuvent être choisies pour un Databricks Online Feature Store ?",
+        "Combien de RAM représente une unité de capacité pour un Databricks Online Feature Store ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "479129f25b": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 152.9,
+        "unique_avec_traduction_rerank_ms": 610.4,
+        "unique_sans_traduction_recuperation_ms": 50.2,
+        "unique_sans_traduction_rerank_ms": 2274.0,
+        "decomposition_recuperation_ms": 236.8,
+        "fusion_rerank_entiere_ms": 562.4,
+        "fusion_rerank_sous_questions_ms": 1216.9,
+        "decomposition_traduite_recuperation_ms": 176.4,
+        "fusion_traduite_rerank_entiere_ms": 626.1,
+        "fusion_traduite_rerank_sous_questions_ms": 1126.4,
+        "question_traduite_decomposee_recuperation_ms": 199.9,
+        "fusion_question_traduite_decomposee_ms": 4209.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "479129f25b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "479129f25b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "479129f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "479129f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "479129f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "479129f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "479129f25b": {
+            "par_requete": [
+              1,
+              1,
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q15",
+      "question": "Why is loading a model with mlflow.pyfunc.load_model() an unreliable way to debug a serving problem, and what should be used instead?",
+      "traduction": "Pourquoi charger un modèle avec mlflow.pyfunc.load_model() est-il une manière peu fiable de déboguer un problème de service, et que devrait être utilisé à la place ?",
+      "gold": [
+        "1a0905f25b"
+      ],
+      "sous_questions": [
+        "Why is loading a model with mlflow.pyfunc.load_model() an unreliable way to debug a serving problem?",
+        "What should be used instead of mlflow.pyfunc.load_model() for debugging a serving problem?"
+      ],
+      "traductions_des_sous_questions": {
+        "Why is loading a model with mlflow.pyfunc.load_model() an unreliable way to debug a serving problem?": "Pourquoi charger un modèle avec mlflow.pyfunc.load_model() est-il une manière peu fiable de déboguer un problème de service ?",
+        "What should be used instead of mlflow.pyfunc.load_model() for debugging a serving problem?": "Que devrait-on utiliser à la place de mlflow.pyfunc.load_model() pour déboguer un problème de service ?"
+      },
+      "sous_questions_traduites": [
+        "Pourquoi charger un modèle avec mlflow.pyfunc.load_model() est-il une manière peu fiable de déboguer un problème de service ?",
+        "Quelle alternative devrait être utilisée à la place de mlflow.pyfunc.load_model() pour le débogage de problèmes de service ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "1a0905f25b": {
+          "dense_question": 2,
+          "lexical_question": 1,
+          "dense_traduction": 8,
+          "lexical_traduction": 5
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 141.6,
+        "unique_avec_traduction_rerank_ms": 803.3,
+        "unique_sans_traduction_recuperation_ms": 118.5,
+        "unique_sans_traduction_rerank_ms": 799.6,
+        "decomposition_recuperation_ms": 91.1,
+        "fusion_rerank_entiere_ms": 618.8,
+        "fusion_rerank_sous_questions_ms": 1213.6,
+        "decomposition_traduite_recuperation_ms": 207.9,
+        "fusion_traduite_rerank_entiere_ms": 766.1,
+        "fusion_traduite_rerank_sous_questions_ms": 1196.5,
+        "question_traduite_decomposee_recuperation_ms": 225.2,
+        "fusion_question_traduite_decomposee_ms": 2404.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "1a0905f25b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "1a0905f25b": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "1a0905f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "1a0905f25b": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "1a0905f25b": {
+            "par_requete": [
+              2,
+              3
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "1a0905f25b": {
+            "par_requete": [
+              2,
+              3
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "1a0905f25b": {
+            "par_requete": [
+              1,
+              1,
+              3,
+              14
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q16",
+      "question": "What is the embedding window of the Databricks GTE model compared with Databricks BGE Large?",
+      "traduction": "Quel est la fenêtre d'embedding du modèle Databricks GTE comparée à Databricks BGE Large ?",
+      "gold": [
+        "4b1d79b83a"
+      ],
+      "sous_questions": [
+        "What is the embedding window of the Databricks GTE model?",
+        "What is the embedding window of Databricks BGE Large?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the embedding window of the Databricks GTE model?": "Quelle est la fenêtre d'embedding du modèle Databricks GTE ?",
+        "What is the embedding window of Databricks BGE Large?": "Quelle est la fenêtre d'embedding de Databricks BGE Large ?"
+      },
+      "sous_questions_traduites": [
+        "Quelle est la fenêtre d'embedding du modèle Databricks GTE ?",
+        "Quelle est la fenêtre d'embedding du modèle Databricks BGE Large ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "4b1d79b83a": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 3,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 109.2,
+        "unique_avec_traduction_rerank_ms": 765.3,
+        "unique_sans_traduction_recuperation_ms": 48.6,
+        "unique_sans_traduction_rerank_ms": 580.5,
+        "decomposition_recuperation_ms": 84.3,
+        "fusion_rerank_entiere_ms": 900.8,
+        "fusion_rerank_sous_questions_ms": 2892.1,
+        "decomposition_traduite_recuperation_ms": 218.6,
+        "fusion_traduite_rerank_entiere_ms": 648.8,
+        "fusion_traduite_rerank_sous_questions_ms": 1187.0,
+        "question_traduite_decomposee_recuperation_ms": 217.5,
+        "fusion_question_traduite_decomposee_ms": 2531.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "4b1d79b83a": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              7,
+              1
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              7,
+              1
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "4b1d79b83a": {
+            "par_requete": [
+              8,
+              1
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "4b1d79b83a": {
+            "par_requete": [
+              8,
+              1
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "4b1d79b83a": {
+            "par_requete": [
+              7,
+              1,
+              6,
+              1
+            ],
+            "fusion": 2,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q17",
+      "question": "How do standard and storage-optimized AI Search endpoints differ in capacity and indexing speed?",
+      "traduction": "Comment les endpoints AI Search standard et optimisés pour le stockage diffèrent-ils en termes de capacité et de vitesse d'indexation ?",
+      "gold": [
+        "ac504bce1c"
+      ],
+      "sous_questions": [
+        "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of capacity?",
+        "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of indexing speed?"
+      ],
+      "traductions_des_sous_questions": {
+        "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of capacity?": "Comment les endpoints AI Search standard se comparent-ils aux endpoints AI Search optimisés pour le stockage en termes de capacité ?",
+        "How do standard AI Search endpoints compare to storage-optimized AI Search endpoints in terms of indexing speed?": "Comment les endpoints AI Search standard se comparent-ils aux endpoints AI Search optimisés pour le stockage en termes de vitesse d'indexation ?"
+      },
+      "sous_questions_traduites": [
+        "Quelles sont les différences entre les endpoints AI Search standard et optimisés pour le stockage ?",
+        "Comment les endpoints AI Search standard et optimisés pour le stockage diffèrent-ils en termes de capacité ?",
+        "Comment les endpoints AI Search standard et optimisés pour le stockage diffèrent-ils en termes de vitesse d'indexation ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "ac504bce1c": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 93.0,
+        "unique_avec_traduction_rerank_ms": 2582.8,
+        "unique_sans_traduction_recuperation_ms": 45.8,
+        "unique_sans_traduction_rerank_ms": 499.3,
+        "decomposition_recuperation_ms": 104.4,
+        "fusion_rerank_entiere_ms": 478.0,
+        "fusion_rerank_sous_questions_ms": 1094.9,
+        "decomposition_traduite_recuperation_ms": 240.7,
+        "fusion_traduite_rerank_entiere_ms": 538.6,
+        "fusion_traduite_rerank_sous_questions_ms": 1060.3,
+        "question_traduite_decomposee_recuperation_ms": 800.6,
+        "fusion_question_traduite_decomposee_ms": 4564.1
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 250
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 3,
+      "variantes": {
+        "unique_avec_traduction": {
+          "ac504bce1c": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "ac504bce1c": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "ac504bce1c": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "ac504bce1c": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "ac504bce1c": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "ac504bce1c": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "ac504bce1c": {
+            "par_requete": [
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q18",
+      "question": "Which Databricks-hosted foundation model endpoint generates the embeddings for the arXiv index?",
+      "traduction": "Quel endpoint de modèle de fond Databricks hébergé génère les embeddings pour l'index arXiv?",
+      "gold": [
+        "347b2e3799"
+      ],
+      "sous_questions": [
+        "Which foundation model endpoint is hosted on Databricks?",
+        "Which foundation model endpoint generates embeddings for the arXiv index?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which foundation model endpoint is hosted on Databricks?": "Quel endpoint de modèle de fondation est hébergé sur Databricks?",
+        "Which foundation model endpoint generates embeddings for the arXiv index?": "Quel endpoint de modèle de fond génère les embeddings pour l'index arXiv?"
+      },
+      "sous_questions_traduites": [
+        "Quel endpoint de modèle de fond Databricks hébergé génère les embeddings ?",
+        "Quel est l'index arXiv mentionné dans le contexte de la génération d'embeddings ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "347b2e3799": {
+          "dense_question": 1,
+          "lexical_question": 2,
+          "dense_traduction": 1,
+          "lexical_traduction": 41
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 95.5,
+        "unique_avec_traduction_rerank_ms": 598.0,
+        "unique_sans_traduction_recuperation_ms": 45.7,
+        "unique_sans_traduction_rerank_ms": 494.1,
+        "decomposition_recuperation_ms": 83.9,
+        "fusion_rerank_entiere_ms": 533.1,
+        "fusion_rerank_sous_questions_ms": 1066.8,
+        "decomposition_traduite_recuperation_ms": 166.4,
+        "fusion_traduite_rerank_entiere_ms": 590.5,
+        "fusion_traduite_rerank_sous_questions_ms": 1166.7,
+        "question_traduite_decomposee_recuperation_ms": 172.3,
+        "fusion_question_traduite_decomposee_ms": 2038.9
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "347b2e3799": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 4
+          }
+        },
+        "unique_sans_traduction": {
+          "347b2e3799": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 4
+          }
+        },
+        "fusion_rerank_entiere": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2
+            ],
+            "fusion": 1,
+            "rerank": 4
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2
+            ],
+            "fusion": 1,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "347b2e3799": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 17,
+            "rerank": 2
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "347b2e3799": {
+            "par_requete": [
+              null,
+              6
+            ],
+            "fusion": 17,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "347b2e3799": {
+            "par_requete": [
+              26,
+              2,
+              1,
+              null
+            ],
+            "fusion": 2,
+            "rerank": 4
+          }
+        }
+      }
+    },
+    {
+      "id": "q19",
+      "question": "What is meant by a 'spectrum of factuality' when detecting hallucinations in a RAG answer?",
+      "traduction": "Que signifie un « spectrum of factuality » lors de la détection d'hallucinations dans une réponse RAG ?",
+      "gold": [
+        "0f66b973ed"
+      ],
+      "sous_questions": [
+        "What is a 'spectrum of factuality' in the context of detecting hallucinations in a RAG answer?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is a 'spectrum of factuality' in the context of detecting hallucinations in a RAG answer?": null
+      },
+      "sous_questions_traduites": [
+        "Que signifie un « spectrum of factuality » dans le contexte de la détection d'hallucinations ?",
+        "Comment le concept de « spectrum of factuality » est-il appliqué à une réponse générée par un système RAG (Retrieval-Augmented Generation) ?"
+      ],
+      "nature": "une_seule",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": true,
+      "sondes_amont": {
+        "0f66b973ed": {
+          "dense_question": 1,
+          "lexical_question": 1,
+          "dense_traduction": 1,
+          "lexical_traduction": 1
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 90.2,
+        "unique_avec_traduction_rerank_ms": 722.3,
+        "unique_sans_traduction_recuperation_ms": 68.1,
+        "unique_sans_traduction_rerank_ms": 633.9,
+        "decomposition_recuperation_ms": 68.1,
+        "fusion_rerank_entiere_ms": 633.9,
+        "fusion_rerank_sous_questions_ms": 633.9,
+        "decomposition_traduite_recuperation_ms": 90.2,
+        "fusion_traduite_rerank_entiere_ms": 722.3,
+        "fusion_traduite_rerank_sous_questions_ms": 722.3,
+        "question_traduite_decomposee_recuperation_ms": 90.2,
+        "fusion_question_traduite_decomposee_ms": 722.3
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 0,
+      "variantes": {
+        "unique_avec_traduction": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "0f66b973ed": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q20",
+      "question": "What response time do users expect from a production RAG system, and why does moving from proof of concept to production make latency worse?",
+      "traduction": "Quel temps de réponse les utilisateurs attendent-ils d'un système RAG en production, et pourquoi le passage du proof of concept à la production dégrade-t-il la latence ?",
+      "gold": [
+        "c9448cd9df"
+      ],
+      "sous_questions": [
+        "What is the expected response time for users interacting with a production RAG system?",
+        "Why does the transition from a proof of concept to a production environment typically result in increased latency for a RAG system?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the expected response time for users interacting with a production RAG system?": "Quel est le temps de réponse attendu pour les utilisateurs interagissant avec un système RAG en production ?",
+        "Why does the transition from a proof of concept to a production environment typically result in increased latency for a RAG system?": "Pourquoi la transition d'un proof of concept à un environnement de production entraîne-t-elle généralement une augmentation de la latence pour un système RAG?"
+      },
+      "sous_questions_traduites": [
+        "Quel temps de réponse les utilisateurs attendent-ils d'un système RAG en production ?",
+        "Pourquoi le passage du proof of concept à la production dégrade-t-il la latence d'un système RAG ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "c9448cd9df": {
+          "dense_question": 1,
+          "lexical_question": 9,
+          "dense_traduction": 1,
+          "lexical_traduction": 29
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 107.4,
+        "unique_avec_traduction_rerank_ms": 527.2,
+        "unique_sans_traduction_recuperation_ms": 53.7,
+        "unique_sans_traduction_rerank_ms": 2312.4,
+        "decomposition_recuperation_ms": 100.8,
+        "fusion_rerank_entiere_ms": 502.1,
+        "fusion_rerank_sous_questions_ms": 1023.1,
+        "decomposition_traduite_recuperation_ms": 200.3,
+        "fusion_traduite_rerank_entiere_ms": 686.0,
+        "fusion_traduite_rerank_sous_questions_ms": 1208.1,
+        "question_traduite_decomposee_recuperation_ms": 214.8,
+        "fusion_question_traduite_decomposee_ms": 2551.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "c9448cd9df": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "c9448cd9df": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "c9448cd9df": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "c9448cd9df": {
+            "par_requete": [
+              1,
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "c9448cd9df": {
+            "par_requete": [
+              1,
+              3
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "c9448cd9df": {
+            "par_requete": [
+              1,
+              3
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "c9448cd9df": {
+            "par_requete": [
+              1,
+              1,
+              4,
+              4
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q25",
+      "question": "And which of the three needs an extra identifier in the request payload?",
+      "traduction": "Et lequel des trois a besoin d'un identifiant supplémentaire dans le payload de la requête ?",
+      "gold": [
+        "226bf58b6c",
+        "6b6f2e2892"
+      ],
+      "sous_questions": [
+        "Which of the three needs requires an extra identifier in the request payload?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which of the three needs requires an extra identifier in the request payload?": null
+      },
+      "sous_questions_traduites": [
+        "Quel est l'objet de la question ?",
+        "De quel groupe de trois éléments parle la question ?"
+      ],
+      "nature": "une_seule",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": true,
+      "sondes_amont": {
+        "226bf58b6c": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        },
+        "6b6f2e2892": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 218.5,
+        "unique_avec_traduction_rerank_ms": 724.4,
+        "unique_sans_traduction_recuperation_ms": 54.3,
+        "unique_sans_traduction_rerank_ms": 444.0,
+        "decomposition_recuperation_ms": 54.3,
+        "fusion_rerank_entiere_ms": 444.0,
+        "fusion_rerank_sous_questions_ms": 444.0,
+        "decomposition_traduite_recuperation_ms": 218.5,
+        "fusion_traduite_rerank_entiere_ms": 724.4,
+        "fusion_traduite_rerank_sous_questions_ms": 724.4,
+        "question_traduite_decomposee_recuperation_ms": 218.5,
+        "fusion_question_traduite_decomposee_ms": 724.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 0,
+      "variantes": {
+        "unique_avec_traduction": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "226bf58b6c": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          },
+          "6b6f2e2892": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        }
+      }
+    },
+    {
+      "id": "q26",
+      "question": "And what does that fix cost you?",
+      "traduction": "Et combien cela vous coûte-t-il en coût fixe ?",
+      "gold": [
+        "50a8d022fa"
+      ],
+      "sous_questions": [
+        "What is the cost associated with that fix?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the cost associated with that fix?": null
+      },
+      "sous_questions_traduites": [
+        "Quel est le coût fixe ?"
+      ],
+      "nature": "une_seule",
+      "nature_de_la_question_traduite": "une_seule",
+      "repli": true,
+      "sondes_amont": {
+        "50a8d022fa": {
+          "dense_question": null,
+          "lexical_question": 2,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 74.1,
+        "unique_avec_traduction_rerank_ms": 531.8,
+        "unique_sans_traduction_recuperation_ms": 43.6,
+        "unique_sans_traduction_rerank_ms": 458.2,
+        "decomposition_recuperation_ms": 43.6,
+        "fusion_rerank_entiere_ms": 458.2,
+        "fusion_rerank_sous_questions_ms": 458.2,
+        "decomposition_traduite_recuperation_ms": 74.1,
+        "fusion_traduite_rerank_entiere_ms": 531.8,
+        "fusion_traduite_rerank_sous_questions_ms": 531.8,
+        "question_traduite_decomposee_recuperation_ms": 74.1,
+        "fusion_question_traduite_decomposee_ms": 531.8
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 0,
+      "variantes": {
+        "unique_avec_traduction": {
+          "50a8d022fa": {
+            "par_requete": [
+              29
+            ],
+            "fusion": 29,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "50a8d022fa": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "50a8d022fa": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "50a8d022fa": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "50a8d022fa": {
+            "par_requete": [
+              29
+            ],
+            "fusion": 29,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "50a8d022fa": {
+            "par_requete": [
+              29
+            ],
+            "fusion": 29,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "50a8d022fa": {
+            "par_requete": [
+              29
+            ],
+            "fusion": 29,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q27",
+      "question": "Which of those can a domain expert write without any code?",
+      "traduction": "Lequel de ceux-ci un expert du domaine peut-il écrire sans aucun code ?",
+      "gold": [
+        "24916266b2"
+      ],
+      "sous_questions": [
+        "What is the definition of a domain expert in the context of writing without code?",
+        "What types of writing can a domain expert produce without writing any code?"
+      ],
+      "traductions_des_sous_questions": {
+        "What is the definition of a domain expert in the context of writing without code?": "Quelle est la définition d'un domain expert dans le contexte de l'écriture sans code ?",
+        "What types of writing can a domain expert produce without writing any code?": "Quels types d'écrits un expert du domaine peut-il produire sans écrire de code ?"
+      },
+      "sous_questions_traduites": [
+        "Quel type d'expert peut écrire sans utiliser de code ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "une_seule",
+      "repli": false,
+      "sondes_amont": {
+        "24916266b2": {
+          "dense_question": 2,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 85.3,
+        "unique_avec_traduction_rerank_ms": 525.9,
+        "unique_sans_traduction_recuperation_ms": 43.2,
+        "unique_sans_traduction_rerank_ms": 469.2,
+        "decomposition_recuperation_ms": 96.2,
+        "fusion_rerank_entiere_ms": 524.4,
+        "fusion_rerank_sous_questions_ms": 1657.0,
+        "decomposition_traduite_recuperation_ms": 216.3,
+        "fusion_traduite_rerank_entiere_ms": 716.7,
+        "fusion_traduite_rerank_sous_questions_ms": 1540.9,
+        "question_traduite_decomposee_recuperation_ms": 179.8,
+        "fusion_question_traduite_decomposee_ms": 2020.5
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 150
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 1,
+      "variantes": {
+        "unique_avec_traduction": {
+          "24916266b2": {
+            "par_requete": [
+              40
+            ],
+            "fusion": 40,
+            "rerank": 3
+          }
+        },
+        "unique_sans_traduction": {
+          "24916266b2": {
+            "par_requete": [
+              6
+            ],
+            "fusion": 6,
+            "rerank": 3
+          }
+        },
+        "fusion_rerank_entiere": {
+          "24916266b2": {
+            "par_requete": [
+              6,
+              9
+            ],
+            "fusion": 2,
+            "rerank": 3
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "24916266b2": {
+            "par_requete": [
+              6,
+              9
+            ],
+            "fusion": 2,
+            "rerank": 4
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "24916266b2": {
+            "par_requete": [
+              4,
+              44
+            ],
+            "fusion": 12,
+            "rerank": 3
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "24916266b2": {
+            "par_requete": [
+              4,
+              44
+            ],
+            "fusion": 12,
+            "rerank": 5
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "24916266b2": {
+            "par_requete": [
+              6,
+              9,
+              null
+            ],
+            "fusion": 12,
+            "rerank": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "q28",
+      "question": "Which of them is about the prompt, and what single instruction does the book give as its example?",
+      "traduction": "Lequel d'entre eux concerne le prompt, et quelle instruction unique le livre donne-t-il comme exemple ?",
+      "gold": [
+        "668e39f2f0"
+      ],
+      "sous_questions": [
+        "Which item is about the prompt?",
+        "What single instruction does the book give as its example?"
+      ],
+      "traductions_des_sous_questions": {
+        "Which item is about the prompt?": "Quel élément concerne le prompt ?",
+        "What single instruction does the book give as its example?": "Quelle instruction unique le livre donne-t-il comme exemple ?"
+      },
+      "sous_questions_traduites": [
+        "Lequel des éléments mentionnés concerne le prompt ?",
+        "Quelle instruction unique le livre donne-t-il comme exemple ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "668e39f2f0": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 155.2,
+        "unique_avec_traduction_rerank_ms": 595.5,
+        "unique_sans_traduction_recuperation_ms": 55.2,
+        "unique_sans_traduction_rerank_ms": 496.6,
+        "decomposition_recuperation_ms": 105.5,
+        "fusion_rerank_entiere_ms": 585.2,
+        "fusion_rerank_sous_questions_ms": 1432.6,
+        "decomposition_traduite_recuperation_ms": 322.6,
+        "fusion_traduite_rerank_entiere_ms": 608.6,
+        "fusion_traduite_rerank_sous_questions_ms": 968.9,
+        "question_traduite_decomposee_recuperation_ms": 177.1,
+        "fusion_question_traduite_decomposee_ms": 2095.6
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "668e39f2f0": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "668e39f2f0": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "668e39f2f0": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "668e39f2f0": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "668e39f2f0": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "668e39f2f0": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "668e39f2f0": {
+            "par_requete": [
+              null,
+              null,
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        }
+      }
+    },
+    {
+      "id": "q29",
+      "question": "How do I stop the assistant from wandering off when someone asks it something nobody planned for?",
+      "traduction": "Comment empêcher l'assistant de dériver lorsque quelqu'un lui pose quelque chose que personne n'a prévu ?",
+      "gold": [
+        "be9026f5ba"
+      ],
+      "sous_questions": [
+        "How to prevent an assistant from deviating from the intended topic when presented with unexpected questions?",
+        "Techniques for keeping an AI assistant focused on a specific subject despite off-topic queries."
+      ],
+      "traductions_des_sous_questions": {
+        "How to prevent an assistant from deviating from the intended topic when presented with unexpected questions?": "Comment empêcher un assistant de dévier du sujet prévu lorsqu'il est confronté à des questions inattendues ?",
+        "Techniques for keeping an AI assistant focused on a specific subject despite off-topic queries.": "Techniques pour maintenir un assistant IA concentré sur un sujet spécifique malgré les requêtes hors sujet."
+      },
+      "sous_questions_traduites": [
+        "Comment empêcher un assistant de dériver lorsqu'il reçoit une requête imprévue ?",
+        "Quelles stratégies utiliser pour maintenir la cohérence d'un assistant face à des entrées inattendues ?"
+      ],
+      "nature": "decomposee",
+      "nature_de_la_question_traduite": "decomposee",
+      "repli": false,
+      "sondes_amont": {
+        "be9026f5ba": {
+          "dense_question": null,
+          "lexical_question": null,
+          "dense_traduction": null,
+          "lexical_traduction": null
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 295.4,
+        "unique_avec_traduction_rerank_ms": 677.3,
+        "unique_sans_traduction_recuperation_ms": 51.6,
+        "unique_sans_traduction_rerank_ms": 2322.0,
+        "decomposition_recuperation_ms": 159.3,
+        "fusion_rerank_entiere_ms": 705.2,
+        "fusion_rerank_sous_questions_ms": 1128.8,
+        "decomposition_traduite_recuperation_ms": 426.6,
+        "fusion_traduite_rerank_entiere_ms": 596.5,
+        "fusion_traduite_rerank_sous_questions_ms": 1225.1,
+        "question_traduite_decomposee_recuperation_ms": 231.4,
+        "fusion_question_traduite_decomposee_ms": 5287.0
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 100,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 100,
+        "fusion_question_traduite_decomposee": 200
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 2,
+      "variantes": {
+        "unique_avec_traduction": {
+          "be9026f5ba": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "unique_sans_traduction": {
+          "be9026f5ba": {
+            "par_requete": [
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_entiere": {
+          "be9026f5ba": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 34,
+            "rerank": null
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "be9026f5ba": {
+            "par_requete": [
+              16,
+              null
+            ],
+            "fusion": 34,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "be9026f5ba": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "be9026f5ba": {
+            "par_requete": [
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "be9026f5ba": {
+            "par_requete": [
+              16,
+              null,
+              null,
+              null
+            ],
+            "fusion": null,
+            "rerank": null
+          }
+        }
+      }
+    },
+    {
+      "id": "q30",
+      "question": "Pourquoi une recette de cuisine sert-elle a expliquer qu'un agent devrait pouvoir changer d'infrastructure sans etre reecrit ?",
+      "traduction": "Why does a cooking recipe serve to explain that an agent should be able to change infrastructure without being rewritten?",
+      "gold": [
+        "3b6fb4e59a",
+        "fbf9cbd029"
+      ],
+      "sous_questions": [
+        "Quel est le lien entre une recette de cuisine et la capacité d'un agent à changer d'infrastructure sans être réécrit ?"
+      ],
+      "traductions_des_sous_questions": {
+        "Quel est le lien entre une recette de cuisine et la capacité d'un agent à changer d'infrastructure sans être réécrit ?": null
+      },
+      "sous_questions_traduites": [
+        "What is the relationship between a cooking recipe and the concept of changing infrastructure without rewriting code?"
+      ],
+      "nature": "une_seule",
+      "nature_de_la_question_traduite": "une_seule",
+      "repli": true,
+      "sondes_amont": {
+        "3b6fb4e59a": {
+          "dense_question": 3,
+          "lexical_question": null,
+          "dense_traduction": 4,
+          "lexical_traduction": 5
+        },
+        "fbf9cbd029": {
+          "dense_question": 1,
+          "lexical_question": 11,
+          "dense_traduction": 2,
+          "lexical_traduction": 7
+        }
+      },
+      "couts": {
+        "unique_avec_traduction_recuperation_ms": 121.9,
+        "unique_avec_traduction_rerank_ms": 627.4,
+        "unique_sans_traduction_recuperation_ms": 49.9,
+        "unique_sans_traduction_rerank_ms": 586.0,
+        "decomposition_recuperation_ms": 49.9,
+        "fusion_rerank_entiere_ms": 586.0,
+        "fusion_rerank_sous_questions_ms": 586.0,
+        "decomposition_traduite_recuperation_ms": 121.9,
+        "fusion_traduite_rerank_entiere_ms": 627.4,
+        "fusion_traduite_rerank_sous_questions_ms": 627.4,
+        "question_traduite_decomposee_recuperation_ms": 121.9,
+        "fusion_question_traduite_decomposee_ms": 627.4
+      },
+      "paires_rerankees": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_fusionnes": {
+        "unique_avec_traduction": 50,
+        "unique_sans_traduction": 50,
+        "fusion_rerank_entiere": 50,
+        "fusion_rerank_sous_questions": 50,
+        "fusion_traduite_rerank_entiere": 50,
+        "fusion_traduite_rerank_sous_questions": 50,
+        "fusion_question_traduite_decomposee": 50
+      },
+      "n_sous_questions_traduites": 0,
+      "variantes": {
+        "unique_avec_traduction": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "unique_sans_traduction": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_entiere": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_rerank_sous_questions": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              9
+            ],
+            "fusion": 9,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_entiere": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_traduite_rerank_sous_questions": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        },
+        "fusion_question_traduite_decomposee": {
+          "3b6fb4e59a": {
+            "par_requete": [
+              3
+            ],
+            "fusion": 3,
+            "rerank": null
+          },
+          "fbf9cbd029": {
+            "par_requete": [
+              1
+            ],
+            "fusion": 1,
+            "rerank": 1
+          }
+        }
+      }
+    }
+  ]
+}

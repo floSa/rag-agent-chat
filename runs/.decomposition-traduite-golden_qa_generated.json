@@ -1,0 +1,462 @@
+{
+  "G-001": [
+    "Qui a fourni des discussions qui ont poussé l'auteur à penser de nouvelles manières ?"
+  ],
+  "G-002": [
+    "What types of realistic aerial scenarios can be tested in a Staging environment?"
+  ],
+  "G-003": [
+    "Quelles sont les trois choses sur lesquelles se concentrer pour maintenir un workflow utile ?",
+    "Comment maintenir un workflow utile au fil du temps ?"
+  ],
+  "G-004": [
+    "Quelles opérations nécessitent l'utilisation du type span ?"
+  ],
+  "G-005": [
+    "Quel est un schéma courant pour la gestion des model artifacts dans les systèmes de ML traditionnels ?"
+  ],
+  "G-006": [
+    "Quel est le numéro de téléphone international pour O'Reilly Media, Inc. ?",
+    "Quel est le numéro de téléphone local pour O'Reilly Media, Inc.?"
+  ],
+  "G-007": [
+    "What are the three access modes mentioned?",
+    "What condition must be met to use the initial script and wheel locations in standard access mode?"
+  ],
+  "G-008": [
+    "Which file contains the test case records for agent evaluation?"
+  ],
+  "G-009": [
+    "Quelles sont les spécifications actuellement impossibles à définir pour un SQL warehouse ?"
+  ],
+  "G-010": [
+    "Quel mécanisme est typiquement utilisé par le backend d'une application pour transmettre l'historique de conversation ?",
+    "Comment le backend transmet-il l'historique de conversation aux endpoints d'agents IA sans état ?"
+  ],
+  "G-011": [
+    "Quels types de travail subsistent après un lancement initial réussi ?"
+  ],
+  "G-012": [
+    "Quel type de compute les auteurs ont-ils utilisé pour leurs travaux dans les chapitres MLOps ?",
+    "Quelles sont les conditions sous lesquelles les auteurs ont dû utiliser un type de compute autre que le serveur serverless pour le tuning des hyperparamètres avec Ray Tune ?"
+  ],
+  "G-013": [
+    "What elements are visible on the Databricks configuration page for creating a new compute cluster?"
+  ],
+  "G-014": [
+    "Quelles sont les méthodes disponibles pour interroger un index AI Search ?",
+    "Comment créer un index AI Search à partir d'une table Delta ?"
+  ],
+  "G-015": [
+    "Que contient le fichier *ml_pipeline.yml* ?",
+    "Quelles étapes de prétraitement des données sont incluses dans *ml_pipeline.yml* ?",
+    "Quelles étapes de réentraînement du modèle sont définies dans *ml_pipeline.yml* ?"
+  ],
+  "G-016": [
+    "What elements are used to build a solid observability base in production?",
+    "How does a solid observability base guarantee the reliability of an application?",
+    "How does a solid observability base guarantee the high-quality results of an application?"
+  ],
+  "G-017": [
+    "Quels types d'informations spécifiques MLflow tracing capture-t-il pour chaque requête ?",
+    "Comment MLflow tracing transforme-t-il la 'boîte noire' d'un agent en un processus transparent ?"
+  ],
+  "G-018": [
+    "What is the three-part naming convention used to refer to assets in Unity Catalog?"
+  ],
+  "G-019": [
+    "Quelles fonctionnalités MLflow offre-t-il pour suivre le comportement des agents ?"
+  ],
+  "G-020": [
+    "Quelles sont les conditions sous lesquelles la simple réexécution des scripts de prétraitement pourrait échouer à reproduire l'ensemble d'entraînement original ?",
+    "Comment l'ordre d'arrivée des données influence-t-il la reproductibilité de l'ensemble d'entraînement lors de la réexécution des scripts de prétraitement ?"
+  ],
+  "G-021": [
+    "Quel type de tests est effectué sur les tranches de données critiques ?"
+  ],
+  "G-022": [
+    "Où visualiser les traces capturées en temps réel ?"
+  ],
+  "G-023": [
+    "Quelles sont les deux ressources spécifiques Databricks sur lesquelles l'agent d'appel d'outils s'appuie ?"
+  ],
+  "G-025": [
+    "What capabilities does the use of Serverless Model and Feature Serving enable within Databricks?"
+  ],
+  "G-026": [
+    "Quelle structure de split temporel est recommandée pour les données présentant des corrélations temporelles ?",
+    "Comment gérer les caractéristiques saisonnières lors du split temporel pour les données de recommandation de produits ?"
+  ],
+  "G-027": [
+    "Quelles sont les conditions de transition d'un système RAG traditionnel vers un système agentique ?"
+  ],
+  "G-028": [
+    "Quelle est la fonction d'Optuna lorsqu'elle est utilisée avec Ray Tune ?"
+  ],
+  "G-029": [
+    "Quelles capacités MLflow permet-elles de déployer un agent développé sur Databricks ?",
+    "Quelles fonctionnalités MLflow offrent-elles pour gouverner un agent développé sur Databricks ?",
+    "Comment MLflow permet-il de versionner un agent développé spécifiquement sur Databricks ?"
+  ],
+  "G-030": [
+    "Quelles qualités subjectives humaines peuvent être transformées en feedback structuré ?",
+    "Comment l'apport humain peut-il être converti en feedback structuré pour guider les futures versions ?"
+  ],
+  "G-031": [
+    "What are the most frequently asked question categories by end-users?"
+  ],
+  "G-032": [
+    "What capabilities enable agents to perform multi-step reasoning in GenAI application development?",
+    "What capabilities allow agents to make autonomous decisions in GenAI application development?"
+  ],
+  "G-033": [
+    "What is the theoretical advantage of pre-commit hooks?",
+    "What risks does the use of pre-commit hooks present in practice?"
+  ],
+  "G-034": [
+    "What specific data points from OpenTelemetry (OTel) traces are required for meaningful visualization in MLflow?",
+    "What are the best practices for mapping OTel trace attributes and spans to MLflow's tracking capabilities?"
+  ],
+  "G-035": [
+    "What detailed information does the MLflow documentation provide regarding trace requests?",
+    "What common pitfalls related to trace requests are documented in the MLflow documentation?"
+  ],
+  "G-036": [
+    "Quel type d'agent spécialisé peut être ajouté comme outil à une application GenAI ?"
+  ],
+  "G-037": [
+    "Which file specifies all the project dependencies for a Python project?",
+    "Which file specifies tool configurations for a Python project?"
+  ],
+  "G-038": [
+    "What elements are integrated into the same system as the evaluation in MLflow 3.x?"
+  ],
+  "G-039": [
+    "What is the role of Delta Lake as an open-source storage layer?",
+    "How does Delta Lake utilize Apache Parquet as a storage layer?"
+  ],
+  "G-040": [
+    "Quels éléments spécifiques les chemins d'exécution complets doivent-ils tracer pour le débogage de l'agent ?",
+    "Quelles sont les exigences pour le traçage des chemins d'exécution complets afin de déboguer efficacement le comportement d'un agent ?"
+  ],
+  "G-041": [
+    "Comment MLflow 3.x gère-t-il le feedback humain ?"
+  ],
+  "G-042": [
+    "Quelle capacité permet de créer une nouvelle branche ?",
+    "Quand peut-on créer cette nouvelle branche ?",
+    "Quelle est la fenêtre de temps concernée pour la création de cette nouvelle branche ?"
+  ],
+  "G-043": [
+    "What is the foundation for observability in production of GenAI applications?"
+  ],
+  "G-044": [
+    "Quelles obligations les fournisseurs de systèmes d'IA à haut risque doivent-ils respecter en vertu de l'EU AI Act au-delà des normes techniques ?"
+  ],
+  "G-045": [
+    "What features does Databricks add to the open-source MLflow offering?"
+  ],
+  "G-046": [
+    "What type of validation is necessary for machine learning systems dealing with delayed labels?",
+    "What validation methods address gradual shifts in prediction distributions in ML systems?"
+  ],
+  "G-047": [
+    "Quels types spécifiques de sous-composants MLflow 3.x peuvent fournir un traçage de bout en bout amélioré ?",
+    "Comment MLflow 3.x améliore-t-il le traçage de bout en bout dans les applications GenAI complexes ?"
+  ],
+  "G-048": [
+    "Quelle est la notification utilisateur requise pour les systèmes d'IA 'limited-risk' ?"
+  ],
+  "G-049": [
+    "Que faire si les échecs se concentrent dans un contexte manquant ?",
+    "Que faire si les échecs se concentrent dans un contexte erroné ?"
+  ],
+  "G-050": [
+    "Quelle relation est mise en évidence concernant l'organisation de multiples espaces de travail ?"
+  ],
+  "G-051": [
+    "Quels sont les problèmes récurrent de l'IA et de l'apprentissage automatique rencontrés par les équipes de développement ?"
+  ],
+  "G-052": [
+    "Quelle est la fonction de la plateforme MLflow ?",
+    "Que représente le logo MLflow en ce qui concerne la fonction de la plateforme ?"
+  ],
+  "G-053": [
+    "When is the use of Client APIs recommended over Fluent APIs?",
+    "What are the circumstances favoring Client APIs over Fluent APIs?"
+  ],
+  "G-054": [
+    "Which components of a GenAI application produce useful signals?",
+    "What characteristic of these components makes failure investigation and improvement verification difficult?"
+  ],
+  "G-055": [
+    "What are the triggering conditions for the Continuous Integration (CI) pipeline for the MLOps part regarding the request type?",
+    "What are the triggering conditions for the Continuous Integration (CI) pipeline for the MLOps part concerning the modified file paths?"
+  ],
+  "G-056": [
+    "Quel est l'avantage d'utiliser un context manager pour capturer des traces ?"
+  ],
+  "G-057": [
+    "Quel est l'objectif du monitoring des modèles ?",
+    "Quel est l'objectif du monitoring des données ?",
+    "Quel est l'objectif du monitoring de l'infrastructure ?"
+  ],
+  "G-058": [
+    "Quelles bibliothèques MLflow peut-il intégrer nativement ?",
+    "Quelles intégrations MLflow sont disponibles en plus de LangChain ?"
+  ],
+  "G-059": [
+    "What are the three domains of trade-off considered by the strategies addressed in the following sections?"
+  ],
+  "G-060": [
+    "Quelles technologies spécifiques le pattern DTAP a-t-il précédées ?"
+  ],
+  "G-061": [
+    "Qu'est-ce que MLflow permet de suivre de manière structurée ?"
+  ],
+  "G-062": [
+    "Quelles sont les raisons pour lesquelles les scores produits par un LLM-as-a-judge ne sont pas absolus ?",
+    "Quelles sont les limites de fiabilité des scores produits par un LLM-as-a-judge ?"
+  ],
+  "G-063": [
+    "What types of scorers require access to traces?",
+    "Why do certain scorers need to inspect tool usage, parameters, and execution order?"
+  ],
+  "G-064": [
+    "Quelle est la définition de l'unité de randomisation dans une étude ?",
+    "Quelle est la définition de l'unité d'analyse dans une étude ?",
+    "Quelle est la différence entre l'unité de randomisation et l'unité d'analyse ?"
+  ],
+  "G-065": [
+    "Quels sont les trois composants fondamentaux qui constituent un agent selon la définition pragmatique inspirée de l'OpenAI Agent SDK ?"
+  ],
+  "G-066": [
+    "What types of functionalities are generally sufficient for AI application production systems?"
+  ],
+  "G-067": [
+    "Quelles fonctionnalités spécifiques de MLflow ne sont pas couvertes lorsque l'on utilise la version gérée par Databricks de MLflow ?",
+    "Quelles sont les différences entre l'utilisation de MLflow AI Gateway et MLflow Model Serving dans le contexte de la version gérée par Databricks de MLflow ?"
+  ],
+  "G-068": [
+    "Quelle est la conséquence de ne pas définir une période de rétention appropriée sur la table delta après l'exécution de la commande VACUUM ?"
+  ],
+  "G-069": [
+    "What is the cron expression for the 'arxiv-data' pipeline task?"
+  ],
+  "G-070": [
+    "Quelle méthode permet le tag direct de l'utilisation attribuée à un projet spécifique ?",
+    "Comment taguer directement l'utilisation attribuée à un projet unique via un endpoint ?"
+  ],
+  "G-071": [
+    "Quels types de tâches les modèles sont-ils particulièrement bien adaptés ?"
+  ],
+  "G-072": [
+    "What tool is recommended for managing LLMs or AI models in production on Databricks?",
+    "What features of a tool ensure the best scalability, security, and integration when managing LLMs or AI models in production on Databricks?"
+  ],
+  "G-073": [
+    "At what level of the workflow agent are the use cases for guardrails addressed first?"
+  ],
+  "G-074": [
+    "Comment rendre Databricks AI Search disponible pour un agent ?",
+    "Comment rendre Databricks Genie disponible pour un agent ?"
+  ],
+  "G-075": [
+    "Quels types de documents spécifiques les systèmes de question-réponse peuvent-ils assister ?",
+    "Quelles sont les limites des systèmes de question-réponse par rapport aux requêtes utilisateur générales ?"
+  ],
+  "G-076": [
+    "Quelles capacités fondamentales la plateforme Unity Catalog soutient-elle ?"
+  ],
+  "G-077": [
+    "Quelles méthodes sont utilisées par les praticiens pour analyser l'impact d'une application GenAI au-delà de la capture d'outils technologiques ?"
+  ],
+  "G-078": [
+    "What types of constraints must prompt engineering allow instructions to survive when interacting with real users?"
+  ],
+  "G-079": [
+    "Quels sont les avantages des solutions RAG turnkey pour les entreprises ?"
+  ],
+  "G-080": [
+    "Quels types spécifiques de fonctions d'assistance client le chatbot sera-t-il conçu pour gérer pour Unity Airways ?"
+  ],
+  "G-081": [
+    "Quelles mesures de surveillance sont suggérées pour les systèmes opérationnels à volume élevé ?",
+    "Quelles sont les meilleures pratiques de surveillance pour la maintenance prédictive ?"
+  ],
+  "G-082": [
+    "Quels sont les éléments qui caractérisent l'environnement opérationnel d'une application après son lancement en production ?"
+  ],
+  "G-083": [
+    "What system must be used as the source of truth for prompts?",
+    "How should prompts be managed?"
+  ],
+  "G-084": [
+    "Quel est le taux de réussite global affiché lors de la comparaison de deux réponses de trace par rapport aux critères de la directive ?"
+  ],
+  "G-085": [
+    "Quel type d'entreprise intègre l'IA dans ses produits physiques ?"
+  ],
+  "G-086": [
+    "Quels sont les trois facteurs utilisés pour juger une application GenAI en production ?"
+  ],
+  "G-087": [
+    "Qu'est-ce que le contrat d'entrée du modèle lors de l'enregistrement d'un modèle ?",
+    "Comment utiliser le client feature-engineering pour l'enregistrement d'un modèle ?",
+    "Quel est le processus pour définir le contrat d'entrée du modèle après avoir créé un ensemble d'entraînement ?"
+  ],
+  "G-088": [
+    "Quels sont les intérêts des architectes AI et ML concernant le partage de prompts ?",
+    "Quels sont les intérêts des architectes AI et ML concernant la gestion des modèles ?",
+    "Quels sont les intérêts des architectes AI et ML concernant l'application du contrôle d'accès et la preuve de conformité ?"
+  ],
+  "G-089": [
+    "What steps are necessary for the construction of a production-level GenAI application?",
+    "What steps are necessary for the measurement of a production-level GenAI application?",
+    "What steps are necessary for the deployment and continuous improvement of a production-level GenAI application?"
+  ],
+  "G-090": [
+    "Quelle est la fonction du stockage des vector embeddings dans une vector database ?"
+  ],
+  "G-091": [
+    "Quels composants spécifiques doivent être fournis lors de l'incorporation de Databricks Vector Search aux noms de l'endpoint du modèle de fond ?",
+    "Quels composants spécifiques doivent être fournis lors de l'incorporation de Databricks Vector Search aux paramètres de requête LLM ?"
+  ],
+  "G-092": [
+    "Quelles colonnes sont affichées lors de la visualisation d'une trace enregistrée dans l'interface MLflow Experiment UI ?"
+  ],
+  "G-093": [
+    "Quelle quantité d'exemples de haute qualité est recommandée lors de leur création ?"
+  ],
+  "G-094": [
+    "What is the challenge when shifting from building AI demos to operating AI systems in production?",
+    "What makes Databricks stand out when the challenge shifts from building AI demos to operating AI systems in production?"
+  ],
+  "G-095": [
+    "Quelles sont les trois caractéristiques que l'objectif d'intégration vise à atteindre concernant les changements de comportement ?"
+  ],
+  "G-096": [
+    "Quelle est la transition globale décrite concernant le déploiement du modèle ?"
+  ],
+  "G-097": [
+    "Quelles sont les attentes spécifiques des parties prenantes concernant la livraison de modèles par les Data Scientists ?",
+    "Quels sont les critères de qualité attendus pour la livraison de modèles par les Data Scientists ?"
+  ],
+  "G-098": [
+    "Quelle fonction mlflow permet de rechercher des modèles enregistrés ?",
+    "Comment rechercher des modèles enregistrés dans mlflow de manière similaire à la recherche de runs d'expériences ?"
+  ],
+  "G-099": [
+    "What are the two categories of APIs that MLflow provides for manually instrumented tracings?"
+  ],
+  "G-100": [
+    "What factors contribute to the increased cost of evaluating an AI agent?"
+  ],
+  "G-101": [
+    "Quel type spécifique d'information sensible est automatiquement supprimé de la saisie d'un utilisateur s'il la colle dans le chat ?"
+  ],
+  "G-102": [
+    "Quels sont les défis courants rencontrés par les équipes lors de l'adoption d'un registre (registry) ?",
+    "Quels types de questions les équipes ont-elles du mal à répondre de manière fiable après avoir implémenté un registre ?"
+  ],
+  "G-103": [
+    "Quelle est la version spécifique du système d'exploitation fournie par la version 4 de l'environnement serverless ?"
+  ],
+  "G-104": [
+    "What architectural approach is suitable for on-demand predictions requiring feature retrieval from an online feature store during inference?"
+  ],
+  "G-105": [
+    "Quels types d'actifs Unity Catalog permet-il de gérer ?",
+    "Quelles fonctionnalités Unity Catalog offre-t-il pour le contrôle d'accès centralisé, le suivi de la lignée, l'audit et la découvrabilité des actifs ?"
+  ],
+  "G-106": [
+    "Quelle caractéristique de ce design pattern le rend moins efficace face à des entrées ambiguës ?",
+    "Quelles sont les limites de ce design pattern face à des entrées inattendues ?"
+  ],
+  "G-107": [
+    "Est-il nécessaire d'obtenir une autorisation de l'éditeur pour reproduire une partie significative du code d'un livre ?"
+  ],
+  "G-108": [
+    "Quelle action permet de créer une nouvelle version d'un prompt ?",
+    "Comment créer une nouvelle version d'un prompt en conservant le même nom ?"
+  ],
+  "G-109": [
+    "Quelles métriques sont visualisées dans un tableau de bord conçu pour l'ArXiv Agent ?"
+  ],
+  "G-110": [
+    "What tool must be attached to the external envelope?",
+    "When must this tool be attached to the external envelope?",
+    "What condition must be met for the tool to be attached to the external envelope?"
+  ],
+  "G-111": [
+    "Quelles sont les sources de données pertinentes pour suivre les dépenses d'infrastructure ?",
+    "Quelles deux sources de données spécifiques devraient être combinées pour obtenir une vue complète des dépenses d'infrastructure ?"
+  ],
+  "G-112": [
+    "Quel composant est sélectionné lors de la construction de foundation models ?",
+    "Où est hébergé le composant sélectionné lors de la construction de foundation models ?"
+  ],
+  "G-113": [
+    "What is the flight schedule for Singapore on 6 September 2024?"
+  ],
+  "G-114": [
+    "Comment la version d'un package est-elle déterminée lorsque setuptools est utilisé comme backend de build spécifié dans la section `build-system` du fichier `pyproject.toml` ?"
+  ],
+  "G-115": [
+    "Quelle capacité permet aux équipes d'analyser les traces provenant de différentes parties de la stack ?"
+  ],
+  "G-116": [
+    "What is the advantage of using log mode when operating a guardrail?"
+  ],
+  "G-117": [
+    "Quel type de variables est requis pour appliquer le test de Kolmogorov-Smirnov ?"
+  ],
+  "G-118": [
+    "Quel rôle MLOps joue-t-il dans la construction des systèmes ML ?",
+    "Qu'apporte MLOps concernant le déploiement des systèmes ML ?",
+    "Comment MLOps soutient-il la maintenance des systèmes ML ?"
+  ],
+  "G-119": [
+    "What specific information is provided to users about an AI application's transition from a controlled environment to production?"
+  ],
+  "G-120": [
+    "Quel est le rôle du jugement humain dans un workflow d'évaluation mature ?"
+  ],
+  "G-121": [
+    "Qu'est-ce que les unit tests vérifient spécifiquement concernant les composants individuels ?",
+    "Qu'est-ce que les unit tests vérifient spécifiquement concernant les fonctions individuelles ?"
+  ],
+  "G-122": [
+    "Quelles qualités, autres que l'évaluation du code, les correcteurs basés sur les modèles peuvent-ils évaluer ?"
+  ],
+  "G-123": [
+    "Quels sont les modes d'authentification pris en charge par cette classe pour se connecter à Lakebase ?"
+  ],
+  "G-124": [
+    "What are the size limits for requests that are not captured in the inference tables?",
+    "What are the size limits for responses that are not captured in the inference tables?"
+  ],
+  "G-125": [
+    "Quel est le problème potentiel si le paramètre de granularité pour l'agrégation des métriques est réglé trop petit lors de la détection de dérive ?"
+  ],
+  "G-126": [
+    "Quels sont les prérequis pour assurer la gouvernance d'une *feature function* ?",
+    "Quelles exigences doivent être satisfaites pour garantir la réutilisabilité d'une *feature function* ?",
+    "Quelles conditions sont nécessaires pour assurer l'accessibilité d'une *feature function* pendant l'entraînement et l'inférence ?"
+  ],
+  "G-127": [
+    "What is the MLflow MCP server support issue regarding traces stored in Unity Catalog?"
+  ],
+  "G-128": [
+    "Quelles sont les séquences de technologies que les utilisateurs peuvent demander de traverser dans les systèmes GenAI modernes ?",
+    "Quelles sont les étapes typiques d'une interaction utilisateur avec les systèmes GenAI modernes ?"
+  ],
+  "G-129": [
+    "Quels types de systèmes sont inclus sous la description 'This category' ?",
+    "Quels systèmes sont classés sous le titre 'Limited risk' ?"
+  ],
+  "G-130": [
+    "How can alias movements be treated as formal publication actions in a system where the underlying code remains unchanged?",
+    "What procedures are required to formalize the publication of an alias movement, even without code modifications?"
+  ]
+}

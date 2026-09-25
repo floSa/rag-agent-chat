@@ -9,7 +9,7 @@ les autres, et le troisième est le seul à parler de **qualité**.
 | Intégration | `make test-integration` | Le système tient-il debout avec les vrais stores ? |
 | Campagne | `make eval` | Les réponses sont-elles bonnes ? |
 
-## Unitaire — 1224 tests, aucune dépendance
+## Unitaire — 1263 tests, aucune dépendance
 
 > **Ce compte est `mesuré`, ET IL EST DÉSORMAIS GARDÉ.** C'était le §4.13 du
 > registre, un angle mort connu : il a pris 25 tests de retard sans que le lot ni
@@ -20,11 +20,64 @@ les autres, et le troisième est le seul à parler de **qualité**.
 > pytest tests/unit/ --collect-only -q | awk -F': ' '/^tests\/unit\/.*: [0-9]+$/ {s+=$2} END {print s}'
 > ```
 >
-> `mesuré` le 25 septembre 2026 à 03:53 UTC par LOT-38 : **1224** tests sur **60** fichiers,
+> `mesuré` le 25 septembre 2026 à 07:47 UTC par LOT-39 : **1263** tests sur **61** fichiers,
 > et les deux comptes de la recette — la somme par fichier et le total
 > que `pytest` annonce — concordent.
 >
-> **CE COMPTE MONTE DE TRENTE ET UN, ET `src/` N’EST PAS TOUCHÉ.**
+> **CE COMPTE MONTE DE TRENTE-NEUF, ET `src/` N’EST PAS TOUCHÉ.**
+> *(LOT-38 relevait **1224** sur **60** fichiers le 25 septembre à 03:53 UTC ; les **39** de plus
+> sont **39** dans le fichier neuf `test_decomposition_traduite.py`, et rien
+> d'autre. Ils gardent le banc qui mesure ce que rend une décomposition **avec**
+> recherche translingue, là où le §4.78 comparait une variante qui ne traduit
+> pas à une production qui traduit — et imputait au retrait de la traduction
+> deux des trois questions perdues **sans le mesurer**.
+>
+> Le garde qui porte le plus est celui de la TRADUCTION : il ne relit pas le
+> code de `translate_question`, **il le fait tourner**, sur les mêmes corps que
+> le banc, et exige le même résultat sur sept formes — la traduction nominale,
+> celle qui porte une explication à la ligne suivante, celle que le modèle
+> entoure de guillemets, la vide, celle qui n'est que des espaces, celle qui
+> recopie la question à la casse près, et celle qui dépasse trois fois sa
+> longueur. Les trois dernières sont des **refus de la production**, qui
+> retombe alors en recherche monolingue : un banc qui en oublierait un donnerait
+> au moteur des requêtes que le service n'émet jamais. Comparer deux listes de
+> règles écrites à la main aurait prouvé qu'elles se ressemblent ; les faire
+> tourner côte à côte prouve qu'elles décident pareil.
+>
+> Le REPLI est gardé dans ses DEUX formes, et elles ne sont pas
+> interchangeables : les variantes du §4.78 retombent sur la requête unique
+> **sans** traduction, les variantes traduites sur **la production exacte** —
+> un décomposeur qui traduit ne perd pas la recherche translingue sur les
+> questions qu'il renonce à décomposer, et les 69 questions à besoin unique du
+> jeu de réglage porteraient sinon une perte que l'implémentation n'aurait pas.
+> La PONDÉRATION est gardée contre un poids écrit en dur : sur ce poste
+> `TRANSLATION_WEIGHT` vaut **1,0**, c'est-à-dire l'égalité, et un banc qui
+> coderait 1,0 rendrait aujourd'hui exactement les mêmes chiffres qu'un banc qui
+> lit le réglage — le témoin déplace donc le réglage à 0,3 et exige que l'ORDRE
+> du RRF change.
+>
+> Les QUATRE ÉTAGES — `arrive`, `perdu_au_reranking`, `perdu_a_la_fusion`,
+> `jamais_recupere` — sont gardés un par un ET dans leur ORDRE, qui est ce qui
+> les rend exclusifs et fait que les comptes **somment** ; une question est
+> classée par son ancrage le plus **amont**, et le témoin oppose les deux
+> lectures sur la même question, réparer l'aval ne sauvant pas une question dont
+> l'autre ancrage n'est dans aucune liste. L'ÉCART À LA BORNE est gardé comme
+> une **différence d'ensembles** : le témoin fait ACCORDER les comptes — deux
+> ancrages placés de part et d'autre — et DIVERGER les ensembles, cas sur lequel
+> une soustraction rendrait « écart nul ».
+>
+> Le CONTRÔLE POSITIF a **trois** termes et chacun est muté séparément : les
+> **douze** couples du §4.78 (quatre variantes × trois jeux, ancrages et
+> questions), les rangs de ses **quatre** variantes **un à un** — pas seulement
+> ceux de la production —, et les **120** rangs du §4.77. Un quatrième témoin
+> exige qu'un contrôle **sans aucun terme applicable** n'accorde pas, `all([])`
+> valant `True`. Et le contrôle du contrôle existe : un garde qui refuserait
+> TOUT serait vert sur les quatre. Les deux caches neufs sont exigés et jamais
+> fabriqués, leur absence est un refus, un cache partiel **nomme** ce qui
+> manque, et chacun porte le nom de son jeu. Les mesures sont au §4.79 du
+> registre.)*
+>
+> **LE RELEVÉ ANTÉRIEUR.**
 > *(LOT-37 relevait **1193** sur **59** fichiers le 24 septembre à 21:30 UTC ; les **31** de plus
 > sont **31** dans le fichier neuf `test_fusion_des_sous_questions.py`, et rien
 > d'autre. Ils gardent le banc qui mesure ce que rend une VRAIE fusion des
