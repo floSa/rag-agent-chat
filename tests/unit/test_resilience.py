@@ -246,7 +246,17 @@ def test_une_requete_de_proprietes_en_echec_dit_pourquoi(monkeypatch, caplog) ->
         def is_succeeded(self) -> bool:
             return False
 
+        def error_code(self) -> int:
+            # `E_SEMANTIC_ERROR`. Le double le porte depuis que `_execute_raw`
+            # distingue les erreurs sémantiques qui disent « la SESSION ne
+            # connaît plus le schéma » — un vrai `ResultSet` en échec a toujours
+            # eu ce champ, ce double l'omettait.
+            return -1009
+
         def error_msg(self) -> str:
+            # Une erreur sémantique qui ne nomme NI un tag NI une arête inconnus :
+            # elle ne doit donc PAS déclencher de réouverture, et ce test mesure
+            # bien un seul essai suivi du journal.
             return "SemanticError: `label' unknown"
 
     class Pool:
